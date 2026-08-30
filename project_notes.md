@@ -305,3 +305,37 @@
 - Codex 9차 감사 (v0.9 회귀 확인)
 - 사용자 답 3건 (DM 으로 정리 발송함)
 - 네 조건 충족 시 → v1.0 승격
+
+---
+
+## 2026-08-30 · Codex 9차 감사 결과 · Pub/Sub 세부 정정 + 분리 제안
+
+**감사 이벤트** — Buzz `9dc81d64fad0...`, 대상 커밋 `5bdc013`. 8개 (3 통과 · 3 실패 · 2 판정불가).
+
+**통과 3건** — 조건부 일정 일관성 · 「표면적 축소」 통일 · 내부 위조 한계. 봉인 확인.
+
+**새 실패 3건 재확인**:
+
+| 항목 | 재확인 결과 | 원인 귀속 |
+|---|---|---|
+| `firebase_layout.md:262` 신원 토큰 함수별 계정 필요 | **사실** — 프로젝트 기본 서비스 계정을 모든 함수가 공유하면 임의 업무 함수도 같은 신원 토큰 발급 가능. allowlist + audience/issuer 검증 필요 | 이번 작업 (v0.9 반영 시 「어느 사용자를 대신해」만 짚고 「어느 함수가」 를 못 짚음) |
+| `firebase_layout.md:259` `request_id` 만으로 at-least-once 중복 못 막음 | **사실** — 단순 「본 적 있는지」 검사는 경쟁 조건에 취약. `request_id` 를 문서 ID 로 삼고 Firestore `.create()` 원자적 실패로 처리해야 | 이번 작업 (v0.8 반영 시 idempotency 구현 방식 미명시) |
+| `firebase_layout.md:284` 「기술적 격리 성립」 결론 여전히 틀림 | **사실** — 서명 통제해도 Admin SDK audit_log 수정 권한은 남음. IAM 컬렉션 단위 제한 부재라는 근본 한계 | 이번 작업 (v0.9 「격리」 삭제 시 이 문장 놓침) |
+
+**판정불가 2건**:
+- `firebase_layout.md:256` — (b) 를 v1.0 에 넣는다면 서명 게이트웨이·서비스 계정 분리·audience/issuer 검증·idempotency 를 한 보안 설계 문서로 분리하는 편이 감사 가능. **수용** — `docs/design/audit_pubsub_isolation.md` 로 분리 결정.
+- `roles.md:127` — (a) 경로는 승격 준비 완료, (b) 는 별도 문서 필요. 기존과 동일.
+
+**v0.10 반영 상세**:
+- `firebase_layout.md`: 헤더 v0.10.
+  - §5-(3) 신원 토큰 절: 함수별 전용 서비스 계정 + 발행자 allowlist + audience/issuer 검증 명시.
+  - §5-(3) 중복 방지 절: `request_id` = 문서 ID + Firestore `.create()` 원자적 create. 트랜잭션 재시도 충돌 규칙 명세. update 절대 금지.
+  - §5 하단 결론: 「기술적 격리는 서명 키 접근 통제까지 갔을 때 성립」 삭제. Admin SDK audit_log 수정 권한이 여전히 열려 있음, IAM 컬렉션 단위 제한 부재 명시. (3) 은 「기술적 격리」가 아니라 「정상 경로 축소 + 이벤트 위조 완화」 조합.
+  - §5-A 「선택 (b) 시 별도 문서」 절 신설: `docs/design/audit_pubsub_isolation.md` 로 분리. 그 문서에서 다룰 것 목록 (함수별 서비스 계정 · 서명 게이트웨이 · 토큰 검증 · idempotency · 침입 시나리오 시험).
+- roles.md 변경 없음.
+
+**남은 것**:
+- Codex 10차 감사 (v0.10 회귀 확인)
+- 사용자 답 3건 (DM)
+- (a) 선택 시 → v1.0 승격 (승격 후 첫 Antigravity 오더)
+- (b) 선택 시 → `audit_pubsub_isolation.md` 작성 + 감사 → v1.0 승격
