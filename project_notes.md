@@ -339,3 +339,31 @@
 - 사용자 답 3건 (DM)
 - (a) 선택 시 → v1.0 승격 (승격 후 첫 Antigravity 오더)
 - (b) 선택 시 → `audit_pubsub_isolation.md` 작성 + 감사 → v1.0 승격
+
+---
+
+## 2026-08-30 · v1.0 확정 · 첫 오더 준비
+
+**사용자 승인** `[사용자 결정]` — Buzz 스레드 `a335e09b1b35...`: *"좋아 그대로 진행해줘"*. `DESIGN_v1.md` 초안 (§3 역할 이름 · §9 스택 · §11 완료 지표) 승인.
+
+**v1.0 확정 상태**:
+- `docs/DESIGN_v1.md` — DM 세션(다른 세션의 헤드) 이 작성한 통합 설계 문서. `OUTBOX/school-webapp-scaffold/docs/` → 저장소 `docs/` 로 복사.
+- `docs/design/roles.md` v1.0 — 역할 5개 → **3개(`super_admin`·`admin`·`teacher`) + 권한 카탈로그 + 매트릭스** 로 재작성. 「하드코딩 금지」 원칙 명시. 「부장」 등은 매트릭스 한 줄로 확장.
+- `docs/design/firebase_layout.md` v0.12 — Codex 12차 감사 전 항목 통과. (a) 경로 v1.0 승격 승인 상태 (`fb89b6a5b526...`).
+
+**남은 열린 결정** (v1.0 로그인 껍데기 이후에 필요):
+- 워크스페이스 서비스 계정 유무 — Google API 실호출 시점 전.
+
+**다음 걸음** — `docs/handoff/NEXT.md` 에 첫 화면 오더 등록:
+- 모노레포 뼈대 (`packages/{shared,web,functions}` + pnpm workspace)
+- Vite + React + TS + Tailwind + shadcn/ui 설정
+- Firebase Auth 로그인 화면 (Google provider, `cam-t.kr` 도메인 제한)
+- Auth 트리거 → `users/{uid}` 생성 → 기본 `teacher` custom claim
+- 로그인 후 역할별 첫 화면 껍데기 3개 (super_admin/admin/teacher) — 내용 없이 라우팅만
+- Firebase Emulator 로 로컬 개발 · 배포는 미정 (수동 승인)
+
+**커밋 계획** — 오늘 두 커밋:
+1. `docs: v1.0 확정 (DESIGN_v1 + roles.md v1.0 + STATUS 정리)` — 문서 확정.
+2. `docs(handoff): 첫 화면 오더 (모노레포 뼈대 + 로그인)` — Antigravity 오더 파일.
+
+Antigravity 호출은 스레드에서 `@Antigravity` 로.

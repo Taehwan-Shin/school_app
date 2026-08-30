@@ -1,136 +1,134 @@
-# roles.md — 역할·권한 매트릭스 (초안 v0.3)
+# roles.md — 역할·권한 매트릭스 (v1.0)
 
-> **상태**: 초안. Codex 감사 5차 반영 완료 (`firebase_layout.md` 와 정합). 사용자 확인 전.
-> **왜 초안이라고 명시하는가**: 이 문서는 **결정**이 아니라 **제안**이다. 사용자가 문장을 바꾸기 전까지 확정된 것으로 다른 문서가 인용하지 않는다.
+> **상태**: 확정. 사용자 승인 2026-08-30 (`좋아 그대로 진행해줘`).
+> **관계 문서**: 상세 구조·데이터 모델·함수 목록은 [DESIGN_v1.md](../DESIGN_v1.md). 강제 층 (Rules · 헬퍼 · AST · 에뮬레이터) 은 `firebase_layout.md` §5.
 >
-> **v0.3 변경점** (감사 5차): §4-3 감사 로그 append-only 문장 수정 — 「rules 만으로 update·delete 금지」는 오해 소지. `firebase_layout.md` §5 를 가리키기만 함.
-> **v0.2 변경점** (감사 1차): (1) §3-4 에 누락된 클래스룸 함수 4개 추가. (2) §3-3 에 챗방 권한 설정 흐름 추가. (3) §4 「자기 부서만」 강제 방법 구체화. (4) §5-3 부트스트랩 위험 완화 명시.
+> **v1.0 변경점 (v0.3 대비)**: 역할 5개(`super_admin·admin·dept_head·teacher·viewer`) 매트릭스를 **역할 3개(`super_admin·admin·teacher`) + 권한 카탈로그 + 역할→권한 매핑** 구조로 재작성. **하드코딩 금지** 원칙 명시. 「부장」·「학년 담당」 등은 v1.0 밖 — 매트릭스에 한 줄 추가로 확장.
 
-## 1. 「역할」의 정의
+## 1. 역할 셋
 
-**역할** = 로그인한 사람이 웹앱에서 **어떤 탭을 볼 수 있는가**, **어떤 API 호출을 서버가 대신 실행해 주는가** 를 정하는 라벨.
-
-### 역할이 어디에서 왔는가
-
-- **워크스페이스에는 「역할」 개념이 얇다** — 관리자 여부와 조직 단위(OU) 정도. 세분화된 「부장」·「담임」·「교사」·「조회자」는 워크스페이스가 몰라 준다.
-- 그래서 이 앱이 **Firestore 에 역할 배정을 따로 저장**한다. 로그인한 이메일이 어느 역할인지 조회 → 화면·서버 API 게이팅.
-
-### 판별 순서
-
-1. 로그인 이메일 = 워크스페이스 슈퍼 관리자? (Google Directory API `isAdmin`)
-2. Firestore `role_assignments/{email}` 조회 (있으면 그 역할)
-3. 없으면 기본 = `viewer` (조회자, 최소 권한)
-
-## 2. 역할 다섯 (초안)
-
-| 역할 코드 | 라벨 | 누가 | 어떤 탭을 보나 |
+| 역할 코드 | 라벨 | 누구 | 첫 화면 |
 |---|---|---|---|
-| `super_admin` | 슈퍼 관리자 | 워크스페이스 관리자 권한자 | 모두 + 역할 배정 관리 |
-| `admin` | 관리자 | 정보부장 · 담당 부장 | 계정·그룹·챗방·클래스룸 전체 관리 |
-| `dept_head` | 부장 | 학년부장·교과부장 | 자기 부서 인원 조회 · 그룹 배정 · 클래스룸 조회 |
-| `teacher` | 교사 | 담임·교과교사 | 자기 클래스룸 관리 · 자기 반 조회 |
-| `viewer` | 조회자 | 기본값 | 자기 계정 정보만 |
+| `super_admin` | 슈퍼 관리자 | 시스템 관리자·개발자 | 감사 로그 · 함수 상태 · 위험 조작 |
+| `admin` | 관리자 | 정보부장 등 실제 운영자 | 계정·그룹·챗방·클래스룸 대시보드 |
+| `teacher` | 교사 | 담임·교과교사 | 본인 담당 클래스룸 목록 (읽기 위주) |
 
-> ⚠️ **이 다섯은 헤드의 짐작이다.** 학교 조직에서 실제로 필요한 분류를 모른다. 사용자에게 확인 필요 (아래 §5).
+**첫 로그인** — Auth 트리거가 `teacher` 를 자동 부여. `super_admin` 만 다른 역할로 승격 가능 (감사 로그 기록).
 
-## 3. 탭·기능 매트릭스
+**「차등적으로 기능 부여」 하는 방법** — 역할 이름을 새로 만들지 말고 **권한 매트릭스에서 한 줄만 바꾼다**. 새 역할이 필요해지면 (예: `dept_head`) 매트릭스에 그 역할의 권한 집합을 추가. 코드 안의 검사부는 안 바뀐다. 아래 §2 참조.
 
-원 스크립트의 27+15 개 함수를 탭 단위로 묶고 역할별 접근을 표기.
+## 2. 권한 카탈로그 · 매트릭스
 
-### 3-1. 「계정 관리」 탭
+**하드코딩 금지 원칙** — 코드 어디에도 `if (role === 'admin')` 을 쓰지 않는다. 대신 `userHasCap(user, 'users.write')` 를 씀. 권한 이름은 아래 카탈로그에서만 옴.
 
-| 화면·동작 | 원 함수 | `super_admin` | `admin` | `dept_head` | `teacher` | `viewer` |
-|---|---|---|---|---|---|---|
-| 전체 계정 조회 | `fetchAllUsersToSheet` | ✅ | ✅ | 자기 부서만 | ❌ | ❌ |
-| 계정 생성 (전입생) | `laterAccountSetup` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 초기 계정 일괄 세팅 | `initialAccountSetup` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 비밀번호 일괄 변경 | `updateUserPasswords` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 계정 삭제 | `deleteUsers` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 계정 삭제 안내 메일 | `sendMailtoUsers` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 자기 계정 정보 조회 | (신규) | ✅ | ✅ | ✅ | ✅ | ✅ |
+### 2.1 권한 카탈로그 (v1.0)
 
-### 3-2. 「그룹 관리」 탭
+`functions/src/authz/capabilities.ts` 가 소유하는 문자열 상수 집합:
 
-| 화면·동작 | 원 함수 | `super_admin` | `admin` | `dept_head` | `teacher` | `viewer` |
-|---|---|---|---|---|---|---|
-| 그룹 목록·멤버 조회 | `fetchAllGroupAssignments` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| 그룹 생성 | `createGroups` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 그룹 삭제 | `deleteGroups` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 그룹 배정/제외 | `assignGroups` | ✅ | ✅ | 자기 부서 그룹 한정 | ❌ | ❌ |
-| 그룹에서 멤버 삭제 | `removeMembersFromGroups` | ✅ | ✅ | 자기 부서 그룹 한정 | ❌ | ❌ |
+```
+users.read                 users.write             users.delete           users.reset_password
+groups.read                groups.write            groups.delete
+chat.read                  chat.write              chat.delete
+classroom.read             classroom.write         classroom.transfer_owner  classroom.archive
+basic_data.read            basic_data.write
+audit.read                 system.manage_roles
+```
 
-### 3-3. 「구글챗 관리」 탭
+### 2.2 역할 → 권한 매핑
 
-| 화면·동작 | 원 함수 | `super_admin` | `admin` | `dept_head` | `teacher` | `viewer` |
-|---|---|---|---|---|---|---|
-| 챗방 목록 조회 | `fetchAllChatSpaces` | ✅ | ✅ | 자기 부서 챗방 | ❌ | ❌ |
-| 챗방 생성 | `createGoogleChatRooms` · `createChatSpace` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 챗방 권한 설정 | `configureChatSpacePermissions` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 챗방 삭제 | `deleteSelectedChatSpaces` | ✅ (`useAdminAccess`) | ✅ (`useAdminAccess`) | ❌ | ❌ | ❌ |
-| 챗방 멤버 배정 | `assignMembersToChatRooms` | ✅ | ✅ | 자기 부서 챗방 | ❌ | ❌ |
-| 기초값에서 그룹/챗방 자동 생성 | `createChatSpacesFromBasicData` · `getAudienceId` | ✅ | ✅ | ❌ | ❌ | ❌ |
+`functions/src/authz/roleCapabilities.ts` 가 소유하는 유일한 매트릭스:
 
-### 3-4. 「클래스룸」 탭
+| 권한 | `super_admin` | `admin` | `teacher` |
+|---|---|---|---|
+| `users.read` | ✅ | ✅ | ❌ |
+| `users.write` | ✅ | ✅ | ❌ |
+| `users.delete` | ✅ | ✅ | ❌ |
+| `users.reset_password` | ✅ | ✅ | ❌ |
+| `groups.read` | ✅ | ✅ | ❌ |
+| `groups.write` | ✅ | ✅ | ❌ |
+| `groups.delete` | ✅ | ✅ | ❌ |
+| `chat.read` | ✅ | ✅ | ❌ |
+| `chat.write` | ✅ | ✅ | ❌ |
+| `chat.delete` | ✅ | ✅ | ❌ |
+| `classroom.read` | ✅ | ✅ | ✅ (본인 것) |
+| `classroom.write` | ✅ | ✅ | ✅ (본인 것) |
+| `classroom.transfer_owner` | ✅ | ✅ | ❌ |
+| `classroom.archive` | ✅ | ✅ | ✅ (본인 것) |
+| `basic_data.read` | ✅ | ✅ | ❌ |
+| `basic_data.write` | ✅ | ✅ | ❌ |
+| `audit.read` | ✅ | ❌ | ❌ |
+| `system.manage_roles` | ✅ | ❌ | ❌ |
 
-| 화면·동작 | 원 함수 | `super_admin` | `admin` | `dept_head` | `teacher` | `viewer` |
-|---|---|---|---|---|---|---|
-| 전체 클래스룸 조회 | `listAllClassrooms` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 소유자별 클래스룸 조회 | `listClassroomsByOwner` | ✅ | ✅ | 자기 부서 교사 | 자기 것 | ❌ |
-| 조회 시트 갱신 (증분) | `updateClassroomListIfNeeded` | ✅ | ✅ | ✅ | 자기 것 | ❌ |
-| 클래스룸 생성·초대 | `createAndInviteClassrooms` · `createClassroom` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 명단 추가 | `addRosterWithSuccessMessage` · `addMembersToClassroom` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 명단 직접 배정 (단건) | `directlyAddMemberToClassroom` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 명단 삭제 | `deleteRoster` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 이름 변경 | `updateAndLogClassroomNames` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 소유자 이관 | `transferClassroomOwnershipAndUpdateSheet` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 보관 (단순) | `archiveClassrooms` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
-| 보관·삭제 (조건부) | `archiveAndManageClassrooms` | ✅ | ✅ | ❌ | 자기 것 | ❌ |
+**「본인 것」 조건** (classroom) — 권한 통과 후 서버가 대상 자원 검증을 별도로 수행. §3-2 참조.
 
-### 3-5. 「기초값·설정」 탭
+## 3. 서버 게이팅
 
-| 화면·동작 | 원 함수 | `super_admin` | `admin` | `dept_head` | `teacher` | `viewer` |
-|---|---|---|---|---|---|---|
-| 기초값 설정 (학년·반·부서 구조) | `setupBasicData` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 기초값에 학생 데이터 가져오기 | `importInitialStudentData` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 역할 배정 관리 (신규) | (신규) | ✅ | ❌ | ❌ | ❌ | ❌ |
+### 3.1 매 요청 세 층 (기본)
 
-## 4. 서버 게이팅 원칙
+모든 Callable 은 첫 세 줄:
 
-**클라이언트에서 탭을 숨기는 것과 서버 함수에서 거부하는 것은 다른 층이다.** 둘 다 한다. 그리고 **서버는 두 단계로 검증**한다.
+```ts
+const user = await authenticateContext(context);      // 인증 층 (§4)
+assertHasCap(user, 'users.write');                    // 권한 층
+await assertResourceScope(user, request.target);      // 대상 자원 층 (`teacher` 만)
+```
 
-### 4-1. 역할 검증 (모든 요청)
+한 층이라도 실패 → 즉시 거부 + `writeAudit({ result: 'denied' })`.
 
-- 클라이언트: 역할에 맞는 탭만 렌더 (UX 힌트일 뿐, 방어 아님).
-- 서버 (Cloud Function 미들웨어): 요청 도착 시 **매번** Firestore `role_assignments/{email}` 조회. 없으면 `viewer`.
-- 역할이 이 화면·동작을 열지 못하면 → 즉시 거부, 감사 로그 기록.
+### 3.2 대상 자원 검증 (`teacher` 의 「본인 것」)
 
-### 4-2. 대상 자원 검증 (`dept_head`·`teacher` 처럼 범위 제한 있는 역할)
+| 조건 | 검증 방법 |
+|---|---|
+| **본인 클래스룸** (`classroom.*` for `teacher`) | ① 대상 `courseId` 에 대해 Google Classroom API `Courses.Teachers.list` 호출 → ② actor 이메일이 목록에 있는지 확인. Classroom API 스스로도 강제하지만 서버가 재확인 |
 
-**역할이 통과해도 대상 자원이 자기 범위 밖이면 거부**. 각 조건별 검증 방법:
+「본인 것」이 아닌 요청은 즉시 거부. 재확인 실패 시 위조 시도로 간주하고 감사 로그.
 
-| 조건 | 검증 데이터 원본 | 서버 절차 |
-|---|---|---|
-| **자기 부서 인원** (`dept_head`) | `basic_data/current` 의 부서↔OU 매핑 + AdminDirectory 의 대상 `orgUnitPath` | ① `role_assignments/{actor}.department` 조회 → ② `basic_data` 에서 그 부서에 속한 OU 목록 → ③ 대상 사용자의 `orgUnitPath` 가 그 목록에 포함되는지 판정 |
-| **자기 부서 그룹** (`dept_head`) | Firestore `group_templates` 의 `department` 필드 · 또는 그룹 이름 접두사 규칙 | 그룹 이름·`group_templates` 의 부서 태그로 판정. 매핑이 없는 그룹은 거부 (에러 아니라 「알 수 없음」으로 감사 로그) |
-| **자기 부서 챗방** (`dept_head`) | 같은 원리로 `chat_templates` 의 부서 태그 · 또는 챗방 이름 접두사 규칙 | 매핑 없는 챗방은 거부 |
-| **자기 것 (클래스룸)** (`teacher`) | Classroom API 의 `Courses.Teachers.list` | ① 대상 `courseId` 에 대해 `Teachers.list` 호출 → ② actor 의 이메일이 목록에 있는지 확인. **Classroom API 스스로도 강제하지만 서버가 재확인** (오탐 방지) |
+### 3.3 감사 로그
 
-### 4-3. 감사 로그 (모든 관리 동작)
+`writeAudit(entry)` 를 호출하는 **모든 상태 변경 함수**. 스키마:
 
-역할 통과·대상 통과 후 실제 API 호출 전·후로 `audit_log/{id}` 에 append:
-- `actor` (이메일), `role`, `action`, `target`, `at` (Timestamp), `request_id`, `result` (ok/error/denied), 관련 `diff` (선택)
+```
+{ actor: email, role, action: capability_name, target,
+  before?, after?, at: Timestamp, request_id, result: 'ok'|'error'|'denied' }
+```
 
-**감사 로그는 append-only** — 클라이언트 SDK 는 Firestore rules 로 전면 차단하고, 함수 코드 층은 여러 관문(단일 헬퍼 + AST ESLint + 에뮬레이터 mock 테스트)을 겹쳐 강제한다. Firebase Admin SDK 가 rules 를 우회하므로 **rules 하나만으로는 부족**하다. 자세한 3층 강제 방식과 v1.0 위험 수용 결정은 `firebase_layout.md` §5·§5-A.
+강제 방식 — `firebase_layout.md` §5 참조. 요약: (1) Rules 로 클라이언트 write 완전 차단, (2) `writeAudit()` 헬퍼 하나만 통과, (3) AST ESLint 규칙, (4) 에뮬레이터 테스트.
 
-## 5. 알려진 미결
+## 4. Firestore Rules
 
-1. ⚠️ **다섯 역할이 실제 학교 조직과 맞는지 확인 필요.** 특히 `dept_head` 를 두는 게 실무에 도움이 되는지, 아니면 `admin`/`teacher` 둘로 충분한지.
-2. ⚠️ **「자기 부서」 판별을 어디에서 하나?** — 워크스페이스 조직 단위(OU) 로 자동인가, Firestore 에 부서 매핑을 따로 두어야 하나. OU 가 학교마다 다르게 걸려 있을 수 있음.
-3. ⚠️ **첫 관리자를 어떻게 심나?** 로그인만으로는 아무도 `super_admin` 이 아니다. 부트스트랩 절차 필요. **저장소에 시드 파일을 넣는 안은 채택하지 않는다** — 이유: (a) 공개 저장소라면 관리자 이메일이 노출됨, (b) 커밋 접근자가 자기 이메일을 추가해 권한 획득 가능, (c) 배포 자동화가 매번 덮어써 「관리자 제거」가 불가. **채택 안**: `scripts/bootstrap_admin.ts` — 로컬에서 Firebase Admin SDK 자격증명(서비스 계정 키를 **로컬에서만** 사용) 으로 Firestore 에 첫 `super_admin` 한 건을 씀. 스크립트는 실행 전 대화형으로 이메일을 물음. 이 스크립트는 저장소에 있어도 되지만 서비스 계정 키는 절대 커밋 안 됨(`.gitignore`). **첫 관리자가 앱에 로그인해 두 번째 관리자를 만든 뒤 스크립트는 다시 안 쓴다.**
-4. ⚠️ **역할 승격·좌천의 감사 기록.** 누가 언제 누구를 승격했는가 — Firestore 에 append-only 로그 필요.
+Custom Claims 에 `role` 하나만 넣는다 (예: `role: "admin"`). Rules 는 「이 컬렉션은 어느 역할이 접근 가능」 수준까지만:
 
-## 6. 참고
+```
+match /audit_log/{doc} {
+  allow read: if request.auth.token.role == "super_admin";
+  allow write: if false;    // 함수만
+}
+match /users/{uid} {
+  allow read: if request.auth != null;         // 로그인 누구나 (Firestore 저장 최소)
+  allow write: if false;                       // 함수만
+}
+match /basic_data/{year} {
+  allow read: if request.auth.token.role in ["super_admin","admin"];
+  allow write: if request.auth.token.role in ["super_admin","admin"];
+}
+match /jobs/{jobId} {
+  allow read: if request.auth != null && resource.data.createdBy == request.auth.token.email;
+  allow write: if false;
+}
+```
 
-- 원본 함수 정의: `WORKSPACE/RESEARCH/school-webapp/FEATURES_CATALOG.md`
-- Firestore 스키마·Cloud Functions 배치: `docs/design/firebase_layout.md`
-- 이 문서를 인용할 때는 **버전 표기 필수** (v0.1). 확정본이 나오면 v1.0.
+**세밀한 권한 검사는 Callable 안에서**. Rules 로 매트릭스를 표현하려 하면 유지 비용이 폭발한다.
+
+## 5. 첫 관리자 부트스트랩
+
+`super_admin` 이 아무도 없는 상태에서 어떻게 첫 하나를 심는가.
+
+**채택 안** — `scripts/bootstrap_admin.ts` 로컬 스크립트. Firebase Admin SDK 자격증명(로컬 서비스 계정 키) 으로 Firestore `users` 문서 하나 만들거나 갱신하고 Custom Claims 를 `super_admin` 으로 설정. 실행 전 대화형으로 이메일을 물음. 서비스 계정 키는 절대 커밋 안 됨 (`.gitignore`).
+
+**폐기한 안** — 저장소에 `initial_admins.json` 시드. 이유: (a) 공개 저장소라면 관리자 이메일 노출, (b) 커밋 접근자가 자기 이메일 추가해 권한 획득, (c) 배포 자동화가 매번 덮어써서 「관리자 제거」가 불가.
+
+## 6. v1.0 밖 (나중)
+
+- **부장·학년별 관리자 등 세분화** — §2 구조로 커버 (역할 추가 + 매트릭스 한 줄).
+- **「자기 부서」 조건부 접근** — v0.3 에 있던 `dept_head` 시나리오. `basic_data` 의 부서↔OU 매핑 + AdminDirectory `orgUnitPath` 확인 절차. 새 역할과 함께 반환할 때 재활성화.
+- **역할 승격·좌천 UI** — 지금은 `super_admin` 이 Callable 호출로만 가능.
