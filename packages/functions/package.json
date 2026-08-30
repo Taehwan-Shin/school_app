@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "test:emu": "firebase emulators:exec --project=demo-school 'vitest run --config vitest.emu.config.ts'",
+    "test:emu": "firebase emulators:exec --project=demo-school --only auth,functions,firestore 'vitest run --config vitest.emu.config.ts'",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
