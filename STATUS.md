@@ -7,14 +7,14 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 인증 모델 = ⓑ 로그인 사용자 OAuth 확정 (헤드가 ⓑ 를 전제로 진행 중) | 사용자 | 이의 없으면 확정 | 사용자가 채널에서 「ⓐ 로 가라」또는 「그대로 ⓑ」명시. 되돌리기 어려워지기 전(다음 코드 커밋 전) 회신 필요 |
-| Google Cloud 프로젝트 생성 + Admin SDK·Classroom·Chat API 활성화 + OAuth 2.0 웹 클라이언트 발급 | 사용자 | 답 대기 | 프로젝트 ID · OAuth 클라이언트 ID 를 채널에 붙임 |
+| 인증 모델 ⓑ 로그인 사용자 OAuth | — | 확정 (사용자가 §2 값 회신으로 실질 확정) | `AGENTS.md` §1, `firebase_layout.md` §4 |
+| Cloud 프로젝트·OAuth 클라이언트 ID·도메인 | 사용자 | 회신 완료 (`firebase_layout.md` §2 반영) | `firebase_layout.md` §2 값 3개 확정 |
 | 역할·권한 매트릭스 v0.3 | 헤드 | 커밋됨 | `docs/design/roles.md` v0.3 |
-| Firebase 프로젝트 구조 v0.7 (감사 6차 반영) | 헤드 | 커밋됨 | `docs/design/firebase_layout.md` v0.7 · §5-(3)·§5-A 정직화 |
-| Codex 7차 감사 (v0.7 회귀 없음 확인) | 감사 | 대기 | 새 실패 없음이면 v1.0 승격 준비 완료 |
+| Firebase 프로젝트 구조 v0.8 (감사 7차 반영) | 헤드 | 커밋됨 | `docs/design/firebase_layout.md` v0.8 · §5-(3) 서명 스키마·인증 컨텍스트 손실 명시 |
+| Codex 8차 감사 (v0.8 회귀 없음 확인) | 감사 | 대기 | 새 실패 없음이면 v1.0 승격 준비 완료 |
 | **Gmail API 활성화 확인** (배포 차단 항목) | 사용자 | 답 대기 | Google Cloud Console → API 라이브러리 → Gmail API 사용 설정. 필요 없으면 `sendMailtoUsers` 제외 결정 |
 | 사용자 역할 구조 확정 (`roles.md` §2 판정불가) | 사용자 | 답 대기 | 다섯/셋/둘, 실무 용어 반영 여부 |
-| **audit_log v1.0 위험 수용 결정** (`firebase_layout.md` §5-A) | 사용자 | 답 대기 | (a) 코드 규율 기반 v1.0 · (b) Pub/Sub 표면적 축소 — 헤드 추천 (a) |
+| **audit_log v1.0 위험 수용 결정** (`firebase_layout.md` §5-A) | 사용자 | 답 대기 | (a) 코드 규율 기반 v1.0 · (b) Pub/Sub 표면적 축소 (선택 시 서명 스키마 추가 작업) — 헤드 추천 (a) |
 | 설계 v1.0 확정 | 헤드 | 대기 (감사 통과 + 사용자 답 세 건) | v1.0 커밋 · STATUS 에 확정 표기 |
 | 첫 화면 (로그인 + 역할별 첫 화면 껍데기) 오더 → Antigravity | 헤드 | 대기 (설계 확정 후) | `docs/handoff/NEXT.md` 갱신, Antigravity 에게 채널 지시 |
 
