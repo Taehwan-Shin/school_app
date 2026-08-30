@@ -9,6 +9,7 @@ const credentialFromResultMock = vi.fn();
 vi.mock('firebase/auth', () => {
   const GoogleAuthProvider = vi.fn(() => ({
     setCustomParameters: vi.fn(),
+    addScope: vi.fn(),
   }));
   (GoogleAuthProvider as any).credentialFromResult = (...args: any[]) => credentialFromResultMock(...args);
 

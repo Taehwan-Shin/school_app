@@ -26,8 +26,20 @@ export function clearGoogleAccessTokenFromSession(): void {
   window.sessionStorage.removeItem('googleAccessToken');
 }
 
+/**
+ * `users.list` callable 이 서버에서 요구하는 스코프. 로그인 시 사용자에게 동의를 받아
+ * 발급된 access token 에 이 스코프가 포함되도록 한다.
+ * 새 관리 기능이 늘어나면 여기에 추가한다.
+ */
+export const GOOGLE_LOGIN_SCOPES = [
+  'https://www.googleapis.com/auth/admin.directory.user.readonly',
+] as const;
+
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
+  for (const scope of GOOGLE_LOGIN_SCOPES) {
+    provider.addScope(scope);
+  }
   provider.setCustomParameters({
     hd: 'cam.hs.kr',
     prompt: 'select_account',

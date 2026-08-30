@@ -30,7 +30,7 @@ export function App() {
               <Route path="/super_admin" element={<SuperAdminPage />} />
             </Route>
 
-            <Route element={<RoleGuard expectedRole="admin" />}>
+            <Route element={<RoleGuard expectedRoles={['super_admin', 'admin']} />}>
               <Route path="/admin" element={<AdminPage />} />
             </Route>
 

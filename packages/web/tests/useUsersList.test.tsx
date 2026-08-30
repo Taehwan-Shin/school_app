@@ -165,5 +165,49 @@ describe('usersList API & Hook', () => {
       expect(result.current.fetchStatus).toBe('idle');
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    // 회귀 방지: 4xx 는 재시도하지 않는다 — 서버가 이미 denied/permission-denied 감사를
+    // 남긴 상태이므로 재시도 시 감사 로그가 중복 생성된다.
+    it('does NOT retry on 4xx (permission-denied) to avoid duplicating denied audit logs', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { message: 'permission-denied' } }),
+      });
+      global.fetch = fetchMock as any;
+
+      const { result } = renderHook(() => useUsersList(true), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      // fetch 는 정확히 한 번만 — 4xx 는 재시도 없음
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries on 5xx (transient server error)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          json: async () => ({ error: { message: 'server-error' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ result: { users: [] } }),
+        });
+      global.fetch = fetchMock as any;
+
+      const { result } = renderHook(() => useUsersList(true), {
+        wrapper: createWrapper(),
+      });
+
+      // TanStack Query 기본 retryDelay 는 지수 backoff (첫 대기 ~1s).
+      // 테스트가 그 대기를 커버할 수 있도록 timeout 을 넉넉히.
+      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
   });
 });
