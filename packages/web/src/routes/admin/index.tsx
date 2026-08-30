@@ -1,5 +1,6 @@
 import { useAuth, signOut } from '../../lib/auth';
 import { Button } from '../../components/ui/button';
+import { AccountsTable } from './AccountsTable';
 
 export function AdminPage() {
   const { user, role } = useAuth();
@@ -20,20 +21,32 @@ export function AdminPage() {
           </Button>
         </header>
 
-        <main className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">계정·그룹·챗·클래스룸 대시보드</h2>
-            <p className="text-sm text-slate-600">
-              계정·그룹·챗·클래스룸 대시보드 자리 (일괄 생성, 변경, 삭제, 배정)
-            </p>
+        <main className="space-y-6">
+          <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Google Workspace 계정 목록</h2>
+              <p className="text-sm text-slate-600">
+                조직 내 등록된 사용자 계정 및 권한 상태
+              </p>
+            </div>
+            <AccountsTable />
           </section>
 
-          <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">기초값 관리</h2>
-            <p className="text-sm text-slate-600">
-              기초값 관리 자리 (학년·반·부서 구조 정의 및 시트 동기화)
-            </p>
-          </section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <h2 className="text-lg font-semibold text-slate-900">계정·그룹·챗·클래스룸 대시보드</h2>
+              <p className="text-sm text-slate-600">
+                계정·그룹·챗·클래스룸 대시보드 자리 (일괄 생성, 변경, 삭제, 배정)
+              </p>
+            </section>
+
+            <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <h2 className="text-lg font-semibold text-slate-900">기초값 관리</h2>
+              <p className="text-sm text-slate-600">
+                기초값 관리 자리 (학년·반·부서 구조 정의 및 시트 동기화)
+              </p>
+            </section>
+          </div>
         </main>
       </div>
     </div>
