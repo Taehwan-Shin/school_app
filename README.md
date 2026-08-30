@@ -1,5 +1,7 @@
 # school_app
 
+[![CI](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml)
+
 Google Sheets 위에서 돌던 두 Apps Script(계정관리·클래스룸관리) 를 파이어베이스 기반 웹앱으로 옮긴다.
 
 - 무엇을·왜: [AGENTS.md](./AGENTS.md)
