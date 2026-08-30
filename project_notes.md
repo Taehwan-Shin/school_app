@@ -441,3 +441,37 @@ Antigravity 호출은 스레드에서 `@Antigravity` 로.
 - Codex 마지막 재감사 (대상 `7e99fff`)
 - 사용자 Cloud Console OAuth 동의 화면 `cam.hs.kr` 로 갱신 (헤드가 대신 못 함)
 - 승인되면 첫 슬라이스 병합 → 첫 실 관리 기능 오더 (예: 실 로그인 + 계정 목록)
+
+---
+
+## 2026-08-31 · 첫 슬라이스 병합 승인
+
+**Codex 최종 재감사** — Buzz `a7ed8ad277a5`, 대상 커밋 `faceea9`. **6 통과 · 1 판정불가**.
+
+**통과 6건**:
+- `emu.test.ts:120·140` — 실 `pnpm test:emu` 에서 REST `accounts:signUp` 이 `beforeUserCreated` 를 실제 발동, 5/5 통과. 외부 도메인 signUp 은 실패로 확인.
+- `firebase_layout.md:67` Identity Platform 요구 명시 (콘솔 경로·배포 전 조건·Emulator 한계 포함).
+- `NEXT.md:56·98·101` 포트 정합 · 병합 승인 · README E2E 이월 가능.
+- **첫 슬라이스 병합 승인**.
+
+**판정불가 1건**:
+- `packages/functions/package.json:21` Node 20 호환성 — 이번 실 실행은 Node 22. 배포 전 Node 20 재실행 필요.
+
+**Pre-deploy 관문 (배포 차단 항목, 병합은 무관)**:
+1. **Identity Platform 업그레이드** — Firebase Console → Authentication → Settings → Upgrade. 사용자 조치.
+2. **OAuth 동의 화면 도메인** — `cam-t.kr` → `cam.hs.kr`. 사용자 조치.
+3. **Node 20 환경 재실행** — 지금은 Node 22 만. 실 배포 인프라·CI 가 Node 20 이어야 함.
+
+**병합된 첫 슬라이스 최종 상태** (HEAD `faceea9`, 커밋 `b12fc28` ~ `faceea9`):
+- `packages/shared` — Role · Capability · ROLE_CAPABILITIES 매트릭스 (roles.md v1.0 §2.2 그대로)
+- `packages/web` — Vite+React+TS · shadcn/ui 최소 · Firebase Auth Google 로그인 (도메인 `cam.hs.kr`) · 개발 전용 Emulator 로그인 · 역할별 껍데기 라우팅
+- `packages/functions` — Firebase Functions 2세대 (Node 20 요구) · `beforeUserCreated` blocking trigger · `getMe` callable 엄격 검증 · Emulator 통합 테스트 (A) 순수 handler + (B) REST signUp 배선
+- 인프라 — Firestore Rules 최소 (audit_log 클라이언트 완전 차단) · Firebase Emulator Suite · pnpm workspace · CI 미도입 (다음 오더로)
+- 단위 테스트 21 (shared 5 · web 5 · functions 11) · Emulator 통합 5 (Codex 환경)
+
+**다음 오더 후보** (헤드 검토 중):
+1. **CI 도입** — GitHub Actions 로 PR 마다 `pnpm -r build/test/lint` + `pnpm test:emu`. Node 20 강제. Codex 판정불가 를 CI 가 해소.
+2. **첫 실 관리 기능 슬라이스** — `users.list` callable + 계정 목록 UI. Cloud Console 도메인·Identity Platform 정리 후에.
+3. **첫 관리자 부트스트랩** — `scripts/bootstrap_admin.ts` 로 `admin2@cam.hs.kr` 를 첫 `super_admin` 으로 승격. 또는 웹으로 임시 승격 흐름.
+
+**판단** — CI (1) 를 먼저. Node 20 관문·회귀 방지 두 마리 토끼. 그 다음 (2) 첫 실 관리 기능.
