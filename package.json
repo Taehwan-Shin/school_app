@@ -5,6 +5,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:emu": "pnpm --filter @school-app/functions test:emu",
     "lint": "pnpm -r lint",
     "emu": "firebase emulators:start"
   },
