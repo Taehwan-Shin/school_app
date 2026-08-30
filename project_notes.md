@@ -409,3 +409,35 @@ Antigravity 호출은 스레드에서 `@Antigravity` 로.
 4. 신규: 첫 실 관리 기능 (예: `users.list` 서버 함수 + 계정 목록 UI) — 서비스 계정 준비 후에
 
 **Antigravity 로그 규율** — 커밋 후 스레드 보고를 하지 않는 문제. 다음 오더의 「상태 보고」 절을 더 크게 강조하거나 헤드가 `git log` 로만 파악하도록 규칙 명시.
+
+---
+
+## 2026-08-31 · 도메인 정정 · 코드 정정 · Codex 최종 감사 반영
+
+**사용자 회신** `[사용자 결정]` — Buzz `0e3acf212a56`: *"사용하는 학교 도메인은 cam.hs.kr 이야. 최고관리자 구글 계정도 admin2@cam.hs.kr 이고"*.
+- 초기 Cloud 값 회신 `162e4e2b2f09` 에서 `도메인: cam-t.kr` 라 적혀 있었는데 오기. 실 도메인은 `cam.hs.kr`.
+- **사용자 조치 필요** — Google Cloud Console → OAuth 동의 화면에서 도메인 제한을 `cam.hs.kr` 로 갱신. 서비스 계정·클라이언트 ID 그대로 사용 가능.
+
+**Codex 최종 감사** — Buzz `1edb1048f20b`, 대상 커밋 `f8447d5`. 4 통과 · 3 실패 · 1 판정불가.
+
+**통과 4건** (유지):
+- `.npmrc` 좁힘 · Gen2 blocking trigger · Firestore 8085 포트 일관 · emu 테스트 3/3 은 Codex 환경(Java 있음)에서 실 실행됨
+
+**새 실패 3건 재확인 결과**:
+
+| 항목 | 재확인 | 처리 |
+|---|---|---|
+| `emu.test:24` handleUserCreate 를 직접 호출해서 wiring 미검증 | **사실** — 배선된 트리거가 도는지 종단으로 안 봤음 | **헤드 반영** (커밋 `34d5dc0`): (B) `admin.auth().createUser()` → 실 Auth Emulator 를 통해 배선된 `beforeUserCreated` 를 호출, customClaims + `users/{uid}` 문서까지 검증. 기존 (A) 순수 handler 층은 유지. |
+| `auth.tsx:30/63` 개발 로그인 이메일/비번만 만들고 role 미검증 + `|| 'teacher'` 기본값 | **사실** — dev 로그인 시 트리거가 도는 emulator 는 role 을 심어야 정상. 지금은 클라이언트가 미부여 상태를 teacher 로 관대하게 넘겨 잘못된 라우팅 위험 | **헤드 반영** (커밋 `34d5dc0`): `|| 'teacher'` 폐기, super_admin·admin·teacher 셋만 승인, 그 외 null → `/login` 되돌림 (`getRouteForRole`). |
+| `NEXT.md:90` 실 배선 검증 없이 병합 불가 | **사실** — 위 두 자리가 봉해지면 해소 | 위 두 반영으로 해소 예상. Codex 재감사 대기. |
+
+**판정불가 1건** — Node 20 실측 (Codex도 Node 22 사용). 환경 이슈로 수용.
+
+**커밋**:
+- `34d5dc0` fix: Codex 최종 감사 반영 — role 엄격화 + emu 테스트 배선 시험
+- `7e99fff` refactor: 도메인 cam-t.kr -> cam.hs.kr (사용자 정정)
+
+**남은 것**:
+- Codex 마지막 재감사 (대상 `7e99fff`)
+- 사용자 Cloud Console OAuth 동의 화면 `cam.hs.kr` 로 갱신 (헤드가 대신 못 함)
+- 승인되면 첫 슬라이스 병합 → 첫 실 관리 기능 오더 (예: 실 로그인 + 계정 목록)
