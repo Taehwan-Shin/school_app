@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     onOpenChange(newOpen);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setValidationError(null);
 

@@ -25,9 +25,6 @@ export function AdminPage() {
           <section className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Google Workspace 계정 목록</h2>
-              <p className="text-sm text-slate-600">
-                조직 내 등록된 사용자 계정 및 권한 상태
-              </p>
             </div>
             <AccountsTable />
           </section>

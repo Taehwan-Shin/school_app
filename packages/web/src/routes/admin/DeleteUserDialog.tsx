@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogP
   const isConfirmed = user ? confirmEmail.trim() === user.email.trim() : false;
   const fullName = user ? `${user.lastName || ""}${user.firstName || ""}`.trim() : "";
 
-  const handleDelete = async (e: React.FormEvent) => {
+  const handleDelete = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !isConfirmed) return;
 
