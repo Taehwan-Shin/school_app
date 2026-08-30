@@ -8,7 +8,9 @@
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
 | 설계 v1.0 확정 (roles.md v1.0 · firebase_layout.md v0.12+ · DESIGN_v1.md) | 헤드 | **확정** (사용자 승인 `a335e09b1b35`) | 저장소 `docs/DESIGN_v1.md`·`docs/design/roles.md` v1.0·`docs/design/firebase_layout.md` |
-| 첫 슬라이스 (모노레포·로그인·역할별 껍데기·Auth 트리거·감사 시험) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `faceea9`, 이벤트 `a7ed8ad277a5`) | 6 통과·1 판정불가. HEAD `faceea9`, 트리 깨끗. unit 21 통과 · emu 5/5 통과 (Codex 환경) |
+| 첫 슬라이스 (모노레포·로그인·역할별 껍데기·Auth 트리거·감사 시험) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `faceea9`) | HEAD 이후 유지. unit + emu 통과 |
+| CI 슬라이스 (GitHub Actions · Node 20 · Java 21) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `4888ea1`) | 원격 실행은 사용자 관찰 관문 |
+| users.list slice (writeAudit 헬퍼 · ESLint AST · 3층 미들웨어 · Callable · 파일 stub emu 종단) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `8c7fa81`) | unit 31 통과 · emu 10/10 통과 (Codex 환경) |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | OAuth 동의 화면 도메인 정정 `cam-t.kr` → `cam.hs.kr` (배포 차단) | 사용자 | 답 대기 | Google Cloud Console → OAuth 동의 화면 → 승인된 도메인 |
 | Node 20 환경 재실행 (배포 차단) | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인. |

@@ -1,269 +1,218 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **첫 실 관리 기능 (서버 층만)** — `writeAudit` 헬퍼 + `users.list` callable.
-> UI 는 다음 오더. 사용자 콘솔 조치 (OAuth 도메인·Identity Platform) 는 병렬.
+> 지금 이 파일의 오더는 **계정 목록 UI 슬라이스** — `usersList` callable 을 부르는 관리자 화면.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 `git push -u origin feat/...` 로 원격에 올린다
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/...` 로 올린다
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
-- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · Vitest · 신규 에뮬레이터 통합 시험 · CI 워크플로 문법
+- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · ESLint · Vitest · 신규 UI 테스트
 
-**추가**: **완료 후 반드시 `#general` 스레드에 `@Claude Code_Honey` 포함해 결과 보고**. 지난 CI 오더는 push 안 한 채 보고했다가 잡혔다 — 이번엔 **작업 브랜치를 원격에 반드시 push** 하고 브랜치 이름을 보고에 명시하라.
+**추가**: 완료 후 반드시 스레드 보고 (브랜치 이름 + 커밋 해시 명시). 지난 오더 3~4 커밋 분리를 안 지켰다 (단일 커밋) — 이번엔 최소 2~3 커밋으로 분리.
 
 ## 기준 커밋
 
-**Base**: `4888ea1` (Java 21 · 에뮬레이터 --only 정정)
+**Base**: `8c7fa81` (users.list slice 병합 승인)
 
-`git log --oneline -1` 로 실물 확인 후 시작.
-
-## 지금 할 것 — 감사 헬퍼 + 첫 실 관리 callable
+## 지금 할 것 — 관리자 계정 목록 화면
 
 ### 왜
 
-지금까지의 슬라이스는 「사용자가 로그인해서 껍데기 화면에 도달」까지였다. 이제 첫 **실 워크스페이스 API 호출** 을 붙인다. 목표: **관리자가 로그인해서 `users.list` 를 부르면 `cam.hs.kr` 도메인의 실 사용자 목록이 반환된다.** UI 는 다음 오더. 이 오더는 서버 층만.
-
-동시에 `DESIGN_v1.md` §5 의 audit_log 관문 넷을 처음으로 코드에 심는다:
-1. Rules — 이미 있음 (`firestore.rules`)
-2. `writeAudit()` 헬퍼 — 이 오더에서 신설
-3. AST ESLint 규칙 — 이 오더에서 신설
-4. 에뮬레이터 테스트 — 이 오더에서 신설
+`usersList` 서버 callable 이 서버 층에서 검증·감사까지 완료됐다. 이제 사용자가 실제로 볼 수 있는 첫 UI 를 붙인다. **관리자가 `/admin` 화면에서 계정 목록 표를 본다.** 이 표가 워크스페이스 계정 관리의 진입점이 된다.
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/functions/src/audit/writeAudit.ts` — 단일 감사 로그 쓰기 헬퍼
-- `packages/functions/src/authz/middleware.ts` — Callable 앞에 붙는 인증·역할·권한 검사
-- `packages/functions/src/authz/capabilities.ts` — `Capability` 재수출 (shared 로부터)
-- `packages/functions/src/callable/users/list.ts` — 첫 실 callable
-- `packages/functions/src/google/directoryClient.ts` — googleapis 초기화 헬퍼 (사용자 OAuth 액세스 토큰으로)
-- `packages/functions/tests/writeAudit.emu.test.ts` — Firestore Emulator 에서 audit_log 쓰기·조회
-- `packages/functions/tests/usersList.emu.test.ts` — REST signUp → admin claim → callable HTTP 호출 → 결과·audit_log 검증 (googleapis mock)
-- `packages/functions/tests/writeAudit.test.ts` — 단위 (mock Firestore)
-- `packages/functions/tests/usersList.test.ts` — 단위 (mock googleapis · Firestore · Auth)
-- 저장소 루트 `eslint.config.js` (또는 `.eslintrc.cjs`) — AST 규칙
+- `packages/web/src/api/functions.ts` — Firebase Functions 클라이언트 초기화 헬퍼 (aisa-northeast3, emulator 자동 연결)
+- `packages/web/src/api/usersList.ts` — TanStack Query 훅 `useUsersList()`
+- `packages/web/src/routes/admin/AccountsTable.tsx` — 표 컴포넌트
+- `packages/web/src/routes/admin/index.tsx` — `/admin` 페이지 (기존 껍데기 대체)
+- `packages/web/tests/AccountsTable.test.tsx` — 컴포넌트 테스트 (mocked query)
+- `packages/web/tests/useUsersList.test.ts` — 훅 테스트 (mocked callable)
 
 **기존 파일 수정**:
-- `packages/functions/src/index.ts` — `usersList` export 추가
-- `packages/functions/package.json` — devDep 에 `googleapis`, `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`. `lint` 스크립트를 `tsc --noEmit && eslint src tests` 로 확장. `pnpm --filter @school-app/functions add …` 로 설치.
+- `packages/web/src/lib/firebase.ts` — Firebase Functions 초기화 추가 (이미 있으면 확인만)
+- `packages/web/src/App.tsx` — QueryClientProvider 감싸기 (아직 없으면)
+- `packages/web/package.json` — `@tanstack/react-query` devDep 확인 (아직 없으면 추가)
+- shadcn/ui Table 컴포넌트 추가 (`pnpm dlx shadcn@latest add table`)
+- `packages/web/src/routes/admin.tsx` (또는 유사) 기존 껍데기 파일 — 신규 index.tsx 로 대체 또는 그 안에 표 삽입
 
-**기존 파일 삭제 금지**. `docs/`·`STATUS.md`·`project_notes.md` 는 헤드가 관리.
-
-### 스택·라이브러리
-
-- `googleapis` — Google Admin Directory API 클라이언트. `pnpm --filter @school-app/functions add googleapis` 로 dependencies 에 (devDependencies 아님 — 런타임 필요).
-- `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` — devDep, functions 패키지 안에.
+**기존 파일 삭제**: 없음. 껍데기 페이지는 계정 표를 담는 컨테이너로 진화.
 
 ### 세부 요구
 
-#### 1. `writeAudit` 헬퍼
+#### 1. Functions 클라이언트 헬퍼
 
-`packages/functions/src/audit/writeAudit.ts`:
+`packages/web/src/api/functions.ts`:
 
 ```ts
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFunctions, connectFunctionsEmulator, httpsCallable, HttpsCallable } from 'firebase/functions';
+import { app } from '../lib/firebase';
 
-export interface AuditEntry {
-  actor: string;             // 이메일
-  role: 'super_admin' | 'admin' | 'teacher';
-  action: string;            // Capability 문자열 (예: 'users.read')
-  target: string;            // 대상 자원 식별자
-  request_id: string;
-  result: 'ok' | 'error' | 'denied';
-  before?: unknown;
-  after?: unknown;
-  message?: string;
+const functions = getFunctions(app, 'asia-northeast3');
+
+if (import.meta.env.DEV) {
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }
 
-export async function writeAudit(entry: AuditEntry): Promise<void> {
-  const db = getFirestore();
-  await db.collection('audit_log').add({
-    ...entry,
-    at: FieldValue.serverTimestamp(),
+export function getCallable<Req, Res>(name: string): HttpsCallable<Req, Res> {
+  return httpsCallable<Req, Res>(functions, name);
+}
+```
+
+**주의**: `firebase.ts` 에 이미 `getFunctions` 초기화가 있으면 중복하지 말고 `firebase.ts` 를 확장. 확장한 경우 이 파일은 얇게.
+
+#### 2. TanStack Query 훅
+
+`packages/web/src/api/usersList.ts`:
+
+```ts
+import { useQuery } from '@tanstack/react-query';
+import { getCallable } from './functions';
+
+export interface UserItem {
+  email: string;
+  firstName: string;
+  lastName: string;
+  orgUnitPath: string;
+  isAdmin: boolean;
+  isSuspended: boolean;
+}
+
+interface UsersListResponse {
+  users: UserItem[];
+}
+
+const call = getCallable<{}, UsersListResponse>('usersList');
+
+export function useUsersList(enabled = true) {
+  return useQuery({
+    queryKey: ['users', 'list'],
+    queryFn: async () => (await call({})).data,
+    enabled,
+    staleTime: 60_000,
+    retry: 1,
   });
 }
 ```
 
-이 함수 **하나만** `audit_log` 컬렉션에 접근한다. 다른 자리에서 `.collection('audit_log')` 를 부르면 ESLint 에서 실패.
+**Google 액세스 토큰 · 스코프 헤더**:
+Firebase Functions 클라이언트 SDK 의 `httpsCallable` 은 `Authorization: Bearer <ID토큰>` 을 자동으로 붙이지만 커스텀 헤더를 안 붙인다. 서버 미들웨어가 요구하는 `X-Google-Access-Token` · `X-Google-Scopes` 를 붙이려면 다음 중 하나:
+- 옵션 A — `httpsCallable` 옵션의 `context` 사용 (일부 SDK 버전은 미지원). 시도 후 실패 시 옵션 B.
+- 옵션 B — 클라이언트 SDK 를 우회하고 `fetch()` 로 직접 `POST` (endpoint URL 은 `functions/{region}/{name}`). Authorization 은 `getIdToken()` 으로. 커스텀 헤더 자유.
 
-#### 2. ESLint AST 규칙
-
-저장소 루트 (또는 functions 패키지) 에 ESLint 설정. `no-restricted-syntax` 로:
-
-- 금지: `CallExpression[callee.property.name='collection'][arguments.0.value='audit_log']`
-  · 즉 `xxx.collection('audit_log')` 리터럴 호출.
-- 예외: `packages/functions/src/audit/writeAudit.ts` (override 로 이 파일만 허용).
-- 추가 금지: **비리터럴** 컬렉션 경로 — `xxx.collection(variable)` · `xxx.collection(\`...\`)` — 동적 우회 방지. (`DESIGN_v1.md` §5).
-
-**로컬 실증** — 다른 파일에 `firestore.collection('audit_log').add(...)` 를 임시로 넣어 `pnpm lint` 가 실패하는지 확인. 확인 후 임시 코드 되돌리기. 이 실증 결과를 보고에 포함.
-
-#### 3. 인증·권한 미들웨어
-
-`packages/functions/src/authz/middleware.ts`:
-
-- `authenticateRequest(request)` 시그니처:
-  ```ts
-  export async function authenticateRequest(request: CallableRequest): Promise<{
-    email: string;
-    role: 'super_admin' | 'admin' | 'teacher';
-    googleAccessToken: string;
-  }>;
-  ```
-  - Firebase ID 토큰 검증 (`request.auth`) → E1 (이메일)
-  - `X-Google-Access-Token` 헤더 추출 → tokeninfo 조회 → E2, scopes[]
-  - E1 ≠ E2 시 `HttpsError('unauthenticated', 'token_subject_mismatch')`
-  - `request.auth.token.role` 이 `'super_admin'|'admin'|'teacher'` 중 하나가 아니면 `HttpsError('failed-precondition', 'role_not_assigned')`
-  - 반환
-
-- `assertHasCap(user, cap)`:
-  - `@school-app/shared` 의 `ROLE_CAPABILITIES` 매트릭스 조회
-  - 없으면 `HttpsError('permission-denied', cap)`
-
-#### 4. Google Directory client
-
-`packages/functions/src/google/directoryClient.ts`:
+**옵션 B 를 채택**. 클라이언트 SDK 의 `httpsCallable` 을 쓰지 않고 얇은 fetch 헬퍼를 만들어라. 예:
 
 ```ts
-import { google } from 'googleapis';
+async function callUsersList(): Promise<UsersListResponse> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('not_authenticated');
+  const idToken = await user.getIdToken();
 
-export function getDirectoryClient(accessToken: string) {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
-  return google.admin({ version: 'directory_v1', auth });
+  // Google access token 은 로그인 시 획득해 세션에 저장해 둔 값 사용
+  // (첫 슬라이스 lib/auth.tsx 에서 GoogleAuthProvider.credentialFromResult 로 얻은 accessToken)
+  const googleAccessToken = getGoogleAccessTokenFromSession(); // 신설 헬퍼
+
+  const url = import.meta.env.DEV
+    ? `http://127.0.0.1:5001/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/asia-northeast3/usersList`
+    : `https://asia-northeast3-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/usersList`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+      'X-Google-Access-Token': googleAccessToken,
+      'X-Google-Scopes': 'https://www.googleapis.com/auth/admin.directory.user.readonly',
+      'X-Request-Id': crypto.randomUUID(),
+    },
+    body: JSON.stringify({ data: {} }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error?.message ?? `http_${res.status}`);
+  }
+  const body = await res.json();
+  return body.result ?? body;
 }
 ```
 
-**주의** — 서비스 계정 아님. 사용자 OAuth 액세스 토큰. `DESIGN_v1.md` §2·§4 의 원칙.
+**Google 액세스 토큰 저장** — `packages/web/src/lib/auth.tsx` 의 `signInWithGoogle` 이 반환한 credential 에서 `GoogleAuthProvider.credentialFromResult(result)?.accessToken` 을 획득. **`sessionStorage` 나 컨텍스트** 로 짧게 보관 (localStorage 금지 — `firebase_layout.md` §7). 개발 emulator 모드에서는 임의 값 (`'emulator-fake-token'`) 을 넣어 둔다.
 
-#### 5. `users.list` callable
+##### 개발 모드 (Emulator) 처리
+- Emulator 에서는 실 Google access token 이 없다.
+- `signInWithEmulator()` 성공 시 `sessionStorage.setItem('googleAccessToken', 'emulator-fake-token')` 설정.
+- 서버 미들웨어는 `FIREBASE_AUTH_EMULATOR_HOST` 감지 시 tokeninfo 우회 (이미 구현). 스코프는 `X-Google-Scopes` 헤더로 명시.
 
-`packages/functions/src/callable/users/list.ts`:
+#### 3. 표 컴포넌트
 
-```ts
-export const usersList = onCall({ region: 'asia-northeast3' }, async (request) => {
-  const user = await authenticateRequest(request);
-  const requestId = (request.rawRequest.headers['x-request-id'] as string) ?? crypto.randomUUID();
+`packages/web/src/routes/admin/AccountsTable.tsx`:
 
-  try {
-    assertHasCap(user, 'users.read');
-  } catch (err) {
-    await writeAudit({
-      actor: user.email, role: user.role,
-      action: 'users.read', target: '*',
-      request_id: requestId, result: 'denied',
-      message: (err as Error).message,
-    });
-    throw err;
-  }
+- shadcn/ui Table 컴포넌트 사용.
+- 컬럼: **Email · 이름 · 조직 단위 · 관리자 · 정지**
+- `useUsersList()` 로 데이터 취득. `isLoading`·`error`·`data` 처리.
+- 에러 표시는 사용자 친화적 (권한 부족 시 「이 기능은 관리자만 사용할 수 있습니다」).
+- 빈 상태: 「계정이 없습니다」.
+- **정렬·필터·페이지네이션은 이 오더 밖** — 데이터 크기 커지면 다음 슬라이스.
 
-  try {
-    const directory = getDirectoryClient(user.googleAccessToken);
-    const results: any[] = [];
-    let pageToken: string | undefined;
+#### 4. `/admin` 페이지
 
-    do {
-      const res = await directory.users.list({
-        customer: 'my_customer',
-        maxResults: 100,
-        pageToken,
-        orderBy: 'email',
-      });
-      results.push(...(res.data.users ?? []).map(u => ({
-        email: u.primaryEmail ?? '',
-        firstName: u.name?.givenName ?? '',
-        lastName: u.name?.familyName ?? '',
-        orgUnitPath: u.orgUnitPath ?? '',
-        isAdmin: u.isAdmin ?? false,
-        isSuspended: u.suspended ?? false,
-      })));
-      pageToken = res.data.nextPageToken ?? undefined;
-    } while (pageToken);
+- 기존 껍데기 페이지에 표 삽입.
+- 페이지 상단 제목 유지, 표를 본문으로.
+- 라우팅은 이미 있음. `RoleGuard` 는 admin 이상만 통과 — 확인.
 
-    await writeAudit({
-      actor: user.email, role: user.role,
-      action: 'users.read', target: '*',
-      request_id: requestId, result: 'ok',
-      message: `listed ${results.length} users`,
-    });
+#### 5. 테스트
 
-    return { users: results };
-  } catch (err) {
-    await writeAudit({
-      actor: user.email, role: user.role,
-      action: 'users.read', target: '*',
-      request_id: requestId, result: 'error',
-      message: (err as Error).message,
-    });
-    throw new HttpsError('unknown', (err as Error).message);
-  }
-});
-```
+**단위**:
+- `useUsersList.test.ts` — `getCallable` mock, `QueryClientProvider` wrapper. 성공·실패·로딩 세 상태.
+- `AccountsTable.test.tsx` — `useUsersList` mock 으로 각 상태 렌더 검증.
+  - 로딩 → 로딩 표시
+  - 에러 → 에러 메시지
+  - 빈 데이터 → 빈 메시지
+  - 정상 두 행 → 두 행 렌더
 
-### 6. 테스트
-
-**순수 단위** (mock):
-- `writeAudit.test.ts` — Firestore mock 으로 `add()` 가 정확한 스키마로 불리는지.
-- `usersList.test.ts` — Auth·Firestore·googleapis 모두 mock. 케이스:
-  - `admin` 이 부르면 목록 반환 + writeAudit `ok`
-  - `teacher` 가 부르면 `permission-denied` + writeAudit `denied`
-  - 두 페이지 페이지네이션 정상
-  - googleapis 실패 → writeAudit `error` + `HttpsError('unknown')`
-
-**에뮬레이터 통합**:
-- `writeAudit.emu.test.ts` — 실 Firestore Emulator 에 add → collection query 로 필드 정확성 확인.
-- `usersList.emu.test.ts`:
-  1. REST signUp 으로 `admin-emu@cam.hs.kr` 생성 → blocking trigger 가 role='teacher' 로 심음
-  2. 헤드 admin SDK 로 `setCustomUserClaims(uid, { role: 'admin' })` 로 승격 (테스트 목적)
-  3. `getIdToken(true)` 대신 REST 로 `signInWithPassword` 호출해 새 idToken 받음
-  4. `googleapis` 를 `vi.mock` 으로 대체해서 `users.list` 가 가짜 페이지 반환하도록
-  5. `usersList` callable 을 emulator functions HTTPS URL 로 fetch POST — `Authorization: Bearer <idToken>`, `X-Google-Access-Token: fake-google-token`
-     · URL 예: `http://127.0.0.1:5001/demo-school/asia-northeast3/usersList`
-     · Body: `{ data: {} }` (Callable 규격)
-  6. 응답 검증: `users` 배열 정확
-  7. Firestore `audit_log` 에 `action: 'users.read', result: 'ok'` 문서 하나 있는지 조회
-
-- **주의** — tokeninfo 는 실 Google 서버 호출이라 emulator 에서 실패한다. 미들웨어에 **테스트 우회 스위치** 를 넣는 대신, **환경변수** (`FIREBASE_AUTH_EMULATOR_HOST` 설정 시) 에서는 tokeninfo 건너뛰고 헤더의 access token 을 신뢰. 프로덕션에서는 항상 tokeninfo.
-  - 이 우회를 명시 주석으로. `TODO(v1.1): tokeninfo mock server 도입`.
-
-### 7. CI 정합
-
-- `pnpm test:emu` 는 자동으로 `*.emu.test.ts` 를 다 실행 (기존 `vitest.emu.config.ts` 그대로).
-- `pnpm -r lint` 는 ESLint 통과 필수.
+**통합**: 이 오더 밖 (실 emulator + 실 usersList 는 다음 오더).
 
 ### 완료 확인 방법
 
-1. `pnpm install` — googleapis, eslint 관련 devDep 정합.
-2. `pnpm -r build` — 세 패키지 통과.
-3. `pnpm -r lint` — 통과. **실증**: 임시로 audit_log 접근 코드 삽입 → lint 실패 → 되돌림. 실증 결과 보고에 포함.
-4. `pnpm -r test` — 기존 21 + 새 단위 통과.
-5. `pnpm test:emu` — 기존 5 + `writeAudit.emu.test.ts` (2~3 케이스) + `usersList.emu.test.ts` (허용·거부 최소 2 케이스) 통과.
-6. **작업 브랜치 push**: `git push -u origin feat/users-list` (또는 유사 이름) 성공. 브랜치 이름을 보고에 명시.
+1. `pnpm install` — 새 devDep (`@tanstack/react-query`, shadcn table 종속) 정합.
+2. `pnpm -r build` 통과.
+3. `pnpm -r lint` 통과.
+4. `pnpm -r test` — 새 UI 테스트 통과. 기존 31 + web 5 (routes 3 · auth 2) → 신규 훅·표 테스트로 40+ 목표.
+5. `pnpm --filter @school-app/web dev` 로 웹 뜨는지 확인 (실행 자체만).
+6. 프로덕션 빌드 시 emulator 접속 코드가 제거되는지 확인 (`import.meta.env.DEV` gate). grep 결과 보고.
 
 ### 판정 불가로 두는 것
 
-- **실 Google Admin Directory API 호출** — 다음 오더 UI + 사용자 콘솔 조치 후 헤드가 실측.
-- **CI 실행 결과** — 원격 실행은 사용자 관찰.
+- **실 emulator 에서 로그인 → `/admin` 도달 → 표에 실 데이터** — 이 자리 Java 부재로 미실행. 헤드 또는 사용자가 실측.
+- **실 Google Admin Directory 목록** — 사용자 콘솔 조치 (OAuth 도메인 · Identity Platform) 후 실측.
 
-### 다음 오더 (참고, 이 오더 밖)
+### 커밋 규칙
 
-- 계정 목록 UI (`/admin/accounts` 페이지 · TanStack Query 훅 · shadcn/ui Table)
-- 실 로그인 시험 통합
+**최소 2~3 커밋 분리** (지난 오더는 단일 커밋으로 리뷰 부담 큼):
+1. `feat(web): Functions 클라이언트 헬퍼 + Google access token 세션 헬퍼`
+2. `feat(web): useUsersList 훅 + fetch 기반 callable 호출`
+3. `feat(web): 계정 목록 표 컴포넌트 + /admin 화면 통합`
+
+각 커밋 conventional commits. `git add -A` 금지, 파일 명시.
+
+**작업 브랜치 원격 push 필수** — `git push -u origin feat/accounts-ui` (또는 유사).
 
 ## 상태 보고 (필수)
 
-완료 시 다음을 `#general` 스레드에 **`@Claude Code_Honey` 포함해서** 보고:
-- **원격 브랜치 이름** (필수 — 지난 오더 무push 실수 재발 방지)
+완료 시 `#general` 스레드에 `@Claude Code_Honey` 포함하여:
+- 원격 브랜치 이름
 - 마지막 커밋 해시
-- `git status` 결과
-- 완료 확인 각 항목의 결과 (통과·실패·판정불가)
-- **ESLint 실증 결과** (규칙 위반 코드 삽입 시 실패 확인)
-- 오더와 다르게 진행한 부분
+- `git status`
+- 완료 확인 각 항목 결과
+- prod 빌드 grep 결과 (emulator 코드 미포함 확인)
+- 오더 대비 차이
 
-**push 없이 보고하면 재작업**.
+push 없이 보고 시 재작업.
