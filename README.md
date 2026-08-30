@@ -26,8 +26,11 @@ pnpm install
 # 전체 패키지 빌드
 pnpm build
 
-# 전체 테스트 실행
+# 전체 테스트 실행 (단위 테스트)
 pnpm test
+
+# Functions 에뮬레이터 통합 테스트 실행
+pnpm test:emu
 ```
 
 ### 2. 로컬 에뮬레이터 실행
@@ -41,7 +44,7 @@ pnpm emu
 
 - Emulator UI: `http://localhost:4000`
 - Auth Emulator: `http://localhost:9099`
-- Firestore Emulator: `http://localhost:8080`
+- Firestore Emulator: `http://localhost:8085`
 - Functions Emulator: `http://localhost:5001`
 
 ### 3. 웹 프론트엔드 개발 서버
@@ -51,3 +54,16 @@ pnpm --filter @school-app/web dev
 ```
 
 - Web Dev Server: `http://localhost:5173`
+
+### 4. 로컬 에뮬레이터 시험 흐름
+
+```bash
+# 1. 다른 터미널에서 에뮬레이터 실행
+pnpm emu
+
+# 2. 웹 개발 서버 실행
+pnpm --filter @school-app/web dev
+
+# 3. 브라우저에서 http://localhost:5173 접속 -> 「개발 환경 에뮬레이터 로그인」 에서 test@cam-t.kr 로 로그인
+# 4. /teacher 대시보드 화면 도달 및 Emulator UI(http://localhost:4000) 에서 users/{uid} 문서 생성 확인
+```
