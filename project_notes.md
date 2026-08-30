@@ -367,3 +367,45 @@
 2. `docs(handoff): 첫 화면 오더 (모노레포 뼈대 + 로그인)` — Antigravity 오더 파일.
 
 Antigravity 호출은 스레드에서 `@Antigravity` 로.
+
+---
+
+## 2026-08-31 · 첫 슬라이스 · Antigravity 4 커밋 + Codex 첫 감사 + 헤드 반영
+
+**Antigravity 첫 오더 (기준 `1c497e5`, 오더 `cb1abd9`)** — 네 커밋 조용히 만들고 스레드 보고 미실행. `33c4503` shared, `2e66d7b` functions, `b02dc66` web, `b12fc28` infra. 사용자 `629d3c4e3f25` "반응이 없는데?" 신호로 헤드가 실물 확인 후 처리.
+
+**헤드 기계 관문 재확인 (HEAD `b12fc28`)** — `pnpm install` · `pnpm -r build` · `pnpm -r lint (tsc --noEmit)` · `pnpm -r test` (shared 5 · web 3 · functions 5, 총 13) 모두 통과. 트리 깨끗.
+
+**Codex 첫 코드 감사** — Buzz `0b11e377e66b`, 대상 `b12fc28`. 14 항목 (9 통과 · 5 실패).
+
+**실패 5건 전건 재확인**:
+
+| 항목 | 재확인 결과 | 처리 |
+|---|---|---|
+| `onUserCreate.ts:48` v1 사용 (2gen 요구) | **사실** — `firebase-functions/v1` 임 | 다음 오더로 이월 (`beforeUserCreated` 마이그레이션) |
+| `getMe.ts:15` 도메인·역할 검증 없음, teacher 기본값 | **사실** — 알 수 없는 role 도 teacher 로 넘어감. 도메인 검증 없음 | **헤드 직접 반영** (안전 자리) |
+| `onUserCreate.test.ts:13` 전부 Vitest mock | **사실** — 에뮬레이터 흐름 미검증 | 다음 오더로 이월 |
+| `auth.tsx:18` Emulator 사용자 로그인 경로 없음 | **사실** — signInWithPopup 만 있음 | 다음 오더로 이월 |
+| `README.md:37` `npx firebase` 재현성 없음 | **사실** — firebase-tools 미고정 | **헤드 직접 반영** |
+
+**헤드 반영 커밋**:
+- `5ebbd5b` fix(functions): getMe strict domain/role validation
+  - `handleGetMe` pure handler 분리
+  - `unauthenticated` (인증 없음) · `permission-denied` (도메인 다름) · `failed-precondition` (role 미부여). teacher 기본값 폐기
+  - 테스트 3 → 8 케이스
+- `131508c` chore: pin firebase-tools + pnpm 빌드 승인
+  - `pnpm emu` 스크립트 신설 + `firebase-tools ^13.29.1` devDep 고정
+  - `.npmrc` `dangerously-allow-all-builds=true` (pnpm 11 빌드 승인, re2 등)
+  - README `pnpm emu` 로 갱신
+
+**전체 build/test 재확인 (HEAD `131508c`)** — functions 테스트 11 통과 (3 + 8), 전체 통과. `pnpm exec firebase --version` = `13.35.1` 확인.
+
+**Codex 재감사 파견** — `01c8757146fd`. 병합 가능 판정 대기.
+
+**다음 오더에 담을 이월 3건 + 신규 슬라이스**:
+1. `onUserCreate` v1 → v2 (`beforeUserCreated` blocking trigger)
+2. 함수 테스트 mock → Firebase Emulator 통합 테스트 (`onUserCreate` 실 트리거 wiring 시험 포함)
+3. `packages/web/src/lib/auth.tsx` 에 Emulator 사용자 로그인 경로 추가 (실 도메인 로그인은 헤드가 별도)
+4. 신규: 첫 실 관리 기능 (예: `users.list` 서버 함수 + 계정 목록 UI) — 서비스 계정 준비 후에
+
+**Antigravity 로그 규율** — 커밋 후 스레드 보고를 하지 않는 문제. 다음 오더의 「상태 보고」 절을 더 크게 강조하거나 헤드가 `git log` 로만 파악하도록 규칙 명시.
