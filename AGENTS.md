@@ -8,19 +8,22 @@
 
 Google Sheets 위에서 돌던 두 개의 Apps Script(계정관리·클래스룸관리) 를 파이어베이스 기반 웹앱으로 옮긴다.
 
-- **관리자가 시트를 열지 않고** 웹 UI 에서 워크스페이스 계정·그룹·챗방·클래스룸을 만든다·바꾼다·지운다.
+- **관리자·교사·조회자가 시트를 열지 않고** 웹 UI 에서 워크스페이스 계정·그룹·챗방·클래스룸을 만든다·바꾼다·지운다.
 - 파이어베이스는 호스팅·DB·로그인·서버 함수를 맡는다.
-- **실제 워크스페이스 조작은 서버 함수가 서비스 계정(도메인 위임)으로 Google Admin·Classroom·Chat API 를 부른다** — 이 부분은 파이어베이스로 대체 불가.
+- **인증 모델 = ⓑ 로그인 사용자 OAuth**. 지금 시트 스크립트와 같은 모델 — **로그인한 사람의 OAuth 토큰**으로 Google Admin·Classroom·Chat API 를 부른다. **서비스 계정·도메인 전체 위임·JSON 키 없음.** 관리자만 관리자 일을 할 수 있고, 교사는 자기 권한 안에서 자기 클래스룸을 관리한다.
+- 자세한 설계: `docs/design/roles.md`, `docs/design/firebase_layout.md`.
 
-원본 스크립트: `RESEARCH/school-webapp/source/` (읽기 전용 참고). 기능 목록: `RESEARCH/school-webapp/FEATURES_CATALOG.md`.
+원본 스크립트: 저장소 밖(`WORKSPACE/RESEARCH/school-webapp/source/`). 기능 목록: `WORKSPACE/RESEARCH/school-webapp/FEATURES_CATALOG.md`.
 
 ## 2. 세 자리
 
-| 자리 | 하는 일 | 부르는 사람 |
+| 자리 | 하는 일 | 부르는 방법 |
 |---|---|---|
-| **Claude Code_Honey** (헤드) | 방향·설계·판정, 위험한 일(보안·삭제·배포) 직접 | 사람이 말로 |
-| **Antigravity** (일꾼) | 화면·기능·대량 수정 — 만드는 일 | 헤드가 `NEXT.md` 로 |
-| **Codex** (감사) | 커밋을 읽고 「여기 이상하다」를 항목으로 | 헤드가 CLI 로 |
+| **Claude Code_Honey** (헤드) | 방향·설계·판정, 위험한 일(보안·삭제·배포) 직접 | 사람이 Buzz `#general` 에서 `@mention` |
+| **Antigravity** (일꾼) | 화면·기능·대량 수정 — 만드는 일 | 헤드가 Buzz `@mention` + `docs/handoff/NEXT.md` 를 커밋해 두고 그 커밋 해시를 넘김 |
+| **Codex** (감사) | 커밋을 읽고 「여기 이상하다」를 항목으로 | 헤드가 Buzz `@mention` + 대상 커밋 해시 + 다섯 줄 규약 |
+
+이 저장소의 세 자리는 **Buzz 릴레이 위의 에이전트**다. 원 가이드의 `agy`/`codex exec` CLI 호출은 이 채널에서는 **`buzz messages send --mention`** 로 대체된다. 「완료했다」는 여전히 증거가 아니다 — **커밋 해시와 `git log` 가 증거**.
 
 **원칙 한 줄: 자기 작업을 자기가 승인하지 않는다.**
 

@@ -9,8 +9,11 @@
 |---|---|---|---|
 | 인증 모델 = ⓑ 로그인 사용자 OAuth 확정 (헤드가 ⓑ 를 전제로 진행 중) | 사용자 | 이의 없으면 확정 | 사용자가 채널에서 「ⓐ 로 가라」또는 「그대로 ⓑ」명시. 되돌리기 어려워지기 전(다음 코드 커밋 전) 회신 필요 |
 | Google Cloud 프로젝트 생성 + Admin SDK·Classroom·Chat API 활성화 + OAuth 2.0 웹 클라이언트 발급 | 사용자 | 답 대기 | 프로젝트 ID · OAuth 클라이언트 ID 를 채널에 붙임 |
-| 역할·권한 매트릭스 설계 | 헤드 | 대기 (인증 모델 확정 후) | `docs/design/roles.md` 존재 · 감사 통과 항목 있음 |
-| Firebase 프로젝트 구조 설계 (functions·web·firestore·hosting) | 헤드 | 대기 (인증 모델 확정 후) | `docs/design/firebase_layout.md` 존재 · 감사 통과 |
+| 역할·권한 매트릭스 설계 초안 | 헤드 | 초안 v0.1 커밋됨 | `docs/design/roles.md` 존재. 감사 통과 여부는 미결 |
+| Firebase 프로젝트 구조 설계 초안 | 헤드 | 초안 v0.1 커밋됨 | `docs/design/firebase_layout.md` 존재. 감사 통과 여부는 미결 |
+| 두 설계 초안 감사 (Codex) | 감사 | 대기 | 감사 결과가 `docs/reviews/` 에 커밋됨 · 다섯 줄 규약 준수 · `파일:줄` 근거 |
+| 감사 결과 반영 → 설계 v1.0 확정 | 헤드 | 대기 (감사 후) | 설계 v1.0 커밋 · STATUS 에 확정 표기 |
+| 첫 화면 (로그인 + 역할별 첫 화면 껍데기) 오더 → Antigravity | 헤드 | 대기 (설계 확정 후) | `docs/handoff/NEXT.md` 갱신, Antigravity 에게 채널 지시 |
 
 ## 되돌리지 않은 임시 변경
 
