@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 export interface DirectoryClient {
   users: {
     list: (params?: any) => Promise<{ data: any }>;
+    insert: (params: { requestBody: any }) => Promise<{ data: any }>;
+    delete: (params: { userKey: string }) => Promise<{ data: any }>;
+    get: (params: { userKey: string }) => Promise<{ data: any }>;
   };
 }
 
@@ -41,6 +44,50 @@ function getStubClient(): DirectoryClient {
   return {
     users: {
       list: async () => readStubResponse(),
+      insert: async (params: { requestBody: any }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.insert) {
+          return { data: stub.data.insert };
+        }
+        return {
+          data: {
+            id: 'stub-uid-' + Date.now(),
+            primaryEmail: params?.requestBody?.primaryEmail,
+            name: params?.requestBody?.name,
+            orgUnitPath: params?.requestBody?.orgUnitPath,
+            isAdmin: false,
+            suspended: false,
+          },
+        };
+      },
+      delete: async () => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.delete) {
+          return { data: stub.data.delete };
+        }
+        return { data: {} };
+      },
+      get: async (params: { userKey: string }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.get) {
+          return { data: stub.data.get };
+        }
+        if (stub.data && Array.isArray(stub.data.users)) {
+          const found = stub.data.users.find(
+            (u: any) => u.primaryEmail === params?.userKey || u.id === params?.userKey,
+          );
+          if (found) {
+            return { data: found };
+          }
+        }
+        return {
+          data: {
+            primaryEmail: params?.userKey,
+            isAdmin: false,
+            suspended: false,
+          },
+        };
+      },
     },
   };
 }
