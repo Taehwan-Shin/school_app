@@ -1,9 +1,10 @@
-# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.2)
+# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.3)
 
-> **상태**: 초안. Codex 감사 1차 반영 완료 (커밋 `7ab9c1a` 감사 → 이 문서). 사용자 확인 전.
+> **상태**: 초안. Codex 감사 2차 반영 완료 (커밋 `ab80bb8` 재감사 → 이 문서). 사용자 확인 전.
 > 인증 모델 = ⓑ 로그인 사용자 OAuth. 서비스 계정·도메인 위임 없음. 자세한 이유는 `AGENTS.md` §1.
 >
-> **v0.2 변경점**: (1) §4 액세스 토큰 갱신 오해 정정 (Firebase ID 토큰 ≠ Google 액세스 토큰). (2) §4 스코프 목록에 Gmail 발송·`chat.admin.*` 추가. (3) §5 Firestore rules — 「전면 함수 경유」 대신 컬렉션별 접근 정책. (4) §6 인증 미들웨어에 대상 자원 검증 층 추가. (5) §7-1 함수 리전 확정 `asia-northeast3`. (6) §7-3 Chat 관리자 삭제는 사용자 OAuth 로 가능 (`useAdminAccess=true`).
+> **v0.3 변경점** (감사 2차): (1) §1·§2 리전 자기모순 정정 — `asia-northeast3` 로 일관. (2) §4 스코프에 `chat.admin.delete` 추가. (3) §4 인증 흐름에 **토큰 주체 대조** 절 신설 — Firebase ID 토큰 이메일 == Google 액세스 토큰 이메일 검증. (4) §4 세션 수명 절 재작성 — Cloud Tasks 로 큐잉하는 모델은 서버가 토큰을 못 가지므로 폐기, **브라우저 주도 청크 처리**로 확정. (5) §5 `basic_data/current` 를 두 갈래로 분리 — 공개 구조 vs 학생 명단(민감).
+> **v0.2 변경점** (감사 1차): (1) §4 토큰 갱신 오해 정정. (2) §4 스코프에 Gmail·`chat.admin.*` 추가. (3) §5 컬렉션별 rules. (4) §6 미들웨어 3층. (5) §7 리전 확정. (6) §7 Chat 관리자 = 사용자 OAuth.
 
 ## 1. 큰 그림
 
@@ -23,9 +24,9 @@
                ▼                              ▼
 ┌──────────────────────┐        ┌──────────────────────────────────┐
 │ Google Admin/Chat/   │        │  Cloud Functions (2세대, TS)      │
-│ Classroom API        │        │  us-central1                      │
+│ Classroom/Gmail API  │        │  asia-northeast3 (서울)          │
 │ (사용자 권한으로)     │◀───────│  - google-api-nodejs-client       │
-└──────────────────────┘        │  - 배치 작업 큐 (Cloud Tasks)     │
+└──────────────────────┘        │  - 청크 작업 프록시 (브라우저 주도) │
                                 │  - Firestore 트리거 (감사 로그)   │
                                 └────────┬─────────────────────────┘
                                          │
@@ -45,7 +46,7 @@
 
 - **프로젝트 ID**: 사용자가 정함. 예: `school-app-hmh`
 - **위치**: `asia-northeast3` (서울). Firestore·Storage 위치.
-- **Cloud Functions**: 2세대 (`us-central1` 로 강제 → **한국에서 지연** — 아래 §7 참조)
+- **Cloud Functions**: 2세대 (`asia-northeast3` 서울 리전 — Firestore 와 같은 리전, 왕복 지연 최소화)
 - **결제**: Blaze 필요 (Cloud Functions 외부 호출 = Google API 라 무료 tier 로 안 됨)
 
 ## 3. 저장소 폴더 구조
@@ -112,14 +113,19 @@ school_app/
    · https://www.googleapis.com/auth/classroom.courses
    · https://www.googleapis.com/auth/chat.spaces
    · https://www.googleapis.com/auth/chat.memberships
-   · https://www.googleapis.com/auth/chat.admin.spaces          # useAdminAccess=true
-   · https://www.googleapis.com/auth/chat.admin.memberships     # useAdminAccess=true
+   · https://www.googleapis.com/auth/chat.admin.spaces          # useAdminAccess=true, 관리자 스페이스 조회·설정
+   · https://www.googleapis.com/auth/chat.admin.memberships     # useAdminAccess=true, 관리자 멤버 조작
+   · https://www.googleapis.com/auth/chat.admin.delete          # useAdminAccess=true, 관리자 스페이스 삭제
    · https://www.googleapis.com/auth/gmail.send                 # 계정 삭제 안내 메일 (sendMailtoUsers)
 3. Firebase Auth → 사용자에게 동의 화면 → **Google OAuth 액세스 토큰 발급** (1시간 만료)
 4. 로그인 후 클라이언트가 Firebase Functions 호출 시:
    · onAuthStateChanged → getIdToken() → Authorization: Bearer <Firebase ID 토큰>
-   · Google 액세스 토큰은 별도로 함수에 넘김 (`X-Google-Access-Token` 헤더 등)
-   · Cloud Function 은 (a) Firebase ID 토큰 검증, (b) 액세스 토큰의 스코프 재확인
+   · Google 액세스 토큰은 별도로 함수에 넘김 (`X-Google-Access-Token` 헤더)
+   · Cloud Function 은 다음 순서로 검증:
+      (a) Firebase ID 토큰 검증 (`admin.auth().verifyIdToken`) → email E1
+      (b) Google 액세스 토큰의 `tokeninfo` 조회 → email E2, scopes[]
+      (c) **E1 == E2 인지 확인** — 두 토큰의 주체가 다르면 즉시 401 + 감사 로그 `result: "token_subject_mismatch"`. 이유: 이 검증이 없으면 사용자가 A 로 Firebase 로그인하고 B 의 액세스 토큰을 함수에 넘겨 **A 이름으로 감사 남기고 B 권한으로 API 를 태울 수 있다.**
+      (d) 이 함수가 요구하는 스코프가 scopes[] 에 다 있는지 확인
 5. Cloud Function 은 그 액세스 토큰으로 Admin/Classroom/Chat/Gmail API 호출
 ```
 
@@ -130,13 +136,26 @@ school_app/
 | **Firebase ID 토큰** | Firebase Auth | 1시간 | 클라이언트가 `getIdToken(true)` — **자동, 무제한** | Firebase Functions 인증. Firestore rules. |
 | **Google OAuth 액세스 토큰** | Google OAuth | 1시간 | ⚠️ **Firebase Auth 는 리프레시 토큰을 노출하지 않음** — 만료되면 **재로그인 필요** (Google 팝업) 또는 서버 측 OAuth 재발급 흐름 별도 구축 | AdminDirectory·Classroom·Chat·Gmail API 호출 |
 
-**세션 수명의 실전 의미**:
+**세션 수명의 실전 의미 (v0.3 재작성 — Cloud Tasks 모델 폐기)**:
+
+원 초안은 「Cloud Tasks 로 큐잉하고 브라우저가 다음 조각을 민다」였는데 **모순**이다. Cloud Tasks 는 서버가 큐에서 작업을 꺼내 실행하는 모델이라, **작업이 실행되는 순간 서버는 유효한 액세스 토큰을 갖고 있어야** 한다. 브라우저가 재인증해도 그 토큰이 큐에 있는 작업까지 전달되지 않는다.
+
+**대신 확정한 모델 = 브라우저 주도 청크 처리**:
+
 - 사용자가 로그인하고 1시간 안에 하는 작업은 문제없다.
-- 1시간 뒤 다음 관리 동작을 시도하면 **Google API 가 401** — 클라이언트가 재인증 팝업을 띄우고 새 액세스 토큰을 받아 재시도한다.
-- **대용량 배치 (예: 1,000 계정 일괄 생성)** 는 1시간 안에 끝나지 않으면 중간에 401. **처리 절차**: (a) 배치를 Cloud Tasks 로 잘게 쪼개서 각 조각이 몇 초 이내에 끝나게 하고, (b) 큐가 소모하는 사이 사용자 세션이 살아 있어야 하며, (c) 만료 시 클라이언트가 조용히 토큰을 재발급받아 다음 조각을 밀어 넣는다. **사용자가 브라우저를 닫으면 배치는 멈춘다** — 남은 조각은 다음 로그인 때 이어감.
-- **정말 사람 없이 도는 배치가 필요해지면** 그때 서버 측 OAuth 흐름을 별도 구축 (Firestore 에 리프레시 토큰 저장). 지금은 필요 없음.
+- 1시간 뒤 다음 관리 동작을 시도하면 **Google API 가 401** → 클라이언트가 재인증 팝업(`signInWithPopup` with `prompt: 'none'` 시도 → 필요하면 `select_account`) 을 띄우고 새 액세스 토큰을 받아 재시도.
+- **대용량 배치 (예: 1,000 계정 일괄 생성)** — 브라우저가 배치를 청크 (예: 20건씩) 로 잘라 순차 호출:
+  · 각 청크는 별도 callable 함수 호출 → 함수는 한 청크만 처리 (수 초 이내)
+  · 브라우저는 청크 사이에서 진행률 표시, 실패 청크는 재시도 큐에 저장 (`work_queues/{id}.errors[]`)
+  · 청크 사이에서 액세스 토큰 만료 시 클라이언트가 조용히 갱신 후 다음 청크 진행
+- **사용자가 브라우저를 닫으면 배치는 멈춘다** — 남은 청크는 `work_queues` 에 「일시중지」로 남고 다음 로그인 때 이어감. 사용자에게 「800/1000 완료, 나머지 200 은 다음 접속 때」로 안내.
+- **정말 사람 없이 도는 배치가 필요해지면** 그때 별도 OAuth 흐름을 구축 (Firestore 암호화 저장한 리프레시 토큰 + 서버 측 갱신). **지금 이 프로젝트에는 필요 없음** — 원본 시트 스크립트도 사용자가 시트를 열어 실행하는 모델이었음.
+
+**함수 배치는 짧게, 큐잉은 클라이언트에서** — 이 원칙을 §6 에 다시 반영.
 
 ## 5. Firestore 컬렉션
+
+**v0.3 변경**: 원 초안의 `basic_data/current` 는 학교 구조·부서 매핑 뿐 아니라 `importInitialStudentData` 가 학생 명단(이름·소속·이메일) 을 채우도록 되어 있었다. 학생 명단은 **개인정보**이므로 별도 컬렉션으로 분리하고 접근을 좁힌다.
 
 ```
 /role_assignments/{email}
@@ -145,11 +164,16 @@ school_app/
     assigned_by: string,
     assigned_at: Timestamp }
 
-/basic_data/current
+/basic_data/current           # 공개 구조만 — 학년/반 이름, 부서 이름, 부서↔OU 매핑
   { school_year: 2026,
-    grades: [{ name, classes: [...] }],
-    departments: [...],
-    ...설정 }
+    grades: [{ name, classes: [...] }],   # 반 목록 (이름만)
+    departments: [{ name, ou_path }],     # 부서 이름·OU 매핑
+    ...공개 설정 }
+
+/student_roster/{class_id}    # 학생 명단 — 관리자·해당 반 담임만
+  { grade: string, class: string,
+    students: [{ name, email, ... }],
+    updated_by: string, updated_at: Timestamp }
 
 /work_queues/{queue_id}
   { type: "bulk_create_accounts" | "bulk_password_reset" | ...,
@@ -177,7 +201,8 @@ school_app/
 
 | 컬렉션 | 클라이언트 직접 읽기 | 클라이언트 직접 쓰기 | 함수 경유 필요 |
 |---|---|---|---|
-| `basic_data/current` | ✅ (로그인 사용자 누구나) | ❌ | 쓰기는 함수로 (관리자만) |
+| `basic_data/current` | ✅ (로그인 사용자 누구나 — 공개 구조만) | ❌ | 쓰기는 함수로 (관리자만) |
+| `student_roster/{class_id}` | ⚠️ **함수 경유만** — 학생 개인정보 | ❌ | 읽기·쓰기 모두 함수 (역할·반 담당 여부 검증) |
 | `role_assignments/{email}` | ✅ (본인 것만: `request.auth.token.email == email`) | ❌ | 쓰기는 함수로 (`super_admin` 만) |
 | `work_queues/{id}` | ✅ (내가 초기화한 것만: `initiated_by == request.auth.token.email`) | ❌ | 쓰기는 함수만 |
 | `audit_log/{id}` | ❌ | ❌ | 함수만. **rules 로 create-only, update·delete 금지** |
@@ -210,15 +235,18 @@ school_app/
 
 **확정**:
 
-1. **함수 리전 = `asia-northeast3`** (Firestore 와 같은 리전, Cloud Functions 2세대 지원 확인). 워크스페이스 API 왕복은 원거리라 지연이 있지만 Firestore 왕복이 훨씬 잦아 이쪽이 유리.
-2. **Chat 관리자 동작 = 사용자 OAuth + `useAdminAccess=true` + `chat.admin.*` 스코프**. 서비스 계정 도메인 위임은 필요 없음. 「모든 챗방 삭제」·「관리자 스페이스 관리」 모두 이 경로.
-3. **세션 수명** — Google 액세스 토큰 1시간, 리프레시는 클라이언트 재인증 팝업 또는 대량 배치는 Cloud Tasks 잘게 쪼개기 (§4).
+1. **함수 리전 = `asia-northeast3`** (Firestore 와 같은 리전, Cloud Functions 2세대 지원 확인). §1·§2·§6 배치도 모두 이 값.
+2. **Chat 관리자 동작 = 사용자 OAuth + `useAdminAccess=true` + `chat.admin.spaces`·`chat.admin.memberships`·`chat.admin.delete` 스코프**. 서비스 계정 도메인 위임 필요 없음. 「모든 챗방 삭제」·「관리자 스페이스 관리」 모두 이 경로.
+3. **세션 수명 / 배치 처리 = 브라우저 주도 청크** — Cloud Tasks 로 큐잉하지 않는다 (서버가 만료된 토큰을 못 가짐). 브라우저가 20건 단위 청크로 함수를 순차 호출, 청크 사이 토큰 만료 시 조용히 갱신. **사용자가 브라우저를 닫으면 배치 일시중지, 다음 로그인 때 이어감.** §4 참조.
+4. **토큰 주체 대조** — 서버는 Firebase ID 토큰의 이메일과 Google 액세스 토큰의 `tokeninfo` 이메일이 **일치하는지 검증**한다. 불일치 시 즉시 거부. §4 참조.
+5. **`basic_data/current` 은 공개 구조만** — 학생 명단은 `student_roster/{class_id}` 로 분리, 함수 경유 + 역할·반 담당 검증. §5 참조.
 
 **미결**:
 
 1. ⚠️ **CSRF·XSS·비밀 관리** — Cloud Functions 는 Firebase Auth ID 토큰 검증으로 CSRF 자동 해결. 액세스 토큰은 브라우저 메모리에만 (`localStorage` 금지). Content-Security-Policy 헤더 설정 필요.
-2. ⚠️ **비용** — Blaze 요금제 필수. 워크스페이스 API 요청 자체는 무료지만 함수 호출·Firestore·아웃바운드 대역폭에 요금. 대량 작업 큐잉으로 폭주 방지.
-3. ⚠️ **Cloud Tasks 사용 여부 정식화** — §4 세션 수명 절이 Cloud Tasks 를 전제로 하는데, 그러면 배치 상태 추적을 위한 `work_queues` 스키마 (§5) 를 Cloud Tasks 라이프사이클과 맞춰야 함. 별도 문서로 정리 예정.
+2. ⚠️ **비용** — Blaze 요금제 필수. 워크스페이스 API 요청 자체는 무료지만 함수 호출·Firestore·아웃바운드 대역폭에 요금. 청크 처리로 함수 호출 수가 늘어남 (배치당 청크 수만큼) → 비용 모니터링 필요.
+3. ⚠️ **`chat.admin.delete` 스코프 실존 검증** — Codex 감사에서 지적. Google Chat API 문서에서 이 스코프 이름 확인이 필요. 다르면 실제 스코프로 교체 (예: `chat.delete`).
+4. ⚠️ **재인증 UX** — 청크 처리 중 만료 시 팝업이 뜨면 팝업 차단·사용자 이탈 위험. `prompt: 'none'` silent refresh 시도 → 실패 시만 팝업. 상세 흐름은 프론트 구현 시 정리.
 
 ## 8. 기술 선택 근거
 

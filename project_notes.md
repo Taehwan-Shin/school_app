@@ -86,3 +86,27 @@
 - `firebase_layout.md`: 헤더 v0.2 · §4 두 토큰 구분 표 + 세션 수명 실전 의미 추가 · §4 스코프 목록에 Gmail·chat.admin.* 추가 · §5 rules 를 컬렉션별 세 층 표로 재구성 · §6 세 층 미들웨어 신설 · §7 확정(asia-northeast3·useAdminAccess=true·세션 수명) 과 미결(CSRF·비용·Cloud Tasks 정식화) 분리.
 
 **다음 걸음** — v0.2 커밋 → Codex 재감사 파견 (회귀 없음 확인). 병렬로 사용자 응답 대기 (역할 구조 · 부서 판별).
+
+---
+
+## 2026-08-30 · Codex 2차 감사 결과 · 전건 재확인
+
+**감사 이벤트** — Buzz `2fa71257c4b8...`, 대상 커밋 `ab80bb8`. 11개 항목 (6 통과 · 5 새 실패).
+
+**통과 6건** — 앞선 10개 실패의 봉인 확인. 유지.
+
+**새 실패 5건 재확인 결과**:
+
+| 항목 | 재확인 결과 | 원인 귀속 |
+|---|---|---|
+| `firebase_layout.md:121` 토큰 주체 대조 없음 | **사실** — Firebase ID 토큰 이메일과 Google 액세스 토큰 tokeninfo 이메일 일치 검증 명시 안 됨 → 사용자 A 로 감사, B 권한으로 API 태우기 가능 | 이번 작업 (감사 1차 반영 시 놓침) |
+| `firebase_layout.md:180` `basic_data/current` 학생 PII 노출 | **사실** — 원본 `importInitialStudentData` 가 학생 명단 채움. 직접 읽기 모든 viewer 허용은 개인정보 노출 | 이번 작업 |
+| `firebase_layout.md:48` 리전 자기모순 | **사실** — §7-1 확정 `asia-northeast3` 이지만 §1 큰 그림·§2 는 여전히 `us-central1` | 이번 작업 (v0.2 반영 불완전) |
+| `firebase_layout.md:115` `chat.admin.delete` 누락 | **사실** (Codex 주장 신뢰 · 실증 필요) | 이번 작업 |
+| `firebase_layout.md:136` Cloud Tasks 모델 모순 | **사실** — Cloud Tasks 는 서버 실행이라 브라우저의 토큰 재발급이 큐 안 작업에 안 닿음. 모델 자체가 부정합 | 이번 작업 (v0.2 반영 시 편의로 붙임) |
+
+**v0.3 반영 상세**:
+- `firebase_layout.md`: 헤더 v0.3 + v0.2 변경점 함께 유지. §1 큰 그림 리전 `asia-northeast3` 로 갱신. §2 마찬가지. §4 인증 흐름 (a)~(d) 로 토큰 주체 대조 절차 명시. §4 스코프에 `chat.admin.delete` 추가 (미결 §3 에 실증 요청). §4 세션 수명 재작성 — **Cloud Tasks 폐기, 브라우저 주도 청크 처리로 확정**. §5 컬렉션 `basic_data/current` 를 공개 구조만 두고 `student_roster/{class_id}` 신설. §5 rules 표에 `student_roster` 행 추가 (함수 경유만). §7 확정 3건 유지 + 확정 2건 추가 (토큰 주체 · student_roster 분리), 미결 재정리.
+- `roles.md`: 이번 라운드 변경 없음 (Codex `roles.md:76` [통과]).
+
+**다음 걸음** — v0.3 커밋 → Codex 3차 감사 파견 (회귀 없음 확인). 통과되면 v1.0 승격 (사용자 역할 구조 확정과 병렬).
