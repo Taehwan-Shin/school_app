@@ -11,13 +11,33 @@ import {
 import { auth } from './firebase';
 import type { Role } from '@school-app/shared';
 
+export function getGoogleAccessTokenFromSession(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.sessionStorage.getItem('googleAccessToken');
+}
+
+export function setGoogleAccessTokenToSession(token: string): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem('googleAccessToken', token);
+}
+
+export function clearGoogleAccessTokenFromSession(): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem('googleAccessToken');
+}
+
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({
     hd: 'cam.hs.kr',
     prompt: 'select_account',
   });
-  return signInWithPopup(auth, provider);
+  const result = await signInWithPopup(auth, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  if (credential?.accessToken) {
+    setGoogleAccessTokenToSession(credential.accessToken);
+  }
+  return result;
 }
 
 export async function signInWithEmulator(email: string): Promise<void> {
@@ -29,9 +49,11 @@ export async function signInWithEmulator(email: string): Promise<void> {
   } catch {
     await createUserWithEmailAndPassword(auth, email, 'password');
   }
+  setGoogleAccessTokenToSession('emulator-fake-token');
 }
 
 export async function signOut() {
+  clearGoogleAccessTokenFromSession();
   return firebaseSignOut(auth);
 }
 
