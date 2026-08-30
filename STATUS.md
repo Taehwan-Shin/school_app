@@ -3,20 +3,14 @@
 > 덮어쓰기 전용. 끝난 항목은 지운다. 이력은 `project_notes.md` 에 있다.
 > **모든 행에 「확인 방법」이 있어야 한다.** 없으면 항목이 아니라 소망이다.
 
-## 봉인 대기
-
-| 항목 | 상태 | 확인 방법 |
-|---|---|---|
-| 원본 스크립트 두 개 읽고 기능 목록 정리 | 완료 | `RESEARCH/school-webapp/FEATURES_CATALOG.md` 존재 · 원본 함수 · 시트 대응 표기 있음 |
-
 ## 열린 항목
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 로그인 대상 결정 (관리자 혼자 vs 교사·부장 각자) | 사용자 | 답 대기 | `AGENTS.md` §1 에 로그인 모델 명기 |
-| 워크스페이스 서비스 계정 유무 확인 | 사용자 | 답 대기 | 서비스 계정 이메일 · Google Cloud 프로젝트 ID 확인, 도메인 위임 스코프 목록 붙임 |
-| 저장소 위치 결정 (Buzz / GitHub) | 사용자 | 답 대기 | `git remote -v` 로 실물 확인 |
-| 프레임워크 뼈대 초안 | 헤드 | 진행 중 (OUTBOX) | `OUTBOX/school-webapp-scaffold/` 에 AGENTS·STATUS·NEXT 초안 존재 |
+| 인증 모델 = ⓑ 로그인 사용자 OAuth 확정 (헤드가 ⓑ 를 전제로 진행 중) | 사용자 | 이의 없으면 확정 | 사용자가 채널에서 「ⓐ 로 가라」또는 「그대로 ⓑ」명시. 되돌리기 어려워지기 전(다음 코드 커밋 전) 회신 필요 |
+| Google Cloud 프로젝트 생성 + Admin SDK·Classroom·Chat API 활성화 + OAuth 2.0 웹 클라이언트 발급 | 사용자 | 답 대기 | 프로젝트 ID · OAuth 클라이언트 ID 를 채널에 붙임 |
+| 역할·권한 매트릭스 설계 | 헤드 | 대기 (인증 모델 확정 후) | `docs/design/roles.md` 존재 · 감사 통과 항목 있음 |
+| Firebase 프로젝트 구조 설계 (functions·web·firestore·hosting) | 헤드 | 대기 (인증 모델 확정 후) | `docs/design/firebase_layout.md` 존재 · 감사 통과 |
 
 ## 되돌리지 않은 임시 변경
 
