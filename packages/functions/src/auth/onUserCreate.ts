@@ -2,7 +2,7 @@ import { beforeUserCreated, HttpsError } from 'firebase-functions/v2/identity';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import type { Role } from '@school-app/shared';
 
-export const ALLOWED_DOMAIN = 'cam-t.kr';
+export const ALLOWED_DOMAIN = 'cam.hs.kr';
 
 export interface UserRecordLike {
   uid: string;

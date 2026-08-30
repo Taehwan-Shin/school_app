@@ -19,10 +19,10 @@ describe('beforeUserCreated blocking trigger (pure handler)', () => {
     createDocMock.mockResolvedValue(undefined);
   });
 
-  it('creates users/{uid} and returns teacher role customClaims for @cam-t.kr', async () => {
+  it('creates users/{uid} and returns teacher role customClaims for @cam.hs.kr', async () => {
     const result = await handleUserCreate({
       uid: 'user-123',
-      email: 'teacher1@cam-t.kr',
+      email: 'teacher1@cam.hs.kr',
       displayName: '홍길동',
     });
 
@@ -34,7 +34,7 @@ describe('beforeUserCreated blocking trigger (pure handler)', () => {
     expect(collectionMock).toHaveBeenCalledWith('users');
     expect(docMock).toHaveBeenCalledWith('user-123');
     expect(createDocMock).toHaveBeenCalledWith({
-      email: 'teacher1@cam-t.kr',
+      email: 'teacher1@cam.hs.kr',
       displayName: '홍길동',
       role: 'teacher',
       createdAt: 'MOCK_TIMESTAMP',

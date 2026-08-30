@@ -8,7 +8,7 @@ export function LoginPage() {
   const { user, role, loading } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [emulatorEmail, setEmulatorEmail] = useState('test@cam-t.kr');
+  const [emulatorEmail, setEmulatorEmail] = useState('test@cam.hs.kr');
 
   if (loading) {
     return (
@@ -53,7 +53,7 @@ export function LoginPage() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-slate-900">학교 워크스페이스 관리</h1>
           <p className="text-sm text-slate-600">
-            Google 계정(@cam-t.kr)으로 로그인하세요.
+            Google 계정(@cam.hs.kr)으로 로그인하세요.
           </p>
         </div>
 
@@ -72,7 +72,7 @@ export function LoginPage() {
             <span>Google 계정으로 로그인</span>
           </Button>
           <p className="text-xs text-slate-500 text-center">
-            허용된 도메인(@cam-t.kr) 이외의 계정은 자동으로 삭제됩니다.
+            허용된 도메인(@cam.hs.kr) 이외의 계정은 자동으로 삭제됩니다.
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export function LoginPage() {
                 type="email"
                 value={emulatorEmail}
                 onChange={(e) => setEmulatorEmail(e.target.value)}
-                placeholder="test@cam-t.kr"
+                placeholder="test@cam.hs.kr"
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
                 required
               />

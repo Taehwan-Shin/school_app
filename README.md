@@ -64,6 +64,6 @@ pnpm emu
 # 2. 웹 개발 서버 실행
 pnpm --filter @school-app/web dev
 
-# 3. 브라우저에서 http://localhost:5173 접속 -> 「개발 환경 에뮬레이터 로그인」 에서 test@cam-t.kr 로 로그인
+# 3. 브라우저에서 http://localhost:5173 접속 -> 「개발 환경 에뮬레이터 로그인」 에서 test@cam.hs.kr 로 로그인
 # 4. /teacher 대시보드 화면 도달 및 Emulator UI(http://localhost:4000) 에서 users/{uid} 문서 생성 확인
 ```

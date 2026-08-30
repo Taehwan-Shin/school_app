@@ -54,7 +54,7 @@ Codex 재감사가 첫 슬라이스 병합 전 필수라고 못 박은 두 가�
   - 또는 순수 `firebase-admin` 을 Emulator 환경변수로 초기화하고, `beforeUserCreated` 핸들러 로직을 직접 호출한 뒤 Firestore Emulator 상태를 조회
 - 테스트 흐름:
   1. `FIRESTORE_EMULATOR_HOST=localhost:8080`, `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099` 를 테스트 fixture 로 설정
-  2. `handleUserCreate` 를 `@cam-t.kr` 이메일로 호출 → Firestore Emulator 의 `users/{uid}` 문서가 실제로 존재하는지 조회로 검증
+  2. `handleUserCreate` 를 `@cam.hs.kr` 이메일로 호출 → Firestore Emulator 의 `users/{uid}` 문서가 실제로 존재하는지 조회로 검증
   3. 다른 도메인으로 호출 → `HttpsError('permission-denied')` throw 되는지 검증, Firestore 상태 변화 없는지 조회로 검증
 - 실행: 에뮬레이터가 떠 있어야 함. `package.json` 에 `test:emu` 스크립트 추가:
   ```
@@ -79,7 +79,7 @@ Codex 재감사가 첫 슬라이스 병합 전 필수라고 못 박은 두 가�
 - 로그인 페이지에 개발 환경 전용 UI 블록 추가:
   - `import.meta.env.DEV` 일 때만 렌더
   - 텍스트 입력 (이메일) + 「에뮬레이터로 로그인」 버튼
-  - `test@cam-t.kr` 을 기본 placeholder 로
+  - `test@cam.hs.kr` 을 기본 placeholder 로
 - **주의**: 프로덕션 빌드 (`pnpm --filter @school-app/web build`) 결과물에 개발 전용 코드가 들어가는지 검증. `import.meta.env.DEV` 는 Vite 가 build 시 `false` 로 트리 흔들기 하므로 dead-code elimination 확인.
 
 #### 3. `README.md` 갱신
@@ -88,7 +88,7 @@ Codex 재감사가 첫 슬라이스 병합 전 필수라고 못 박은 두 가�
   ```
   1. pnpm emu           # 다른 창에서 에뮬레이터
   2. pnpm --filter @school-app/web dev
-  3. 브라우저 http://localhost:5173 → 「에뮬레이터로 로그인」 버튼 → test@cam-t.kr
+  3. 브라우저 http://localhost:5173 → 「에뮬레이터로 로그인」 버튼 → test@cam.hs.kr
   4. /teacher 화면 도달 · Emulator UI localhost:4000 에서 users/{uid} 문서 확인
   ```
 - `pnpm --filter @school-app/functions test:emu` 명령도 안내.

@@ -53,7 +53,8 @@
 
 - **Google Cloud 프로젝트 ID**: `school-app-507112`
 - **OAuth 2.0 웹 클라이언트 ID**: `119238884749-u061f4pi62omsinf2ovmg1f10t11ifq6.apps.googleusercontent.com`
-- **워크스페이스 도메인**: `cam-t.kr`
+- **워크스페이스 도메인**: `cam.hs.kr` (사용자 정정 2026-08-31 `0e3acf212a56`. 초기 회신의 `cam-t.kr` 는 오기)
+- **첫 슈퍼 관리자 이메일**: `admin2@cam.hs.kr` (bootstrap 스크립트 시드)
 - **클라이언트 시크릿**: 채널에 붙이지 않음. 로컬 `.env.local` 로만 관리 (`.gitignore` 반영).
 
 기타:

@@ -29,13 +29,13 @@ describe('signInWithEmulator', () => {
   });
 
   it('attempts signInWithEmailAndPassword first and succeeds if user exists', async () => {
-    signInWithEmailAndPasswordMock.mockResolvedValueOnce({ user: { uid: 'u1', email: 'test@cam-t.kr' } });
+    signInWithEmailAndPasswordMock.mockResolvedValueOnce({ user: { uid: 'u1', email: 'test@cam.hs.kr' } });
 
-    await signInWithEmulator('test@cam-t.kr');
+    await signInWithEmulator('test@cam.hs.kr');
 
     expect(signInWithEmailAndPasswordMock).toHaveBeenCalledWith(
       expect.anything(),
-      'test@cam-t.kr',
+      'test@cam.hs.kr',
       'password',
     );
     expect(createUserWithEmailAndPasswordMock).not.toHaveBeenCalled();
@@ -43,18 +43,18 @@ describe('signInWithEmulator', () => {
 
   it('falls back to createUserWithEmailAndPassword if sign-in fails', async () => {
     signInWithEmailAndPasswordMock.mockRejectedValueOnce(new Error('user-not-found'));
-    createUserWithEmailAndPasswordMock.mockResolvedValueOnce({ user: { uid: 'u2', email: 'test@cam-t.kr' } });
+    createUserWithEmailAndPasswordMock.mockResolvedValueOnce({ user: { uid: 'u2', email: 'test@cam.hs.kr' } });
 
-    await signInWithEmulator('test@cam-t.kr');
+    await signInWithEmulator('test@cam.hs.kr');
 
     expect(signInWithEmailAndPasswordMock).toHaveBeenCalledWith(
       expect.anything(),
-      'test@cam-t.kr',
+      'test@cam.hs.kr',
       'password',
     );
     expect(createUserWithEmailAndPasswordMock).toHaveBeenCalledWith(
       expect.anything(),
-      'test@cam-t.kr',
+      'test@cam.hs.kr',
       'password',
     );
   });
