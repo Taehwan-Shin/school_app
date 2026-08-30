@@ -34,8 +34,10 @@ pnpm test
 
 ```bash
 # Firebase Emulator Suite 실행 (Auth, Firestore, Functions, UI)
-npx firebase emulators:start
+pnpm emu
 ```
+
+이 스크립트는 저장소에 고정된 `firebase-tools` 를 사용합니다 (`npx firebase` 는 매번 최신 버전을 받아 재현성이 떨어지므로 쓰지 마세요).
 
 - Emulator UI: `http://localhost:4000`
 - Auth Emulator: `http://localhost:9099`
