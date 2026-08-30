@@ -46,6 +46,8 @@ describe('usersList unit tests', () => {
     if (requestId) {
       headers['x-request-id'] = requestId;
     }
+    // 에뮬레이터 모드에서는 스코프를 헤더로 명시. 기본은 users.list 요구 스코프 포함.
+    headers['x-google-scopes'] = 'https://www.googleapis.com/auth/admin.directory.user.readonly';
 
     return {
       data: {},

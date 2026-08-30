@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
-import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
+import type { Role } from '@school-app/shared';
+import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getDirectoryClient } from '../../google/directoryClient.js';
 
@@ -17,13 +18,46 @@ export interface UsersListResponse {
   users: UserItem[];
 }
 
-export const usersList = onCall({ region: 'asia-northeast3' }, async (request): Promise<UsersListResponse> => {
-  const user = await authenticateRequest(request);
-  const rawRequestId = request.rawRequest?.headers?.['x-request-id'] ?? request.rawRequest?.headers?.['X-Request-Id'];
-  const requestId = (Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId) ?? crypto.randomUUID();
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/admin.directory.user.readonly',
+] as const;
 
+function readHeader(request: any, key: string): string | undefined {
+  const raw =
+    request.rawRequest?.headers?.[key] ?? request.rawRequest?.headers?.[key.toLowerCase()];
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+export const usersList = onCall({ region: 'asia-northeast3' }, async (request): Promise<UsersListResponse> => {
+  const requestId = readHeader(request, 'x-request-id') ?? crypto.randomUUID();
+
+  // 인증 실패도 denied 감사 로그를 남긴다. actor 는 알 수 있으면 이메일, 아니면 unknown.
+  let user;
+  try {
+    user = await authenticateRequest(request);
+  } catch (err) {
+    const actorEmail = (request.auth?.token?.email as string | undefined) ?? 'unknown';
+    const claimRole = request.auth?.token?.role;
+    const actorRole: Role =
+      claimRole === 'super_admin' || claimRole === 'admin' || claimRole === 'teacher'
+        ? (claimRole as Role)
+        : 'teacher';
+    await writeAudit({
+      actor: actorEmail,
+      role: actorRole,
+      action: 'users.read',
+      target: '*',
+      request_id: requestId,
+      result: 'denied',
+      message: (err as Error).message,
+    });
+    throw err;
+  }
+
+  // 캡·스코프 검증. 둘 중 하나라도 실패하면 denied 감사.
   try {
     assertHasCap(user, 'users.read');
+    assertHasScopes(user, REQUIRED_SCOPES);
   } catch (err) {
     await writeAudit({
       actor: user.email,

@@ -21,8 +21,6 @@ vi.mock('googleapis', () => {
   };
 });
 
-import { usersList } from '../src/callable/users/list.js';
-
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
 const FUNCTIONS_HOST = '127.0.0.1:5001';
 const PROJECT_ID = 'demo-school';
@@ -137,24 +135,22 @@ describe('usersList integration (Auth + Firestore + Functions Emulator)', () => 
       },
     });
 
-    // 5. Execute usersList callable with admin context
-    const requestId = `req-admin-list-${Date.now()}`;
-    const result = await usersList.run({
-      data: {},
-      auth: {
-        token: {
-          email,
-          role: 'admin',
-        },
-        uid,
+    // 5. Call HTTP endpoint with admin idToken
+    const requestId = `req-admin-http-${Date.now()}`;
+    const res = await fetch(`http://${FUNCTIONS_HOST}/${PROJECT_ID}/asia-northeast3/usersList`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+        'x-google-access-token': 'fake-google-token',
+        'x-google-scopes': 'https://www.googleapis.com/auth/admin.directory.user.readonly',
+        'x-request-id': requestId,
       },
-      rawRequest: {
-        headers: {
-          'x-google-access-token': 'fake-google-token',
-          'x-request-id': requestId,
-        },
-      },
-    } as any);
+      body: JSON.stringify({ data: {} }),
+    });
+    expect(res.status).toBe(200);
+    const httpBody = await res.json();
+    const result = httpBody.result ?? httpBody;
 
     // 6. Verify returned users
     expect(result).toEqual({
