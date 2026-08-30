@@ -63,7 +63,9 @@
 - **Cloud Functions**: 2세대 (`asia-northeast3` 서울 리전 — Firestore 와 같은 리전, 왕복 지연 최소화)
 - **결제**: Blaze 필요 (Cloud Functions 외부 호출 = Google API 라 무료 tier 로 안 됨)
 - **OAuth 리다이렉트 URI**: 개발 `http://localhost:5173`, 프로덕션은 Firebase Hosting URL 을 발급받은 뒤 추가.
-- **API 활성화 확인 필요**: Admin SDK · Google Classroom · Google Chat · Gmail. 사용자가 세 개(계정·클래스룸·챗) 활성화한 상태로 답함 — Gmail 는 아직 미확인 (계정 삭제 안내 메일용, `sendMailtoUsers` 대응).
+- **API 활성화 확인 필요**: Admin SDK · Google Classroom · Google Chat · Gmail. 사용자가 세 개(계정·클래스룸·챗) 활성화한 상태로 답함 — Gmail 는 사용자 회신으로 활성화 완료 (`8b887f3db670...`).
+- **⚠ Firebase Authentication with Identity Platform 업그레이드 필요** — 이 프로젝트가 쓰는 `beforeUserCreated` blocking Auth 트리거는 기본 Firebase Auth 에서는 **동작하지 않는다**. Cloud Console → Firebase → Authentication → **Settings → Upgrade to Firebase Authentication with Identity Platform** 을 켜야 함. 이 업그레이드는 요금제 상 무료로 시작 가능 (일정량까지). 배포 전 필수.
+  - Emulator 는 별도 업그레이드 없이도 blocking trigger 를 흉내낸다 — 그래서 로컬 시험은 통과해도 프로덕션 배포 시 이 절차가 빠지면 트리거가 무음으로 죽는다.
 
 ## 3. 저장소 폴더 구조
 

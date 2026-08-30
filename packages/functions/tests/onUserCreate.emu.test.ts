@@ -1,17 +1,39 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { initializeApp, getApps, deleteApp } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { handleUserCreate } from '../src/auth/onUserCreate.js';
 
 /**
- * 통합 시험은 두 층을 본다:
- * (A) 순수 handler + Firestore Emulator — handleUserCreate 로직이 실 Firestore 를 어떻게 건드리나
- * (B) 실 Auth Emulator + 배선된 blocking trigger — admin.auth().createUser 가 실제로 트리거를 부르나
- *     blocking trigger 의 결과 (custom claim · users/{uid} 문서) 를 종단으로 확인
+ * (A) 순수 handler + Firestore Emulator — handleUserCreate 로직·Firestore write 확인
+ * (B) 실 Auth Emulator REST signUp + 배선된 blocking trigger — 배선까지 종단 검증
  *
- * (B) 를 반드시 넣는 이유 — 헤드(순수) 호출만 시험하면 「트리거가 실제로 배선됐는가」를 못 잡는다.
+ * **왜 Admin SDK 가 아니라 REST signUp 인가**:
+ *   Firebase Admin SDK 의 `auth.createUser()` 는 **blocking trigger 를 발동하지 않는다**.
+ *   Blocking trigger 는 클라이언트 signUp/signIn 경로에서만 발동한다.
+ *   따라서 배선 시험은 Emulator 의 REST `accounts:signUp` 엔드포인트를 직접 호출해야 한다.
  */
+
+const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
+const PROJECT_ID = 'demo-school';
+const FAKE_API_KEY = 'fake-api-key';
+
+async function emulatorSignUp(email: string, password: string): Promise<{
+  ok: boolean;
+  status: number;
+  body: any;
+}> {
+  const res = await fetch(
+    `http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FAKE_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    },
+  );
+  const body = await res.json();
+  return { ok: res.ok, status: res.status, body };
+}
 
 describe('beforeUserCreated integration (Firestore + Auth Emulator)', () => {
   let db: FirebaseFirestore.Firestore;
@@ -22,11 +44,11 @@ describe('beforeUserCreated integration (Firestore + Auth Emulator)', () => {
       process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8085';
     }
     if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-      process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
+      process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_HOST;
     }
-    process.env.GCLOUD_PROJECT = 'demo-school';
+    process.env.GCLOUD_PROJECT = PROJECT_ID;
 
-    const app = getApps().length === 0 ? initializeApp({ projectId: 'demo-school' }) : getApps()[0];
+    const app = getApps().length === 0 ? initializeApp({ projectId: PROJECT_ID }) : getApps()[0];
     db = getFirestore(app);
     auth = getAuth(app);
   });
@@ -77,9 +99,9 @@ describe('beforeUserCreated integration (Firestore + Auth Emulator)', () => {
     });
   });
 
-  // ---------- (B) 실 Auth Emulator + 배선된 trigger ----------
+  // ---------- (B) REST signUp + 배선된 blocking trigger ----------
 
-  describe('(B) admin.auth().createUser fires the wired beforeUserCreated', () => {
+  describe('(B) Auth Emulator REST signUp fires the wired beforeUserCreated', () => {
     const createdUids: string[] = [];
 
     afterEach(async () => {
@@ -93,32 +115,41 @@ describe('beforeUserCreated integration (Firestore + Auth Emulator)', () => {
       createdUids.length = 0;
     });
 
-    it('creates Auth user + sets role=teacher custom claim + writes users/{uid} doc', async () => {
+    it('signUp with @cam.hs.kr → trigger sets role=teacher claim and writes users/{uid}', async () => {
       const email = `wired-teacher-${Date.now()}@cam.hs.kr`;
+      const { ok, status, body } = await emulatorSignUp(email, 'password');
 
-      const record = await auth.createUser({ email, password: 'password', displayName: '배선시험' });
-      createdUids.push(record.uid);
+      expect(ok, `signUp failed with ${status}: ${JSON.stringify(body)}`).toBe(true);
+      expect(typeof body.localId).toBe('string');
+      const uid: string = body.localId;
+      createdUids.push(uid);
 
-      // Blocking trigger 가 반환한 customClaims 가 Auth 사용자에 반영됐는지
-      const fetched = await auth.getUser(record.uid);
+      // Blocking trigger 가 심은 custom claim 확인
+      const fetched = await auth.getUser(uid);
       expect((fetched.customClaims as Record<string, unknown> | undefined)?.role).toBe('teacher');
 
-      // Blocking trigger 가 Firestore users/{uid} 를 만들었는지
-      const docSnap = await db.collection('users').doc(record.uid).get();
+      // Blocking trigger 가 만든 Firestore 문서 확인
+      const docSnap = await db.collection('users').doc(uid).get();
       expect(docSnap.exists).toBe(true);
       expect(docSnap.data()?.email).toBe(email);
       expect(docSnap.data()?.role).toBe('teacher');
     });
 
-    it('blocking trigger rejects createUser for outside domain and no Firestore doc written', async () => {
+    it('signUp with outside domain → blocking trigger blocks creation (no user, no doc)', async () => {
       const email = `wired-intruder-${Date.now()}@example.com`;
+      const { ok, status, body } = await emulatorSignUp(email, 'password');
 
-      await expect(
-        auth.createUser({ email, password: 'password', displayName: '외부' }),
-      ).rejects.toThrow();
+      // REST 이 400 계열로 실패해야 함 (trigger 가 permission-denied throw)
+      expect(ok, `expected signUp to be rejected but got ${status}: ${JSON.stringify(body)}`).toBe(
+        false,
+      );
 
-      // 위 실패 후에도 흔적이 남지 않는지: 같은 이메일로 조회했을 때 없어야
+      // Auth 사용자가 존재하지 않아야
       await expect(auth.getUserByEmail(email)).rejects.toBeDefined();
+
+      // Firestore 문서도 없어야
+      const snap = await db.collection('users').where('email', '==', email).get();
+      expect(snap.empty).toBe(true);
     });
   });
 });

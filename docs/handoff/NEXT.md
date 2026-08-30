@@ -53,7 +53,7 @@ Codex 재감사가 첫 슬라이스 병합 전 필수라고 못 박은 두 가�
   - `firebase-functions-test` (v3.x) 을 online 모드로 (`initializeApp` 로 실 admin SDK 사용, Emulator 환경변수로 라우팅)
   - 또는 순수 `firebase-admin` 을 Emulator 환경변수로 초기화하고, `beforeUserCreated` 핸들러 로직을 직접 호출한 뒤 Firestore Emulator 상태를 조회
 - 테스트 흐름:
-  1. `FIRESTORE_EMULATOR_HOST=localhost:8080`, `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099` 를 테스트 fixture 로 설정
+  1. `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085`, `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099` 를 테스트 fixture 로 설정 (`firebase.json` 포트와 일치)
   2. `handleUserCreate` 를 `@cam.hs.kr` 이메일로 호출 → Firestore Emulator 의 `users/{uid}` 문서가 실제로 존재하는지 조회로 검증
   3. 다른 도메인으로 호출 → `HttpsError('permission-denied')` throw 되는지 검증, Firestore 상태 변화 없는지 조회로 검증
 - 실행: 에뮬레이터가 떠 있어야 함. `package.json` 에 `test:emu` 스크립트 추가:
