@@ -110,3 +110,26 @@
 - `roles.md`: 이번 라운드 변경 없음 (Codex `roles.md:76` [통과]).
 
 **다음 걸음** — v0.3 커밋 → Codex 3차 감사 파견 (회귀 없음 확인). 통과되면 v1.0 승격 (사용자 역할 구조 확정과 병렬).
+
+---
+
+## 2026-08-30 · Codex 3차 감사 결과 · 전건 재확인
+
+**감사 이벤트** — Buzz `a1ebda8d581d...`, 대상 커밋 `bdc35e3`. 7개 항목 (6 통과 · 1 새 실패).
+
+**통과 6건** — 앞선 5개 실패의 봉인 확인 + `chat.admin.delete` 실존 확인. 유지.
+
+**새 실패 1건 재확인 결과**:
+
+| 항목 | 재확인 결과 | 원인 귀속 |
+|---|---|---|
+| `firebase_layout.md:213` audit_log rules-only 부족 | **사실** — Firebase Admin SDK 는 Firestore rules 를 우회하므로 rules 로만은 함수 코드가 audit_log 를 삭제·수정하는 것을 못 막음. append-only 는 세 겹으로 강제해야 함 (rules + 함수 코드 단일 헬퍼 + IAM 커스텀 롤) | 이번 작업 |
+
+**v0.4 반영 상세**:
+- `firebase_layout.md`: 헤더 v0.4 (변경점 명시). §5 「감사 로그의 append-only」 절을 「세 겹」 (rules + 함수 코드 헬퍼 + IAM 커스텀 롤) 로 재작성. §7 미결에서 `chat.admin.delete` 실존 검증 제거 (Codex 3차 통과), IAM 최소 권한 항목 신설.
+- `roles.md`: 이번 라운드 변경 없음.
+
+**남은 것**:
+- Codex 4차 감사 (v0.4 회귀 확인)
+- 사용자 역할 구조 확정 (v0.1 부터 판정불가로 남은 유일한 항목)
+- 두 조건 충족 시 → v1.0 승격

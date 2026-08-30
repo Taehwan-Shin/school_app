@@ -10,10 +10,10 @@
 | 인증 모델 = ⓑ 로그인 사용자 OAuth 확정 (헤드가 ⓑ 를 전제로 진행 중) | 사용자 | 이의 없으면 확정 | 사용자가 채널에서 「ⓐ 로 가라」또는 「그대로 ⓑ」명시. 되돌리기 어려워지기 전(다음 코드 커밋 전) 회신 필요 |
 | Google Cloud 프로젝트 생성 + Admin SDK·Classroom·Chat API 활성화 + OAuth 2.0 웹 클라이언트 발급 | 사용자 | 답 대기 | 프로젝트 ID · OAuth 클라이언트 ID 를 채널에 붙임 |
 | 역할·권한 매트릭스 v0.2 (감사 1차 반영) | 헤드 | 커밋됨 | `docs/design/roles.md` v0.2 |
-| Firebase 프로젝트 구조 v0.3 (감사 2차 반영) | 헤드 | 커밋됨 | `docs/design/firebase_layout.md` v0.3 · 변경점 명시 |
-| Codex 3차 감사 (v0.3 회귀 없음 확인) | 감사 | 대기 | 새 실패 없음 확인 후 v1.0 승격 |
-| `chat.admin.delete` 스코프 실존 검증 | 헤드 | 대기 | Google Chat API 문서 확인 · 다르면 실제 스코프로 교체 (`firebase_layout.md` §7-미결 §3) |
-| 설계 v1.0 확정 | 헤드 | 대기 (3차 감사 통과 + 사용자 역할 구조 확정) | v1.0 커밋 · STATUS 에 확정 표기 |
+| Firebase 프로젝트 구조 v0.4 (감사 3차 반영) | 헤드 | 커밋됨 | `docs/design/firebase_layout.md` v0.4 · 변경점 명시 |
+| Codex 4차 감사 (v0.4 회귀 없음 확인) | 감사 | 대기 | 새 실패 없음이면 v1.0 승격 준비 완료 |
+| 사용자 역할 구조 확정 (`roles.md` §2 판정불가) | 사용자 | 답 대기 | 다섯/셋/둘, 실무 용어 반영 여부 |
+| 설계 v1.0 확정 | 헤드 | 대기 (감사 통과 + 사용자 답) | v1.0 커밋 · STATUS 에 확정 표기 |
 | 첫 화면 (로그인 + 역할별 첫 화면 껍데기) 오더 → Antigravity | 헤드 | 대기 (설계 확정 후) | `docs/handoff/NEXT.md` 갱신, Antigravity 에게 채널 지시 |
 
 ## 되돌리지 않은 임시 변경

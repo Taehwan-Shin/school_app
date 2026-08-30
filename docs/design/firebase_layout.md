@@ -1,9 +1,10 @@
-# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.3)
+# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.4)
 
-> **상태**: 초안. Codex 감사 2차 반영 완료 (커밋 `ab80bb8` 재감사 → 이 문서). 사용자 확인 전.
+> **상태**: 초안. Codex 감사 3차 반영 완료 (커밋 `bdc35e3` 재감사 → 이 문서). 사용자 역할 구조 확정 후 v1.0 승격 예정.
 > 인증 모델 = ⓑ 로그인 사용자 OAuth. 서비스 계정·도메인 위임 없음. 자세한 이유는 `AGENTS.md` §1.
 >
-> **v0.3 변경점** (감사 2차): (1) §1·§2 리전 자기모순 정정 — `asia-northeast3` 로 일관. (2) §4 스코프에 `chat.admin.delete` 추가. (3) §4 인증 흐름에 **토큰 주체 대조** 절 신설 — Firebase ID 토큰 이메일 == Google 액세스 토큰 이메일 검증. (4) §4 세션 수명 절 재작성 — Cloud Tasks 로 큐잉하는 모델은 서버가 토큰을 못 가지므로 폐기, **브라우저 주도 청크 처리**로 확정. (5) §5 `basic_data/current` 를 두 갈래로 분리 — 공개 구조 vs 학생 명단(민감).
+> **v0.4 변경점** (감사 3차): (1) §5 audit_log append-only 를 세 겹으로 명시 — Firestore rules + 함수 코드 단일 헬퍼 + Firebase Admin SDK bypass 사실 명시. (2) §7 미결에서 `chat.admin.delete` 실존 검증 제거 (Codex 3차 통과).
+> **v0.3 변경점** (감사 2차): (1) §1·§2 리전 자기모순 정정 — `asia-northeast3` 로 일관. (2) §4 스코프에 `chat.admin.delete` 추가. (3) §4 인증 흐름에 **토큰 주체 대조** 절 신설. (4) §4 세션 수명 절 재작성 — Cloud Tasks 폐기, 브라우저 주도 청크. (5) §5 `basic_data/current` 를 공개 구조/학생 명단 분리.
 > **v0.2 변경점** (감사 1차): (1) §4 토큰 갱신 오해 정정. (2) §4 스코프에 Gmail·`chat.admin.*` 추가. (3) §5 컬렉션별 rules. (4) §6 미들웨어 3층. (5) §7 리전 확정. (6) §7 Chat 관리자 = 사용자 OAuth.
 
 ## 1. 큰 그림
@@ -210,7 +211,17 @@ school_app/
 
 **왜 완전 잠금이 과한가**: `basic_data/current` 같은 조회 무거운 자료를 함수로 감싸면 왕복 지연과 함수 호출 비용이 늘어난다. Firestore rules 가 접근을 제한할 수 있으면 그게 더 싸고 안전하다.
 **왜 쓰기는 함수만인가**: 쓰기는 감사 로그·부수 효과(관련 컬렉션 갱신·역할 검증) 를 함수 한 곳에서 강제해야 두 곳이 어긋나지 않는다. 클라이언트 rules 로 쓰기를 여는 순간 검증 로직이 두 벌이 된다.
-**감사 로그의 append-only**: rules 는 `allow create` 만 열고 `update`·`delete` 금지. Firestore 는 rule 로 delete 를 막을 수 있음.
+**감사 로그의 append-only — 세 겹**:
+
+Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 를 쓰는 Cloud Functions 는 rules 를 우회한다** — Admin SDK 는 규칙 검증을 건너뛰고 프로젝트 오너 권한으로 도는 것이 기본. 그래서 함수 코드 안에서 실수로 `.update()`·`.delete()` 를 호출하면 audit_log 가 지워질 수 있다.
+
+세 겹으로 잠근다:
+
+1. **Firestore rules** — `audit_log/{id}` 에 대해 `allow read: false`, `allow create: if request.auth != null`, `allow update, delete: false`. 클라이언트가 어떤 자격증명으로 붙어도 못 지운다.
+2. **함수 코드의 단일 헬퍼** — audit_log 쓰기는 **`writeAuditLog(entry)` 헬퍼 하나만 통과** 하도록 강제. 이 헬퍼는 `.add()` 만 사용, 다른 자리에서 `firestore.collection('audit_log').update/delete/set` 을 호출하지 않는다. ESLint 커스텀 규칙 또는 코드 리뷰 체크리스트로 강제 — 별도 자가 테스트로 「audit_log 관련 update/delete 호출이 저장소 전체에 0건인가」 를 grep 검사에 넣는다.
+3. **Firebase 프로젝트 IAM** — 함수 실행에 쓰이는 서비스 계정을 **Cloud Datastore User** 대신 **커스텀 롤** (읽기·문서 create 만 허용, delete/update 제외) 로 좁힌다. 이 층은 「함수가 audit_log 를 지운다」는 실수까지 IAM 이 튕겨낸다. **다만 이 층은 다른 컬렉션의 쓰기까지 좁혀야 해서 세밀한 조정이 필요** — v1.0 이후 별도 작업.
+
+**최소 v1.0 에서 필수**는 (1)+(2) — (3) 은 강도 보강 항목.
 
 ## 6. Cloud Functions 배치
 
@@ -245,8 +256,8 @@ school_app/
 
 1. ⚠️ **CSRF·XSS·비밀 관리** — Cloud Functions 는 Firebase Auth ID 토큰 검증으로 CSRF 자동 해결. 액세스 토큰은 브라우저 메모리에만 (`localStorage` 금지). Content-Security-Policy 헤더 설정 필요.
 2. ⚠️ **비용** — Blaze 요금제 필수. 워크스페이스 API 요청 자체는 무료지만 함수 호출·Firestore·아웃바운드 대역폭에 요금. 청크 처리로 함수 호출 수가 늘어남 (배치당 청크 수만큼) → 비용 모니터링 필요.
-3. ⚠️ **`chat.admin.delete` 스코프 실존 검증** — Codex 감사에서 지적. Google Chat API 문서에서 이 스코프 이름 확인이 필요. 다르면 실제 스코프로 교체 (예: `chat.delete`).
-4. ⚠️ **재인증 UX** — 청크 처리 중 만료 시 팝업이 뜨면 팝업 차단·사용자 이탈 위험. `prompt: 'none'` silent refresh 시도 → 실패 시만 팝업. 상세 흐름은 프론트 구현 시 정리.
+3. ⚠️ **재인증 UX** — 청크 처리 중 만료 시 팝업이 뜨면 팝업 차단·사용자 이탈 위험. `prompt: 'none'` silent refresh 시도 → 실패 시만 팝업. 상세 흐름은 프론트 구현 시 정리.
+4. ⚠️ **함수 실행 서비스 계정 IAM 최소 권한** — audit_log append-only 3층 중 (3) 항목. v1.0 이후 강도 보강 작업으로 별도 문서화.
 
 ## 8. 기술 선택 근거
 
