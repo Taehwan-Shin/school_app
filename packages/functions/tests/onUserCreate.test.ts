@@ -1,26 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const deleteUserMock = vi.fn();
-const setCustomUserClaimsMock = vi.fn();
 const createDocMock = vi.fn();
-const docMock = vi.fn(() => ({
-  create: createDocMock,
-}));
-const collectionMock = vi.fn(() => ({
-  doc: docMock,
-}));
-
-vi.mock('firebase-admin/auth', () => ({
-  getAuth: () => ({
-    deleteUser: deleteUserMock,
-    setCustomUserClaims: setCustomUserClaimsMock,
-  }),
-}));
+const docMock = vi.fn(() => ({ create: createDocMock }));
+const collectionMock = vi.fn(() => ({ doc: docMock }));
 
 vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: () => ({
-    collection: collectionMock,
-  }),
+  getFirestore: () => ({ collection: collectionMock }),
   FieldValue: {
     serverTimestamp: () => 'MOCK_TIMESTAMP',
   },
@@ -28,26 +13,24 @@ vi.mock('firebase-admin/firestore', () => ({
 
 import { handleUserCreate } from '../src/auth/onUserCreate.js';
 
-describe('onUserCreate Auth Trigger', () => {
+describe('beforeUserCreated blocking trigger (pure handler)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    deleteUserMock.mockResolvedValue(undefined);
-    setCustomUserClaimsMock.mockResolvedValue(undefined);
     createDocMock.mockResolvedValue(undefined);
   });
 
-  it('allows user with @cam-t.kr, sets teacher role custom claim and creates users/{uid} document', async () => {
-    const user = {
+  it('creates users/{uid} and returns teacher role customClaims for @cam-t.kr', async () => {
+    const result = await handleUserCreate({
       uid: 'user-123',
       email: 'teacher1@cam-t.kr',
       displayName: '홍길동',
-    };
+    });
 
-    const result = await handleUserCreate(user);
-
-    expect(result).toEqual({ action: 'created', role: 'teacher' });
-    expect(deleteUserMock).not.toHaveBeenCalled();
-    expect(setCustomUserClaimsMock).toHaveBeenCalledWith('user-123', { role: 'teacher' });
+    expect(result).toEqual({
+      action: 'created',
+      role: 'teacher',
+      customClaims: { role: 'teacher' },
+    });
     expect(collectionMock).toHaveBeenCalledWith('users');
     expect(docMock).toHaveBeenCalledWith('user-123');
     expect(createDocMock).toHaveBeenCalledWith({
@@ -59,33 +42,24 @@ describe('onUserCreate Auth Trigger', () => {
     });
   });
 
-  it('rejects user with different domain and immediately deletes user', async () => {
-    const user = {
-      uid: 'intruder-456',
-      email: 'test@example.com',
-      displayName: '외부인',
-    };
+  it('throws HttpsError(permission-denied) for outside domain and never touches Firestore', async () => {
+    await expect(
+      handleUserCreate({
+        uid: 'intruder-456',
+        email: 'test@example.com',
+        displayName: '외부인',
+      }),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
 
-    const result = await handleUserCreate(user);
-
-    expect(result).toEqual({ action: 'deleted', reason: 'invalid_domain' });
-    expect(deleteUserMock).toHaveBeenCalledWith('intruder-456');
-    expect(setCustomUserClaimsMock).not.toHaveBeenCalled();
     expect(createDocMock).not.toHaveBeenCalled();
+    expect(collectionMock).not.toHaveBeenCalled();
   });
 
-  it('rejects user with missing or empty email', async () => {
-    const user = {
-      uid: 'no-email-789',
-      email: null,
-      displayName: '이메일없음',
-    };
+  it('throws HttpsError(permission-denied) for missing email', async () => {
+    await expect(
+      handleUserCreate({ uid: 'no-email-789', email: null, displayName: null }),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
 
-    const result = await handleUserCreate(user);
-
-    expect(result).toEqual({ action: 'deleted', reason: 'invalid_domain' });
-    expect(deleteUserMock).toHaveBeenCalledWith('no-email-789');
-    expect(setCustomUserClaimsMock).not.toHaveBeenCalled();
     expect(createDocMock).not.toHaveBeenCalled();
   });
 });

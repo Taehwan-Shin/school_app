@@ -1,5 +1,4 @@
-import * as functions from 'firebase-functions/v1';
-import { getAuth } from 'firebase-admin/auth';
+import { beforeUserCreated, HttpsError } from 'firebase-functions/v2/identity';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import type { Role } from '@school-app/shared';
 
@@ -12,27 +11,27 @@ export interface UserRecordLike {
 }
 
 export interface HandleUserCreateResult {
-  action: 'created' | 'deleted';
+  action: 'created' | 'rejected';
   reason?: string;
   role?: Role;
+  customClaims?: { role: Role };
 }
 
+/**
+ * Blocking Auth 트리거의 순수 핸들러. 도메인이 허용되지 않으면 HttpsError 를 던져
+ * 사용자 생성 자체를 막고, 허용되면 `users/{uid}` 문서를 생성한 뒤 반환값으로
+ * custom claim 을 설정한다. 계정 사후 삭제(v1 방식) 는 하지 않는다.
+ */
 export async function handleUserCreate(user: UserRecordLike): Promise<HandleUserCreateResult> {
   const email = user.email || '';
   const domain = email.split('@')[1];
 
   if (domain !== ALLOWED_DOMAIN) {
-    // 신규 사용자의 이메일 도메인이 cam-t.kr 이 아니면 계정 즉시 삭제
-    await getAuth().deleteUser(user.uid);
-    return { action: 'deleted', reason: 'invalid_domain' };
+    throw new HttpsError('permission-denied', 'invalid_domain');
   }
 
   const defaultRole: Role = 'teacher';
 
-  // 1. role: "teacher" custom claim 설정
-  await getAuth().setCustomUserClaims(user.uid, { role: defaultRole });
-
-  // 2. users/{uid} 문서 create
   const db = getFirestore();
   await db.collection('users').doc(user.uid).create({
     email,
@@ -42,9 +41,25 @@ export async function handleUserCreate(user: UserRecordLike): Promise<HandleUser
     lastSeenAt: FieldValue.serverTimestamp(),
   });
 
-  return { action: 'created', role: defaultRole };
+  return {
+    action: 'created',
+    role: defaultRole,
+    customClaims: { role: defaultRole },
+  };
 }
 
-export const onUserCreate = functions.region('asia-northeast3').auth.user().onCreate(async (user) => {
-  await handleUserCreate(user);
-});
+export const onUserCreate = beforeUserCreated(
+  { region: 'asia-northeast3' },
+  async (event) => {
+    const user = event.data;
+    if (!user) {
+      throw new HttpsError('failed-precondition', 'no_user_data');
+    }
+    const result = await handleUserCreate({
+      uid: user.uid,
+      email: user.email ?? null,
+      displayName: user.displayName ?? null,
+    });
+    return { customClaims: result.customClaims };
+  },
+);
