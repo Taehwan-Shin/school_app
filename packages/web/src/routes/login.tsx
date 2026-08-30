@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth, signInWithGoogle } from '../lib/auth';
+import { useAuth, signInWithGoogle, signInWithEmulator } from '../lib/auth';
 import { getRouteForRole } from './routeMap';
 import { Button } from '../components/ui/button';
 
@@ -8,6 +8,7 @@ export function LoginPage() {
   const { user, role, loading } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [emulatorEmail, setEmulatorEmail] = useState('test@cam-t.kr');
 
   if (loading) {
     return (
@@ -28,6 +29,19 @@ export function LoginPage() {
       await signInWithGoogle();
     } catch (err: any) {
       setErrorMessage(err.message || '로그인에 실패했습니다.');
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
+  const handleEmulatorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSigningIn(true);
+    setErrorMessage(null);
+    try {
+      await signInWithEmulator(emulatorEmail);
+    } catch (err: any) {
+      setErrorMessage(err.message || '에뮬레이터 로그인에 실패했습니다.');
     } finally {
       setSigningIn(false);
     }
@@ -61,6 +75,32 @@ export function LoginPage() {
             허용된 도메인(@cam-t.kr) 이외의 계정은 자동으로 삭제됩니다.
           </p>
         </div>
+
+        {import.meta.env.DEV && (
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
+              개발 환경 에뮬레이터 로그인
+            </p>
+            <form onSubmit={handleEmulatorLogin} className="space-y-2">
+              <input
+                type="email"
+                value={emulatorEmail}
+                onChange={(e) => setEmulatorEmail(e.target.value)}
+                placeholder="test@cam-t.kr"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+                required
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={signingIn}
+                className="w-full text-sm"
+              >
+                에뮬레이터로 로그인
+              </Button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

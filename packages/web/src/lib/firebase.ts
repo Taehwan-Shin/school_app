@@ -21,7 +21,7 @@ if (import.meta.env.DEV) {
   const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
   try {
     connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
-    connectFirestoreEmulator(db, host, 8080);
+    connectFirestoreEmulator(db, host, 8085);
     connectFunctionsEmulator(functions, host, 5001);
   } catch {
     // Already connected or running in test environment

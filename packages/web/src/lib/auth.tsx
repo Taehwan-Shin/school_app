@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onIdTokenChanged,
   User,
@@ -16,6 +18,17 @@ export async function signInWithGoogle() {
     prompt: 'select_account',
   });
   return signInWithPopup(auth, provider);
+}
+
+export async function signInWithEmulator(email: string): Promise<void> {
+  if (!import.meta.env.DEV) {
+    throw new Error('signInWithEmulator is only available in development mode.');
+  }
+  try {
+    await signInWithEmailAndPassword(auth, email, 'password');
+  } catch {
+    await createUserWithEmailAndPassword(auth, email, 'password');
+  }
 }
 
 export async function signOut() {
