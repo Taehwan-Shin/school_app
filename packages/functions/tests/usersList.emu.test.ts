@@ -1,25 +1,29 @@
-import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
 
-const mockDirectoryUsersList = vi.fn();
-vi.mock('googleapis', () => {
-  return {
-    google: {
-      auth: {
-        OAuth2: class {
-          setCredentials() {}
-        },
-      },
-      admin: () => ({
-        users: {
-          list: mockDirectoryUsersList,
-        },
-      }),
-    },
-  };
-});
+/**
+ * HTTP 종단 시험용 Directory API stub 파일 경로.
+ * Functions Emulator 는 별도 프로세스라 `vi.mock('googleapis')` 가 안 통한다.
+ * 대신 `directoryClient.ts` 가 이 파일을 읽어 응답으로 삼는다 (env: EMULATOR_DIRECTORY_STUB_FILE).
+ */
+const STUB_FILE = './.stub-directory.json';
+
+function writeStub(response: unknown): void {
+  writeFileSync(STUB_FILE, JSON.stringify(response), 'utf8');
+}
+
+function clearStub(): void {
+  if (existsSync(STUB_FILE)) {
+    try {
+      unlinkSync(STUB_FILE);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
 const FUNCTIONS_HOST = '127.0.0.1:5001';
@@ -88,6 +92,7 @@ describe('usersList integration (Auth + Firestore + Functions Emulator)', () => 
       }
     }
     createdUids.length = 0;
+    clearStub();
   });
 
   it('runs REST signUp -> promote to admin -> signIn -> call usersList -> writes ok audit_log to Firestore Emulator', async () => {
@@ -112,8 +117,9 @@ describe('usersList integration (Auth + Firestore + Functions Emulator)', () => 
     const userRec = await auth.getUser(uid);
     expect((userRec.customClaims as any)?.role).toBe('admin');
 
-    // 4. Mock googleapis directory users.list response
-    mockDirectoryUsersList.mockResolvedValueOnce({
+    // 4. Directory API stub — 파일에 응답을 써서 functions 프로세스가 읽게 한다.
+    //    (Vitest 의 vi.mock 은 별도 프로세스에 안 전파되므로 파일 기반.)
+    writeStub({
       data: {
         users: [
           {

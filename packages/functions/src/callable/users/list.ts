@@ -84,7 +84,7 @@ export const usersList = onCall({ region: 'asia-northeast3' }, async (request): 
         orderBy: 'email',
       });
       results.push(
-        ...(res.data.users ?? []).map((u) => ({
+        ...((res.data.users ?? []) as any[]).map((u): UserItem => ({
           email: u.primaryEmail ?? '',
           firstName: u.name?.givenName ?? '',
           lastName: u.name?.familyName ?? '',

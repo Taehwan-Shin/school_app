@@ -34,3 +34,6 @@ Thumbs.db
 
 # 로그
 *.log
+
+# 에뮬레이터 테스트의 Directory stub 파일 (test:emu 실행 중에만 생성)
+.stub-directory.json
