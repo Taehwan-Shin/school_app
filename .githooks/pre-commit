@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# 커밋 범위 가드 + 덧붙이기 전용 일지 확인
+# 설치: git config core.hooksPath .githooks
+set -euo pipefail
+
+# 1. project_notes.md 는 덧붙이기 전용 — 삭제 줄 0 확인
+if git diff --cached --numstat -- project_notes.md 2>/dev/null | awk '{ if ($2 > 0) exit 1 }'; then
+  :
+else
+  echo "[pre-commit] project_notes.md 에서 줄 삭제가 감지됨. 덧붙이기 전용." >&2
+  exit 1
+fi
+
+# 2. git add -A 로 남의 파일이 딸려오지 않았는지 대략 검사 —
+#    커밋에 담긴 각 파일이 최근 편집 대상 목록에 있는지는 사람이 봐야 함.
+#    최소 가드: 스테이지된 목록을 표시해 눈으로 확인 강제.
+staged=$(git diff --cached --name-only)
+if [ -z "$staged" ]; then
+  echo "[pre-commit] 스테이지된 변경이 없음." >&2
+  exit 1
+fi
+echo "[pre-commit] 스테이지된 파일:"
+echo "$staged" | sed 's/^/  - /'
+
+# 3. 커밋 메시지 형식은 commit-msg 훅에서. 여기서는 생략.

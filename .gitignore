@@ -1,0 +1,36 @@
+# 비밀
+.env
+.env.*
+!.env.example
+*.pem
+*-key.json
+serviceAccountKey.json
+
+# 의존성
+node_modules/
+.pnpm-store/
+
+# 빌드
+dist/
+build/
+.next/
+out/
+functions/lib/
+
+# 파이어베이스
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 편집기
+.vscode/
+.idea/
+*.swp
+
+# 로그
+*.log
