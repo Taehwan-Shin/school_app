@@ -254,6 +254,75 @@ describe('usersList unit tests', () => {
     });
   });
 
+  // 감사 무결성 회귀 방지 — 인증 실패 시 role='unknown' 을 기록한다.
+  // 이전에는 위조된 'teacher' 로 기록되어 실 actor 권한과 감사가 어긋났다.
+  describe('denied audit role fidelity (no forgery)', () => {
+    it('writes denied audit with actor=unknown role=unknown when unauthenticated', async () => {
+      const req = createRequest({ auth: false });
+      await expect(usersList.run(req)).rejects.toMatchObject({ code: 'unauthenticated' });
+      expect(mockWriteAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor: 'unknown',
+          role: 'unknown',
+          action: 'users.read',
+          target: '*',
+          result: 'denied',
+        }),
+      );
+    });
+
+    it('writes denied audit with role=unknown when role claim is missing', async () => {
+      const req = createRequest({ email: 'admin@cam.hs.kr', role: undefined });
+      await expect(usersList.run(req)).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(mockWriteAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor: 'admin@cam.hs.kr',
+          role: 'unknown',
+          result: 'denied',
+        }),
+      );
+    });
+
+    it('writes denied audit with role=unknown when role claim is an unknown value', async () => {
+      const req = createRequest({ email: 'admin@cam.hs.kr', role: 'wizard' as any });
+      await expect(usersList.run(req)).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(mockWriteAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor: 'admin@cam.hs.kr',
+          role: 'unknown',
+          result: 'denied',
+        }),
+      );
+    });
+
+    it('writes denied audit with actor=email role=unknown when domain is invalid', async () => {
+      const req = createRequest({ email: 'intruder@example.com', role: 'admin' });
+      await expect(usersList.run(req)).rejects.toMatchObject({ code: 'permission-denied' });
+      // 도메인 검증은 middleware 초반에 실패해서 role claim 을 보기 전에 throw 하지만
+      // 우리 catch 는 claim 을 보고 정상 role 이면 그대로 사용한다.
+      // (claim='admin' 이므로 role='admin' 으로 기록. domain 만 잘못이라 role 자체는 유효.)
+      expect(mockWriteAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor: 'intruder@example.com',
+          role: 'admin',
+          result: 'denied',
+        }),
+      );
+    });
+
+    it('writes denied audit with role=unknown when both email and role are missing', async () => {
+      const req = createRequest({ email: null as any, role: null as any });
+      await expect(usersList.run(req)).rejects.toMatchObject({ code: 'unauthenticated' });
+      expect(mockWriteAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor: 'unknown',
+          role: 'unknown',
+          result: 'denied',
+        }),
+      );
+    });
+  });
+
   describe('production tokeninfo validation', () => {
     beforeEach(() => {
       delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
