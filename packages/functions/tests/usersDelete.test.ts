@@ -18,6 +18,27 @@ vi.mock("../src/google/directoryClient.js", () => ({
   getDirectoryClient: (...args: any[]) => mockGetDirectoryClient(...args),
 }));
 
+// Firestore mock: app-role 조회 (users 컬렉션 where('email', '==', ...))
+const mockFirestoreGet = vi.fn();
+const mockFirestoreLimit = vi.fn(() => ({ get: mockFirestoreGet }));
+const mockFirestoreWhere = vi.fn(() => ({ limit: mockFirestoreLimit }));
+const mockFirestoreCollection = vi.fn(() => ({ where: mockFirestoreWhere }));
+vi.mock("firebase-admin/firestore", () => ({
+  getFirestore: () => ({ collection: mockFirestoreCollection }),
+}));
+
+/** 대상 이메일의 앱 role 을 지정 (없으면 empty snapshot). */
+function setTargetAppRole(role: string | null): void {
+  if (role === null) {
+    mockFirestoreGet.mockResolvedValueOnce({ empty: true, docs: [] });
+  } else {
+    mockFirestoreGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ data: () => ({ role }) }],
+    });
+  }
+}
+
 import { usersDelete } from "../src/callable/users/delete.js";
 
 describe("usersDelete unit tests", () => {
@@ -76,6 +97,7 @@ describe("usersDelete unit tests", () => {
   }
 
   it("allows admin to delete regular user and writes ok audit log", async () => {
+    setTargetAppRole(null); // 대상 사용자는 앱에 등록 안 됨 (Firestore 없음)
     mockDirectoryUsersGet.mockResolvedValueOnce({
       data: {
         primaryEmail: "targetstudent@cam.hs.kr",
@@ -156,10 +178,11 @@ describe("usersDelete unit tests", () => {
     });
   });
 
-  it("blocks admin from deleting another admin/super_admin with admin_cannot_delete_admin", async () => {
+  it("blocks admin from deleting a Workspace admin (isAdmin=true) with admin_cannot_delete_admin", async () => {
+    setTargetAppRole(null);
     mockDirectoryUsersGet.mockResolvedValueOnce({
       data: {
-        primaryEmail: "superadmin@cam.hs.kr",
+        primaryEmail: "workspaceadmin@cam.hs.kr",
         isAdmin: true,
       },
     });
@@ -167,7 +190,7 @@ describe("usersDelete unit tests", () => {
     const req = createRequest({
       email: "admin@cam.hs.kr",
       role: "admin",
-      data: { primaryEmail: "superadmin@cam.hs.kr" },
+      data: { primaryEmail: "workspaceadmin@cam.hs.kr" },
     });
 
     await expect(usersDelete.run(req)).rejects.toMatchObject({
@@ -180,14 +203,70 @@ describe("usersDelete unit tests", () => {
       actor: "admin@cam.hs.kr",
       role: "admin",
       action: "users.delete",
-      target: "superadmin@cam.hs.kr",
+      target: "workspaceadmin@cam.hs.kr",
       request_id: "req-test-delete-123",
       result: "denied",
       message: "admin_cannot_delete_admin",
     });
   });
 
+  // 회귀 방지: 앱 super_admin (Firestore custom claim) 은 Workspace isAdmin 이 아닐 수 있다.
+  // 이전엔 이 경우 무방비였음 — Codex 감사 0d8f4562f47c 지적.
+  it("blocks admin from deleting an app super_admin (Firestore role) even when Workspace isAdmin=false", async () => {
+    setTargetAppRole("super_admin"); // 앱은 super_admin, 워크스페이스는 일반
+    mockDirectoryUsersGet.mockResolvedValueOnce({
+      data: {
+        primaryEmail: "appsuperadmin@cam.hs.kr",
+        isAdmin: false,
+      },
+    });
+
+    const req = createRequest({
+      email: "admin@cam.hs.kr",
+      role: "admin",
+      data: { primaryEmail: "appsuperadmin@cam.hs.kr" },
+    });
+
+    await expect(usersDelete.run(req)).rejects.toMatchObject({
+      code: "permission-denied",
+      message: "admin_cannot_delete_admin",
+    });
+
+    expect(mockDirectoryUsersDelete).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: "admin@cam.hs.kr",
+        role: "admin",
+        target: "appsuperadmin@cam.hs.kr",
+        result: "denied",
+        message: "admin_cannot_delete_admin",
+      }),
+    );
+  });
+
+  // 앱에 없고 워크스페이스도 관리자 아니면 admin 이 삭제 가능
+  it("allows admin to delete a user with app role=teacher and Workspace isAdmin=false", async () => {
+    setTargetAppRole("teacher");
+    mockDirectoryUsersGet.mockResolvedValueOnce({
+      data: {
+        primaryEmail: "teacher1@cam.hs.kr",
+        isAdmin: false,
+      },
+    });
+    mockDirectoryUsersDelete.mockResolvedValueOnce({ data: {} });
+
+    const req = createRequest({
+      email: "admin@cam.hs.kr",
+      role: "admin",
+      data: { primaryEmail: "teacher1@cam.hs.kr" },
+    });
+
+    await usersDelete.run(req);
+    expect(mockDirectoryUsersDelete).toHaveBeenCalledWith({ userKey: "teacher1@cam.hs.kr" });
+  });
+
   it("handles googleapis error and writes error audit log", async () => {
+    setTargetAppRole(null);
     mockDirectoryUsersGet.mockResolvedValueOnce({
       data: {
         primaryEmail: "targetstudent@cam.hs.kr",

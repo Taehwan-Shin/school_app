@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import crypto from "node:crypto";
+import { getFirestore } from "firebase-admin/firestore";
 import type { Role } from "@school-app/shared";
 import { authenticateRequest, assertHasCap, assertHasScopes } from "../../authz/middleware.js";
 import { writeAudit } from "../../audit/writeAudit.js";
@@ -94,10 +95,26 @@ export const usersDelete = onCall(
 
       const directory = getDirectoryClient(user.googleAccessToken);
 
-      // 2. super_admin / admin 삭제 보호 (admin 은 관리자/super_admin 계정 삭제 불가)
+      // 2. 보호 대상 삭제 방지 — actor 가 super_admin 이 아니면 다음 둘 중 하나만 있어도 거부:
+      //    (a) 앱의 super_admin custom claim (Firestore `users` 컬렉션의 role 필드)
+      //    (b) Google Workspace 관리자 (`isAdmin` 플래그)
+      //
+      // 이 둘은 **다른 것**이다. (a) 는 이 앱의 관리 권한, (b) 는 워크스페이스 관리 권한.
+      // 이전에 (b) 만 검사했더니 이 앱의 super_admin(그러나 Workspace 관리자 아님) 이
+      // 무방비였다 — Codex 감사 0d8f4562f47c 반영.
       if (user.role !== "super_admin") {
-        const targetUser = await directory.users.get({ userKey: trimmedEmail });
-        if (targetUser.data?.isAdmin) {
+        const db = getFirestore();
+
+        const [appRoleSnap, workspaceUser] = await Promise.all([
+          db.collection("users").where("email", "==", trimmedEmail).limit(1).get(),
+          directory.users.get({ userKey: trimmedEmail }),
+        ]);
+
+        const appRoleIsSuperAdmin =
+          !appRoleSnap.empty && appRoleSnap.docs[0].data()?.role === "super_admin";
+        const isWorkspaceAdmin = workspaceUser.data?.isAdmin === true;
+
+        if (appRoleIsSuperAdmin || isWorkspaceAdmin) {
           throw new HttpsError("permission-denied", "admin_cannot_delete_admin");
         }
       }
