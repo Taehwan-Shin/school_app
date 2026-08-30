@@ -1,124 +1,269 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **GitHub Actions CI 도입** (사용자 결정 `9cafd59467d8` "A 안 대로 해줘").
+> 지금 이 파일의 오더는 **첫 실 관리 기능 (서버 층만)** — `writeAudit` 헬퍼 + `users.list` callable.
+> UI 는 다음 오더. 사용자 콘솔 조치 (OAuth 도메인·Identity Platform) 는 병렬.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `git push` 금지
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 `git push -u origin feat/...` 로 원격에 올린다
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
-- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · Vitest · 신규 워크플로 문법 검사
+- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · Vitest · 신규 에뮬레이터 통합 시험 · CI 워크플로 문법
 
-**추가**: **완료 후 반드시 `#general` 스레드에 `@Claude Code_Honey` 를 포함해 결과 보고**. 지난 두 오더 모두 커밋만 하고 침묵했다. 이번엔 명시 규칙으로 못 박는다. 상태 보고 미제출은 재작업 요구 사유.
+**추가**: **완료 후 반드시 `#general` 스레드에 `@Claude Code_Honey` 포함해 결과 보고**. 지난 CI 오더는 push 안 한 채 보고했다가 잡혔다 — 이번엔 **작업 브랜치를 원격에 반드시 push** 하고 브랜치 이름을 보고에 명시하라.
 
 ## 기준 커밋
 
-**Base**: `a0b38a3` (첫 슬라이스 병합 승인 기록 커밋)
+**Base**: `4888ea1` (Java 21 · 에뮬레이터 --only 정정)
 
 `git log --oneline -1` 로 실물 확인 후 시작.
 
-## 지금 할 것 — GitHub Actions CI 도입
+## 지금 할 것 — 감사 헬퍼 + 첫 실 관리 callable
 
 ### 왜
 
-Codex 감사가 「Node 20 실측」을 판정불가로 남겼다. 지금 헤드 환경은 Node 22 이고 로컬 재현이 불편하다. CI 를 붙이면:
-- 모든 PR·`main` push 마다 Node 20 에서 자동으로 unit + 에뮬레이터 통합 시험이 돈다
-- 회귀가 즉시 잡힌다
-- Codex 의 「Node 20 판정불가」가 실제 실행으로 해소된다
+지금까지의 슬라이스는 「사용자가 로그인해서 껍데기 화면에 도달」까지였다. 이제 첫 **실 워크스페이스 API 호출** 을 붙인다. 목표: **관리자가 로그인해서 `users.list` 를 부르면 `cam.hs.kr` 도메인의 실 사용자 목록이 반환된다.** UI 는 다음 오더. 이 오더는 서버 층만.
 
-이 오더의 값은 **회귀 방지 + Node 20 관문 자동화**.
+동시에 `DESIGN_v1.md` §5 의 audit_log 관문 넷을 처음으로 코드에 심는다:
+1. Rules — 이미 있음 (`firestore.rules`)
+2. `writeAudit()` 헬퍼 — 이 오더에서 신설
+3. AST ESLint 규칙 — 이 오더에서 신설
+4. 에뮬레이터 테스트 — 이 오더에서 신설
 
 ### 이 과제가 바꿀 경로
 
-**신규 파일만** (기존 파일 수정은 `README.md` 배지 · `.gitignore` 만):
-- `.github/workflows/ci.yml` — 메인 워크플로
-- `.github/workflows/README.md` — (선택) 워크플로 요약 (해도 되고 안 해도 되고)
-- `README.md` — 상단에 CI 배지 (`![CI](...svg)`) 한 줄만 추가
-- `.gitignore` — CI 산물 (예: coverage/, .cache/) 필요 시
+**신규 파일**:
+- `packages/functions/src/audit/writeAudit.ts` — 단일 감사 로그 쓰기 헬퍼
+- `packages/functions/src/authz/middleware.ts` — Callable 앞에 붙는 인증·역할·권한 검사
+- `packages/functions/src/authz/capabilities.ts` — `Capability` 재수출 (shared 로부터)
+- `packages/functions/src/callable/users/list.ts` — 첫 실 callable
+- `packages/functions/src/google/directoryClient.ts` — googleapis 초기화 헬퍼 (사용자 OAuth 액세스 토큰으로)
+- `packages/functions/tests/writeAudit.emu.test.ts` — Firestore Emulator 에서 audit_log 쓰기·조회
+- `packages/functions/tests/usersList.emu.test.ts` — REST signUp → admin claim → callable HTTP 호출 → 결과·audit_log 검증 (googleapis mock)
+- `packages/functions/tests/writeAudit.test.ts` — 단위 (mock Firestore)
+- `packages/functions/tests/usersList.test.ts` — 단위 (mock googleapis · Firestore · Auth)
+- 저장소 루트 `eslint.config.js` (또는 `.eslintrc.cjs`) — AST 규칙
 
-**기존 파일 삭제 금지**. `AGENTS.md`·`STATUS.md`·`docs/` 손대지 마라.
+**기존 파일 수정**:
+- `packages/functions/src/index.ts` — `usersList` export 추가
+- `packages/functions/package.json` — devDep 에 `googleapis`, `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`. `lint` 스크립트를 `tsc --noEmit && eslint src tests` 로 확장. `pnpm --filter @school-app/functions add …` 로 설치.
+
+**기존 파일 삭제 금지**. `docs/`·`STATUS.md`·`project_notes.md` 는 헤드가 관리.
+
+### 스택·라이브러리
+
+- `googleapis` — Google Admin Directory API 클라이언트. `pnpm --filter @school-app/functions add googleapis` 로 dependencies 에 (devDependencies 아님 — 런타임 필요).
+- `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` — devDep, functions 패키지 안에.
 
 ### 세부 요구
 
-#### 1. 워크플로 골자 (`.github/workflows/ci.yml`)
+#### 1. `writeAudit` 헬퍼
 
-트리거:
-- `push` 대상: `main`, `feat/*`, `fix/*` (또는 전 브랜치)
-- `pull_request` 대상: `main`
+`packages/functions/src/audit/writeAudit.ts`:
 
-Job **하나**로 시작 (단순함 우선). 이름: `verify`.
+```ts
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-Runner: `ubuntu-latest`.
+export interface AuditEntry {
+  actor: string;             // 이메일
+  role: 'super_admin' | 'admin' | 'teacher';
+  action: string;            // Capability 문자열 (예: 'users.read')
+  target: string;            // 대상 자원 식별자
+  request_id: string;
+  result: 'ok' | 'error' | 'denied';
+  before?: unknown;
+  after?: unknown;
+  message?: string;
+}
 
-Steps 순서:
-1. `actions/checkout@v4`
-2. `actions/setup-node@v4` — Node **20.x** (정확한 20 major 대) 명시.
-3. `pnpm/action-setup@v4` — 저장소 루트 `package.json` 의 `packageManager` 필드에서 pnpm 버전 자동 감지 (없으면 `version: 11` 명시)
-4. **pnpm store 캐시** — `actions/cache@v4` 로 `~/.pnpm-store` 경로 캐시. 키: `${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}`.
-5. `pnpm install --frozen-lockfile` — lockfile 변경 감지 시 실패해야
-6. **Java 설치** — `actions/setup-java@v4` with `distribution: temurin`, `java-version: 17`. Firestore Emulator 요구.
-7. `pnpm -r build` — 셋 다 컴파일 통과
-8. `pnpm -r lint` — TS 검사
-9. `pnpm -r test` — unit 21 통과
-10. `pnpm test:emu` — Emulator 통합 5/5 통과. 이 스텝에서 Firebase Emulator 가 자동 다운로드 됨.
-11. **선택**: coverage 리포트 (지금은 스킵. 다음 오더에서.)
-
-**주의**:
-- 모든 `pnpm` 스텝 앞에 `env: HUSKY: '0'` 같은 훅 스킵은 필요 없음 (우리 프로젝트는 husky 없음)
-- `actions/setup-node` 의 `cache: 'pnpm'` 는 쓰지 마라 — pnpm store 는 위 별도 캐시로. `cache: 'pnpm'` 는 pnpm/action-setup 뒤에 두면 충돌.
-- `pnpm test:emu` 실행 시 Firebase Emulator 가 처음이면 다운로드에 30~60초. 캐시할 값어치는 있지만 지금은 스킵.
-- Timeout: job 전체 15 분.
-
-#### 2. `package.json` 의 `packageManager` 필드
-
-`package.json` 루트에 아직 `packageManager` 가 없으면 추가:
+export async function writeAudit(entry: AuditEntry): Promise<void> {
+  const db = getFirestore();
+  await db.collection('audit_log').add({
+    ...entry,
+    at: FieldValue.serverTimestamp(),
+  });
+}
 ```
-"packageManager": "pnpm@11.0.9"
+
+이 함수 **하나만** `audit_log` 컬렉션에 접근한다. 다른 자리에서 `.collection('audit_log')` 를 부르면 ESLint 에서 실패.
+
+#### 2. ESLint AST 규칙
+
+저장소 루트 (또는 functions 패키지) 에 ESLint 설정. `no-restricted-syntax` 로:
+
+- 금지: `CallExpression[callee.property.name='collection'][arguments.0.value='audit_log']`
+  · 즉 `xxx.collection('audit_log')` 리터럴 호출.
+- 예외: `packages/functions/src/audit/writeAudit.ts` (override 로 이 파일만 허용).
+- 추가 금지: **비리터럴** 컬렉션 경로 — `xxx.collection(variable)` · `xxx.collection(\`...\`)` — 동적 우회 방지. (`DESIGN_v1.md` §5).
+
+**로컬 실증** — 다른 파일에 `firestore.collection('audit_log').add(...)` 를 임시로 넣어 `pnpm lint` 가 실패하는지 확인. 확인 후 임시 코드 되돌리기. 이 실증 결과를 보고에 포함.
+
+#### 3. 인증·권한 미들웨어
+
+`packages/functions/src/authz/middleware.ts`:
+
+- `authenticateRequest(request)` 시그니처:
+  ```ts
+  export async function authenticateRequest(request: CallableRequest): Promise<{
+    email: string;
+    role: 'super_admin' | 'admin' | 'teacher';
+    googleAccessToken: string;
+  }>;
+  ```
+  - Firebase ID 토큰 검증 (`request.auth`) → E1 (이메일)
+  - `X-Google-Access-Token` 헤더 추출 → tokeninfo 조회 → E2, scopes[]
+  - E1 ≠ E2 시 `HttpsError('unauthenticated', 'token_subject_mismatch')`
+  - `request.auth.token.role` 이 `'super_admin'|'admin'|'teacher'` 중 하나가 아니면 `HttpsError('failed-precondition', 'role_not_assigned')`
+  - 반환
+
+- `assertHasCap(user, cap)`:
+  - `@school-app/shared` 의 `ROLE_CAPABILITIES` 매트릭스 조회
+  - 없으면 `HttpsError('permission-denied', cap)`
+
+#### 4. Google Directory client
+
+`packages/functions/src/google/directoryClient.ts`:
+
+```ts
+import { google } from 'googleapis';
+
+export function getDirectoryClient(accessToken: string) {
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  return google.admin({ version: 'directory_v1', auth });
+}
 ```
-버전은 로컬 `pnpm --version` 결과 값 그대로. **Antigravity: 이 값을 하드코딩하지 말고 `pnpm --version` 을 저장소에서 실행해 실제 값을 붙여라.**
 
-#### 3. `README.md` 배지 한 줄
+**주의** — 서비스 계정 아님. 사용자 OAuth 액세스 토큰. `DESIGN_v1.md` §2·§4 의 원칙.
 
-파일 최상단 `# school_app` 헤더 바로 아래에 한 줄만 삽입:
+#### 5. `users.list` callable
+
+`packages/functions/src/callable/users/list.ts`:
+
+```ts
+export const usersList = onCall({ region: 'asia-northeast3' }, async (request) => {
+  const user = await authenticateRequest(request);
+  const requestId = (request.rawRequest.headers['x-request-id'] as string) ?? crypto.randomUUID();
+
+  try {
+    assertHasCap(user, 'users.read');
+  } catch (err) {
+    await writeAudit({
+      actor: user.email, role: user.role,
+      action: 'users.read', target: '*',
+      request_id: requestId, result: 'denied',
+      message: (err as Error).message,
+    });
+    throw err;
+  }
+
+  try {
+    const directory = getDirectoryClient(user.googleAccessToken);
+    const results: any[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const res = await directory.users.list({
+        customer: 'my_customer',
+        maxResults: 100,
+        pageToken,
+        orderBy: 'email',
+      });
+      results.push(...(res.data.users ?? []).map(u => ({
+        email: u.primaryEmail ?? '',
+        firstName: u.name?.givenName ?? '',
+        lastName: u.name?.familyName ?? '',
+        orgUnitPath: u.orgUnitPath ?? '',
+        isAdmin: u.isAdmin ?? false,
+        isSuspended: u.suspended ?? false,
+      })));
+      pageToken = res.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    await writeAudit({
+      actor: user.email, role: user.role,
+      action: 'users.read', target: '*',
+      request_id: requestId, result: 'ok',
+      message: `listed ${results.length} users`,
+    });
+
+    return { users: results };
+  } catch (err) {
+    await writeAudit({
+      actor: user.email, role: user.role,
+      action: 'users.read', target: '*',
+      request_id: requestId, result: 'error',
+      message: (err as Error).message,
+    });
+    throw new HttpsError('unknown', (err as Error).message);
+  }
+});
 ```
-[![CI](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml)
-```
-다른 문장 손대지 마라.
 
-### 완료 확인 방법 (「결과가 나오는가」)
+### 6. 테스트
 
-**모두 통과해야 완료**:
+**순수 단위** (mock):
+- `writeAudit.test.ts` — Firestore mock 으로 `add()` 가 정확한 스키마로 불리는지.
+- `usersList.test.ts` — Auth·Firestore·googleapis 모두 mock. 케이스:
+  - `admin` 이 부르면 목록 반환 + writeAudit `ok`
+  - `teacher` 가 부르면 `permission-denied` + writeAudit `denied`
+  - 두 페이지 페이지네이션 정상
+  - googleapis 실패 → writeAudit `error` + `HttpsError('unknown')`
 
-1. **커밋 후 GitHub Actions 실행 확인** — Antigravity 가 커밋을 push 하면 (push 는 헤드가 하지만, 커밋만 되고 push 는 헤드 몫), `git log` 로 CI 워크플로가 존재함을 헤드가 볼 수 있어야.
-2. **워크플로 문법 검증** — 로컬에서 가능하면 `actionlint` 같은 도구로. 없으면 `pnpm dlx @action-validator/cli check .github/workflows/ci.yml` 를 시도.
-3. **로컬 재현** — CI 스텝을 로컬에서 재현: `pnpm install --frozen-lockfile && pnpm -r build && pnpm -r lint && pnpm -r test`. 각 스텝이 에러 없이 통과.
-4. **`packageManager` 필드 정합** — `package.json` 에 `packageManager` 필드가 로컬 pnpm 버전과 일치.
-5. **README 배지 SVG URL** — 저장소 URL(`Taehwan-Shin/school_app`), 브랜치(`main`), 파일명(`ci.yml`) 이 정확.
+**에뮬레이터 통합**:
+- `writeAudit.emu.test.ts` — 실 Firestore Emulator 에 add → collection query 로 필드 정확성 확인.
+- `usersList.emu.test.ts`:
+  1. REST signUp 으로 `admin-emu@cam.hs.kr` 생성 → blocking trigger 가 role='teacher' 로 심음
+  2. 헤드 admin SDK 로 `setCustomUserClaims(uid, { role: 'admin' })` 로 승격 (테스트 목적)
+  3. `getIdToken(true)` 대신 REST 로 `signInWithPassword` 호출해 새 idToken 받음
+  4. `googleapis` 를 `vi.mock` 으로 대체해서 `users.list` 가 가짜 페이지 반환하도록
+  5. `usersList` callable 을 emulator functions HTTPS URL 로 fetch POST — `Authorization: Bearer <idToken>`, `X-Google-Access-Token: fake-google-token`
+     · URL 예: `http://127.0.0.1:5001/demo-school/asia-northeast3/usersList`
+     · Body: `{ data: {} }` (Callable 규격)
+  6. 응답 검증: `users` 배열 정확
+  7. Firestore `audit_log` 에 `action: 'users.read', result: 'ok'` 문서 하나 있는지 조회
+
+- **주의** — tokeninfo 는 실 Google 서버 호출이라 emulator 에서 실패한다. 미들웨어에 **테스트 우회 스위치** 를 넣는 대신, **환경변수** (`FIREBASE_AUTH_EMULATOR_HOST` 설정 시) 에서는 tokeninfo 건너뛰고 헤더의 access token 을 신뢰. 프로덕션에서는 항상 tokeninfo.
+  - 이 우회를 명시 주석으로. `TODO(v1.1): tokeninfo mock server 도입`.
+
+### 7. CI 정합
+
+- `pnpm test:emu` 는 자동으로 `*.emu.test.ts` 를 다 실행 (기존 `vitest.emu.config.ts` 그대로).
+- `pnpm -r lint` 는 ESLint 통과 필수.
+
+### 완료 확인 방법
+
+1. `pnpm install` — googleapis, eslint 관련 devDep 정합.
+2. `pnpm -r build` — 세 패키지 통과.
+3. `pnpm -r lint` — 통과. **실증**: 임시로 audit_log 접근 코드 삽입 → lint 실패 → 되돌림. 실증 결과 보고에 포함.
+4. `pnpm -r test` — 기존 21 + 새 단위 통과.
+5. `pnpm test:emu` — 기존 5 + `writeAudit.emu.test.ts` (2~3 케이스) + `usersList.emu.test.ts` (허용·거부 최소 2 케이스) 통과.
+6. **작업 브랜치 push**: `git push -u origin feat/users-list` (또는 유사 이름) 성공. 브랜치 이름을 보고에 명시.
 
 ### 판정 불가로 두는 것
 
-- **실 CI 실행 결과** — Antigravity 가 push 할 수 없으므로 실 GitHub Actions 러너에서의 결과는 헤드가 push 후 확인. 이 오더의 완료 판정 대상 아님.
-- **Node 20 실행 성공** — GitHub 러너 Node 20 에서만 검증 가능. 헤드가 push 후 관찰.
+- **실 Google Admin Directory API 호출** — 다음 오더 UI + 사용자 콘솔 조치 후 헤드가 실측.
+- **CI 실행 결과** — 원격 실행은 사용자 관찰.
 
-### 커밋 규칙
+### 다음 오더 (참고, 이 오더 밖)
 
-- 「CI 워크플로 신설」 → 「package.json packageManager + README 배지」 순으로 **2 커밋 분리**.
-- 각 커밋 메시지 첫 줄 형식: `ci: ...` 또는 `chore: ...`.
-- `git add -A` 금지. 파일 명시.
+- 계정 목록 UI (`/admin/accounts` 페이지 · TanStack Query 훅 · shadcn/ui Table)
+- 실 로그인 시험 통합
 
 ## 상태 보고 (필수)
 
-완료 시 다음을 `#general` 스레드에 **`@Claude Code_Honey` 를 포함해서** 보고:
+완료 시 다음을 `#general` 스레드에 **`@Claude Code_Honey` 포함해서** 보고:
+- **원격 브랜치 이름** (필수 — 지난 오더 무push 실수 재발 방지)
 - 마지막 커밋 해시
-- `git status` 결과 (트리 깨끗한지)
-- 완료 확인 다섯 개 각각의 결과 (통과·실패·판정불가)
-- 오더와 다르게 진행한 부분 (있으면)
-- 특히: `pnpm --version` 실측 값과 `packageManager` 필드에 넣은 값
+- `git status` 결과
+- 완료 확인 각 항목의 결과 (통과·실패·판정불가)
+- **ESLint 실증 결과** (규칙 위반 코드 삽입 시 실패 확인)
+- 오더와 다르게 진행한 부분
 
-**보고 없이 커밋만 하면 재작업 대상**. 지난 두 오더에서 무보고로 헤드가 상태를 확인하는 데 시간을 두 배로 썼다. 이번엔 예외 없다.
+**push 없이 보고하면 재작업**.
