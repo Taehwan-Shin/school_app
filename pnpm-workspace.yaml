@@ -1,6 +1,10 @@
 packages:
   - 'packages/*'
+
+# pnpm 11 은 명시 승인 없이는 dep 빌드를 거부한다.
+# 아래 셋은 워크스페이스에 필요한 최소 화이트리스트.
+# esbuild: Vite 빌드용 · protobufjs: firebase-admin · re2: firebase-tools 정규식 가속
 allowBuilds:
-  esbuild: set this to true or false
-  protobufjs: set this to true or false
-  re2: set this to true or false
+  esbuild: true
+  protobufjs: true
+  re2: true

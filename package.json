@@ -11,10 +11,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "protobufjs"
-    ],
-    "ignoredBuiltDependencies": ["re2"],
-    "dangerouslyAllowAllBuilds": true
+      "protobufjs",
+      "re2"
+    ]
   },
   "devDependencies": {
     "firebase-tools": "^13.29.1",
