@@ -1,9 +1,10 @@
-# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.4)
+# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.5)
 
-> **상태**: 초안. Codex 감사 3차 반영 완료 (커밋 `bdc35e3` 재감사 → 이 문서). 사용자 역할 구조 확정 후 v1.0 승격 예정.
+> **상태**: 초안. Codex 감사 4차 반영 완료 (커밋 `7f8a8a4` 재감사 → 이 문서). 사용자 역할 구조 확정 후 v1.0 승격 예정.
 > 인증 모델 = ⓑ 로그인 사용자 OAuth. 서비스 계정·도메인 위임 없음. 자세한 이유는 `AGENTS.md` §1.
 >
-> **v0.4 변경점** (감사 3차): (1) §5 audit_log append-only 를 세 겹으로 명시 — Firestore rules + 함수 코드 단일 헬퍼 + Firebase Admin SDK bypass 사실 명시. (2) §7 미결에서 `chat.admin.delete` 실존 검증 제거 (Codex 3차 통과).
+> **v0.5 변경점** (감사 4차): §5 audit_log append-only 를 정직하게 재작성 — (a) 클라이언트 rules 는 `read, write: false` 로 전면 차단 (이전의 `create: if request.auth != null` 은 위조 삽입 허용이었음). (b) IAM 커스텀 롤 안 (원 3층) 은 폐기 — Firestore IAM 은 컬렉션 단위 제한 불가. (c) 함수 코드 층은 AST 기반 ESLint 규칙 + Firestore 에뮬레이터 테스트로 강제, grep 은 보조. (d) 새 3층 = 「Pub/Sub 로 분리된 단일 목적 감사 기록기」 — v1.0 이후 강도 보강.
+> **v0.4 변경점** (감사 3차): §5 audit_log append-only 를 세 겹으로 명시 · §7 미결에서 `chat.admin.delete` 실존 검증 제거.
 > **v0.3 변경점** (감사 2차): (1) §1·§2 리전 자기모순 정정 — `asia-northeast3` 로 일관. (2) §4 스코프에 `chat.admin.delete` 추가. (3) §4 인증 흐름에 **토큰 주체 대조** 절 신설. (4) §4 세션 수명 절 재작성 — Cloud Tasks 폐기, 브라우저 주도 청크. (5) §5 `basic_data/current` 를 공개 구조/학생 명단 분리.
 > **v0.2 변경점** (감사 1차): (1) §4 토큰 갱신 오해 정정. (2) §4 스코프에 Gmail·`chat.admin.*` 추가. (3) §5 컬렉션별 rules. (4) §6 미들웨어 3층. (5) §7 리전 확정. (6) §7 Chat 관리자 = 사용자 OAuth.
 
@@ -206,22 +207,34 @@ school_app/
 | `student_roster/{class_id}` | ⚠️ **함수 경유만** — 학생 개인정보 | ❌ | 읽기·쓰기 모두 함수 (역할·반 담당 여부 검증) |
 | `role_assignments/{email}` | ✅ (본인 것만: `request.auth.token.email == email`) | ❌ | 쓰기는 함수로 (`super_admin` 만) |
 | `work_queues/{id}` | ✅ (내가 초기화한 것만: `initiated_by == request.auth.token.email`) | ❌ | 쓰기는 함수만 |
-| `audit_log/{id}` | ❌ | ❌ | 함수만. **rules 로 create-only, update·delete 금지** |
+| `audit_log/{id}` | ❌ | ❌ | rules 는 `allow read, write: if false` — 클라이언트 전면 차단. 쓰기는 함수만. append-only 는 아래 「감사 로그의 append-only」 절 참조 |
 | `group_templates`, `chat_templates` | ✅ (관리자 역할 조회는 함수에서) | ❌ | 쓰기는 함수 |
 
 **왜 완전 잠금이 과한가**: `basic_data/current` 같은 조회 무거운 자료를 함수로 감싸면 왕복 지연과 함수 호출 비용이 늘어난다. Firestore rules 가 접근을 제한할 수 있으면 그게 더 싸고 안전하다.
 **왜 쓰기는 함수만인가**: 쓰기는 감사 로그·부수 효과(관련 컬렉션 갱신·역할 검증) 를 함수 한 곳에서 강제해야 두 곳이 어긋나지 않는다. 클라이언트 rules 로 쓰기를 여는 순간 검증 로직이 두 벌이 된다.
-**감사 로그의 append-only — 세 겹**:
+**감사 로그의 append-only — 정직하게**:
 
-Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 를 쓰는 Cloud Functions 는 rules 를 우회한다** — Admin SDK 는 규칙 검증을 건너뛰고 프로젝트 오너 권한으로 도는 것이 기본. 그래서 함수 코드 안에서 실수로 `.update()`·`.delete()` 를 호출하면 audit_log 가 지워질 수 있다.
+Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 는 rules 를 우회한다** — 함수 코드 안 어디에서든 `.update()`·`.delete()` 를 부르면 그대로 지워진다.
 
-세 겹으로 잠근다:
+그리고 **Firestore IAM 은 컬렉션 단위 제한을 못 한다** — 프로젝트 단위 권한이라 「이 서비스 계정은 audit_log 만 create」 를 IAM 만으로 잠글 수 없다. 감사 4차의 지적 그대로다. 그래서 이 프로젝트에서 「append-only 를 IAM 로 강제」는 **애초에 성립 안 함**.
 
-1. **Firestore rules** — `audit_log/{id}` 에 대해 `allow read: false`, `allow create: if request.auth != null`, `allow update, delete: false`. 클라이언트가 어떤 자격증명으로 붙어도 못 지운다.
-2. **함수 코드의 단일 헬퍼** — audit_log 쓰기는 **`writeAuditLog(entry)` 헬퍼 하나만 통과** 하도록 강제. 이 헬퍼는 `.add()` 만 사용, 다른 자리에서 `firestore.collection('audit_log').update/delete/set` 을 호출하지 않는다. ESLint 커스텀 규칙 또는 코드 리뷰 체크리스트로 강제 — 별도 자가 테스트로 「audit_log 관련 update/delete 호출이 저장소 전체에 0건인가」 를 grep 검사에 넣는다.
-3. **Firebase 프로젝트 IAM** — 함수 실행에 쓰이는 서비스 계정을 **Cloud Datastore User** 대신 **커스텀 롤** (읽기·문서 create 만 허용, delete/update 제외) 로 좁힌다. 이 층은 「함수가 audit_log 를 지운다」는 실수까지 IAM 이 튕겨낸다. **다만 이 층은 다른 컬렉션의 쓰기까지 좁혀야 해서 세밀한 조정이 필요** — v1.0 이후 별도 작업.
+정직한 강제:
 
-**최소 v1.0 에서 필수**는 (1)+(2) — (3) 은 강도 보강 항목.
+1. **Firestore rules (클라이언트 차단)** — `audit_log` 는 `allow read, write: if false`. 클라이언트 SDK 로는 읽기도 쓰기도 못 함. 감사 로그 조회는 관리자 UI 가 반드시 함수 경유. **v0.4 초안이 `allow create: if request.auth != null` 로 뒀던 자리는 위조 삽입 허용이었음 — 폐기**.
+
+2. **함수 코드 층 (AST + 에뮬레이터 테스트, grep 은 보조)** — 함수 코드가 audit_log 를 잘못 만지지 못하게:
+   - **단일 헬퍼** `writeAuditLog(entry)` 만 `.add()` 를 호출. 다른 자리에서 audit_log 컬렉션에 접근하는 것 자체를 금지.
+   - **AST 기반 ESLint 규칙** — 저장소 전체에서 `firestore.collection('audit_log')` 참조가 `writeAuditLog` 정의 파일에만 나오는지 검사. 별칭·래퍼·동적 경로도 AST 노드로 잡음.
+   - **Firestore 에뮬레이터 기반 테스트** — 각 callable 함수를 에뮬레이터에서 돌려 audit_log 에 대해 `update`·`delete` 호출이 0건인지 확인 (에뮬레이터가 훅으로 각 호출을 기록).
+   - **grep 검사는 보조** — 위 두 층이 놓친 문자열을 사후에 잡는 안전망. 강제 수단이 아님.
+
+3. **분리된 감사 기록기 (v1.0 이후 강도 보강)** — 진짜 격리:
+   - 업무 함수는 audit_log 를 **직접 쓰지 않고** Pub/Sub 토픽 `audit-log-events` 에 발행만 함.
+   - 별도 함수 `auditLogWriter` 가 그 토픽을 구독하고 `audit_log/{id}.add()` 만 함. 이 함수의 코드 크기는 수십 줄 이내 — 감사가 쉬움.
+   - Firestore IAM 이 컬렉션 단위를 못 잠그더라도, **이 함수의 코드 자체가 update/delete 를 포함하지 않으므로** 업무 함수가 audit_log 를 오염시킬 경로가 없어짐 (업무 함수 → 토픽 발행만 가능; 토픽 → 기록기 함수 → `.add()` 만).
+   - 이 층의 진짜 값은 **감사 대상 코드 표면적을 크게 줄이는 것** — IAM 로 잠그는 게 아니라 「audit_log 를 조작할 수 있는 코드 파일 수 = 1」 로 만드는 것.
+
+**v1.0 에서 실제로 도는 것 = (1) + (2)**. (3) 은 이후 강도 보강. 이 자리에 「(1)+(2) 만으로 기술적으로 완벽」 이라고 안 씀 — **실수·악의 방지의 실질은 (2) 의 코드 규율에 있고, (3) 만이 표면적 감소로 진짜 완화**를 준다. 완화 도달 전까지 audit_log 의 무결성은 **코드 리뷰 + AST 규칙 + 테스트** 로 유지된다.
 
 ## 6. Cloud Functions 배치
 
@@ -257,7 +270,7 @@ Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 를 쓰
 1. ⚠️ **CSRF·XSS·비밀 관리** — Cloud Functions 는 Firebase Auth ID 토큰 검증으로 CSRF 자동 해결. 액세스 토큰은 브라우저 메모리에만 (`localStorage` 금지). Content-Security-Policy 헤더 설정 필요.
 2. ⚠️ **비용** — Blaze 요금제 필수. 워크스페이스 API 요청 자체는 무료지만 함수 호출·Firestore·아웃바운드 대역폭에 요금. 청크 처리로 함수 호출 수가 늘어남 (배치당 청크 수만큼) → 비용 모니터링 필요.
 3. ⚠️ **재인증 UX** — 청크 처리 중 만료 시 팝업이 뜨면 팝업 차단·사용자 이탈 위험. `prompt: 'none'` silent refresh 시도 → 실패 시만 팝업. 상세 흐름은 프론트 구현 시 정리.
-4. ⚠️ **함수 실행 서비스 계정 IAM 최소 권한** — audit_log append-only 3층 중 (3) 항목. v1.0 이후 강도 보강 작업으로 별도 문서화.
+4. ⚠️ **분리된 감사 기록기 (Pub/Sub → 단일 목적 함수)** — audit_log append-only 를 코드 표면적 축소로 강화. v1.0 이후 강도 보강 작업. 원 초안의 「IAM 커스텀 롤」 안은 Firestore IAM 이 컬렉션 단위를 잠그지 못하는 것으로 폐기.
 
 ## 8. 기술 선택 근거
 
