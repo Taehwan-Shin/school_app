@@ -33,6 +33,7 @@ export function clearGoogleAccessTokenFromSession(): void {
  */
 export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.user.readonly',
+  'https://www.googleapis.com/auth/admin.directory.user',
 ] as const;
 
 export async function signInWithGoogle() {
