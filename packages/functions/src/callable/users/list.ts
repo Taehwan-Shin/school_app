@@ -31,17 +31,18 @@ function readHeader(request: any, key: string): string | undefined {
 export const usersList = onCall({ region: 'asia-northeast3' }, async (request): Promise<UsersListResponse> => {
   const requestId = readHeader(request, 'x-request-id') ?? crypto.randomUUID();
 
-  // 인증 실패도 denied 감사 로그를 남긴다. actor 는 알 수 있으면 이메일, 아니면 unknown.
+  // 인증 실패도 denied 감사 로그를 남긴다. 알 수 없는 자리는 정직하게 'unknown' 으로 기록.
+  // 절대 임의 role 로 위조하지 않는다 (감사 신뢰 경계).
   let user;
   try {
     user = await authenticateRequest(request);
   } catch (err) {
     const actorEmail = (request.auth?.token?.email as string | undefined) ?? 'unknown';
     const claimRole = request.auth?.token?.role;
-    const actorRole: Role =
+    const actorRole: Role | 'unknown' =
       claimRole === 'super_admin' || claimRole === 'admin' || claimRole === 'teacher'
         ? (claimRole as Role)
-        : 'teacher';
+        : 'unknown';
     await writeAudit({
       actor: actorEmail,
       role: actorRole,
