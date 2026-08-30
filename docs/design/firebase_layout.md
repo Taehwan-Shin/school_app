@@ -1,8 +1,9 @@
-# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.11)
+# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.12)
 
-> **상태**: 초안. Codex 감사 10차 반영 완료 (커밋 `3ac8496` 재감사 → 이 문서). 사용자 역할 구조 + audit_log 위험 수용 + Gmail API 활성화 확인 후 v1.0 승격 예정.
+> **상태**: 초안. Codex 감사 11차 반영 완료 (커밋 `f44f28b` 재감사 → 이 문서). **(a) 경로 v1.0 설계 승격 준비 완료** — 사용자 역할 구조 + audit_log (a)/(b) + Gmail API 활성화 확인만 남았다.
 > 인증 모델 = ⓑ 로그인 사용자 OAuth. 서비스 계정·도메인 위임 없음. 자세한 이유는 `AGENTS.md` §1.
 >
+> **v0.12 변경점** (감사 11차): §7-미결-1 CORS allowlist 를 환경별로 분리 — production 은 Firebase Hosting 도메인만, development 는 Vite dev server (`localhost:5173`) + Functions 에뮬레이터 (`localhost:5001`). 환경 판별은 배포 시 환경 변수로.
 > **v0.11 변경점** (감사 10차): §7-미결-1 CSRF 문장 정직 재작성 — 「Firebase ID 토큰 검증으로 자동 해결」 표현 삭제. `Authorization: Bearer` 로 폼 CSRF 표면이 좁아지는 사실은 유지하되 (i) CORS allowlist, (ii) `Origin` 검증, (iii) `Authorization` 강제, (iv) 토큰 저장 정책, (v) CSP — 다섯 항목을 v1.0 착수 시 `docs/design/impl_security.md` 에 확정하도록 지목. `audit_pubsub_isolation.md` 는 사용자가 (b) 를 선택할 때만 작성 (조건부 v1.0 승격 전제).
 > **v0.10 변경점** (감사 9차): (1) §5-(3) 「서버 신원 토큰」 부분에 프로젝트 기본 서비스 계정 공유 시 위조 가능 명시 — 함수별 전용 서비스 계정 + 발행자 allowlist + 토큰 audience/issuer 검증 필요. (2) §5-(3) 「중복 방지」를 `request_id` = 문서 ID + Firestore `.create()` 원자적 실패로 idempotency 강제. (3) §5 하단 결론에서 「기술적 격리는 서명 키 접근 통제까지 갔을 때만 성립」 표현 삭제 — 서명 통제해도 Admin SDK audit_log 수정 권한은 남는다는 사실 명시. (4) §5-A 「선택 (b) 시 별도 문서」 절 신설 — `docs/design/audit_pubsub_isolation.md` 로 분리, (b) 선택 시 v1.0 승격 전 작성·감사.
 > **v0.9 변경점** (감사 8차): §5-(3) 서명 내부 위조 한계 · 「격리」 용어 삭제 · §7-미결 조건부.
@@ -323,7 +324,7 @@ Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 는 rul
 
 **미결**:
 
-1. ⚠️ **CSRF·XSS·비밀 관리** — Firebase callable 은 `Authorization: Bearer` 헤더로 ID 토큰을 실어보내므로 폼 기반 CSRF 표면이 좁아지지만 **자동 해결이 아니다**. 구현 시 확인 대상: (i) callable 엔드포인트 CORS 허용 origin allowlist (Firebase Hosting 도메인만), (ii) `Origin` 헤더 검증, (iii) `Authorization` 헤더 강제 (없으면 즉시 거부), (iv) `localStorage` 금지 · 액세스 토큰 메모리 전용, (v) Content-Security-Policy 헤더로 XSS 표면 축소. 이 다섯 항목은 **v1.0 구현 시 별도 「구현 보안 명세」 문서** (`docs/design/impl_security.md`, v1.0 착수와 동시에 작성) 에서 확정.
+1. ⚠️ **CSRF·XSS·비밀 관리** — Firebase callable 은 `Authorization: Bearer` 헤더로 ID 토큰을 실어보내므로 폼 기반 CSRF 표면이 좁아지지만 **자동 해결이 아니다**. 구현 시 확인 대상: (i) 환경별 CORS 허용 origin allowlist — **production**: Firebase Hosting 도메인만, **development**: `http://localhost:5173` (Vite dev server) + `http://localhost:5001` (Functions 에뮬레이터). 환경 판별은 배포 시 주입되는 환경 변수로. (ii) `Origin` 헤더 검증, (iii) `Authorization` 헤더 강제 (없으면 즉시 거부), (iv) `localStorage` 금지 · 액세스 토큰 메모리 전용, (v) Content-Security-Policy 헤더로 XSS 표면 축소. 이 다섯 항목은 **v1.0 구현 시 별도 「구현 보안 명세」 문서** (`docs/design/impl_security.md`, v1.0 착수와 동시에 작성) 에서 확정.
 2. ⚠️ **비용** — Blaze 요금제 필수. 워크스페이스 API 요청 자체는 무료지만 함수 호출·Firestore·아웃바운드 대역폭에 요금. 청크 처리로 함수 호출 수가 늘어남 (배치당 청크 수만큼) → 비용 모니터링 필요.
 3. ⚠️ **재인증 UX** — 청크 처리 중 만료 시 팝업이 뜨면 팝업 차단·사용자 이탈 위험. `prompt: 'none'` silent refresh 시도 → 실패 시만 팝업. 상세 흐름은 프론트 구현 시 정리.
 4. ⚠️ **분리된 감사 기록기 (Pub/Sub → 단일 목적 함수)** — audit_log append-only 를 코드 표면적 축소로 강화. **선택 (b) 시 v1.0, 선택 (a) 시 v1.1** (§5-A 참조). 원 초안의 「IAM 커스텀 롤」 안은 Firestore IAM 이 컬렉션 단위를 잠그지 못하는 것으로 폐기.
