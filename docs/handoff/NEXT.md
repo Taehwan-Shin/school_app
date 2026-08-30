@@ -1,7 +1,7 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **첫 슬라이스 마무리** — Codex 재감사 지적 두 건 (에뮬레이터 통합 테스트 + 웹 에뮬레이터 로그인 경로).
+> 지금 이 파일의 오더는 **GitHub Actions CI 도입** (사용자 결정 `9cafd59467d8` "A 안 대로 해줘").
 
 ## 상설 규약
 
@@ -13,115 +13,112 @@
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
-- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · Vitest · 신규 에뮬레이터 테스트
+- **커밋 전 기계 관문 통과** — TypeScript 컴파일 · Vitest · 신규 워크플로 문법 검사
 
-**추가**: **완료 후 반드시 `#general` 스레드에 결과 보고**. 지난 오더에서 커밋만 하고 보고를 안 올려서 사용자가 「반응이 없다」 고 문의했다. 이번엔 명시 규칙으로 못 박는다.
+**추가**: **완료 후 반드시 `#general` 스레드에 `@Claude Code_Honey` 를 포함해 결과 보고**. 지난 두 오더 모두 커밋만 하고 침묵했다. 이번엔 명시 규칙으로 못 박는다. 상태 보고 미제출은 재작업 요구 사유.
 
 ## 기준 커밋
 
-**Base**: `9960e59` (v1→v2 Auth 트리거 마이그레이션 완료 커밋)
+**Base**: `a0b38a3` (첫 슬라이스 병합 승인 기록 커밋)
 
 `git log --oneline -1` 로 실물 확인 후 시작.
 
-## 지금 할 것 — 첫 슬라이스 마무리
+## 지금 할 것 — GitHub Actions CI 도입
 
 ### 왜
 
-Codex 재감사가 첫 슬라이스 병합 전 필수라고 못 박은 두 가지:
-- 에뮬레이터 통합 테스트가 없어 오더 완료 조건 3·4·5 를 실행할 방법이 없다.
-- 웹에서 에뮬레이터 가짜 사용자로 로그인해 `/teacher` 도달을 확인할 경로가 없다.
+Codex 감사가 「Node 20 실측」을 판정불가로 남겼다. 지금 헤드 환경은 Node 22 이고 로컬 재현이 불편하다. CI 를 붙이면:
+- 모든 PR·`main` push 마다 Node 20 에서 자동으로 unit + 에뮬레이터 통합 시험이 돈다
+- 회귀가 즉시 잡힌다
+- Codex 의 「Node 20 판정불가」가 실제 실행으로 해소된다
 
-이 두 개만 채우면 첫 슬라이스가 병합 가능한 상태가 된다. **신규 기능은 없다.**
+이 오더의 값은 **회귀 방지 + Node 20 관문 자동화**.
 
 ### 이 과제가 바꿀 경로
 
-**추가·수정 대상**:
-- `packages/functions/tests/` — 신규 에뮬레이터 통합 테스트 파일 (기존 mock 테스트는 유지)
-- `packages/functions/package.json` — 에뮬레이터 통합 테스트 스크립트 추가 (예: `test:emu`), `@firebase/rules-unit-testing` 또는 `firebase-functions-test` devDep 추가
-- `packages/web/src/lib/auth.tsx` — 개발 환경에서만 노출되는 이메일 기반 에뮬레이터 로그인 함수 추가
-- `packages/web/src/routes/login.tsx` (또는 로그인 페이지) — 개발 환경 전용 「에뮬레이터로 로그인」 버튼 추가 (`import.meta.env.DEV` 로 게이트)
-- `README.md` — 새 명령 · 시험 흐름 반영
+**신규 파일만** (기존 파일 수정은 `README.md` 배지 · `.gitignore` 만):
+- `.github/workflows/ci.yml` — 메인 워크플로
+- `.github/workflows/README.md` — (선택) 워크플로 요약 (해도 되고 안 해도 되고)
+- `README.md` — 상단에 CI 배지 (`![CI](...svg)`) 한 줄만 추가
+- `.gitignore` — CI 산물 (예: coverage/, .cache/) 필요 시
 
-**기존 mock 테스트는 지우지 마라** — pure handler 단위 테스트도 값이 있다. 통합 테스트는 별도 파일로 신설.
+**기존 파일 삭제 금지**. `AGENTS.md`·`STATUS.md`·`docs/` 손대지 마라.
 
 ### 세부 요구
 
-#### 1. 에뮬레이터 통합 테스트 (functions)
+#### 1. 워크플로 골자 (`.github/workflows/ci.yml`)
 
-- 신규 파일: `packages/functions/tests/onUserCreate.emu.test.ts`
-- 사용 라이브러리 선택 — 다음 중 하나:
-  - `firebase-functions-test` (v3.x) 을 online 모드로 (`initializeApp` 로 실 admin SDK 사용, Emulator 환경변수로 라우팅)
-  - 또는 순수 `firebase-admin` 을 Emulator 환경변수로 초기화하고, `beforeUserCreated` 핸들러 로직을 직접 호출한 뒤 Firestore Emulator 상태를 조회
-- 테스트 흐름:
-  1. `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085`, `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099` 를 테스트 fixture 로 설정 (`firebase.json` 포트와 일치)
-  2. `handleUserCreate` 를 `@cam.hs.kr` 이메일로 호출 → Firestore Emulator 의 `users/{uid}` 문서가 실제로 존재하는지 조회로 검증
-  3. 다른 도메인으로 호출 → `HttpsError('permission-denied')` throw 되는지 검증, Firestore 상태 변화 없는지 조회로 검증
-- 실행: 에뮬레이터가 떠 있어야 함. `package.json` 에 `test:emu` 스크립트 추가:
-  ```
-  "test:emu": "firebase emulators:exec --project=demo-school 'vitest run --config vitest.emu.config.ts'"
-  ```
-- 별도 `vitest.emu.config.ts` 로 `*.emu.test.ts` 만 포함하도록 필터.
-- 루트 `package.json` 에 `test:emu`: `pnpm --filter @school-app/functions test:emu` 추가.
+트리거:
+- `push` 대상: `main`, `feat/*`, `fix/*` (또는 전 브랜치)
+- `pull_request` 대상: `main`
 
-**주의**: 
-- `firebase emulators:exec` 는 저장소 루트 `firebase.json` 을 읽는다 — Auth·Firestore 에뮬레이터 절이 이미 있는지 확인. 없으면 추가.
-- 에뮬레이터 프로젝트 ID 는 `demo-school` 같이 실제 프로젝트가 아닌 값으로 고정 (실수 배포 방지).
+Job **하나**로 시작 (단순함 우선). 이름: `verify`.
 
-#### 2. 웹 에뮬레이터 로그인 경로
+Runner: `ubuntu-latest`.
 
-- `packages/web/src/lib/auth.tsx` 에 함수 추가:
-  ```ts
-  export async function signInWithEmulator(email: string): Promise<void>
-  ```
-  - `import.meta.env.DEV === false` 이면 즉시 throw (프로덕션 방어)
-  - `signInWithEmailAndPassword(auth, email, 'password')` 시도
-  - 실패 시 `createUserWithEmailAndPassword` 로 새 사용자 만들고 재시도
-- 로그인 페이지에 개발 환경 전용 UI 블록 추가:
-  - `import.meta.env.DEV` 일 때만 렌더
-  - 텍스트 입력 (이메일) + 「에뮬레이터로 로그인」 버튼
-  - `test@cam.hs.kr` 을 기본 placeholder 로
-- **주의**: 프로덕션 빌드 (`pnpm --filter @school-app/web build`) 결과물에 개발 전용 코드가 들어가는지 검증. `import.meta.env.DEV` 는 Vite 가 build 시 `false` 로 트리 흔들기 하므로 dead-code elimination 확인.
+Steps 순서:
+1. `actions/checkout@v4`
+2. `actions/setup-node@v4` — Node **20.x** (정확한 20 major 대) 명시.
+3. `pnpm/action-setup@v4` — 저장소 루트 `package.json` 의 `packageManager` 필드에서 pnpm 버전 자동 감지 (없으면 `version: 11` 명시)
+4. **pnpm store 캐시** — `actions/cache@v4` 로 `~/.pnpm-store` 경로 캐시. 키: `${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}`.
+5. `pnpm install --frozen-lockfile` — lockfile 변경 감지 시 실패해야
+6. **Java 설치** — `actions/setup-java@v4` with `distribution: temurin`, `java-version: 17`. Firestore Emulator 요구.
+7. `pnpm -r build` — 셋 다 컴파일 통과
+8. `pnpm -r lint` — TS 검사
+9. `pnpm -r test` — unit 21 통과
+10. `pnpm test:emu` — Emulator 통합 5/5 통과. 이 스텝에서 Firebase Emulator 가 자동 다운로드 됨.
+11. **선택**: coverage 리포트 (지금은 스킵. 다음 오더에서.)
 
-#### 3. `README.md` 갱신
+**주의**:
+- 모든 `pnpm` 스텝 앞에 `env: HUSKY: '0'` 같은 훅 스킵은 필요 없음 (우리 프로젝트는 husky 없음)
+- `actions/setup-node` 의 `cache: 'pnpm'` 는 쓰지 마라 — pnpm store 는 위 별도 캐시로. `cache: 'pnpm'` 는 pnpm/action-setup 뒤에 두면 충돌.
+- `pnpm test:emu` 실행 시 Firebase Emulator 가 처음이면 다운로드에 30~60초. 캐시할 값어치는 있지만 지금은 스킵.
+- Timeout: job 전체 15 분.
 
-- 로컬 개발 흐름에 「에뮬레이터에서 시험」 절 추가:
-  ```
-  1. pnpm emu           # 다른 창에서 에뮬레이터
-  2. pnpm --filter @school-app/web dev
-  3. 브라우저 http://localhost:5173 → 「에뮬레이터로 로그인」 버튼 → test@cam.hs.kr
-  4. /teacher 화면 도달 · Emulator UI localhost:4000 에서 users/{uid} 문서 확인
-  ```
-- `pnpm --filter @school-app/functions test:emu` 명령도 안내.
+#### 2. `package.json` 의 `packageManager` 필드
+
+`package.json` 루트에 아직 `packageManager` 가 없으면 추가:
+```
+"packageManager": "pnpm@11.0.9"
+```
+버전은 로컬 `pnpm --version` 결과 값 그대로. **Antigravity: 이 값을 하드코딩하지 말고 `pnpm --version` 을 저장소에서 실행해 실제 값을 붙여라.**
+
+#### 3. `README.md` 배지 한 줄
+
+파일 최상단 `# school_app` 헤더 바로 아래에 한 줄만 삽입:
+```
+[![CI](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Taehwan-Shin/school_app/actions/workflows/ci.yml)
+```
+다른 문장 손대지 마라.
 
 ### 완료 확인 방법 (「결과가 나오는가」)
 
 **모두 통과해야 완료**:
 
-1. **에뮬레이터 시작 후 통합 테스트**: `pnpm --filter @school-app/functions test:emu` 가 새 파일의 두 케이스 (허용 도메인 · 거부 도메인) 를 통과.
-2. **웹 에뮬레이터 로그인 → 대시보드 도달**: 사람이 브라우저로 확인 가능한 경로가 있다. 사람 확인은 헤드가 별도로. **에뮬레이터로 로그인 후 라우팅이 `/teacher` 로 가는지** 는 web 쪽 통합 테스트로도 커버 (Vitest + `@testing-library` 로 가짜 auth state 주입).
-3. **프로덕션 빌드 dead-code 검증**: `pnpm --filter @school-app/web build` 결과에서 `signInWithEmulator` 문자열이 `dist/assets/*.js` 에 남지 않는지 grep. 남으면 조건부 import 로 감쌈.
-4. **기존 19 테스트 모두 통과 유지** (`pnpm -r test`).
-5. **타입 검사·빌드 에러 0**: `pnpm -r build`, `pnpm -r lint`.
-6. **README 명령이 실제로 도는지 검증** (실물 시험).
+1. **커밋 후 GitHub Actions 실행 확인** — Antigravity 가 커밋을 push 하면 (push 는 헤드가 하지만, 커밋만 되고 push 는 헤드 몫), `git log` 로 CI 워크플로가 존재함을 헤드가 볼 수 있어야.
+2. **워크플로 문법 검증** — 로컬에서 가능하면 `actionlint` 같은 도구로. 없으면 `pnpm dlx @action-validator/cli check .github/workflows/ci.yml` 를 시도.
+3. **로컬 재현** — CI 스텝을 로컬에서 재현: `pnpm install --frozen-lockfile && pnpm -r build && pnpm -r lint && pnpm -r test`. 각 스텝이 에러 없이 통과.
+4. **`packageManager` 필드 정합** — `package.json` 에 `packageManager` 필드가 로컬 pnpm 버전과 일치.
+5. **README 배지 SVG URL** — 저장소 URL(`Taehwan-Shin/school_app`), 브랜치(`main`), 파일명(`ci.yml`) 이 정확.
 
 ### 판정 불가로 두는 것
 
-- **실 Google 로그인 흐름** — 실 도메인 계정 필요. 헤드가 별도 실측.
-- **UI 미학** — 개발용 로그인 UI 는 실용성만.
+- **실 CI 실행 결과** — Antigravity 가 push 할 수 없으므로 실 GitHub Actions 러너에서의 결과는 헤드가 push 후 확인. 이 오더의 완료 판정 대상 아님.
+- **Node 20 실행 성공** — GitHub 러너 Node 20 에서만 검증 가능. 헤드가 push 후 관찰.
 
 ### 커밋 규칙
 
-- 「functions 에뮬레이터 통합 테스트」 → 「web 에뮬레이터 로그인 함수·페이지」 → 「README 갱신」 순으로 최소 2~3 커밋.
-- 각 커밋 메시지 첫 줄 형식: `feat(scope): ...` 또는 `test(scope): ...` 또는 `docs: ...`.
+- 「CI 워크플로 신설」 → 「package.json packageManager + README 배지」 순으로 **2 커밋 분리**.
+- 각 커밋 메시지 첫 줄 형식: `ci: ...` 또는 `chore: ...`.
 - `git add -A` 금지. 파일 명시.
 
 ## 상태 보고 (필수)
 
-완료 시 다음을 `#general` 스레드에 **@Claude Code_Honey 를 포함해서** 보고:
+완료 시 다음을 `#general` 스레드에 **`@Claude Code_Honey` 를 포함해서** 보고:
 - 마지막 커밋 해시
 - `git status` 결과 (트리 깨끗한지)
-- 완료 확인 여섯 개 각각의 결과 (통과·실패·판정불가)
+- 완료 확인 다섯 개 각각의 결과 (통과·실패·판정불가)
 - 오더와 다르게 진행한 부분 (있으면)
-- 걸린 시간 대략
+- 특히: `pnpm --version` 실측 값과 `packageManager` 필드에 넣은 값
 
-**보고 없으면 병합 안 함.** 지난 오더처럼 커밋만 하고 스레드 침묵하지 마라 — 헤드가 반영·판정·감사 파견을 하려면 이 보고가 트리거.
+**보고 없이 커밋만 하면 재작업 대상**. 지난 두 오더에서 무보고로 헤드가 상태를 확인하는 데 시간을 두 배로 썼다. 이번엔 예외 없다.
