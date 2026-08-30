@@ -11,7 +11,8 @@
 | 첫 슬라이스 (모노레포·로그인·역할별 껍데기·Auth 트리거·감사 시험) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `faceea9`) | HEAD 이후 유지. unit + emu 통과 |
 | CI 슬라이스 (GitHub Actions · Node 20 · Java 21) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `4888ea1`) | 원격 실행은 사용자 관찰 관문 |
 | users.list slice (writeAudit 헬퍼 · ESLint AST · 3층 미들웨어 · Callable · 파일 stub emu 종단) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `8c7fa81`) | functions 31 통과 · emu 10/10 통과 |
-| Accounts UI slice (`/admin` 계정 목록 표 · useUsersList · GoogleAuthProvider scope · super_admin 접근 · 4xx no-retry) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `a8b5a83`) | web 29 통과 · 총 65 unit · prod 번들 emulator grep=0 |
+| Accounts UI slice (`/admin` 계정 목록 표 · useUsersList · GoogleAuthProvider scope · super_admin 접근 · 4xx no-retry) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `a8b5a83`) | web 29 통과 · 총 65 unit |
+| users.create + users.delete slice (callables · 본인 삭제 방지 · 앱 super_admin+Workspace admin 병렬 보호 · 다이얼로그 UI) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `1933d12`) | 총 103 unit · v1.0 완료 조건 「계정 만들고 삭제」 코드층 완결 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | OAuth 동의 화면 도메인 정정 `cam-t.kr` → `cam.hs.kr` (배포 차단) | 사용자 | 답 대기 | Google Cloud Console → OAuth 동의 화면 → 승인된 도메인 |
 | Node 20 환경 재실행 (배포 차단) | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인. |
