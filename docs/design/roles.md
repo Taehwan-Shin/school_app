@@ -1,9 +1,10 @@
-# roles.md — 역할·권한 매트릭스 (초안 v0.2)
+# roles.md — 역할·권한 매트릭스 (초안 v0.3)
 
-> **상태**: 초안. Codex 감사 1차 반영 완료 (커밋 `7ab9c1a` 감사 → 이 문서). 사용자 확인 전.
+> **상태**: 초안. Codex 감사 5차 반영 완료 (`firebase_layout.md` 와 정합). 사용자 확인 전.
 > **왜 초안이라고 명시하는가**: 이 문서는 **결정**이 아니라 **제안**이다. 사용자가 문장을 바꾸기 전까지 확정된 것으로 다른 문서가 인용하지 않는다.
 >
-> **v0.2 변경점**: (1) §3-4 에 누락된 클래스룸 함수 4개(`listAllClassrooms`·`updateClassroomListIfNeeded`·`directlyAddMemberToClassroom`·`archiveClassrooms`) 추가. (2) §3-3 에 챗방 권한 설정 흐름(`configureChatSpacePermissions`) 추가. (3) §4 「자기 부서만」 강제 방법을 구체화 — 부서↔OU 매핑 · actor OU · target OU 대조를 명시. (4) §5-3 부트스트랩 위험 완화 명시.
+> **v0.3 변경점** (감사 5차): §4-3 감사 로그 append-only 문장 수정 — 「rules 만으로 update·delete 금지」는 오해 소지. `firebase_layout.md` §5 를 가리키기만 함.
+> **v0.2 변경점** (감사 1차): (1) §3-4 에 누락된 클래스룸 함수 4개 추가. (2) §3-3 에 챗방 권한 설정 흐름 추가. (3) §4 「자기 부서만」 강제 방법 구체화. (4) §5-3 부트스트랩 위험 완화 명시.
 
 ## 1. 「역할」의 정의
 
@@ -119,7 +120,7 @@
 역할 통과·대상 통과 후 실제 API 호출 전·후로 `audit_log/{id}` 에 append:
 - `actor` (이메일), `role`, `action`, `target`, `at` (Timestamp), `request_id`, `result` (ok/error/denied), 관련 `diff` (선택)
 
-**감사 로그는 append-only** — Firestore rules 로 update·delete 를 금지 (아래 firebase_layout §5 참조).
+**감사 로그는 append-only** — 클라이언트 SDK 는 Firestore rules 로 전면 차단하고, 함수 코드 층은 여러 관문(단일 헬퍼 + AST ESLint + 에뮬레이터 mock 테스트)을 겹쳐 강제한다. Firebase Admin SDK 가 rules 를 우회하므로 **rules 하나만으로는 부족**하다. 자세한 3층 강제 방식과 v1.0 위험 수용 결정은 `firebase_layout.md` §5·§5-A.
 
 ## 5. 알려진 미결
 

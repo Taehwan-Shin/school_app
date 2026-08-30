@@ -1,10 +1,10 @@
-# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.5)
+# firebase_layout.md — Firebase 프로젝트 구조 (초안 v0.6)
 
-> **상태**: 초안. Codex 감사 4차 반영 완료 (커밋 `7f8a8a4` 재감사 → 이 문서). 사용자 역할 구조 확정 후 v1.0 승격 예정.
+> **상태**: 초안. Codex 감사 5차 반영 완료 (커밋 `bccfa84` 재감사 → 이 문서). 사용자 역할 구조 + audit_log 위험 수용 결정 후 v1.0 승격 예정.
 > 인증 모델 = ⓑ 로그인 사용자 OAuth. 서비스 계정·도메인 위임 없음. 자세한 이유는 `AGENTS.md` §1.
 >
-> **v0.5 변경점** (감사 4차): §5 audit_log append-only 를 정직하게 재작성 — (a) 클라이언트 rules 는 `read, write: false` 로 전면 차단 (이전의 `create: if request.auth != null` 은 위조 삽입 허용이었음). (b) IAM 커스텀 롤 안 (원 3층) 은 폐기 — Firestore IAM 은 컬렉션 단위 제한 불가. (c) 함수 코드 층은 AST 기반 ESLint 규칙 + Firestore 에뮬레이터 테스트로 강제, grep 은 보조. (d) 새 3층 = 「Pub/Sub 로 분리된 단일 목적 감사 기록기」 — v1.0 이후 강도 보강.
-> **v0.4 변경점** (감사 3차): §5 audit_log append-only 를 세 겹으로 명시 · §7 미결에서 `chat.admin.delete` 실존 검증 제거.
+> **v0.6 변경점** (감사 5차): (1) §2 에 확정된 Cloud 프로젝트 값 3개 반영 (사용자 회신 `162e4e2b`). (2) §5 AST 규칙 절이 「AST 만으로 모두 잡는다」는 과장 삭제 — 비리터럴 컬렉션 경로 금지·허용목록·런타임 Firestore mock 검증을 테스트 명세로 명시. (3) §5 「v1.0 위험 수용」 절 신설 — Pub/Sub 격리를 v1.0 에 포함할지 사용자 결정 대기. (4) `roles.md` §4-3 audit_log 문장을 firebase_layout §5 를 가리키도록 수정 (roles.md 는 별도 커밋).
+> **v0.5 변경점** (감사 4차): §5 audit_log append-only 정직 재작성 — 클라이언트 rules 전면 차단, IAM 커스텀 롤 안 폐기, AST + 에뮬레이터 테스트, Pub/Sub 3층 신설.
 > **v0.3 변경점** (감사 2차): (1) §1·§2 리전 자기모순 정정 — `asia-northeast3` 로 일관. (2) §4 스코프에 `chat.admin.delete` 추가. (3) §4 인증 흐름에 **토큰 주체 대조** 절 신설. (4) §4 세션 수명 절 재작성 — Cloud Tasks 폐기, 브라우저 주도 청크. (5) §5 `basic_data/current` 를 공개 구조/학생 명단 분리.
 > **v0.2 변경점** (감사 1차): (1) §4 토큰 갱신 오해 정정. (2) §4 스코프에 Gmail·`chat.admin.*` 추가. (3) §5 컬렉션별 rules. (4) §6 미들웨어 3층. (5) §7 리전 확정. (6) §7 Chat 관리자 = 사용자 OAuth.
 
@@ -46,10 +46,20 @@
 
 ## 2. Firebase 프로젝트 하나
 
-- **프로젝트 ID**: 사용자가 정함. 예: `school-app-hmh`
+**확정 값** (2026-08-30, bliss00 채널 회신 `162e4e2b2f09...`):
+
+- **Google Cloud 프로젝트 ID**: `school-app-507112`
+- **OAuth 2.0 웹 클라이언트 ID**: `119238884749-u061f4pi62omsinf2ovmg1f10t11ifq6.apps.googleusercontent.com`
+- **워크스페이스 도메인**: `cam-t.kr`
+- **클라이언트 시크릿**: 채널에 붙이지 않음. 로컬 `.env.local` 로만 관리 (`.gitignore` 반영).
+
+기타:
+
 - **위치**: `asia-northeast3` (서울). Firestore·Storage 위치.
 - **Cloud Functions**: 2세대 (`asia-northeast3` 서울 리전 — Firestore 와 같은 리전, 왕복 지연 최소화)
 - **결제**: Blaze 필요 (Cloud Functions 외부 호출 = Google API 라 무료 tier 로 안 됨)
+- **OAuth 리다이렉트 URI**: 개발 `http://localhost:5173`, 프로덕션은 Firebase Hosting URL 을 발급받은 뒤 추가.
+- **API 활성화 확인 필요**: Admin SDK · Google Classroom · Google Chat · Gmail. 사용자가 세 개(계정·클래스룸·챗) 활성화한 상태로 답함 — Gmail 는 아직 미확인 (계정 삭제 안내 메일용, `sendMailtoUsers` 대응).
 
 ## 3. 저장소 폴더 구조
 
@@ -222,11 +232,22 @@ Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 는 rul
 
 1. **Firestore rules (클라이언트 차단)** — `audit_log` 는 `allow read, write: if false`. 클라이언트 SDK 로는 읽기도 쓰기도 못 함. 감사 로그 조회는 관리자 UI 가 반드시 함수 경유. **v0.4 초안이 `allow create: if request.auth != null` 로 뒀던 자리는 위조 삽입 허용이었음 — 폐기**.
 
-2. **함수 코드 층 (AST + 에뮬레이터 테스트, grep 은 보조)** — 함수 코드가 audit_log 를 잘못 만지지 못하게:
-   - **단일 헬퍼** `writeAuditLog(entry)` 만 `.add()` 를 호출. 다른 자리에서 audit_log 컬렉션에 접근하는 것 자체를 금지.
-   - **AST 기반 ESLint 규칙** — 저장소 전체에서 `firestore.collection('audit_log')` 참조가 `writeAuditLog` 정의 파일에만 나오는지 검사. 별칭·래퍼·동적 경로도 AST 노드로 잡음.
-   - **Firestore 에뮬레이터 기반 테스트** — 각 callable 함수를 에뮬레이터에서 돌려 audit_log 에 대해 `update`·`delete` 호출이 0건인지 확인 (에뮬레이터가 훅으로 각 호출을 기록).
-   - **grep 검사는 보조** — 위 두 층이 놓친 문자열을 사후에 잡는 안전망. 강제 수단이 아님.
+2. **함수 코드 층 (여러 관문을 겹친다)** — 함수 코드가 audit_log 를 잘못 만지지 못하게. **한 관문으로는 부족**하므로 다음을 다 붙인다:
+
+   (a) **단일 헬퍼** `writeAuditLog(entry)` 만 `.add()` 를 호출.
+
+   (b) **AST 기반 ESLint 규칙 두 개** — 저장소 전체에 다음을 금지:
+      - `firestore.collection('audit_log')` **리터럴 호출**이 `writeAuditLog` 정의 파일 밖에서 나오는 것.
+      - **비리터럴 컬렉션 경로** 전체를 코드베이스에서 금지 (예: `firestore.collection(varname)`). 컬렉션 이름은 **문자열 리터럴만** 허용. 이렇게 하면 `firestore.collection(\`audit_${suffix}\`)` 같은 동적 경로가 원천 봉쇄된다.
+      - **참고**: AST 는 정적 분석이므로 `const c = firestore.collection; c('audit_log')` 같은 **별칭·재바인딩**을 완벽히 잡지 못한다. 그래서 (c) 런타임 검증이 필요.
+
+   (c) **Firestore 에뮬레이터 + mock 기반 런타임 검증** — 테스트 스위트가 다음을 강제:
+      - 각 callable 함수를 에뮬레이터에서 돌리면서 **Firestore 클라이언트를 mock 으로 감싸** 모든 `collection().add/update/delete/set/doc(...).update/delete/set` 호출을 로그.
+      - 각 함수 실행 뒤 로그를 검사해서 `audit_log` 컬렉션에 대해 `update`·`delete` 호출이 0건인지 확인.
+      - 이 층은 별칭·래퍼·동적 경로가 **결과적으로** audit_log 에 닿는지를 잡음. AST 가 놓친 경로도 실행되는 순간 로그에 남음.
+      - 테스트가 없는 함수는 CI 에서 배포 거부.
+
+   (d) **grep 은 보조** — 위 셋이 놓친 문자열 회귀를 사후에 잡는 안전망. 강제 수단은 아님.
 
 3. **분리된 감사 기록기 (v1.0 이후 강도 보강)** — 진짜 격리:
    - 업무 함수는 audit_log 를 **직접 쓰지 않고** Pub/Sub 토픽 `audit-log-events` 에 발행만 함.
@@ -234,7 +255,25 @@ Firestore Security Rules 하나로는 부족하다. **Firebase Admin SDK 는 rul
    - Firestore IAM 이 컬렉션 단위를 못 잠그더라도, **이 함수의 코드 자체가 update/delete 를 포함하지 않으므로** 업무 함수가 audit_log 를 오염시킬 경로가 없어짐 (업무 함수 → 토픽 발행만 가능; 토픽 → 기록기 함수 → `.add()` 만).
    - 이 층의 진짜 값은 **감사 대상 코드 표면적을 크게 줄이는 것** — IAM 로 잠그는 게 아니라 「audit_log 를 조작할 수 있는 코드 파일 수 = 1」 로 만드는 것.
 
-**v1.0 에서 실제로 도는 것 = (1) + (2)**. (3) 은 이후 강도 보강. 이 자리에 「(1)+(2) 만으로 기술적으로 완벽」 이라고 안 씀 — **실수·악의 방지의 실질은 (2) 의 코드 규율에 있고, (3) 만이 표면적 감소로 진짜 완화**를 준다. 완화 도달 전까지 audit_log 의 무결성은 **코드 리뷰 + AST 규칙 + 테스트** 로 유지된다.
+### 5-A. v1.0 위험 수용 결정 (사용자 결정 필요)
+
+**결정할 것**: v1.0 을 (a) 코드 규율 기반으로 승격할 것인가, (b) Pub/Sub 격리를 v1.0 에 포함할 것인가.
+
+| | (a) 코드 규율 기반 v1.0 | (b) Pub/Sub 격리 포함 v1.0 |
+|---|---|---|
+| **audit_log 무결성 근거** | 클라이언트 rules 차단 (1) + 함수 코드 층 (2) — ESLint 두 개 · 에뮬레이터 mock 테스트 · 코드 리뷰 | 위 + (3) 업무 함수가 audit_log 에 아예 접근 불가, 별도 함수만 접근 |
+| **남는 위험** | 업무 함수 코드가 실수·악의로 audit_log 를 수정하는 것 — AST + 테스트 + 리뷰가 잡을 것으로 기대 | 사실상 없음 (기록기 함수 자체는 코드 수십 줄, 단일 목적) |
+| **작업량** | 배포 준비 (AST 규칙 · 테스트 프레임워크 · 헬퍼) 는 어차피 필요 | 위 + Pub/Sub 토픽·구독·기록기 함수·업무 함수 리팩터링 |
+| **적합** | 내부 관리자만 쓰는 앱, 관리자 신뢰 가능 | 규제 감사·외부 침해 대비가 필요한 앱 |
+
+**헤드의 추천**: **(a) 로 v1.0 승격**. 이 앱은 학교 내부 관리자용이고 코드 리뷰 밀도가 높으며, (2) 의 세 관문이 실전에서 남는 위험을 상당히 좁힌다. (3) 은 v1.1 로 미룸 — 그때 「기록기 함수 하나 신설」 로 격리 강화. **사용자가 (b) 를 원하면 v1.0 일정이 늘어남**.
+
+**남은 위험의 명시** (선택 (a) 시):
+- 업무 함수 코드가 정적·동적 분석을 모두 우회해 audit_log 를 조작하는 것은 이론상 가능. 이 프로젝트에서는 **코드 리뷰가 최종 관문** — 함수 PR 은 반드시 감사(Codex) 를 통과해야 병합. audit_log 관련 접근은 리뷰에서 필수 체크.
+
+---
+
+**v1.0 에서 실제로 도는 것 = (1) + (2)**. (3) 은 (b) 선택 시 v1.0, (a) 선택 시 v1.1. 이 자리에 「(1)+(2) 만으로 기술적으로 완벽」 이라고 안 씀 — 실질 완화는 (2) 의 관문 겹침과 코드 리뷰이며, (3) 만이 코드 표면적 축소로 진짜 격리를 준다.
 
 ## 6. Cloud Functions 배치
 
