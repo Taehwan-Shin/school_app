@@ -14,7 +14,7 @@ import type { Role } from '@school-app/shared';
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({
-    hd: 'cam-t.kr',
+    hd: 'cam.hs.kr',
     prompt: 'select_account',
   });
   return signInWithPopup(auth, provider);
@@ -59,8 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
+          // 서버(beforeUserCreated 트리거)만 role 을 심을 수 있고, getMe 도
+          // role 미부여 시 failed-precondition 을 던진다. 여기서도 강제 검증:
+          // 알 수 없는 role 은 null 로 남겨 로그인 페이지로 되돌린다.
           const tokenResult = await currentUser.getIdTokenResult();
-          const claimRole = (tokenResult.claims.role as Role) || 'teacher';
+          const raw = tokenResult.claims.role;
+          const claimRole =
+            raw === 'super_admin' || raw === 'admin' || raw === 'teacher'
+              ? (raw as Role)
+              : null;
           setUser(currentUser);
           setRole(claimRole);
         } else {
