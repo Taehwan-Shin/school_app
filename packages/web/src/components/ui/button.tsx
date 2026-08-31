@@ -2,27 +2,28 @@ import * as React from "react";
 import { cn } from "../../lib/utils";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "outline" | "ghost" | "destructive" | "secondary";
+  variant?: "default" | "secondary" | "destructive" | "ghost" | "link" | "outline";
   size?: "default" | "sm" | "lg";
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", ...props }, ref) => {
     const baseStyles =
-      "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+      "inline-flex items-center justify-center rounded-none font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-40 disabled:cursor-not-allowed";
 
     const variantStyles = {
-      default: "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500",
-      secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-500",
-      outline: "border border-slate-300 bg-transparent hover:bg-slate-100 focus-visible:ring-slate-500",
-      ghost: "hover:bg-slate-100 text-slate-700 focus-visible:ring-slate-500",
-      destructive: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+      default: "bg-accent-primary text-accent-on-primary hover:opacity-90",
+      secondary: "border border-border-subtle bg-canvas text-fg-primary hover:bg-surface",
+      destructive: "bg-state-danger text-white hover:opacity-90",
+      ghost: "text-fg-primary hover:bg-surface",
+      link: "text-fg-primary underline decoration-fg-muted hover:decoration-fg-primary",
+      outline: "border border-border-subtle bg-canvas text-fg-primary hover:bg-surface",
     };
 
     const sizeStyles = {
-      default: "h-10 py-2 px-4",
-      sm: "h-8 px-3 text-xs",
-      lg: "h-12 px-8 text-base",
+      default: "px-4 py-2 text-body",
+      sm: "px-3 py-1.5 text-small",
+      lg: "px-6 py-3 text-body",
     };
 
     return (
@@ -35,3 +36,4 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 Button.displayName = "Button";
+
