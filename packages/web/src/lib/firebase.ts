@@ -4,12 +4,12 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-school-app',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBxeeZ-wEq8zWZsUAwQEFuXFfzIpY-7lmM',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'school-app-5a636.firebaseapp.com',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'school-app-5a636',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'school-app-5a636.appspot.com',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1234567890',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1234567890:web:mock',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'school-app-5a636.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '953541048575',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:953541048575:web:f731ad4429ad3f22cc34ca',
 };
 
 export const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
