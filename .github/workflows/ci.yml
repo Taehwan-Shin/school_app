@@ -23,7 +23,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.0.9
+          # pnpm 11 은 Node 22.13+ 필요. Firebase Functions 런타임은 Node 20 이므로
+          # CI 도 Node 20 유지. Node 20 과 호환되는 pnpm 10.x 사용.
+          version: 10.15.0
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
