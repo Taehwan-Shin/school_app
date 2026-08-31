@@ -24,9 +24,12 @@ export async function callUsersList(): Promise<UsersListResponse> {
   const googleAccessToken = getGoogleAccessTokenFromSession() || '';
 
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'school-app-5a636';
+  // 프로덕션: 같은 오리진의 `/api/*` 로 부름 → Firebase Hosting rewrite 가
+  // Cloud Function 으로 프록시. Cloud Run IAM 조직 정책 우회 + CORS 무관.
+  // 개발: 로컬 emulator 직접 호출.
   const url = import.meta.env.DEV
     ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/usersList`
-    : `https://asia-northeast3-${projectId}.cloudfunctions.net/usersList`;
+    : `/api/usersList`;
 
   const requestId =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'

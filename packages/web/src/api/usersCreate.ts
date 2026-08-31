@@ -25,9 +25,10 @@ export async function callUsersCreate(data: UsersCreateRequest): Promise<UsersCr
   const googleAccessToken = getGoogleAccessTokenFromSession() || "";
 
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "school-app-5a636";
+  // 프로덕션: 같은 오리진의 `/api/*` (Firebase Hosting rewrite).
   const url = import.meta.env.DEV
     ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/usersCreate`
-    : `https://asia-northeast3-${projectId}.cloudfunctions.net/usersCreate`;
+    : `/api/usersCreate`;
 
   const requestId =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"

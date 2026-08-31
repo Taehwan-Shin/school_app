@@ -20,9 +20,10 @@ export async function callUsersDelete(data: UsersDeleteRequest): Promise<UsersDe
   const googleAccessToken = getGoogleAccessTokenFromSession() || "";
 
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "school-app-5a636";
+  // 프로덕션: 같은 오리진의 `/api/*` (Firebase Hosting rewrite).
   const url = import.meta.env.DEV
     ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/usersDelete`
-    : `https://asia-northeast3-${projectId}.cloudfunctions.net/usersDelete`;
+    : `/api/usersDelete`;
 
   const requestId =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"

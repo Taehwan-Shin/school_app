@@ -27,6 +27,22 @@
     ],
     "rewrites": [
       {
+        "source": "/api/getMe",
+        "function": { "functionId": "getMe", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/usersList",
+        "function": { "functionId": "usersList", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/usersCreate",
+        "function": { "functionId": "usersCreate", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/usersDelete",
+        "function": { "functionId": "usersDelete", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
