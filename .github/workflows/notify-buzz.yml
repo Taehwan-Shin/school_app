@@ -1,0 +1,38 @@
+name: Notify Buzz
+
+on:
+  push:
+    branches:
+      - 'feat/*'
+      - 'fix/*'
+
+jobs:
+  notify:
+    name: notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install script deps
+        working-directory: .github/scripts
+        run: npm install --no-audit --no-fund
+
+      - name: Publish notification
+        working-directory: .github/scripts
+        env:
+          BUZZ_RELAY_URL: ${{ secrets.BUZZ_RELAY_URL }}
+          BUZZ_PRIVATE_KEY: ${{ secrets.BUZZ_PRIVATE_KEY }}
+          BUZZ_AUTH_TAG: ${{ secrets.BUZZ_AUTH_TAG }}
+          BUZZ_CHANNEL_ID: c11dde04-20a6-5c02-8a9a-c29f111e389e
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: node notify-buzz.mjs
