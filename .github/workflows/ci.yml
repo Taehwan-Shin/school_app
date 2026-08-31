@@ -27,10 +27,14 @@ jobs:
           # CI 도 Node 20 유지. Node 20 과 호환되는 pnpm 10.x 사용.
           version: 10.34.5
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          # jsdom 30.x 는 undici 8.x 를 사용하고 이는 Node 21+ 의 webidl.util.markAsUncloneable
+          # 을 요구. Node 20 에서는 packages/web 테스트가 "webidl.util.markAsUncloneable is
+          # not a function" 로 실패. CI 는 Node 22 로 올려서 테스트만 검증. Firebase
+          # Functions 배포 런타임은 여전히 Node 20 (packages/functions/package.json engines).
+          node-version: '22.x'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
