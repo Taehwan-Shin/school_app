@@ -475,3 +475,35 @@ Antigravity 호출은 스레드에서 `@Antigravity` 로.
 3. **첫 관리자 부트스트랩** — `scripts/bootstrap_admin.ts` 로 `admin2@cam.hs.kr` 를 첫 `super_admin` 으로 승격. 또는 웹으로 임시 승격 흐름.
 
 **판단** — CI (1) 를 먼저. Node 20 관문·회귀 방지 두 마리 토끼. 그 다음 (2) 첫 실 관리 기능.
+
+---
+
+## 2026-08-31 · 도메인 두 자리 분리 명확화
+
+**사용자 회신** `[사용자 결정]` — Buzz DM `04194276d43c`: *"이게 사용하는 선생님들 구글 계정은 cam.hs.kr 도메인인데 서비스하려는 웹 주소 도메인은 cam-t.kr을 이용하려고 해. 학교 홈페이지 주소를 서비스 주소로 사용할 수 없어서"*.
+
+**정정** — 헤드가 이전에 「OAuth 동의 화면 도메인 정정 `cam-t.kr` → `cam.hs.kr`」로 STATUS 에 적은 것은 **오해**. 두 도메인은 서로 다른 자리를 채운다.
+
+**세 자리 도메인 (v1.0 확정)**:
+
+| 자리 | 값 | 위치 |
+|---|---|---|
+| 로그인 이메일 도메인 (교사·관리자 워크스페이스 이메일) | `cam.hs.kr` | Firebase Auth 이메일 검증 · `beforeUserCreated` blocking trigger 안 · 코드 안 이미 반영 (커밋 `7e99fff`) ✅ |
+| 웹앱 커스텀 도메인 (사용자가 브라우저에서 여는 주소) | `cam-t.kr` | Firebase Hosting Custom domain · OAuth 승인된 도메인 (Firebase 기본 `*.web.app`·`*.firebaseapp.com` 은 자동) |
+| Firebase 기본 호스팅 도메인 | `<project>.web.app` · `<project>.firebaseapp.com` | 자동, 설정 불필요 |
+
+**사용자 회신 사유** — 학교 공식 홈페이지가 `cam.hs.kr` 을 이미 점유 (portal.hmh.or.kr 원본 학교시스템 참고, project_notes 킥오프 참조). 웹앱 서비스로는 사용 불가라 별도 `cam-t.kr` 확보.
+
+**STATUS.md 갱신** — 「OAuth 동의 화면 도메인 정정」 항목을 **삭제**, 「웹앱 커스텀 도메인 `cam-t.kr` 연결」 항목으로 대체. 확인 방법에 세 자리 관계 명기.
+
+**사용자에게 통지** — Buzz DM `7d6fc1e31026`. 이전 「OAuth `cam-t.kr` 제거」 지시 무효화, `cam-t.kr` 유지 요청.
+
+**코드 층 확인 결과** — 저장소 안 grep (`cam.hs.kr`) 33 곳, 모두 로그인 이메일 도메인 자리로 옳음. 웹앱 호스팅 자리는 아직 코드에 하드코딩된 곳 없음 (Firebase Hosting 은 배포 시점에 붙임). 코드 변경 없이 문서만 정정.
+
+**여전히 열린 사용자 조치 (배포 차단)**:
+1. Identity Platform 업그레이드 (Firebase Console)
+2. Google API 활성화 확인 (Gmail · Admin SDK · Classroom · Chat)
+3. 웹앱 커스텀 도메인 `cam-t.kr` 연결 (Firebase Console → Hosting + DNS)
+4. (선택) 로컬 Java 설치
+
+**갈래 A/B 판정** — 사용자 응답 대기 중. 도메인 명확화가 갈래 A (실 워크스페이스 시험) 로 가는 준비의 핵심 조각이었음.

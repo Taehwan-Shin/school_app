@@ -14,7 +14,7 @@
 | Accounts UI slice (`/admin` 계정 목록 표 · useUsersList · GoogleAuthProvider scope · super_admin 접근 · 4xx no-retry) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `a8b5a83`) | web 29 통과 · 총 65 unit |
 | users.create + users.delete slice (callables · 본인 삭제 방지 · 앱 super_admin+Workspace admin 병렬 보호 · 다이얼로그 UI) | 헤드/일꾼/감사 | **병합 승인** (Codex 대상 `1933d12`) | 총 103 unit · v1.0 완료 조건 「계정 만들고 삭제」 코드층 완결 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
-| OAuth 동의 화면 도메인 정정 `cam-t.kr` → `cam.hs.kr` (배포 차단) | 사용자 | 답 대기 | Google Cloud Console → OAuth 동의 화면 → 승인된 도메인 |
+| 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지 (Firebase 기본 `*.web.app` 자동 등록됨). **이메일 도메인 `cam.hs.kr` 과 별개**. |
 | Node 20 환경 재실행 (배포 차단) | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인. |
 | 다음 오더 준비 (첫 실 관리 기능) | 헤드 | 시작 필요 | 「최소 실사용 슬라이스」 오더 후보: `users.list` callable + 계정 목록 UI · 첫 관리자 부트스트랩 스크립트 등 |
 | 서비스 계정 유무 (bootstrap 스크립트용) | 사용자 | 답 대기 (지연 가능) | 로컬 `scripts/bootstrap_admin.ts` 가 Firestore custom claim 쓰려면 필요. 도메인 검증 통과된 사용자가 웹으로 로그인해서 첫 admin 을 승격시키는 방식으로 대체도 가능 |
