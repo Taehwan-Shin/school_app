@@ -541,3 +541,71 @@ Antigravity 호출은 스레드에서 `@Antigravity` 로.
 6. (배포 직전) Firebase Console 웹 앱 Config 6 개 문자열 → `.env.production`
 
 **커뮤니케이션 규칙 확정** `[사용자 결정]` — Buzz DM `1b70fd7fe4fd` 사용자 회신 *"너무 복잡하니까 하나씩 다시 알려줘"*. 헤드가 6항목 병렬 클릭 리스트를 드린 것이 과부하 원인. 앞으로 **콘솔·DNS 등 외부 시스템 설정은 한 걸음씩만** 드리는 걸로 전환. 각 걸음은 「어디 클릭 → 뭘 입력 → 어떻게 완료 확인」 세 줄. 사용자 확인 후 다음 걸음. 코어 메모리 `feedback_step_by_step.md` 저장 완료.
+
+---
+
+## 2026-08-31 (오후~밤) · E2E 프로덕션 도달 · CI 초록 · 팀 4자리 · UI 슬라이스 시작
+
+**하루 요약** — 프로덕션 스택 처음으로 끝까지 굴러감. `admin2@cam.hs.kr` 로 `t.cam.hs.kr` 접속 → Google 로그인 → blocking trigger → Firestore users 문서 → custom claim → `/teacher` 렌더링 실 검증.
+
+### 배포 여정 (사용자 조치 시리즈)
+
+1. **Firebase Hosting 커스텀 도메인** — `t.cam.hs.kr` (사용자 서브도메인 선택 · `cam-t.kr` 대신). CNAME → `school-app-5a636.web.app`. 가비아 DNS. Let's Encrypt SSL 자동 발급 완료. (기존 wildcard A 는 명시적 CNAME 이 override.)
+2. **Firebase Auth Authorized domains** — `t.cam.hs.kr` 추가.
+3. **Identity Platform 업그레이드** — Firebase Console 에 UI 가 숨어 있어 Google Cloud Console 「Identity Platform」 검색 경로 사용. Blaze 결제 프롬프트 → 개인 Gmail 결제 계정으로 우회.
+4. **개인 Gmail 을 project owner 로 추가** — 학교 워크스페이스 계정에 결제 카드 등록 불가 이슈. `admin2@cam.hs.kr` 는 여전히 프로젝트 관리자, 개인 Gmail 은 소유자·청구 관리자.
+5. **OAuth 동의 화면 Internal** — `cam.hs.kr` 조직 소속이라 Internal 가능. 100 명 제한·앱 확인 절차 스킵.
+6. **Firebase Auth Google sign-in 활성화** — Firebase 가 OAuth 웹 클라이언트 자동 생성.
+7. **Firebase 웹 앱 Config 6 값 수집** — 사용자가 DM 붙임 → 저장소 `packages/web/src/lib/firebase.ts` fallback + `.env.example` 반영 (커밋 `1ac3699`).
+8. **저장소 프로젝트 ID 정정** — `school-app-507112` → `school-app-5a636` (초기 회신에서 두 프로젝트 이름 혼동. 실제로는 두 개 존재, 사용 중인 건 `-5a636`). 커밋 `24a1ec9`.
+9. **첫 Cloud Shell 배포** — `git clone` public repo 전환 (private → public, `.gitignore` 로 비밀 없음 확인) · `pnpm exec firebase login --no-localhost` · `pnpm build && firebase deploy --only hosting`. 로그인 성공, 첫 로그인 시 빈 화면 (예상 — trigger 미배포).
+10. **Cloud Functions 배포** — `bash scripts/deploy-functions.sh` (`67d5ce7` 에 신설, pnpm workspace 우회 tarball 팩). 여러 IAM 관문 (`roles/cloudbuild.builds.builder` · `roles/artifactregistry.writer` · `roles/iam.serviceAccountUser` · `roles/logging.logWriter` · `roles/datastore.user`) 을 개인 Gmail 이 Compute default SA 에 부여. Cloud Billing API · Cloud Firestore API 활성화.
+11. **Firestore DB 프로비저닝** — `gcloud firestore databases create --location=asia-northeast3`. Rules 배포.
+12. **admin2 를 super_admin 으로 승격** — `packages/functions/scripts/promote-user.mjs` (`a1ad8dc` 에 신설). Custom claim + Firestore users 문서 role 갱신. 로그아웃/재로그인 후 `/super_admin` 접근 확인.
+
+### 벗겨낸 함정 (참고용 정리)
+
+- **pnpm workspace + Firebase Functions**: Cloud Build 안의 npm 이 `workspace:*` 프로토콜 못 읽음. `scripts/deploy-functions.sh` 로 shared 를 tarball 로 팩 + `file:` 참조로 임시 재작성 후 배포, 종료 시 원복.
+- **새 GCP 프로젝트 default SA 최소 권한**: Compute default SA 에 각 Google API 사용 IAM 역할 명시 부여 필요. 예전 Editor 자동 부여 안 됨.
+- **Firestore DB 별도 프로비저닝**: API 활성화만으로 안 됨. `gcloud firestore databases create`.
+- **Cloud Functions v2 서비스명 소문자**: `getMe` → Cloud Run 서비스명 `getme`. gcloud 명령 시 소문자 사용.
+- **Callable v2 CORS**: 기본 CORS 꺼져 있음. `cors: true` 명시 필요 (커밋 `b243438`). BUT — 도메인 제한 조직 정책이 `allUsers` 부여 차단하는 프로젝트에서는 CORS 만으로 부족.
+- **Domain-restricted sharing 정책**: `cam.hs.kr` 조직이 `iam.allowedPolicyMemberDomains` 로 Cloud Run 에 `allUsers` invoker 부여 차단. Firebase Hosting rewrite (`/api/*`) 로 우회 시도 — `firebase.json` + 클라이언트 URL 3 파일 변경 (커밋 `b8741f7`). 우회 자체는 동작 (HTTP 403 → HTTP 401 로 에러 변화). 하지만 Firebase Hosting 서비스 계정 (`service-{PROJECT_NUMBER}@gcp-sa-firebasehosting.iam.gserviceaccount.com`) 이 아직 프로비저닝 안 됨 → 다음 세션에서 `gcloud services identity create --service=firebasehosting.googleapis.com` 로 강제 생성 후 `roles/run.invoker` 부여 필요.
+
+### CI 여정 (5 커밋 layer)
+
+CI 는 저장소 개시 이래 30+ 회 전부 실패 상태였음. 오늘 하나씩 벗김:
+- `b009998` — 옛 캐시 스텝 패턴 → setup-node 내장 cache
+- `8187d23` — setup-node cache 옵션 제거 · pnpm 버전 명시 시도
+- `4aa6071` — pnpm 11 이 Node 22.13+ 필요 확인 → pnpm 10 지정
+- `58dc929` / `a148492` — pnpm 10.15.0 태그 존재 안 함 → 10.34.5 + packageManager 정합
+- `4735d1e` — jsdom 30 → undici 8 이 Node 21+ 필요 → CI Node 20 → 22
+
+**최종 초록** (`4735d1e`) — Setup pnpm · Node 22 · Install · Java 21 · Build · Lint · Unit tests · Emulator integration tests 모두 통과.
+
+### 팀 구조 진화 · 채널 리듬
+
+**사용자 결정** (Buzz DM `e010a9946f6b`): **A+B** — 채널 활동 강화 + Designer 역할 신설.
+
+- **`AGENTS.md` 갱신** (커밋 `46c1f59`): §2 세 자리 → 네 자리 (Head · Antigravity · Codex · Designer) · §8 신설 Designer 상설 규약 · §9 신설 채널 게시 리듬 (「슬라이스 병합 + 감사 결과 요약」만).
+- **첫 채널 요약** — `#school_app` 채널 (`c11dde04-...`) event `36a9f1a664`. E2E 마일스톤 + 배운 4 함정.
+- **Designer 페르소나** — 지금은 헤드가 UI 슬라이스에서 씀. 별도 에이전트로 분리는 나중.
+
+### UI 재구성 v0.1 슬라이스 (진행 중)
+
+- **사용자 결정** (Buzz DM `71af39591f19`): UI 정돈 방향 = 「레이아웃 재구성」. 참고 URL `https://masstige.io/index.html` (미니멀 모노크롬 · 볼드 산세리프 · 넉넉한 여백 · 「→」 어포던스).
+- **UI_SYSTEM v1.0 봉인** (커밋 `cbf5228` → `cf8b2c0` 헤더 정리) — 컬러·타이포·간격·컴포넌트·상태·반응형·접근성·다크모드 값 전부 정의. 사용자 승인 반영 (Buzz DM `d44e17f244bf`: 그대로/아이콘 없음/Pretendard 확정).
+- **NEXT.md 오더** (커밋 `cf8b2c0`) — `feat/ui-shell-v1` 브랜치, 5~7 커밋 분리. Shell + Sidebar + Topbar + login 재구성 + AppShell 래핑 + 다크 모드.
+- **Antigravity 킥오프** — `#school_app` 채널 mention `5fb50b9df986`. 진행 중.
+
+### 다음 세션에 이어갈 것
+
+1. **Firebase Hosting 서비스 계정 프로비저닝** — `gcloud services identity create --service=firebasehosting.googleapis.com --project=school-app-5a636` → 그 다음 `gcloud run services add-iam-policy-binding` 5 개 함수에 `roles/run.invoker` 부여 (소문자 서비스명 사용).
+2. **Antigravity UI 슬라이스 결과 리뷰** — 코드 · 스크린샷 · 감사 파견 · 병합 · 채널 요약.
+3. **그룹·챗방·클래스룸 관리 기능** — 원본 `계정관리.gs` + `클래스룸관리.gs` 의 나머지 매핑.
+
+### 오늘 핵심 커밋 (14 개)
+
+`bebdf16` · `24a1ec9` · `1ac3699` · `67d5ce7` · `a1ad8dc` · `b243438` · `46c1f59` · `cbf5228` · `cf8b2c0` · `b009998` · `8187d23` · `4aa6071` · `58dc929` · `a148492` · `4735d1e` · `b8741f7`.
+
+**감사 미완**: 오늘의 슬라이스는 Antigravity 결과 오면 Codex 감사 파견. UI 재구성 슬라이스는 별도 감사.
