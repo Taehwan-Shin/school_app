@@ -1,192 +1,154 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **UI 재구성 v0.1 슬라이스** — `docs/design/UI_SYSTEM.md` v1.0 (2026-08-31 사용자 승인) 을 프론트엔드에 옮긴다.
+> 지금 이 파일의 오더는 **UI 재구성 v0.2 — 계정 뷰 재스타일** — UI shell v0.1 (`b075388`) 위에 계정 관리 뷰(표·다이얼로그·버튼) 를 UI_SYSTEM 값으로 재스타일한다.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/ui-shell-v1`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/ui-accounts-v2`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고 (브랜치 이름 + 커밋 해시). 커밋 5~7 개로 분리 (아래 커밋 규칙).
+**추가**: 완료 후 반드시 스레드 보고 (브랜치 이름 + 커밋 해시). 커밋 3~5 개로 분리.
 
-**추가 §3-b Designer 몫 참고**: 이 슬라이스의 스타일 값은 모두 `docs/design/UI_SYSTEM.md` v1.0 에 있다. 값 (컬러 헥사·간격 클래스명·타이포 스케일) 을 그대로 옮긴다. 새 값 발명 금지 — 필요하면 Designer 에게 문의 (「판정 불가」로 두고 보고).
+**Designer 몫**: 이 슬라이스의 모든 스타일 값은 `docs/design/UI_SYSTEM.md` v1.0 에 있다. 값을 그대로 옮긴다. 새 값 발명 금지.
 
 ## 기준 커밋
 
-**Base**: `cbf5228` (UI_SYSTEM v1.0 승인 반영)
+**Base**: `b075388` (UI shell v0.1 병합 커밋)
 
-## 지금 할 것 — UI 재구성 v0.1 (Shell · Sidebar · Topbar · 로그인 · 다크 모드)
+## 지금 할 것 — 계정 뷰를 UI_SYSTEM 값으로 재스타일
 
 ### 왜
 
-지금 화면은 「기능은 있으나 임시」 느낌. 사용자 회신 (Buzz DM `71af39591f19`) *"UI 가 좀더 깔끔하고 정돈되어야 할 것 같아"* + 방향 결정 *"레이아웃 재구성"* + 참고 masstige.io 톤 (`af7dee3d5dc4`). 이 슬라이스가 어드민 대시보드의 골격 (셸 · 나비 · 상단바 · 다크 모드) 을 설치하고, 기존 라우트 컨텐츠를 그 안에 옮긴다.
+UI shell v0.1 이 셸 · 사이드바 · 상단바 · 다크 모드 뼈대를 놓았다. 지금 셸 안의 콘텐츠 (계정 표 · 생성/삭제 다이얼로그 · 버튼) 는 **기존 shadcn 기본 스타일** 그대로다. 다크 모드에서 어색하고 UI_SYSTEM 톤과도 어긋난다. 이 슬라이스가 그 콘텐츠를 UI_SYSTEM 값으로 옮긴다.
 
-**하지 않는 것**: 데이터 화면 재설계 (표·다이얼로그 등은 기존 마크업 유지). 이번엔 「골격 + 로그인」 만.
+**하지 않는 것**: 새 기능. 새 라우트. 새 callable. 순수 스타일 · 마크업 재구성만.
 
 ### 이 과제가 바꿀 경로
 
-**설정 · 토큰**:
-- `packages/web/tailwind.config.js` — `theme.extend.colors` + `fontFamily` + `darkMode: 'class'` 확장. UI_SYSTEM §1·§2 값 그대로.
-- `packages/web/src/index.css` (없으면 신설) — CSS custom properties 로 라이트/다크 컬러 토큰, Pretendard 로컬 폰트 import (`https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css` 링크 방식).
+**수정 대상**:
+- `packages/web/src/components/ui/button.tsx` — UI_SYSTEM §4.5 세 변형 (Primary · Secondary · Link) 을 shadcn variants 로 매핑. `rounded-none` (샤프 코너). 다크 모드 자동.
+- `packages/web/src/components/ui/table.tsx` — UI_SYSTEM §4.4 값 (border-subtle · text-micro 헤더 · text-small 셀 · hover:bg-surface). rounded-none.
+- `packages/web/src/components/ui/dialog.tsx` — UI_SYSTEM §4.6 값 (bg-elevated · border-subtle · rounded-none · p-8 · max-w-md · overlay bg-black/40).
+- `packages/web/src/routes/admin/AccountsTable.tsx` — 상단 「+ 계정 추가」 버튼을 Primary 스타일로. 각 행 「삭제」 를 Link 스타일 (`text-state-danger` · `underline`). 로딩 · 에러 · 빈 상태를 UI_SYSTEM 톤으로.
+- `packages/web/src/routes/admin/CreateUserDialog.tsx` — 폼 요소 UI_SYSTEM §4.7 값. 라벨 · 인풋 · 에러 · 도움말. 하단 버튼 정렬 (Secondary 취소 + Primary 저장).
+- `packages/web/src/routes/admin/DeleteUserDialog.tsx` — 이메일 재입력 필드 UI_SYSTEM §4.7 값. 하단 버튼 (Secondary 취소 + Danger primary 삭제).
 
-**신규 파일**:
-- `packages/web/src/components/shell/AppShell.tsx` — Sidebar + Topbar + Main 3 영역 컨테이너. `role` prop 을 받아 나비 항목 배치.
-- `packages/web/src/components/shell/Sidebar.tsx` — 240px 고정 · 로고 텍스트 「학교」 · 역할별 나비 항목 · 하단 사용자 정보 (이메일 · 역할 뱃지).
-- `packages/web/src/components/shell/Topbar.tsx` — 56px 고정 · 좌측 페이지 제목 · 우측 다크 모드 토글 · 우측 로그아웃 버튼.
-- `packages/web/src/components/shell/ThemeToggle.tsx` — 다크 모드 토글 (해/달 lucide 아이콘). 로컬스토리지 + OS 감지.
-- `packages/web/src/components/shell/nav-items.ts` — 역할별 나비 항목 정의 (라벨 + `to` 경로).
-- `packages/web/src/lib/theme.tsx` — `ThemeProvider` (React context). 초기값 `matchMedia('prefers-color-scheme: dark')` 또는 localStorage.
-- `packages/web/tests/AppShell.test.tsx` — 역할별 사이드바 항목 렌더링 시험.
-- `packages/web/tests/ThemeToggle.test.tsx` — 클래스 토글 · localStorage 저장 시험.
+**신규 파일**: 없음. 순수 리팩터.
 
-**기존 파일 수정**:
-- `packages/web/src/routes/login.tsx` — UI_SYSTEM 스타일로 재구성 (미니멀 카드 · 검정 fill 버튼 · 「구글로 로그인 →」 텍스트).
-- `packages/web/src/routes/admin/index.tsx` — 콘텐츠를 `AppShell` 로 래핑. 기존 계정 카드·표는 그대로 두고 페이지 제목만 Topbar 로 이동.
-- `packages/web/src/routes/super_admin/index.tsx` — 마찬가지로 `AppShell` 래핑.
-- `packages/web/src/routes/teacher/index.tsx` — 마찬가지.
-- `packages/web/src/App.tsx` — `ThemeProvider` 로 최상위 래핑.
-- `packages/web/index.html` — Pretendard link 태그.
-
-**제외** (다음 슬라이스에 남김):
-- KPI 카드 (UI_SYSTEM §4.3) — 껍데기라도 만들지 마라. 다음 슬라이스에서 데이터와 함께.
-- 표·다이얼로그 재스타일 — 기존 유지. 다음 슬라이스에서 UI_SYSTEM §4.4·§4.6 값 적용.
-- 모바일 (`< md`) 사이드바 접힘 애니메이션 정교화 — 일단 CSS 만 (드로어 없이 hidden/block 토글).
+**손대지 마라**:
+- `packages/web/src/components/shell/*` — UI shell v0.1 결과 그대로
+- `packages/web/src/routes/login.tsx` — 이미 UI_SYSTEM 스타일
+- `packages/web/src/api/*` — 로직 손대지 마라
+- `packages/web/tailwind.config.js` · `src/index.css` — 이미 토큰 다 있음
 
 ### 세부 요구
 
-#### 1. Tailwind config
+#### 1. `components/ui/button.tsx`
 
-- `darkMode: 'class'` 추가 (지금은 미설정).
-- `theme.extend.colors` — UI_SYSTEM §1 토큰을 아래 이름으로 매핑:
-  ```js
-  colors: {
-    canvas: 'var(--bg-canvas)',
-    surface: 'var(--bg-surface)',
-    elevated: 'var(--bg-elevated)',
-    'fg-primary': 'var(--fg-primary)',
-    'fg-secondary': 'var(--fg-secondary)',
-    'fg-muted': 'var(--fg-muted)',
-    'border-subtle': 'var(--border-subtle)',
-    'border-strong': 'var(--border-strong)',
-    'accent-primary': 'var(--accent-primary)',
-    'accent-on-primary': 'var(--accent-on-primary)',
-    'state-danger': 'var(--state-danger)',
-    'state-success': 'var(--state-success)',
-    'state-warning': 'var(--state-warning)',
-  }
-  ```
-- `theme.extend.fontFamily.sans` = `['"Pretendard Variable"', ...defaultTheme.fontFamily.sans]`
-- `theme.extend.fontSize` — UI_SYSTEM §2 7-스케일 을 커스텀 이름 (`display`, `h1`, `h2`, `h3`, `body`, `small`, `micro`) 로. 각 튜플 `[size, {lineHeight, fontWeight}]`.
+shadcn 의 기본 `default` · `secondary` · `ghost` · `link` variant 를 UI_SYSTEM 값으로 재정의:
 
-#### 2. CSS custom properties
+- `variant="default"` (Primary): `bg-accent-primary text-accent-on-primary hover:opacity-90 disabled:opacity-40`
+- `variant="secondary"`: `border border-border-subtle bg-canvas text-fg-primary hover:bg-surface`
+- `variant="destructive"`: `bg-state-danger text-white hover:opacity-90`
+- `variant="ghost"`: `text-fg-primary hover:bg-surface`
+- `variant="link"`: `text-fg-primary underline decoration-fg-muted hover:decoration-fg-primary`
 
-`packages/web/src/index.css` 에 라이트 (기본) + 다크 (`.dark` 셀렉터) 토큰 값 정의. 값은 UI_SYSTEM §1 그대로.
+- 공통: `rounded-none` (샤프), `font-medium`, `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas`
+- 크기 `default`: `px-4 py-2 text-body`. 크기 `sm`: `px-3 py-1.5 text-small`. 크기 `lg`: `px-6 py-3 text-body`.
 
-#### 3. AppShell 구성
+**주의**: 다크 모드에서 `border-accent-primary` 는 자동으로 흰색 (`var(--accent-primary)` 이 다크 모드에서 `#FAFAFA`). 별도 조건 필요 없음.
 
-- Grid 또는 flex 레이아웃. 좌측 사이드바 (`w-60`, `min-h-screen`, `bg-surface`, `border-r border-border-subtle`), 우측 (Topbar + Main).
-- `role` prop 받음. `nav-items.ts` 에서 role 별 항목 배열 가져와 렌더.
-- 사이드바 항목 마크업: `<Link>` (React Router), 스타일 UI_SYSTEM §4.2 그대로 (px-4 py-2 · hover · active border-l-2).
-- 하단 사용자 카드: 이메일 텍스트 + role 뱃지 (text-micro · uppercase · tracking-wide · 배경 elevated).
+#### 2. `components/ui/table.tsx`
 
-#### 4. Topbar 구성
+- `<Table>`: `border border-border-subtle rounded-none w-full text-small`
+- `<TableHeader>`: `bg-surface`
+- `<TableHead>` (헤더 셀): `text-micro uppercase tracking-wide text-fg-secondary px-4 py-3 border-b border-border-subtle text-left`
+- `<TableRow>`: `border-b border-border-subtle hover:bg-surface transition-colors`
+- `<TableCell>`: `px-4 py-3 text-body text-fg-primary`
 
-- 상단 sticky (`sticky top-0 z-10`), 56px 높이, `border-b border-border-subtle`, `bg-canvas`.
-- 좌측: 현재 페이지 제목 — 각 라우트 컴포넌트가 `document.title` 을 통해 표시하거나, AppShell 이 prop 으로 받음. **간단히**: AppShell 에 `pageTitle` prop 추가하고 라우트가 넘긴다.
-- 우측: `<ThemeToggle />` · `<button>로그아웃</button>` (Secondary 스타일).
+#### 3. `components/ui/dialog.tsx`
 
-#### 5. ThemeToggle · Provider
+- `<DialogOverlay>`: `bg-black/40 fixed inset-0`
+- `<DialogContent>`: `bg-elevated border border-border-subtle rounded-none p-8 max-w-md mx-auto shadow-none`
+- `<DialogTitle>`: `text-h2 font-bold text-fg-primary`
+- `<DialogDescription>`: `text-small text-fg-secondary mt-2`
+- `<DialogFooter>`: `flex justify-end gap-3 mt-8`
 
-- `ThemeProvider` 는 `<html>` 에 `.dark` 클래스 조작 (Tailwind darkMode='class').
-- 초기값 순서: (1) `localStorage.getItem('theme')`, (2) `matchMedia('(prefers-color-scheme: dark)').matches`, (3) 라이트.
-- 토글 시 localStorage 저장.
-- ThemeToggle 컴포넌트 자체는 두 아이콘 (Sun / Moon) 을 상태 따라 표시. `lucide-react` 사용 (미설치면 `pnpm add lucide-react`).
+#### 4. `routes/admin/AccountsTable.tsx`
 
-#### 6. login.tsx 재구성
+- 상단 액션: 「+ 계정 추가」 (Primary Button). 우측 정렬. 아이콘 없음.
+- 표 컨테이너: `border border-border-subtle rounded-none`.
+- 각 행 액션 열: 오른쪽 정렬. 「삭제」 텍스트 링크 (`text-state-danger underline decoration-transparent hover:decoration-state-danger`). 자기 행이면 `text-fg-muted cursor-not-allowed underline-none`.
+- 로딩: 표 자리에 `text-small text-fg-secondary py-8 text-center` 로 「불러오는 중…」.
+- 에러: 표 대신 `border border-state-danger p-4 text-small text-state-danger` 배너.
+- 빈 상태: `text-small text-fg-secondary py-12 text-center` 「등록된 계정이 없습니다」.
+- KPI 카드는 이번 슬라이스 밖 (다음 슬라이스에서).
 
-- 배경: `min-h-screen bg-canvas flex items-center justify-center px-6`.
-- 중앙 카드: `w-full max-w-md p-8 bg-elevated border border-border-subtle` (샤프 코너, 그림자 없음).
-- 제목: `text-h2 font-bold text-fg-primary`, "학교 워크스페이스 관리".
-- 서브: `text-small text-fg-secondary mt-2`, "Google 계정(`cam.hs.kr`)으로 로그인하세요".
-- 로그인 버튼: Primary (검정 fill), `w-full mt-8 px-6 py-3 bg-accent-primary text-accent-on-primary text-body font-medium hover:opacity-90`, 텍스트 "구글 계정으로 로그인 →".
-- 에러 배너 (`errorMessage`): `mt-4 px-4 py-3 border border-state-danger text-state-danger text-small`.
-- 하단 안내: `text-small text-fg-muted mt-4`, "허용된 도메인(`cam.hs.kr`) 이외의 계정은 로그인이 차단됩니다." (기존 "자동으로 삭제" 문구는 부정확하니 정정 — 실제로는 생성 단계에서 차단).
-- 개발 emulator 로그인 UI 는 유지 (import.meta.env.DEV 조건).
+#### 5. `routes/admin/CreateUserDialog.tsx`
 
-#### 7. 역할 화면을 AppShell 로 래핑
+- 폼 라벨 · 인풋 · 에러 · 도움말 UI_SYSTEM §4.7 값 그대로.
+- 인풋 위 라벨: `text-small text-fg-secondary mb-1 block`.
+- 인풋: `w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong`.
+- 필드 간격: `space-y-4`.
+- 하단 버튼: Secondary 「취소」 + Primary 「저장」. `justify-end gap-3`.
+- 서버 에러 표시: 하단 버튼 위에 배너 (`border border-state-danger p-3 text-small text-state-danger`).
 
-각 라우트 파일 상단에 `<AppShell role={role} pageTitle="관리자">` 로 감싸기. 기존 콘텐츠는 그 안 `children` 으로 그대로.
+#### 6. `routes/admin/DeleteUserDialog.tsx`
 
-`admin/index.tsx` 예시 흐름:
-- role 은 `useAuth()` 에서 가져옴.
-- `<AppShell role={role} pageTitle="관리자">` 로 래핑.
-- 안쪽에 기존 「계정 정보 카드」 (이메일 · 역할 뱃지 · 로그아웃) 는 **제거** — 이 자리는 Topbar/Sidebar 가 대신함. **중복 제거는 삭제로 잡히므로 이 슬라이스에서 예외**: 삭제 6줄 정도 발생. 오더에 명시된 대체이므로 허용.
-
-Teacher · super_admin 도 같은 패턴.
-
-#### 8. 기존 컴포넌트 최소 변경
-
-- `AccountsTable`, `CreateUserDialog`, `DeleteUserDialog` — 이번 슬라이스에서 스타일 재작업 **하지 마라**. 다음 슬라이스로.
-- `components/ui/button.tsx`, `dialog.tsx`, `table.tsx` — 손대지 마라.
-
-#### 9. 테스트
-
-- `AppShell.test.tsx` — role 별 사이드바 항목 렌더링 시험. 3 케이스 (super_admin · admin · teacher).
-- `ThemeToggle.test.tsx` — 초기 라이트 → 토글 시 `.dark` 클래스 · localStorage 값 · 다시 토글.
-- 기존 테스트 (48+) 는 전부 통과 유지. 라우트 마크업 변경이 있으면 관련 테스트도 조정 (변경 이유 커밋 메시지에 명시).
+- 상단 경고: `text-body text-fg-primary` 「이 작업은 되돌릴 수 없습니다.」
+- 대상 표시: `text-small text-fg-secondary` 라벨 + `text-body text-fg-primary font-mono` 이메일.
+- 확인 입력: 「삭제하려면 대상 이메일을 다시 입력하세요」 (`text-small`), 인풋 UI_SYSTEM §4.7 값.
+- 하단 버튼: Secondary 「취소」 + Danger Primary 「삭제」. Primary 는 이메일 재입력 완료 전까지 disabled.
+- 서버 에러 배너 같은 값.
 
 ### 완료 확인 방법
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 신규 2 + 기존 유지 통과.
-5. 프로덕션 번들 grep — Pretendard link 태그 렌더 확인 (`index.html` 에 있어야 함).
-6. dev 서버 (`pnpm --filter @school-app/web dev`) 로컬 실행 → 다음 눈 확인 목록:
-   - `/login` 화면이 UI_SYSTEM 톤 (미니멀 카드 · 검정 버튼 · 「→」)
-   - 로그인 후 좌측 사이드바 (240px) + 상단바 (56px) + 메인 영역
-   - 사이드바 나비 항목 클릭 시 라우팅
-   - 다크 모드 토글 작동 (상단바 우측 아이콘)
-   - 새로고침 후 다크 모드 상태 유지 (localStorage)
-   - 창 폭 < 768px 에서 사이드바 hidden (일단 사라짐 확인만, 접힘 UI 는 다음 슬라이스)
+4. `pnpm -r test` — 기존 테스트 유지 (마크업 변경으로 조정 필요하면 이유 커밋 메시지에 명시). 총 111 → 유사 규모 유지.
+5. dev 서버로 로컬 눈 확인 목록:
+   - 라이트 모드에서 계정 표 · 다이얼로그가 UI_SYSTEM 톤 (샤프 코너 · 검정/흰색 · 얇은 회색 라인)
+   - 다크 모드 토글 시 표 · 다이얼로그 · 버튼 모두 다크 팔레트로 자연 전환
+   - 「+ 계정 추가」 클릭 → 다이얼로그 열림 → 저장 흐름 정상
+   - 각 행 「삭제」 클릭 → 다이얼로그 → 이메일 재입력 → 삭제 흐름 정상
+   - 자기 행 「삭제」 는 disabled
+   - 폼 인풋 포커스 시 검정 링 (라이트) / 흰색 링 (다크)
+6. 프로덕션 번들 grep — emulator 코드 계속 0 건 유지.
 
 ### 판정 불가로 두는 것
 
-- **실 계정 로그인 후 화면** — 헤드가 배포 후 눈으로 확인.
-- **모바일 UX 세부** (사이드바 접힘 애니메이션 · 드로어) — 다음 슬라이스.
-- **KPI 카드 · 표 재스타일** — 다음 슬라이스.
+- **실 계정 조작** — 사용자 콘솔 조치 후 실측.
+- **KPI 카드 신설** — 다음 슬라이스 (v0.3).
+- **표 페이지네이션 · 정렬** — 다음 슬라이스.
 
 ### 커밋 규칙
 
-**5~7 커밋 분리** (리뷰 편의):
-1. `chore(web): Tailwind config 확장 (컬러 토큰 + Pretendard + 다크 모드 class)`
-2. `feat(web): CSS custom properties + Pretendard 링크 (UI_SYSTEM §1·§2)`
-3. `feat(web): ThemeProvider + ThemeToggle (다크 모드)`
-4. `feat(web): AppShell + Sidebar + Topbar 컴포넌트`
-5. `feat(web): login.tsx UI_SYSTEM 톤으로 재구성`
-6. `feat(web): 세 역할 라우트를 AppShell 로 래핑`
-7. `test(web): AppShell + ThemeToggle 단위 시험`
+**3~5 커밋 분리**:
+1. `refactor(web): Button variants 를 UI_SYSTEM 값으로 재정의`
+2. `refactor(web): Table/Dialog primitives 를 UI_SYSTEM 값으로`
+3. `refactor(web): AccountsTable UI_SYSTEM 재스타일 (표 · 상단 액션 · 상태)`
+4. `refactor(web): Create/DeleteUserDialog UI_SYSTEM 재스타일 (폼 · 액션 · 에러)`
 
 각 커밋 conventional commits. `git add -A` 금지, 파일 명시.
 
-**작업 브랜치 원격 push 필수** — `git push -u origin feat/ui-shell-v1`.
+**작업 브랜치 원격 push 필수** — `git push -u origin feat/ui-accounts-v2`.
 
 ## 상태 보고 (필수)
 
-완료 시 `#school_app` 스레드에 `@Claude Code_Honey` 포함:
-- 원격 브랜치 이름 (`feat/ui-shell-v1`)
+완료 시 `#general` 스레드에 `@Claude Code_Honey` 포함:
+- 원격 브랜치 이름
 - 마지막 커밋 해시
 - `git status`
-- 완료 확인 각 항목 결과 (통과 / 판정불가 / 실패 이유)
-- 신규 스크린샷 최소 3장 — `/login`, `/admin` (또는 `/super_admin`), 다크 모드 상태
-- 오더 대비 차이 (있으면)
+- 완료 확인 각 항목 결과
+- 오더 대비 차이
 
 push 없이 보고 시 재작업.
