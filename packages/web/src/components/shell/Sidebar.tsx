@@ -22,11 +22,27 @@ export function Sidebar({ role }: SidebarProps) {
         <nav className="py-4 space-y-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
+
+            // 아직 라우트가 없는 항목은 클릭 불가로 렌더한다.
+            // (Link 로 두면 RootRedirect 로 튐 — 사용자를 혼란시킴.)
+            if (item.disabled) {
+              return (
+                <span
+                  key={`${item.to}-${item.label}`}
+                  aria-disabled="true"
+                  className="block px-4 py-2 text-body text-fg-muted cursor-not-allowed border-l-2 border-transparent select-none"
+                  title="아직 준비 중"
+                >
+                  {item.label}
+                </span>
+              );
+            }
+
             return (
               <Link
                 key={`${item.to}-${item.label}`}
                 to={item.to}
-                className={`block px-4 py-2 text-body transition-colors ${
+                className={`block px-4 py-2 text-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   isActive
                     ? 'bg-elevated text-fg-primary border-l-2 border-border-strong font-medium'
                     : 'text-fg-secondary hover:bg-elevated hover:text-fg-primary border-l-2 border-transparent'

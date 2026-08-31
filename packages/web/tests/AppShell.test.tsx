@@ -83,7 +83,8 @@ describe('AppShell', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('대시보드')).toBeDefined();
+    // 대시보드 항목은 admin 사이드바에서 제거됨 — /admin 경로가 곧 계정 관리 화면이라
+    // 이전엔 "대시보드" 와 "계정" 두 항목이 같은 경로를 가리키는 중복이었다.
     expect(screen.getByText('계정')).toBeDefined();
     expect(screen.getByText('그룹')).toBeDefined();
     expect(screen.getByText('챗방')).toBeDefined();
@@ -91,6 +92,30 @@ describe('AppShell', () => {
 
     expect(screen.queryByText('감사 로그')).toBeNull();
     expect(screen.queryByText('시스템 설정')).toBeNull();
+  });
+
+  // 미구현 라우트를 가리키던 항목은 클릭 불가 span 으로 렌더 (Link 로 두면 RootRedirect 로 튄다).
+  it('renders unimplemented admin items as disabled non-clickable spans (aria-disabled)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { email: 'admin@cam.hs.kr' },
+      role: 'admin',
+      loading: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <AppShell role="admin" pageTitle="관리자">
+          <div>내용</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    const groupItem = screen.getByText('그룹');
+    expect(groupItem.tagName).toBe('SPAN');
+    expect(groupItem.getAttribute('aria-disabled')).toBe('true');
+
+    const accountItem = screen.getByText('계정');
+    expect(accountItem.tagName).toBe('A');
   });
 
   it('renders teacher navigation items correctly', () => {
