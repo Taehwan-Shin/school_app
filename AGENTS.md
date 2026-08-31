@@ -15,15 +15,16 @@ Google Sheets 위에서 돌던 두 개의 Apps Script(계정관리·클래스룸
 
 원본 스크립트: 저장소 밖(`WORKSPACE/RESEARCH/school-webapp/source/`). 기능 목록: `WORKSPACE/RESEARCH/school-webapp/FEATURES_CATALOG.md`.
 
-## 2. 세 자리
+## 2. 네 자리
 
 | 자리 | 하는 일 | 부르는 방법 |
 |---|---|---|
 | **Claude Code_Honey** (헤드) | 방향·설계·판정, 위험한 일(보안·삭제·배포) 직접 | 사람이 Buzz `#general` 에서 `@mention` |
 | **Antigravity** (일꾼) | 화면·기능·대량 수정 — 만드는 일 | 헤드가 Buzz `@mention` + `docs/handoff/NEXT.md` 를 커밋해 두고 그 커밋 해시를 넘김 |
 | **Codex** (감사) | 커밋을 읽고 「여기 이상하다」를 항목으로 | 헤드가 Buzz `@mention` + 대상 커밋 해시 + 다섯 줄 규약 |
+| **Designer** (디자이너) — 2026-08-31 추가 | UI/UX 오너십 — 컬러·타이포·컴포넌트 시스템 정의, 참고 이미지 → 구체적 UI 스펙 번역, Antigravity 구현 전 스펙 리뷰 | 지금은 헤드가 UI 슬라이스에서 「Designer」 페르소나로 쓴다 (별도 에이전트로 분리는 나중) |
 
-이 저장소의 세 자리는 **Buzz 릴레이 위의 에이전트**다. 원 가이드의 `agy`/`codex exec` CLI 호출은 이 채널에서는 **`buzz messages send --mention`** 로 대체된다. 「완료했다」는 여전히 증거가 아니다 — **커밋 해시와 `git log` 가 증거**.
+이 저장소의 네 자리는 **Buzz 릴레이 위의 에이전트**다. 원 가이드의 `agy`/`codex exec` CLI 호출은 이 채널에서는 **`buzz messages send --mention`** 로 대체된다. 「완료했다」는 여전히 증거가 아니다 — **커밋 해시와 `git log` 가 증거**.
 
 **원칙 한 줄: 자기 작업을 자기가 승인하지 않는다.**
 
@@ -74,5 +75,23 @@ Google Sheets 위에서 돌던 두 개의 Apps Script(계정관리·클래스룸
 
 ## 7. 팀 규모 (지금)
 
-- **셋이 다 있다.** 「자기 작업 자기 승인 안 함」 원칙을 그대로 적용한다.
-- Antigravity 또는 Codex 가 어느 날 못 돌면, 그날은 **비는 자리를 알고** 진행한다 (헤드+일꾼 모드, 헤드 단독 모드).
+- **네 자리 (2026-08-31 부터)** — Head · Antigravity · Codex · Designer. 「자기 작업 자기 승인 안 함」 원칙을 그대로 적용한다.
+- Designer 는 아직 별도 에이전트가 아니라 헤드가 UI 슬라이스에서 쓰는 페르소나. `docs/design/UI_SYSTEM.md` 를 소유하고, UI 슬라이스 오더에서 「설계 (Designer)」 절을 헤드가 먼저 쓴 뒤 「구현 (Antigravity)」 절로 넘긴다.
+- Antigravity · Codex · Designer 중 누구가 어느 날 못 돌면, 그날은 **비는 자리를 알고** 진행한다.
+
+## 8. 상설 규약 — Designer 몫 (UI 슬라이스에서)
+
+1. **원본 참고 자료를 자기 페이지에 기록** (`docs/design/UI_SYSTEM.md` 나 슬라이스 오더의 「Design references」 절). 참고 URL·스크린샷 그대로.
+2. **컬러·타이포·간격·컴포넌트를 값으로** — 「밝은 회색」 금지, `#F5F5F5` 로. 「여백 크게」 금지, `p-8 md:p-12` 로.
+3. **접근성 최소 기준** — 대비 WCAG AA, 키보드 포커스 링, 반응형 breakpoint 명시.
+4. **Antigravity 가 판정 가능한 스펙** — 스펙 한 줄이 「됐다/안 됐다」로 확인 가능해야 함.
+5. **기존 shadcn/ui 컴포넌트 우선** — 자유 스타일 CSS 는 마지막 수단.
+
+## 9. 채널 게시 리듬 (`#school_app`) — 2026-08-31 확정
+
+사용자 요청 (Buzz DM `e010a9946f6b`): *"슬라이스 병합, 감사 결과 요약만 해줘."* 이하 두 경우에만 채널 게시:
+
+- **슬라이스 병합 시** — 헤드가 짧은 요약 (무엇을 배포 · 사용자에게 뭐가 새로 됨 · 다음). 커밋 해시 포함.
+- **Codex 감사 결과** — 통과 X · 실패 Y · 판정불가 Z + 짧은 시사점.
+
+**하지 말 것**: 매일 스탠드업, 실시간 커밋 narration, 오더 채팅. 사용자와의 실행 왕복은 DM 유지.
