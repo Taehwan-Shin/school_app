@@ -43,7 +43,7 @@ describe("DeleteUserDialog component", () => {
   it("enables delete button only when typed email matches target email exactly", () => {
     render(<DeleteUserDialog open={true} onOpenChange={vi.fn()} user={targetUser} />);
 
-    const input = screen.getByLabelText(/삭제를 확인하려면/) as HTMLInputElement;
+    const input = screen.getByLabelText(/삭제하려면/) as HTMLInputElement;
     const deleteBtn = screen.getByTestId("delete-user-submit") as HTMLButtonElement;
 
     fireEvent.change(input, { target: { value: "other@cam.hs.kr" } });
@@ -59,7 +59,7 @@ describe("DeleteUserDialog component", () => {
 
     render(<DeleteUserDialog open={true} onOpenChange={onOpenChange} user={targetUser} />);
 
-    const input = screen.getByLabelText(/삭제를 확인하려면/);
+    const input = screen.getByLabelText(/삭제하려면/);
     fireEvent.change(input, { target: { value: "student@cam.hs.kr" } });
 
     const deleteBtn = screen.getByTestId("delete-user-submit");

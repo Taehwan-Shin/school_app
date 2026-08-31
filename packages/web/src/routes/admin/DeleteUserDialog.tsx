@@ -59,57 +59,55 @@ export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogP
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[440px]">
-        <form onSubmit={handleDelete}>
+      <DialogContent>
+        <form onSubmit={handleDelete} className="space-y-6">
           <DialogHeader>
-            <DialogTitle className="text-red-600">계정 삭제 확인</DialogTitle>
+            <DialogTitle className="text-h2 font-bold text-fg-primary">계정 삭제 확인</DialogTitle>
             <DialogDescription>
               이 작업은 되돌릴 수 없습니다. Google Workspace 에서 계정이 영구적으로 삭제됩니다.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4 space-y-4">
-            {errorMessage && (
-              <div
-                className="p-3 text-sm rounded bg-red-50 border border-red-200 text-red-700"
-                data-testid="delete-user-error"
-              >
-                {errorMessage}
+          {errorMessage && (
+            <div
+              className="border border-state-danger p-3 text-small text-state-danger"
+              data-testid="delete-user-error"
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          <div className="p-4 border border-border-subtle bg-surface space-y-2">
+            <div>
+              <span className="text-small text-fg-secondary">대상 계정: </span>
+              <span className="text-body font-mono text-fg-primary">{user?.email}</span>
+            </div>
+            {fullName && (
+              <div>
+                <span className="text-small text-fg-secondary">사용자 이름: </span>
+                <span className="text-body text-fg-primary">{fullName}</span>
               </div>
             )}
+          </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded text-sm space-y-1">
-              <div>
-                <span className="text-slate-500">대상 계정: </span>
-                <strong className="text-slate-900">{user?.email}</strong>
-              </div>
-              {fullName && (
-                <div>
-                  <span className="text-slate-500">사용자 이름: </span>
-                  <span className="text-slate-900">{fullName}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="confirmEmail" className="block text-xs font-medium text-slate-700">
-                삭제를 확인하려면 계정 이메일(<strong>{user?.email}</strong>)을 그대로 입력하세요:
-              </label>
-              <input
-                id="confirmEmail"
-                type="text"
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                placeholder={user?.email || ""}
-                className="w-full h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="confirmEmail" className="text-small text-fg-secondary mb-1 block">
+              삭제하려면 대상 이메일(<strong>{user?.email}</strong>)을 다시 입력하세요:
+            </label>
+            <input
+              id="confirmEmail"
+              type="text"
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              placeholder={user?.email || ""}
+              className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+            />
           </div>
 
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleClose(false)}
               disabled={isPending}
             >
@@ -121,7 +119,7 @@ export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogP
               disabled={!isConfirmed || isPending}
               data-testid="delete-user-submit"
             >
-              {isPending ? "삭제 중..." : "영구 삭제"}
+              {isPending ? "삭제 중..." : "삭제"}
             </Button>
           </DialogFooter>
         </form>
@@ -129,3 +127,4 @@ export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogP
     </Dialog>
   );
 }
+

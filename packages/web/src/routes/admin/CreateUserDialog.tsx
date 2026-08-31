@@ -98,8 +98,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[480px]">
-        <form onSubmit={handleSubmit}>
+      <DialogContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>Google Workspace 계정 추가</DialogTitle>
             <DialogDescription>
@@ -107,18 +107,18 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            {errorMessage && (
-              <div
-                className="p-3 text-sm rounded bg-red-50 border border-red-200 text-red-700"
-                data-testid="create-user-error"
-              >
-                {errorMessage}
-              </div>
-            )}
+          {errorMessage && (
+            <div
+              className="border border-state-danger p-3 text-small text-state-danger"
+              data-testid="create-user-error"
+            >
+              {errorMessage}
+            </div>
+          )}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="primaryEmail" className="text-right text-sm font-medium text-slate-700">
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="primaryEmail" className="text-small text-fg-secondary mb-1 block">
                 이메일 *
               </label>
               <input
@@ -128,12 +128,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={primaryEmail}
                 onChange={(e) => setPrimaryEmail(e.target.value)}
                 placeholder="user@cam.hs.kr"
-                className="col-span-3 h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="familyName" className="text-right text-sm font-medium text-slate-700">
+            <div>
+              <label htmlFor="familyName" className="text-small text-fg-secondary mb-1 block">
                 성 *
               </label>
               <input
@@ -143,12 +143,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={familyName}
                 onChange={(e) => setFamilyName(e.target.value)}
                 placeholder="홍"
-                className="col-span-3 h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="givenName" className="text-right text-sm font-medium text-slate-700">
+            <div>
+              <label htmlFor="givenName" className="text-small text-fg-secondary mb-1 block">
                 이름 *
               </label>
               <input
@@ -158,12 +158,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={givenName}
                 onChange={(e) => setGivenName(e.target.value)}
                 placeholder="길동"
-                className="col-span-3 h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="password" className="text-right text-sm font-medium text-slate-700">
+            <div>
+              <label htmlFor="password" className="text-small text-fg-secondary mb-1 block">
                 비밀번호 *
               </label>
               <input
@@ -174,12 +174,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="8자 이상"
-                className="col-span-3 h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="orgUnitPath" className="text-right text-sm font-medium text-slate-700">
+            <div>
+              <label htmlFor="orgUnitPath" className="text-small text-fg-secondary mb-1 block">
                 조직 단위
               </label>
               <input
@@ -188,7 +188,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={orgUnitPath}
                 onChange={(e) => setOrgUnitPath(e.target.value)}
                 placeholder="/학생/1학년"
-                className="col-span-3 h-9 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>
           </div>
@@ -196,13 +196,13 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleClose(false)}
               disabled={isPending}
             >
               취소
             </Button>
-            <Button type="submit" disabled={isPending} data-testid="create-user-submit">
+            <Button type="submit" variant="default" disabled={isPending} data-testid="create-user-submit">
               {isPending ? "생성 중..." : "저장"}
             </Button>
           </DialogFooter>
@@ -211,3 +211,4 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     </Dialog>
   );
 }
+
