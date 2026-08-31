@@ -28,7 +28,7 @@ function readHeader(request: any, key: string): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
-export const usersList = onCall({ region: 'asia-northeast3' }, async (request): Promise<UsersListResponse> => {
+export const usersList = onCall({ region: 'asia-northeast3', cors: true }, async (request): Promise<UsersListResponse> => {
   const requestId = readHeader(request, 'x-request-id') ?? crypto.randomUUID();
 
   // 인증 실패도 denied 감사 로그를 남긴다. 알 수 없는 자리는 정직하게 'unknown' 으로 기록.

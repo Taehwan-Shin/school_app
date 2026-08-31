@@ -41,6 +41,6 @@ export function handleGetMe(request: GetMeAuthContext): GetMeResponse {
   return { email, role: claimRole };
 }
 
-export const getMe = onCall({ region: 'asia-northeast3' }, async (request): Promise<GetMeResponse> => {
+export const getMe = onCall({ region: 'asia-northeast3', cors: true }, async (request): Promise<GetMeResponse> => {
   return handleGetMe(request);
 });

@@ -31,7 +31,7 @@ function readHeader(request: any, key: string): string | undefined {
 }
 
 export const usersCreate = onCall(
-  { region: "asia-northeast3" },
+  { region: "asia-northeast3", cors: true },
   async (request): Promise<UsersCreateResponse> => {
     const requestId = readHeader(request, "x-request-id") ?? crypto.randomUUID();
     const data = request.data as Partial<UsersCreateRequest> | undefined;

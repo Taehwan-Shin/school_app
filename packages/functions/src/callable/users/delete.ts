@@ -27,7 +27,7 @@ function readHeader(request: any, key: string): string | undefined {
 }
 
 export const usersDelete = onCall(
-  { region: "asia-northeast3" },
+  { region: "asia-northeast3", cors: true },
   async (request): Promise<UsersDeleteResponse> => {
     const requestId = readHeader(request, "x-request-id") ?? crypto.randomUUID();
     const data = request.data as Partial<UsersDeleteRequest> | undefined;
