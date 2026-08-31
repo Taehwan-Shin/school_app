@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, signInWithGoogle, signInWithEmulator } from '../lib/auth';
 import { getRouteForRole } from './routeMap';
-import { Button } from '../components/ui/button';
 
 export function LoginPage() {
   const { user, role, loading } = useAuth();
@@ -12,8 +11,8 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-slate-600 text-sm">로딩 중...</p>
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <p className="text-small text-fg-secondary">로딩 중...</p>
       </div>
     );
   }
@@ -48,56 +47,56 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-slate-200 p-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold text-slate-900">학교 워크스페이스 관리</h1>
-          <p className="text-sm text-slate-600">
-            Google 계정(@cam.hs.kr)으로 로그인하세요.
+    <div className="min-h-screen bg-canvas flex items-center justify-center px-6">
+      <div className="w-full max-w-md p-8 bg-elevated border border-border-subtle">
+        <div>
+          <h1 className="text-h2 font-bold text-fg-primary">학교 워크스페이스 관리</h1>
+          <p className="text-small text-fg-secondary mt-2">
+            Google 계정(cam.hs.kr)으로 로그인하세요
           </p>
         </div>
 
         {errorMessage && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-md">
+          <div className="mt-4 px-4 py-3 border border-state-danger text-state-danger text-small">
             {errorMessage}
           </div>
         )}
 
-        <div className="space-y-4">
-          <Button
+        <div className="mt-8 space-y-4">
+          <button
+            type="button"
             onClick={handleLogin}
             disabled={signingIn}
-            className="w-full flex items-center justify-center gap-2"
+            className="w-full px-6 py-3 bg-accent-primary text-accent-on-primary text-body font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity text-center block"
           >
-            <span>Google 계정으로 로그인</span>
-          </Button>
-          <p className="text-xs text-slate-500 text-center">
-            허용된 도메인(@cam.hs.kr) 이외의 계정은 자동으로 삭제됩니다.
+            구글 계정으로 로그인 →
+          </button>
+          <p className="text-small text-fg-muted mt-4 text-center">
+            허용된 도메인(cam.hs.kr) 이외의 계정은 로그인이 차단됩니다.
           </p>
         </div>
 
         {import.meta.env.DEV && (
-          <div className="pt-4 border-t border-slate-200 space-y-3">
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
+          <div className="mt-6 pt-6 border-t border-border-subtle space-y-3">
+            <p className="text-micro font-medium uppercase tracking-wide text-fg-secondary">
               개발 환경 에뮬레이터 로그인
             </p>
-            <form onSubmit={handleEmulatorLogin} className="space-y-2">
+            <form onSubmit={handleEmulatorLogin} className="space-y-3">
               <input
                 type="email"
                 value={emulatorEmail}
                 onChange={(e) => setEmulatorEmail(e.target.value)}
                 placeholder="test@cam.hs.kr"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="w-full px-3 py-2 text-body border border-border-subtle bg-canvas text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                 required
               />
-              <Button
+              <button
                 type="submit"
-                variant="outline"
                 disabled={signingIn}
-                className="w-full text-sm"
+                className="w-full border border-border-subtle text-fg-primary px-4 py-2 text-body hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 에뮬레이터로 로그인
-              </Button>
+              </button>
             </form>
           </div>
         )}
@@ -105,3 +104,4 @@ export function LoginPage() {
     </div>
   );
 }
+
