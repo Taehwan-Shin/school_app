@@ -19,7 +19,7 @@ export async function callUsersDelete(data: UsersDeleteRequest): Promise<UsersDe
   const idToken = await user.getIdToken();
   const googleAccessToken = getGoogleAccessTokenFromSession() || "";
 
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "school-app-507112";
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "school-app-5a636";
   const url = import.meta.env.DEV
     ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/usersDelete`
     : `https://asia-northeast3-${projectId}.cloudfunctions.net/usersDelete`;

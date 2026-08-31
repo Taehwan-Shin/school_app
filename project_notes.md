@@ -507,3 +507,37 @@ Antigravity 호출은 스레드에서 `@Antigravity` 로.
 4. (선택) 로컬 Java 설치
 
 **갈래 A/B 판정** — 사용자 응답 대기 중. 도메인 명확화가 갈래 A (실 워크스페이스 시험) 로 가는 준비의 핵심 조각이었음.
+
+---
+
+## 2026-08-31 · 갈래 A · 서브도메인 `t.cam.hs.kr` 선택 + 프로젝트 ID 정정
+
+**사용자 결정** `[사용자 결정]` — Buzz DM `90292b586e74`: **갈래 A** (실 워크스페이스 시험) 선택. 웹앱 서비스 도메인은 **`t.cam.hs.kr`** — 학교가 이미 소유한 `cam.hs.kr` 의 서브도메인. `cam-t.kr` 대신 이 선택이 DNS 편집 관점에서 더 깔끔.
+
+**Firebase Hosting 도메인 등록 절차 진행 상황**:
+1. 사용자 Firebase Console → Hosting → 맞춤 도메인 추가 → `t.cam.hs.kr` 입력 완료
+2. 가비아 DNS 에 레코드 추가 시도 → **ACME 인증 실패 에러** (스크린샷 `d52f54dc3641`)
+3. 원인 — 기존 A 레코드 `t.cam.hs.kr → 121.254.178.236` (학교 서버 IP 또는 `*.cam.hs.kr` 와일드카드) 이 남아 있어서 Firebase 의 Let's Encrypt HTTP-01 challenge 가 404. Firebase 가 요구:
+   - **추가**: CNAME `t.cam.hs.kr → school-app-5a636.web.app`
+   - **삭제**: A `t.cam.hs.kr → 121.254.178.236`
+4. **사용자에게 요청** — 가비아 DNS 관리 화면 스크린샷 (`8fd3518768fa`). CNAME 실제 등록 여부·삭제 대상 A 레코드 확인 위함.
+
+**프로젝트 ID 정정** `[사용자 결정]` — 스크린샷 URL 에서 실제 프로젝트가 `school-app-5a636` 으로 확인됨. 이전 회신의 `school-app-507112` 는 오기. `school-app-5a636` 이 Firebase Console URL 뿐 아니라 자동 발급 도메인 (`school-app-5a636.web.app`) 에서도 확인됨.
+
+**코드 정정** (헤드 처리, 사용자 무관):
+- `.firebaserc` default project → `school-app-5a636`
+- `packages/web/src/lib/firebase.ts` fallback config → `school-app-5a636.firebaseapp.com` · `school-app-5a636` · `school-app-5a636.appspot.com`
+- `packages/web/src/api/users{List,Create,Delete}.ts` projectId fallback → `school-app-5a636`
+- `packages/web/.env.example` → 모두 `school-app-5a636`
+- `docs/design/firebase_layout.md` §2 확정 값 → `school-app-5a636` (정정 이력 각주)
+- `project_notes.md` 2026-08-30 회신 로그에도 정정 이력 각주
+
+**남은 사용자 조치**:
+1. 가비아 DNS 화면 스크린샷 → 다음 걸음 지시
+2. (그 뒤) Firebase Auth Authorized domains 에 `t.cam.hs.kr` 추가
+3. (그 뒤) Identity Platform 업그레이드
+4. (그 뒤) OAuth 동의 화면 승인된 도메인 · OAuth 2.0 클라이언트 ID JavaScript 원본 · 리디렉션 URI 세 자리
+5. (그 뒤) Gmail · Admin SDK · Classroom · Chat API 활성화 확인
+6. (배포 직전) Firebase Console 웹 앱 Config 6 개 문자열 → `.env.production`
+
+**커뮤니케이션 규칙 확정** `[사용자 결정]` — Buzz DM `1b70fd7fe4fd` 사용자 회신 *"너무 복잡하니까 하나씩 다시 알려줘"*. 헤드가 6항목 병렬 클릭 리스트를 드린 것이 과부하 원인. 앞으로 **콘솔·DNS 등 외부 시스템 설정은 한 걸음씩만** 드리는 걸로 전환. 각 걸음은 「어디 클릭 → 뭘 입력 → 어떻게 완료 확인」 세 줄. 사용자 확인 후 다음 걸음. 코어 메모리 `feedback_step_by_step.md` 저장 완료.

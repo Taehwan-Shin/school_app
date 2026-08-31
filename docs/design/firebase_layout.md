@@ -51,7 +51,7 @@
 
 **확정 값** (2026-08-30, bliss00 채널 회신 `162e4e2b2f09...`):
 
-- **Google Cloud 프로젝트 ID**: `school-app-507112`
+- **Google Cloud 프로젝트 ID**: `school-app-5a636` (2026-08-31 사용자 정정 `d52f54dc3641`. 이전 `school-app-507112` 는 오기)
 - **OAuth 2.0 웹 클라이언트 ID**: `119238884749-u061f4pi62omsinf2ovmg1f10t11ifq6.apps.googleusercontent.com`
 - **워크스페이스 도메인**: `cam.hs.kr` (사용자 정정 2026-08-31 `0e3acf212a56`. 초기 회신의 `cam-t.kr` 는 오기)
 - **첫 슈퍼 관리자 이메일**: `admin2@cam.hs.kr` (bootstrap 스크립트 시드)
