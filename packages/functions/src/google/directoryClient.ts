@@ -9,6 +9,9 @@ export interface DirectoryClient {
     get: (params: { userKey: string }) => Promise<{ data: any }>;
     patch: (params: { userKey: string; requestBody: any }) => Promise<{ data: any }>;
   };
+  groups: {
+    list: (params?: any) => Promise<{ data: any }>;
+  };
 }
 
 /**
@@ -100,6 +103,15 @@ function getStubClient(): DirectoryClient {
             ...params?.requestBody,
           },
         };
+      },
+    },
+    groups: {
+      list: async () => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.groups) {
+          return { data: stub.data };
+        }
+        return { data: { groups: [], nextPageToken: null } };
       },
     },
   };
