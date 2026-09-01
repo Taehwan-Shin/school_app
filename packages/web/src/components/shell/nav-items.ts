@@ -15,7 +15,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   super_admin: [
     { label: '대시보드', to: '/super_admin' },
     { label: '계정', to: '/admin' },
-    { label: '그룹', to: '/super_admin/groups', disabled: true },
+    { label: '그룹', to: '/admin/groups' },
     { label: '챗방', to: '/super_admin/chat', disabled: true },
     { label: '클래스룸', to: '/super_admin/classrooms', disabled: true },
     { label: '감사 로그', to: '/super_admin/audit' },
@@ -23,7 +23,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   admin: [
     { label: '계정', to: '/admin' },
-    { label: '그룹', to: '/admin/groups', disabled: true },
+    { label: '그룹', to: '/admin/groups' },
     { label: '챗방', to: '/admin/chat', disabled: true },
     { label: '클래스룸', to: '/admin/classrooms', disabled: true },
   ],

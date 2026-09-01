@@ -8,6 +8,7 @@ import { RoleGuard } from './routes/RoleGuard';
 import { SuperAdminPage } from './routes/super_admin';
 import { AuditLogPage } from './routes/super_admin/audit';
 import { AdminPage } from './routes/admin';
+import { GroupsPage } from './routes/admin/groups';
 import { TeacherPage } from './routes/teacher';
 
 const queryClient = new QueryClient({
@@ -36,6 +37,7 @@ export function App() {
 
               <Route element={<RoleGuard expectedRoles={['super_admin', 'admin']} />}>
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/groups" element={<GroupsPage />} />
               </Route>
 
               <Route element={<RoleGuard expectedRole="teacher" />}>
