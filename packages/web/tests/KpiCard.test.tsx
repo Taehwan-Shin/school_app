@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockUseUsersList = vi.fn();
 
@@ -32,6 +32,22 @@ describe('KpiCard & KpiCardRow', () => {
       expect(screen.getByText('관리자')).toBeDefined();
       expect(screen.getByText('—')).toBeDefined();
       expect(screen.queryByText('10')).toBeNull();
+    });
+
+    it('renders button with border-border-strong and data-active="true" when href and active are set', () => {
+      render(<KpiCard label="관리자" value={10} href="admin" active={true} />);
+      const card = screen.getByTestId('kpi-card-관리자');
+      expect(card.tagName).toBe('BUTTON');
+      expect(card.getAttribute('data-active')).toBe('true');
+      expect(card.className).toContain('border-border-strong');
+    });
+
+    it('calls onClick handler when clicked with href', () => {
+      const handleClick = vi.fn();
+      render(<KpiCard label="관리자" value={10} href="admin" onClick={handleClick} />);
+      const card = screen.getByTestId('kpi-card-관리자');
+      fireEvent.click(card);
+      expect(handleClick).toHaveBeenCalledTimes(1);
     });
   });
 
