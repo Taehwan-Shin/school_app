@@ -10,15 +10,17 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
+import { AddMemberDialog } from './AddMemberDialog';
+import { RemoveMemberDialog } from './RemoveMemberDialog';
 
 export interface MembersTableProps {
   groupEmail: string;
 }
 
 export function MembersTable({ groupEmail }: MembersTableProps) {
-  const { members, loading, error, hasMore, loadMore } = useGroupMembersList(groupEmail);
-  const [_isAddOpen, setIsAddOpen] = useState(false);
-  const [_removeTarget, setRemoveTarget] = useState<GroupMemberItem | null>(null);
+  const { members, loading, error, hasMore, loadMore, reload } = useGroupMembersList(groupEmail);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<GroupMemberItem | null>(null);
 
   return (
     <div className="space-y-4">
@@ -118,6 +120,23 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
           </Button>
         </div>
       )}
+
+      <AddMemberDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        groupEmail={groupEmail}
+        onSuccess={reload}
+      />
+
+      <RemoveMemberDialog
+        open={Boolean(removeTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+        groupEmail={groupEmail}
+        member={removeTarget}
+        onSuccess={reload}
+      />
     </div>
   );
 }

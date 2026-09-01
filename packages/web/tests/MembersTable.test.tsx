@@ -9,6 +9,22 @@ vi.mock('../src/api/groupsMembersList.js', () => ({
     mockUseGroupMembersList(groupEmail, pageSize),
 }));
 
+vi.mock('../src/api/groupsMembersInsert.js', () => ({
+  useAddMember: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/groupsMembersDelete.js', () => ({
+  useRemoveMember: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { MembersTable } from '../src/routes/admin/MembersTable.js';
 
 describe('MembersTable component', () => {
