@@ -22,11 +22,11 @@ const PAGE_SIZE = 25;
 export function AccountsTable() {
   const { user: currentUser } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const kpiFilter = searchParams.get('filter');
+  const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [page, setPage] = useState(0);
@@ -100,7 +100,12 @@ export function AccountsTable() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('q', v); else next.delete('q');
+              setSearchParams(next, { replace: true });
+            }}
             placeholder="이메일 또는 이름으로 검색"
             aria-label="계정 검색"
             data-testid="accounts-search-input"
