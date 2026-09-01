@@ -292,4 +292,63 @@ describe('GroupsTable component', () => {
       `/admin/groups/${encodeURIComponent('team-a@cam.hs.kr')}`
     );
   });
+
+  it('filters groups by search query matching email, name, or description', () => {
+    const mockGroups = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 전체',
+        description: '교직원 안내용 그룹',
+        aliases: [],
+        directMembersCount: 42,
+      },
+      {
+        email: 'students@cam.hs.kr',
+        name: '학생 전체',
+        description: '재학생 공지용',
+        aliases: [],
+        directMembersCount: 300,
+      },
+      {
+        email: 'devclub@cam.hs.kr',
+        name: '코딩 동아리',
+        description: '동아리 활동',
+        aliases: [],
+        directMembersCount: 12,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+    const searchInput = screen.getByTestId('groups-search-input');
+
+    // Search by email
+    fireEvent.change(searchInput, { target: { value: 'teachers' } });
+    expect(screen.getByText('teachers@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('students@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('devclub@cam.hs.kr')).toBeNull();
+
+    // Search by name
+    fireEvent.change(searchInput, { target: { value: '학생' } });
+    expect(screen.getByText('students@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('teachers@cam.hs.kr')).toBeNull();
+
+    // Search by description
+    fireEvent.change(searchInput, { target: { value: '동아리' } });
+    expect(screen.getByText('devclub@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('teachers@cam.hs.kr')).toBeNull();
+
+    // Search with no matches
+    fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+    expect(screen.getByTestId('groups-search-empty')).toBeDefined();
+    expect(screen.getByText('검색 결과가 없습니다.')).toBeDefined();
+    expect(screen.queryByText('devclub@cam.hs.kr')).toBeNull();
+  });
 });
+

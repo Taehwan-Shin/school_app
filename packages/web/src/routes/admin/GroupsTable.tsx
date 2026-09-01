@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
@@ -19,6 +19,19 @@ export function GroupsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredGroups = useMemo(() => {
+    if (!data?.groups) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return data.groups;
+    return data.groups.filter((group: GroupItem) => {
+      const email = (group.email || '').toLowerCase();
+      const name = (group.name || '').toLowerCase();
+      const description = (group.description || '').toLowerCase();
+      return email.includes(q) || name.includes(q) || description.includes(q);
+    });
+  }, [data?.groups, searchQuery]);
 
   return (
     <div className="space-y-4">
@@ -26,12 +39,23 @@ export function GroupsTable() {
         <p className="text-small text-fg-secondary">
           조직 내 등록된 Google Workspace 그룹 및 멤버 현황
         </p>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          data-testid="add-group-btn"
-        >
-          + 그룹 추가
-        </Button>
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="이메일, 이름 또는 설명으로 검색"
+            aria-label="그룹 검색"
+            data-testid="groups-search-input"
+            className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            data-testid="add-group-btn"
+          >
+            + 그룹 추가
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -61,20 +85,26 @@ export function GroupsTable() {
       )}
 
       {!isLoading && !isError && data?.groups && data.groups.length > 0 && (
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>이메일</TableHead>
-                <TableHead>이름</TableHead>
-                <TableHead>설명</TableHead>
-                <TableHead>별칭</TableHead>
-                <TableHead className="text-right">멤버 수</TableHead>
-                <TableHead className="text-right">관리</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.groups.map((group: GroupItem) => {
+        <>
+          {filteredGroups.length === 0 ? (
+            <div className="py-12 text-center text-small text-fg-secondary" data-testid="groups-search-empty">
+              검색 결과가 없습니다.
+            </div>
+          ) : (
+            <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이메일</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead>설명</TableHead>
+                    <TableHead>별칭</TableHead>
+                    <TableHead className="text-right">멤버 수</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredGroups.map((group: GroupItem) => {
                 const aliasText =
                   group.aliases && group.aliases.length > 0 ? group.aliases.join(', ') : '-';
 
@@ -138,9 +168,11 @@ export function GroupsTable() {
                   </TableRow>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
       )}
 
       <CreateGroupDialog
