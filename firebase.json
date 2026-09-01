@@ -4,10 +4,11 @@
       "source": "packages/functions/deploy",
       "codebase": "default",
       "ignore": [
-        "node_modules/.pnpm",
+        "node_modules/**",
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",
+        "pnpm-lock.yaml",
         "src/**",
         "tests/**",
         "scripts/**",

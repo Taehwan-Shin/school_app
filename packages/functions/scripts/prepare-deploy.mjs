@@ -86,27 +86,34 @@ async function main() {
   delete pkg.pnpm;
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
-  // Cloud Build 는 deploy dir 에 pnpm-lock.yaml 이 보이면 pnpm 을 쓰려 하는데,
-  // 그 lockfile 에는 로컬 절대 경로 (예: file:///Users/...) 로 shared 가 잠겨 있어
-  // Cloud Build 환경에서 resolve 실패 + OUTDATED_LOCKFILE 오류.
-  // pnpm-lock.yaml 을 제거하고 pnpm 이 심어놓은 node_modules 도 지워서
-  // Cloud Build 가 자연스럽게 npm install 로 fallback 하고 package.json 만
-  // 참고하도록 한다.
-  console.log('[prepare-deploy] pnpm 잔여물 (lockfile, node_modules) 제거...');
-  const lockfile = resolve(DEPLOY_DIR, 'pnpm-lock.yaml');
-  if (existsSync(lockfile)) {
-    await rm(lockfile, { force: true });
-  }
-  const npmrcCopy = resolve(DEPLOY_DIR, '.npmrc');
-  if (existsSync(npmrcCopy)) {
-    // 워크스페이스 .npmrc 가 복사됐다면 이것도 제거 (inject-workspace-packages 는
-    // deploy dir 안에서 무의미하고 오히려 npm 이 인식 못 하는 옵션이 있으면 경고).
-    await rm(npmrcCopy, { force: true });
+  // pnpm 잔여물 정리: lockfile 과 pnpm-style node_modules 제거.
+  // 이유:
+  //   - Cloud Build 는 lockfile 종류로 패키지 매니저를 감지하므로 pnpm-lock.yaml 이
+  //     있으면 pnpm 을 쓰려 하고, 그 lockfile 은 로컬 절대 경로를 담고 있어 실패.
+  //   - pnpm 이 심은 node_modules 는 심볼릭 링크 구조 (.pnpm/...) 라 npm 이나
+  //     firebase-tools 가 정상 해석 못 함.
+  console.log('[prepare-deploy] pnpm 잔여물 (lockfile, .npmrc, node_modules) 제거...');
+  for (const f of ['pnpm-lock.yaml', '.npmrc']) {
+    const p = resolve(DEPLOY_DIR, f);
+    if (existsSync(p)) await rm(p, { force: true });
   }
   const deployNodeModules = resolve(DEPLOY_DIR, 'node_modules');
   if (existsSync(deployNodeModules)) {
     await rm(deployNodeModules, { recursive: true, force: true });
   }
+
+  // firebase-tools 는 배포 전 로컬에서 `require('firebase-functions')` 로 SDK
+  // 위치를 찾고 dist/index.js 를 loading 해 callable 을 열거한다 (파일 상단의
+  // `@school-app/shared` import 도 그때 해석). 따라서 로컬에도 정상적인 npm
+  // 구조의 node_modules 가 필요. npm install 로 file:./_shared 를 정식 링크로
+  // 걸어주고 다른 prod 의존성도 npm 방식으로 설치.
+  //
+  // Cloud Build 는 firebase.json ignore 로 node_modules 를 제외 업로드받고 자체
+  // npm ci 를 수행하므로, 여기서 만드는 node_modules 는 순수 로컬 검증용.
+  console.log('[prepare-deploy] deploy dir 에 npm install --omit=dev...');
+  run('npm', ['install', '--omit=dev', '--no-fund', '--no-audit', '--loglevel=error'], {
+    cwd: DEPLOY_DIR,
+  });
 
   console.log('[prepare-deploy] 완료.');
 }
