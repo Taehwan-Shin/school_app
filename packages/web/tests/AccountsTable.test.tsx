@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 const mockUseUsersList = vi.fn();
 const mockCurrentUser = { email: "admin@cam.hs.kr" };
@@ -36,6 +37,10 @@ vi.mock("../src/api/usersDelete.js", () => ({
 
 import { AccountsTable } from "../src/routes/admin/AccountsTable.js";
 
+function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin']) {
+  return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+}
+
 describe("AccountsTable component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,7 +54,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     expect(screen.getByTestId("accounts-loading")).toBeDefined();
     expect(screen.getByText("계정 목록을 불러오는 중...")).toBeDefined();
     expect(screen.getByTestId("add-account-btn")).toBeDefined();
@@ -63,7 +68,7 @@ describe("AccountsTable component", () => {
       error: new Error("permission-denied: requires admin role"),
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     expect(screen.getByTestId("accounts-error")).toBeDefined();
     expect(screen.getByText("이 기능은 관리자만 사용할 수 있습니다.")).toBeDefined();
   });
@@ -76,7 +81,7 @@ describe("AccountsTable component", () => {
       error: new Error("Network error"),
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     expect(screen.getByTestId("accounts-error")).toBeDefined();
     expect(screen.getByText(/계정 목록을 불러오지 못했습니다: Network error/)).toBeDefined();
   });
@@ -89,7 +94,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     expect(screen.getByTestId("accounts-empty")).toBeDefined();
     expect(screen.getByText("등록된 계정이 없습니다.")).toBeDefined();
     expect(screen.getByTestId("add-account-btn")).toBeDefined();
@@ -122,7 +127,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
 
     // Header check
     expect(screen.getByText("Email")).toBeDefined();
@@ -152,7 +157,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
 
     fireEvent.click(screen.getByTestId("add-account-btn"));
     expect(screen.getByText("Google Workspace 계정 추가")).toBeDefined();
@@ -177,7 +182,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
 
     fireEvent.click(screen.getByTestId("delete-user-teacher1@cam.hs.kr"));
     expect(screen.getByText("계정 삭제 확인")).toBeDefined();
@@ -235,7 +240,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     const searchInput = screen.getByTestId("accounts-search-input");
 
     // Type 'admin'
@@ -271,7 +276,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     const searchInput = screen.getByTestId("accounts-search-input");
     fireEvent.change(searchInput, { target: { value: "nonexistent" } });
 
@@ -316,7 +321,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     const emailHeader = screen.getByTestId("accounts-sort-email");
 
     // Click 1: Email asc
@@ -364,7 +369,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
 
     const paginationInfo = screen.getByTestId("accounts-pagination-info");
     const prevBtn = screen.getByTestId("accounts-pagination-prev") as HTMLButtonElement;
@@ -411,7 +416,7 @@ describe("AccountsTable component", () => {
       error: null,
     });
 
-    render(<AccountsTable />);
+    renderWithRouter(<AccountsTable />);
     const nextBtn = screen.getByTestId("accounts-pagination-next");
     const searchInput = screen.getByTestId("accounts-search-input");
     const paginationInfo = screen.getByTestId("accounts-pagination-info");
@@ -429,4 +434,112 @@ describe("AccountsTable component", () => {
     expect(paginationInfo.textContent).toBe("1–1 of 1");
     expect(screen.getByText("user28@cam.hs.kr")).toBeDefined();
   });
+
+  it("filters accounts by URL filter=admin on initial load", () => {
+    const mockUsers = [
+      {
+        email: "admin1@cam.hs.kr",
+        firstName: "관리자1",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "admin2@cam.hs.kr",
+        firstName: "관리자2",
+        lastName: "이",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "suspended@cam.hs.kr",
+        firstName: "정지",
+        lastName: "박",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: true,
+      },
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "user2@cam.hs.kr",
+        firstName: "영희",
+        lastName: "최",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />, ['/admin?filter=admin']);
+
+    expect(screen.getByText("admin1@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("admin2@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("suspended@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("user2@cam.hs.kr")).toBeNull();
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–2 of 2");
+  });
+
+  it("merges KPI filter with search query filtering", () => {
+    const mockUsers = [
+      {
+        email: "admin1@cam.hs.kr",
+        firstName: "관리자1",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "admin2@cam.hs.kr",
+        firstName: "관리자2",
+        lastName: "이",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "admin1동명",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />, ['/admin?filter=admin']);
+    const searchInput = screen.getByTestId("accounts-search-input");
+
+    fireEvent.change(searchInput, { target: { value: "admin1" } });
+
+    expect(screen.getByText("admin1@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("admin2@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–1 of 1");
+  });
 });
+

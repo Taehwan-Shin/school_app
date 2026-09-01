@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const mockUseUsersList = vi.fn();
 
@@ -10,6 +11,15 @@ vi.mock('../src/api/usersList.js', () => ({
 
 import { KpiCard } from '../src/components/dashboard/KpiCard.js';
 import { KpiCardRow } from '../src/components/dashboard/KpiCardRow.js';
+
+function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin']) {
+  return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+}
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location-search">{location.search}</div>;
+}
 
 describe('KpiCard & KpiCardRow', () => {
   beforeEach(() => {
@@ -33,6 +43,22 @@ describe('KpiCard & KpiCardRow', () => {
       expect(screen.getByText('—')).toBeDefined();
       expect(screen.queryByText('10')).toBeNull();
     });
+
+    it('renders button with border-border-strong and data-active="true" when href and active are set', () => {
+      render(<KpiCard label="관리자" value={10} href="admin" active={true} />);
+      const card = screen.getByTestId('kpi-card-관리자');
+      expect(card.tagName).toBe('BUTTON');
+      expect(card.getAttribute('data-active')).toBe('true');
+      expect(card.className).toContain('border-border-strong');
+    });
+
+    it('calls onClick handler when clicked with href', () => {
+      const handleClick = vi.fn();
+      render(<KpiCard label="관리자" value={10} href="admin" onClick={handleClick} />);
+      const card = screen.getByTestId('kpi-card-관리자');
+      fireEvent.click(card);
+      expect(handleClick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('KpiCardRow scenarios', () => {
@@ -44,7 +70,7 @@ describe('KpiCard & KpiCardRow', () => {
         error: null,
       });
 
-      render(<KpiCardRow />);
+      renderWithRouter(<KpiCardRow />);
 
       const totalCard = screen.getByTestId('kpi-card-총 사용자');
       const adminCard = screen.getByTestId('kpi-card-관리자');
@@ -111,7 +137,7 @@ describe('KpiCard & KpiCardRow', () => {
         error: null,
       });
 
-      render(<KpiCardRow />);
+      renderWithRouter(<KpiCardRow />);
 
       expect(screen.getByTestId('kpi-card-총 사용자')).toBeDefined();
       expect(screen.getByTestId('kpi-card-관리자')).toBeDefined();
@@ -132,7 +158,7 @@ describe('KpiCard & KpiCardRow', () => {
         error: new Error('Query error'),
       });
 
-      render(<KpiCardRow />);
+      renderWithRouter(<KpiCardRow />);
 
       const totalCard = screen.getByTestId('kpi-card-총 사용자');
       const adminCard = screen.getByTestId('kpi-card-관리자');
@@ -147,5 +173,60 @@ describe('KpiCard & KpiCardRow', () => {
       const dashes = screen.getAllByText('—');
       expect(dashes.length).toBe(4);
     });
+
+    it('scenario 4: reflects active card when URL contains filter query', () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      renderWithRouter(<KpiCardRow />, ['/admin?filter=admin']);
+
+      const totalCard = screen.getByTestId('kpi-card-총 사용자');
+      const adminCard = screen.getByTestId('kpi-card-관리자');
+      const suspendedCard = screen.getByTestId('kpi-card-정지된 계정');
+      const normalCard = screen.getByTestId('kpi-card-일반 사용자');
+
+      expect(totalCard.getAttribute('data-active')).toBe('false');
+      expect(adminCard.getAttribute('data-active')).toBe('true');
+      expect(suspendedCard.getAttribute('data-active')).toBe('false');
+      expect(normalCard.getAttribute('data-active')).toBe('false');
+    });
+
+    it('scenario 5: updates URL search params when clicking KPI cards and toggles off on reclick', () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      renderWithRouter(
+        <>
+          <KpiCardRow />
+          <LocationDisplay />
+        </>,
+        ['/admin'],
+      );
+
+      const adminCard = screen.getByTestId('kpi-card-관리자');
+      const locDisplay = screen.getByTestId('location-search');
+
+      expect(locDisplay.textContent).toBe('');
+      expect(adminCard.getAttribute('data-active')).toBe('false');
+
+      // Click admin card -> set filter=admin
+      fireEvent.click(adminCard);
+      expect(locDisplay.textContent).toBe('?filter=admin');
+      expect(adminCard.getAttribute('data-active')).toBe('true');
+
+      // Click admin card again -> toggle off
+      fireEvent.click(adminCard);
+      expect(locDisplay.textContent).toBe('');
+      expect(adminCard.getAttribute('data-active')).toBe('false');
+    });
   });
 });
+
