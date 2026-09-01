@@ -86,7 +86,11 @@ describe('auditLogList API & Hook', () => {
       });
       expect(options.headers['X-Request-Id']).toBeDefined();
       expect(JSON.parse(options.body)).toEqual({
-        data: { limit: 25, before: 1725160000000 },
+        data: expect.objectContaining({
+          limit: 25,
+          before: 1725160000000,
+          _googleAccessToken: 'mock-google-access-token',
+        }),
       });
       expect(result).toEqual({
         entries: mockEntries,
@@ -202,7 +206,12 @@ describe('auditLogList API & Hook', () => {
       expect(result.current.hasMore).toBe(false);
 
       const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
-      expect(secondCallBody.data).toEqual({ limit: 25, before: 1725150000000 });
+      expect(secondCallBody.data).toEqual(
+        expect.objectContaining({
+          limit: 25,
+          before: 1725150000000,
+        }),
+      );
     });
 
     it('does not call fetch on loadMore when hasMore is false', async () => {
@@ -294,7 +303,9 @@ describe('auditLogList API & Hook', () => {
       await waitFor(() => expect(result.current.entries).toEqual(reloadedEntries));
       expect(fetchMock).toHaveBeenCalledTimes(2);
       const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
-      expect(secondCallBody.data).toEqual({ limit: 25 });
+      expect(secondCallBody.data).toEqual(
+        expect.objectContaining({ limit: 25 }),
+      );
     });
 
     it('handles initial load error properly', async () => {
