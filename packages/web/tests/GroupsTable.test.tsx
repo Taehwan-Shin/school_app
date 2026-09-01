@@ -350,5 +350,86 @@ describe('GroupsTable component', () => {
     expect(screen.getByText('검색 결과가 없습니다.')).toBeDefined();
     expect(screen.queryByText('devclub@cam.hs.kr')).toBeNull();
   });
+
+  it('toggles sorting when clicking column headers', () => {
+    const mockGroups = [
+      {
+        email: 'charlie@cam.hs.kr',
+        name: '다 그룹',
+        description: '설명 다',
+        aliases: [],
+        directMembersCount: 10,
+      },
+      {
+        email: 'alice@cam.hs.kr',
+        name: '가 그룹',
+        description: '설명 가',
+        aliases: [],
+        directMembersCount: 30,
+      },
+      {
+        email: 'bob@cam.hs.kr',
+        name: '나 그룹',
+        description: '설명 나',
+        aliases: [],
+        directMembersCount: 20,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+    const emailHeader = screen.getByTestId('groups-sort-email');
+
+    // Click 1: Email asc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute('aria-sort')).toBe('ascending');
+    let rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('alice@cam.hs.kr');
+    expect(rows[1].textContent).toContain('bob@cam.hs.kr');
+    expect(rows[2].textContent).toContain('charlie@cam.hs.kr');
+
+    // Click 2: Email desc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute('aria-sort')).toBe('descending');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('charlie@cam.hs.kr');
+    expect(rows[1].textContent).toContain('bob@cam.hs.kr');
+    expect(rows[2].textContent).toContain('alice@cam.hs.kr');
+
+    // Click name header: Name asc
+    const nameHeader = screen.getByTestId('groups-sort-name');
+    fireEvent.click(nameHeader);
+    expect(nameHeader.getAttribute('aria-sort')).toBe('ascending');
+    expect(emailHeader.getAttribute('aria-sort')).toBe('none');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('가 그룹');
+    expect(rows[1].textContent).toContain('나 그룹');
+    expect(rows[2].textContent).toContain('다 그룹');
+
+    // Click directMembersCount header: directMembersCount asc
+    const countHeader = screen.getByTestId('groups-sort-directMembersCount');
+    fireEvent.click(countHeader);
+    expect(countHeader.getAttribute('aria-sort')).toBe('ascending');
+    expect(nameHeader.getAttribute('aria-sort')).toBe('none');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('10');
+    expect(rows[1].textContent).toContain('20');
+    expect(rows[2].textContent).toContain('30');
+
+    // Click directMembersCount desc
+    fireEvent.click(countHeader);
+    expect(countHeader.getAttribute('aria-sort')).toBe('descending');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('30');
+    expect(rows[1].textContent).toContain('20');
+    expect(rows[2].textContent).toContain('10');
+  });
 });
+
 

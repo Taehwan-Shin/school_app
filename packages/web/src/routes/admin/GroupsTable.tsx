@@ -14,24 +14,54 @@ import { CreateGroupDialog } from './CreateGroupDialog';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 
+type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
+type SortDirection = 'asc' | 'desc';
+
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  const filteredGroups = useMemo(() => {
+  const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedFilteredGroups = useMemo(() => {
     if (!data?.groups) return [];
+    let result = data.groups;
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return data.groups;
-    return data.groups.filter((group: GroupItem) => {
-      const email = (group.email || '').toLowerCase();
-      const name = (group.name || '').toLowerCase();
-      const description = (group.description || '').toLowerCase();
-      return email.includes(q) || name.includes(q) || description.includes(q);
-    });
-  }, [data?.groups, searchQuery]);
+    if (q) {
+      result = result.filter((group: GroupItem) => {
+        const email = (group.email || '').toLowerCase();
+        const name = (group.name || '').toLowerCase();
+        const description = (group.description || '').toLowerCase();
+        return email.includes(q) || name.includes(q) || description.includes(q);
+      });
+    }
+    if (sortColumn) {
+      result = [...result].sort((a: GroupItem, b: GroupItem) => {
+        let cmp = 0;
+        if (sortColumn === 'email') {
+          cmp = (a.email || '').localeCompare(b.email || '');
+        } else if (sortColumn === 'name') {
+          cmp = (a.name || '').localeCompare(b.name || '');
+        } else if (sortColumn === 'directMembersCount') {
+          cmp = (a.directMembersCount ?? 0) - (b.directMembersCount ?? 0);
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [data?.groups, searchQuery, sortColumn, sortDirection]);
 
   return (
     <div className="space-y-4">
@@ -86,7 +116,7 @@ export function GroupsTable() {
 
       {!isLoading && !isError && data?.groups && data.groups.length > 0 && (
         <>
-          {filteredGroups.length === 0 ? (
+          {sortedFilteredGroups.length === 0 ? (
             <div className="py-12 text-center text-small text-fg-secondary" data-testid="groups-search-empty">
               검색 결과가 없습니다.
             </div>
@@ -95,16 +125,37 @@ export function GroupsTable() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>이메일</TableHead>
-                    <TableHead>이름</TableHead>
+                    <TableHead
+                      onClick={() => handleSort('email')}
+                      className="cursor-pointer select-none"
+                      data-testid="groups-sort-email"
+                      aria-sort={sortColumn === 'email' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      이메일 {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => handleSort('name')}
+                      className="cursor-pointer select-none"
+                      data-testid="groups-sort-name"
+                      aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
                     <TableHead>설명</TableHead>
                     <TableHead>별칭</TableHead>
-                    <TableHead className="text-right">멤버 수</TableHead>
+                    <TableHead
+                      onClick={() => handleSort('directMembersCount')}
+                      className="text-right cursor-pointer select-none"
+                      data-testid="groups-sort-directMembersCount"
+                      aria-sort={sortColumn === 'directMembersCount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      멤버 수 {sortColumn === 'directMembersCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredGroups.map((group: GroupItem) => {
+                  {sortedFilteredGroups.map((group: GroupItem) => {
                 const aliasText =
                   group.aliases && group.aliases.length > 0 ? group.aliases.join(', ') : '-';
 
