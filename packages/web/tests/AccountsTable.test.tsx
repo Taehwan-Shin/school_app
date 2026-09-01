@@ -279,4 +279,70 @@ describe("AccountsTable component", () => {
     expect(screen.getByText("검색 결과가 없습니다.")).toBeDefined();
     expect(screen.queryByText("admin@cam.hs.kr")).toBeNull();
   });
+
+  it("toggles sorting when clicking column headers", () => {
+    const mockUsers = [
+      {
+        email: "charlie@cam.hs.kr",
+        firstName: "철수",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "alice@cam.hs.kr",
+        firstName: "영희",
+        lastName: "김",
+        orgUnitPath: "/교사",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "bob@cam.hs.kr",
+        firstName: "민수",
+        lastName: "박",
+        orgUnitPath: "/행정",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const emailHeader = screen.getByTestId("accounts-sort-email");
+
+    // Click 1: Email asc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute("aria-sort")).toBe("ascending");
+    let rows = screen.getAllByRole("row").slice(1); // exclude header row
+    expect(rows[0].textContent).toContain("alice@cam.hs.kr");
+    expect(rows[1].textContent).toContain("bob@cam.hs.kr");
+    expect(rows[2].textContent).toContain("charlie@cam.hs.kr");
+
+    // Click 2: Email desc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute("aria-sort")).toBe("descending");
+    rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("charlie@cam.hs.kr");
+    expect(rows[1].textContent).toContain("bob@cam.hs.kr");
+    expect(rows[2].textContent).toContain("alice@cam.hs.kr");
+
+    // Click name header: Name asc
+    const nameHeader = screen.getByTestId("accounts-sort-name");
+    fireEvent.click(nameHeader);
+    expect(nameHeader.getAttribute("aria-sort")).toBe("ascending");
+    expect(emailHeader.getAttribute("aria-sort")).toBe("none");
+    rows = screen.getAllByRole("row").slice(1);
+    // 김영희, 박민수, 이철수
+    expect(rows[0].textContent).toContain("김영희");
+    expect(rows[1].textContent).toContain("박민수");
+    expect(rows[2].textContent).toContain("이철수");
+  });
 });

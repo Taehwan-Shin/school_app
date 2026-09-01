@@ -13,23 +13,55 @@ import {
 import { CreateUserDialog } from "./CreateUserDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 
+type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
+type SortDirection = 'asc' | 'desc';
+
 export function AccountsTable() {
   const { user: currentUser } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  const filteredUsers = useMemo(() => {
+  const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedFilteredUsers = useMemo(() => {
     if (!data?.users) return [];
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return data.users;
-    return data.users.filter((user: UserItem) => {
-      const email = (user.email || "").toLowerCase();
-      const fullName = `${user.lastName || ""}${user.firstName || ""}`.toLowerCase();
-      return email.includes(q) || fullName.includes(q);
-    });
-  }, [data?.users, searchQuery]);
+    let result = data.users;
+    if (q) {
+      result = result.filter((user: UserItem) => {
+        const email = (user.email || "").toLowerCase();
+        const fullName = `${user.lastName || ""}${user.firstName || ""}`.toLowerCase();
+        return email.includes(q) || fullName.includes(q);
+      });
+    }
+    if (sortColumn) {
+      result = [...result].sort((a: UserItem, b: UserItem) => {
+        let cmp = 0;
+        if (sortColumn === 'email') {
+          cmp = (a.email || '').localeCompare(b.email || '');
+        } else if (sortColumn === 'name') {
+          const nameA = `${a.lastName || ''}${a.firstName || ''}`;
+          const nameB = `${b.lastName || ''}${b.firstName || ''}`;
+          cmp = nameA.localeCompare(nameB);
+        } else if (sortColumn === 'orgUnitPath') {
+          cmp = (a.orgUnitPath || '/').localeCompare(b.orgUnitPath || '/');
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [data?.users, searchQuery, sortColumn, sortDirection]);
 
   return (
     <div className="space-y-4">
@@ -84,7 +116,7 @@ export function AccountsTable() {
 
       {!isLoading && !isError && data?.users && data.users.length > 0 && (
         <>
-          {filteredUsers.length === 0 ? (
+          {sortedFilteredUsers.length === 0 ? (
             <div className="py-12 text-center text-small text-fg-secondary" data-testid="accounts-search-empty">
               검색 결과가 없습니다.
             </div>
@@ -93,16 +125,37 @@ export function AccountsTable() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>이름</TableHead>
-                    <TableHead>조직 단위</TableHead>
+                    <TableHead
+                      onClick={() => handleSort('email')}
+                      className="cursor-pointer select-none"
+                      data-testid="accounts-sort-email"
+                      aria-sort={sortColumn === 'email' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      Email {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => handleSort('name')}
+                      className="cursor-pointer select-none"
+                      data-testid="accounts-sort-name"
+                      aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => handleSort('orgUnitPath')}
+                      className="cursor-pointer select-none"
+                      data-testid="accounts-sort-orgUnitPath"
+                      aria-sort={sortColumn === 'orgUnitPath' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      조직 단위 {sortColumn === 'orgUnitPath' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
                     <TableHead className="text-center">관리자</TableHead>
                     <TableHead className="text-center">정지</TableHead>
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user: UserItem) => {
+                  {sortedFilteredUsers.map((user: UserItem) => {
                 const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
                 const isSelf =
                   Boolean(currentUser?.email) &&
