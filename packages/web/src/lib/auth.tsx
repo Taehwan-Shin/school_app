@@ -35,6 +35,7 @@ export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.user.readonly',
   'https://www.googleapis.com/auth/admin.directory.user',
   'https://www.googleapis.com/auth/admin.directory.group.readonly',
+  'https://www.googleapis.com/auth/admin.directory.group',
 ] as const;
 
 export async function signInWithGoogle() {
