@@ -16,6 +16,11 @@ export interface DirectoryClient {
     patch: (params: { groupKey: string; requestBody: any }) => Promise<{ data: any }>;
     delete: (params: { groupKey: string }) => Promise<{ data: any }>;
     get: (params: { groupKey: string }) => Promise<{ data: any }>;
+    members: {
+      list: (params: { groupKey: string; pageToken?: string; maxResults?: number }) => Promise<{ data: any }>;
+      insert: (params: { groupKey: string; requestBody: { email: string; role?: string } }) => Promise<{ data: any }>;
+      delete: (params: { groupKey: string; memberKey: string }) => Promise<{ data: any }>;
+    };
   };
 }
 
@@ -184,6 +189,42 @@ function getStubClient(): DirectoryClient {
           },
         };
       },
+      members: {
+        list: async () => {
+          const stub = readStubResponse();
+          if (stub.data && stub.data.members) {
+            return {
+              data: {
+                members: Array.isArray(stub.data.members) ? stub.data.members : [],
+                nextPageToken: stub.data.nextPageToken ?? null,
+              },
+            };
+          }
+          return { data: { members: [], nextPageToken: null } };
+        },
+        insert: async (params: { groupKey: string; requestBody: { email: string; role?: string } }) => {
+          const stub = readStubResponse();
+          if (stub.data && stub.data.memberInsert) {
+            return { data: stub.data.memberInsert };
+          }
+          return {
+            data: {
+              id: 'stub-member-' + Date.now(),
+              email: params?.requestBody?.email,
+              role: params?.requestBody?.role ?? 'MEMBER',
+              type: 'USER',
+              status: 'ACTIVE',
+            },
+          };
+        },
+        delete: async () => {
+          const stub = readStubResponse();
+          if (stub.data && stub.data.memberDelete) {
+            return { data: stub.data.memberDelete };
+          }
+          return { data: {} };
+        },
+      },
     },
   };
 }
@@ -194,5 +235,7 @@ export function getDirectoryClient(accessToken: string): DirectoryClient {
   }
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
-  return google.admin({ version: 'directory_v1', auth }) as unknown as DirectoryClient;
+  const admin = google.admin({ version: 'directory_v1', auth });
+  (admin.groups as any).members = admin.members;
+  return admin as unknown as DirectoryClient;
 }
