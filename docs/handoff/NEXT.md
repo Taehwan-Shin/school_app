@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **users.update 백엔드 v0.7** — 사용자 이름·조직 단위 편집 callable 추가. 프론트엔드 통합은 v0.8 에서.
+> 지금 이 파일의 오더는 **users.update 프론트엔드 v0.8** — 계정 표 행에 「편집」 링크와 `EditUserDialog` 를 추가해 v0.7 백엔드 callable 을 UI 로 노출한다.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/users-update-v7`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/users-update-ui-v8`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -17,217 +17,225 @@
 
 **추가**: 완료 후 반드시 스레드 보고 (브랜치 이름 + 커밋 해시). 커밋 3 개로 분리.
 
-**writeAudit 규율**: 이 슬라이스는 감사 로그를 다루는 새 callable 을 추가한다. 반드시:
-- 모든 실패·성공 경로에서 `writeAudit` 호출
-- Firestore `audit_log` 컬렉션에 직접 쓰지 마라 (ESLint AST 규칙이 잡음)
-- `action: 'users.write'`, `role: user.role`, `actor: user.email` 그대로
-- 인증 실패 경로에서 `role: 'unknown'` 사용
+**Designer 몫**: 이 슬라이스의 모든 스타일 값은 `docs/design/UI_SYSTEM.md` §4.5·§4.6·§4.7 에 있다. 특히 `CreateUserDialog.tsx` (기존) 의 폼 마크업·토큰을 그대로 재사용.
 
 ## 기준 커밋
 
-**Base**: `73b6205` (검색·정렬 URL 동기화 v0.6 병합 커밋)
+**Base**: `330616b` (users.update 백엔드 v0.7 병합 커밋)
 
-## 지금 할 것 — users.update callable
+## 지금 할 것 — 편집 버튼 + EditUserDialog
 
 ### 왜
 
-지금 users CRUD 는 create/read/delete 뿐. **update** 가 빠져 있다. 실 운영에서 사용자 이름 오탈자 수정, 부서 이동 시 organizational unit 변경, 성명 변경 등이 필요하다. 원본 `계정관리.gs` 도 이 편집 기능을 가지고 있다.
+v0.7 이 `users.update` callable 을 놓았지만 지금 프론트엔드에서 부를 수 있는 방법이 없다. 사용자 편집은 관리자가 가장 자주 하는 조작 중 하나 (오탈자·부서 이동) 이고, UI 로 노출되지 않으면 백엔드가 있어도 실사용 안 됨.
 
 이 슬라이스가 세 가지를 한다:
-1. **`users.update` callable 추가** — `firstName` · `lastName` · `orgUnitPath` 부분 편집. Directory API `patch` 사용.
-2. **`directoryClient.users.patch` 추가** — 실 API 호출 + 파일 stub 지원.
-3. **`writeAudit` before/after 기록** — 변경 전 값과 변경 후 값을 함께 감사 로그에.
+1. **`usersUpdate.ts` API 클라이언트** — v0.7 callable 호출 (fetch 기반, `usersDelete.ts` 패턴 재사용).
+2. **`EditUserDialog.tsx` 컴포넌트** — 사용자 정보 (firstName·lastName·orgUnitPath) 편집 폼. `CreateUserDialog.tsx` 마크업 재사용.
+3. **`AccountsTable.tsx` 관리 열 재구성** — 「편집」 링크를 「삭제」 앞에 추가. 두 링크 사이 · 로 구분.
 
-**하지 않는 것**: 이메일 (primaryEmail) 변경 — Directory API 는 별도 rename 흐름이라 이번 슬라이스 밖. 관리자 권한 (`isAdmin`) 토글 — 별도 slice. 정지 (`suspended`) 토글 — 별도 slice. 비밀번호 재설정 — 별도 slice. 프론트엔드 UI — v0.8.
-
-**보안**: 자기 자신 편집은 허용 (일반 사용자가 자기 이름을 고치는 흐름은 나중 슬라이스에서 non-admin 캡으로 별도 처리). super_admin/workspace admin 편집은 super_admin 만 (users.delete 와 동일 규칙 재사용).
+**하지 않는 것**: 이메일 편집 (백엔드 지원 안 함). 비밀번호 재설정 (별도 slice). isAdmin·suspended 토글 (별도 slice). 편집 후 사용자 목록 즉시 재조회는 자동 (`useMutation` `onSuccess` 로 `invalidateQueries`).
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/functions/src/google/directoryClient.ts` — `DirectoryClient.users` 인터페이스에 `patch` 추가. 실 impl (googleapis) + 파일 stub 지원. stub 은 `stub.data.patch` 또는 `stub.data.get` 반환.
-- `packages/functions/src/index.ts` — `usersUpdate` export 추가.
+- `packages/web/src/routes/admin/AccountsTable.tsx` — 관리 열에 「편집」 버튼 + `EditUserDialog` 렌더. `editTarget` state 추가.
+- `packages/web/tests/AccountsTable.test.tsx` — 신규 UX 시나리오 2 추가 (편집 버튼 렌더 + 클릭 시 다이얼로그 열림).
 
 **신규 파일**:
-- `packages/functions/src/callable/users/update.ts` — 새 callable.
-- `packages/functions/tests/usersUpdate.test.ts` — 단위 테스트 8~10 개.
-- `packages/functions/tests/usersUpdate.emu.test.ts` — emu HTTP 종단 테스트 3 개 (allow · denied non-admin · admin editing admin denied).
+- `packages/web/src/api/usersUpdate.ts` — v0.7 callable 호출 클라이언트 (`usersDelete.ts` 패턴).
+- `packages/web/src/routes/admin/EditUserDialog.tsx` — 편집 다이얼로그 (`CreateUserDialog.tsx` 패턴).
+- `packages/web/tests/usersUpdate.test.tsx` — API 클라이언트 시나리오 4~5 (usersDelete 테스트 참고).
+- `packages/web/tests/EditUserDialog.test.tsx` — 다이얼로그 시나리오 5 (렌더·pre-fill·검증·성공·오류).
 
 **손대지 마라**:
-- `packages/web/*` — 이 슬라이스는 백엔드만. 프론트 통합은 v0.8.
-- `packages/functions/src/callable/users/create.ts` · `list.ts` · `delete.ts` — 기존 로직 손대지 마라.
-- `packages/functions/src/audit/writeAudit.ts` — 헬퍼는 그대로 사용, 개조 금지.
+- 다른 라우트·컴포넌트·기존 dialog·api — 이 슬라이스 밖.
+- 백엔드 (`packages/functions/*`) — v0.7 완료.
 
 ### 세부 요구
 
-#### 1. `directoryClient.ts` — `patch` 메서드
+#### 1. `packages/web/src/api/usersUpdate.ts` (신규)
 
-**인터페이스에 추가** (기존 `users` 객체에):
-```ts
-patch: (params: { userKey: string; requestBody: any }) => Promise<{ data: any }>;
-```
+`usersDelete.ts` 를 그대로 옮겨오되:
 
-**실 impl** — googleapis 는 자동. `google.admin({version:'directory_v1', auth}).users.patch(...)` 이미 존재.
-
-**stub impl** — `stub.data.patch` 있으면 그 값. 없으면 요청받은 `requestBody` 를 그대로 반환 (merge simulation):
-```ts
-patch: async (params: { userKey: string; requestBody: any }) => {
-  const stub = readStubResponse();
-  if (stub.data && stub.data.patch) {
-    return { data: stub.data.patch };
-  }
-  return {
-    data: {
-      primaryEmail: params?.userKey,
-      ...params?.requestBody,
-    },
-  };
-},
-```
-
-#### 2. `packages/functions/src/callable/users/update.ts` (신규)
-
-**입력 스키마**:
 ```ts
 export interface UsersUpdateRequest {
-  primaryEmail: string;          // 대상 사용자 이메일 (필수)
-  firstName?: string;            // 부분 편집 — 값 있으면 반영
+  primaryEmail: string;
+  firstName?: string;
   lastName?: string;
   orgUnitPath?: string;
 }
 
 export interface UsersUpdateResponse {
   primaryEmail: string;
-  updatedFields: string[];       // 실제로 변경된 필드 이름들
+  updatedFields: string[];
 }
 ```
 
-**구조** — `create.ts` 패턴을 따라:
-1. `requestId = header('x-request-id') ?? crypto.randomUUID()`
-2. `authenticateRequest` (실패 시 role='unknown' 로 denied audit)
-3. `assertHasCap(user, 'users.write')` + `assertHasScopes(user, REQUIRED_SCOPES)` (실패 시 denied audit)
-4. **입력 검증**:
-   - `primaryEmail` 필수, `@ALLOWED_DOMAIN` 매치
-   - `firstName`·`lastName`·`orgUnitPath` 중 최소 하나는 있어야 함. 셋 다 없으면 `invalid-argument: no_fields_to_update`
-   - `orgUnitPath` 는 `/` 로 시작하도록 정규화
-5. **자기 편집이 아니라면 target 이 super_admin/workspace admin 인지 확인**:
-   ```ts
-   if (targetEmail !== user.email && user.role !== 'super_admin') {
-     const [appRoleSnap, workspaceUser] = await Promise.all([
-       db.collection('users').where('email', '==', targetEmail).limit(1).get(),
-       directory.users.get({ userKey: targetEmail }),
-     ]);
-     const appRoleIsSuperAdmin = !appRoleSnap.empty && appRoleSnap.docs[0].data()?.role === 'super_admin';
-     const isWorkspaceAdmin = workspaceUser.data?.isAdmin === true;
-     if (appRoleIsSuperAdmin || isWorkspaceAdmin) {
-       throw new HttpsError('permission-denied', 'admin_cannot_edit_admin');
-     }
-   }
-   ```
-   `db` 는 `getFirestore()` 로 얻고 `directory` 는 이미 있음.
-6. **before 조회**: `const before = await directory.users.get({ userKey: targetEmail })`. `before.data.name.givenName`·`familyName`·`orgUnitPath` 를 감사에 담을 스냅샷으로.
-7. **patch 요청 바디 구성** (제공된 필드만):
-   ```ts
-   const requestBody: any = {};
-   const updatedFields: string[] = [];
-   if (typeof firstName === 'string' && firstName.trim()) {
-     requestBody.name = { ...(requestBody.name ?? {}), givenName: firstName.trim() };
-     updatedFields.push('firstName');
-   }
-   if (typeof lastName === 'string' && lastName.trim()) {
-     requestBody.name = { ...(requestBody.name ?? {}), familyName: lastName.trim() };
-     updatedFields.push('lastName');
-   }
-   if (typeof orgUnitPath === 'string' && orgUnitPath.trim()) {
-     const path = orgUnitPath.trim().startsWith('/') ? orgUnitPath.trim() : '/' + orgUnitPath.trim();
-     requestBody.orgUnitPath = path;
-     updatedFields.push('orgUnitPath');
-   }
-   if (updatedFields.length === 0) {
-     throw new HttpsError('invalid-argument', 'no_fields_to_update');
-   }
-   ```
-8. **patch 호출**: `await directory.users.patch({ userKey: targetEmail, requestBody })`
-9. **성공 audit** — before/after 스냅샷 함께:
-   ```ts
-   await writeAudit({
-     actor: user.email,
-     role: user.role,
-     action: 'users.write',
-     target: targetEmail,
-     request_id: requestId,
-     result: 'ok',
-     message: `updated fields: ${updatedFields.join(', ')} | before: ${JSON.stringify({firstName: before.data?.name?.givenName, lastName: before.data?.name?.familyName, orgUnitPath: before.data?.orgUnitPath})} | after: ${JSON.stringify(requestBody)}`,
-   });
-   ```
-10. **반환**: `{ primaryEmail: targetEmail, updatedFields }`.
-11. **catch** — `error` audit + HttpsError rethrow (create 패턴).
+- URL: `usersUpdate` (dev: `/asia-northeast3/usersUpdate`, prod: `/api/usersUpdate`)
+- 헤더·`x-request-id`·오류 처리 모두 `usersDelete.ts` 그대로
+- `useUpdateUser()` mutation hook, `onSuccess` 에서 `queryClient.invalidateQueries({ queryKey: ["users", "list"] })`
 
-#### 3. `packages/functions/src/index.ts` — export
+#### 2. `packages/web/src/routes/admin/EditUserDialog.tsx` (신규)
 
-기존 `usersList` · `usersCreate` · `usersDelete` · `getMe` 옆에 `usersUpdate` 추가.
+**Props**:
+```ts
+export interface EditUserTarget {
+  email: string;         // 읽기 전용
+  firstName: string;
+  lastName: string;
+  orgUnitPath: string;
+}
 
-#### 4. `packages/functions/tests/usersUpdate.test.ts` (신규)
+export interface EditUserDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: EditUserTarget | null;   // null 이면 다이얼로그 열려도 폼 비어있음
+}
+```
 
-`usersCreate.test.ts` 패턴 따라 8~10 케이스:
-1. 인증 실패 → denied audit + throw
-2. cap 없음 (teacher) → denied audit + throw
-3. scopes 없음 → denied audit + throw
-4. 이메일 검증 실패 (도메인 불일치) → error audit + throw
-5. 편집 필드 없음 → error audit (`no_fields_to_update`) + throw
-6. admin 이 workspace admin 편집 시도 → permission-denied audit + throw
-7. super_admin 이 workspace admin 편집 성공
-8. admin 이 일반 사용자 편집 성공 (firstName 만)
-9. admin 이 일반 사용자 편집 성공 (orgUnitPath 만 — `/` 자동 prefix)
-10. 자기 자신 편집 성공 (admin 이 자기 이름 변경)
-
-각 케이스에서 `writeAudit` 호출을 mock 검증 (횟수·인자).
-
-#### 5. `packages/functions/tests/usersUpdate.emu.test.ts` (신규)
-
-`usersDelete.emu.test.ts` (또는 `usersCreate.emu.test.ts`) 패턴 따라 3 케이스:
-1. **allow** — admin 계정 로그인 → `/api/usersUpdate` POST → 200 응답 + audit_log 에 ok 항목
-2. **denied non-admin** — teacher 계정 로그인 → 403 응답 + audit_log 에 denied 항목
-3. **admin_cannot_edit_admin** — admin 이 다른 admin 편집 시도 → 403 + audit_log 에 permission-denied 항목
-
-stub 파일 (`EMULATOR_DIRECTORY_STUB_FILE`) 은 `users` · `get` · `patch` 셋을 채워야 함. 예:
-```json
-{
-  "data": {
-    "users": [{"primaryEmail": "target@cam.hs.kr", "isAdmin": false, "name": {"givenName": "Old", "familyName": "Name"}, "orgUnitPath": "/"}],
-    "get": {"primaryEmail": "target@cam.hs.kr", "isAdmin": false, "name": {"givenName": "Old", "familyName": "Name"}, "orgUnitPath": "/"},
-    "patch": {"primaryEmail": "target@cam.hs.kr", "name": {"givenName": "New", "familyName": "Name"}, "orgUnitPath": "/"}
+**구조** — `CreateUserDialog.tsx` 마크업 그대로 이식하되:
+- 제목: 「사용자 편집」, 설명: 「사용자 이름과 조직 단위를 수정합니다」
+- 이메일 필드: **읽기 전용** — `input` 대신 `<div className="font-mono text-body text-fg-primary bg-surface px-3 py-2 border border-border-subtle">` 로 표시. 편집 불가.
+- 성 · 이름 · 조직 단위 인풋: `CreateUserDialog` 마크업 그대로. `user` prop 이 바뀔 때 `useEffect` 로 form state 초기화:
+  ```tsx
+  useEffect(() => {
+    if (user) {
+      setFamilyName(user.lastName);
+      setGivenName(user.firstName);
+      setOrgUnitPath(user.orgUnitPath || "/");
+      setValidationError(null);
+    }
+  }, [user]);
+  ```
+- 비밀번호 필드 없음.
+- 검증: 성·이름 빈 문자열 검증 (`CreateUserDialog` 규칙 재사용). 최소 하나는 채워야 함:
+  ```tsx
+  if (
+    familyName.trim() === user.lastName &&
+    givenName.trim() === user.firstName &&
+    (orgUnitPath.trim() || "/") === (user.orgUnitPath || "/")
+  ) {
+    setValidationError("변경된 내용이 없습니다.");
+    return;
   }
-}
+  ```
+- 부분 편집: 변경된 필드만 `mutate` 호출 인자에 포함:
+  ```tsx
+  const payload: UsersUpdateRequest = { primaryEmail: user.email };
+  if (familyName.trim() !== user.lastName) payload.lastName = familyName.trim();
+  if (givenName.trim() !== user.firstName) payload.firstName = givenName.trim();
+  const normalizedOrg = orgUnitPath.trim() || "/";
+  if (normalizedOrg !== (user.orgUnitPath || "/")) payload.orgUnitPath = normalizedOrg;
+  await updateUser(payload);
+  handleClose(false);
+  ```
+- 하단 버튼: Secondary 「취소」 + Primary 「저장」 (v0.2 규칙).
+- 오류 표시: `CreateUserDialog` 와 동일 배너. 특히 `admin_cannot_edit_admin` → 「관리자 계정은 다른 관리자가 수정할 수 없습니다.」
+
+#### 3. `packages/web/src/routes/admin/AccountsTable.tsx` — 관리 열 재구성
+
+**현재** (마지막 컬럼):
+```tsx
+<TableCell className="text-right">
+  <button ...>삭제</button>
+</TableCell>
 ```
+
+**변경 후**:
+```tsx
+<TableCell className="text-right">
+  <div className="flex justify-end items-center gap-3">
+    <button
+      type="button"
+      onClick={() => setEditTarget({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgUnitPath: user.orgUnitPath || "/",
+      })}
+      data-testid={`edit-user-${user.email}`}
+      className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+    >
+      편집
+    </button>
+    <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+    <button ... /* 기존 삭제 버튼 그대로 */>
+      삭제
+    </button>
+  </div>
+</TableCell>
+```
+
+- `editTarget` state 추가 (`useState<EditUserTarget | null>(null)`).
+- 「편집」 버튼은 **자기 자신도 활성**. 관리자 편집 시도는 백엔드가 permission-denied 로 막고 다이얼로그가 오류 메시지 표시.
+- 「삭제」 버튼 기존 스타일·disabled 규칙 그대로.
+- 표 최하단 (기존 `<DeleteUserDialog>` 옆) 에 `<EditUserDialog>` 렌더:
+  ```tsx
+  <EditUserDialog
+    open={Boolean(editTarget)}
+    onOpenChange={(open) => { if (!open) setEditTarget(null); }}
+    user={editTarget}
+  />
+  ```
+
+#### 4. `packages/web/tests/usersUpdate.test.tsx` (신규)
+
+`useUsersList.test.tsx` 또는 `usersDelete.test.tsx` 참고:
+1. **not_authenticated** — `auth.currentUser` null 이면 throw.
+2. **성공** — 200 응답 파싱, `updatedFields` 반환.
+3. **403 permission-denied** — `admin_cannot_edit_admin` 메시지 throw.
+4. **400 no_fields_to_update** — 메시지 그대로 throw.
+5. **hook onSuccess** — mutation 성공 시 `users/list` invalidate 확인.
+
+#### 5. `packages/web/tests/EditUserDialog.test.tsx` (신규)
+
+`CreateUserDialog.test.tsx` 참고, `MemoryRouter` 래퍼 필요:
+1. **user 없음** — 다이얼로그 안 열림 (open=false).
+2. **user pre-fill** — user prop 이 있을 때 이메일·성·이름·부서 필드에 값이 반영됨. 이메일은 읽기 전용.
+3. **변경 없음** — 저장 클릭 시 「변경된 내용이 없습니다.」 배너.
+4. **성공** — 성만 수정 후 저장 → `useUpdateUser` mock 이 `{ primaryEmail, lastName }` 만 받음 (부분 편집 검증).
+5. **관리자 편집 실패** — mutation 이 `admin_cannot_edit_admin` throw → 배너 「관리자 계정은 다른 관리자가 수정할 수 없습니다.」
+
+#### 6. `packages/web/tests/AccountsTable.test.tsx` 신규 2
+
+기존 17 (v0.6 결과) 유지. 다음 2 추가:
+1. **편집 버튼 렌더** — 표에 각 행마다 `edit-user-{email}` testid 버튼 존재.
+2. **편집 클릭 시 다이얼로그 열림** — 특정 행 편집 클릭 → 다이얼로그가 해당 사용자 데이터로 pre-fill 되어 열림. `EditUserDialog` 를 mock 하고 props (`open=true`, `user=...`) 검증.
 
 ### 완료 확인 방법
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
-3. `pnpm -r lint` 통과 — 특히 `no-restricted-syntax` (audit_log 직접 접근 금지 규칙).
-4. `pnpm -r test` — 이전 130 + 신규 10~13 = 140~143 근처.
-5. `pnpm -r test:emu` — 이전 emu 테스트 유지 + 신규 3 통과.
+3. `pnpm -r lint` 통과.
+4. `pnpm -r test` — 이전 142 + 신규 5+5+2 = 154 근처.
+5. dev 서버로 로컬 눈 확인 목록:
+   - 계정 표 각 행 관리 열에 「편집 · 삭제」 두 링크
+   - 「편집」 클릭 → 다이얼로그 열림, 이메일 회색 박스 (읽기 전용), 성·이름·부서 필드 pre-fill
+   - 성만 수정 후 저장 → 다이얼로그 닫힘, 표 자동 새로고침 (수정된 이름 반영)
+   - 자기 자신 편집 성공 (부서 변경)
+   - 변경 없이 저장 → 「변경된 내용이 없습니다.」 배너
+   - 관리자 편집 시도 (실 워크스페이스 필요) → 「관리자 계정은 다른 관리자가 수정할 수 없습니다.」 배너
+   - 다크 모드 자연 전환
 6. 프로덕션 번들 grep — emulator 코드 계속 0 건 유지.
 
 ### 판정 불가로 두는 것
 
-- **실 Directory API `patch` 응답** — 사용자 콘솔 조치 후 실측 (v0.8 프론트 통합 후).
-- **`workspaceUser.data?.isAdmin` 조회 시 `directory.users.get` 이 stub 인지 실인지** — stub 이면 항상 `isAdmin: false` 로 응답. emu 테스트는 stub 통해 검증.
-- **before 스냅샷 실패 시 처리** — Directory API `get` 이 404 이면 target 이 존재 안 함. 이 경우 error audit + `not-found` throw.
-- **updatedFields 비어있을 때 예방책** — 이미 검증에서 잡음.
+- **실 Directory API `patch` 응답** — 사용자 콘솔 조치 후 실측 (Identity Platform 활성화 대기).
+- **관리자 편집 규율 실측** — admin/super_admin 두 계정 필요, 실 워크스페이스 대기.
+- **네트워크 오류·시간 초과 UX** — 기본 fetch 오류 메시지 표시.
 - **동시성** (같은 사용자 동시 편집) — 다음 슬라이스에서 판단.
 
 ### 커밋 규칙
 
 **3 커밋 분리**:
-1. `feat(functions): directoryClient 에 users.patch 메서드 추가 (실 + stub)`
-2. `feat(functions): users.update callable 추가 (before/after 감사 로그)`
-3. `test(functions): users.update 단위 + emu 통합 테스트`
+1. `feat(web): usersUpdate API 클라이언트 + mutation hook`
+2. `feat(web): EditUserDialog 컴포넌트 (pre-fill · 부분 편집 · 검증)`
+3. `feat(web): AccountsTable 관리 열에 편집 링크 통합`
 
 각 커밋 conventional commits. `git add -A` 금지, 파일 명시.
 
-**작업 브랜치 원격 push 필수** — `git push -u origin feat/users-update-v7`.
+**작업 브랜치 원격 push 필수** — `git push -u origin feat/users-update-ui-v8`.
 
 ## 상태 보고 (필수)
 
