@@ -1,271 +1,235 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **그룹 멤버 관리 백엔드 v0.16** — `groups.members.list/insert/delete` 3 callable 추가. Google Directory API `members` 리소스 사용.
+> 지금 이 파일의 오더는 **그룹 멤버 관리 UI v0.17** — v0.16 백엔드 `groups.members.list/insert/delete` 를 UI 로 노출. 그룹 상세 페이지 (`/admin/groups/:email`) 신설 + 멤버 표 + 추가/제거 다이얼로그.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/groups-members-v16`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/groups-members-ui-v17`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 4~5 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 5~6 개.
 
-**writeAudit 규율**:
-- `members.list` → `action: 'groups.read'`
-- `members.insert` → `action: 'groups.write'`
-- `members.delete` → `action: 'groups.delete'` (별도 cap 재사용)
-- 각 4 경로 감사. `users/*` 패턴.
+**Designer 몫**: 스타일 값은 UI_SYSTEM + accounts CRUD 다이얼로그 (특히 `DeleteUserDialog`) 패턴 그대로.
 
 ## 기준 커밋
 
-**Base**: `d600c0a` (Groups CRUD UI v0.15)
+**Base**: `bb08bb1` (그룹 멤버 백엔드 v0.16)
 
-## 지금 할 것 — 그룹 멤버 CRUD 백엔드
+## 지금 할 것 — 그룹 상세 페이지 + 멤버 관리
 
 ### 왜
 
-Groups 도메인의 그룹 자체는 이제 CRUD 가능하지만, 멤버 관리 (누가 그룹에 속하는지) 는 아직 없음. 그룹의 실사용에는 멤버 관리가 핵심. 이 슬라이스가 멤버 CRUD (list/insert/delete) 를 추가.
+v0.16 로 백엔드 멤버 CRUD 가능하지만 UI 없음. 그룹의 실사용 (실제로 「누구를 이 그룹에 넣는가」) 에는 멤버 관리 UI 가 핵심.
 
-**하지 않는 것**: 멤버 역할 (OWNER/MANAGER/MEMBER) 수정 (`members.update` 은 별도 slice). 대량 멤버 추가/삭제 (bulk, 별도 slice). 프론트엔드 UI (별도 slice, v0.17). 그룹 정책 (joinPolicy 등, 별도 slice).
+**하지 않는 것**: 대량 멤버 추가/삭제 (bulk, 별도 slice). 멤버 역할 (OWNER/MANAGER/MEMBER) 수정 UI (`members.update` 백엔드 없음, 별도 slice). 검색·필터·페이지네이션 (기본 페이지네이션만 — 「더 보기」 버튼).
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/functions/src/google/directoryClient.ts` — `groups` 인터페이스에 `members` 하위 (`list/insert/delete`) 추가 (실 + stub).
-- `packages/functions/src/index.ts` — 3 callable export.
+- `packages/web/src/App.tsx` — 새 라우트 `/admin/groups/:email`.
+- `packages/web/src/routes/admin/GroupsTable.tsx` — 이메일 열을 링크로 (그룹 상세로 이동).
+- `packages/web/tests/GroupsTable.test.tsx` — 이메일 링크 회귀 테스트 추가.
 
 **신규 파일**:
-- `packages/functions/src/callable/groups/members/list.ts`
-- `packages/functions/src/callable/groups/members/insert.ts`
-- `packages/functions/src/callable/groups/members/delete.ts`
-- `packages/functions/tests/groupsMembersList.test.ts` — 8~10
-- `packages/functions/tests/groupsMembersList.emu.test.ts` — 3
-- `packages/functions/tests/groupsMembersInsert.test.ts` — 8~10
-- `packages/functions/tests/groupsMembersInsert.emu.test.ts` — 3
-- `packages/functions/tests/groupsMembersDelete.test.ts` — 6~8
-- `packages/functions/tests/groupsMembersDelete.emu.test.ts` — 3
+- `packages/web/src/api/groupsMembersList.ts` — API 클라이언트 (query hook + loadMore 페이지네이션).
+- `packages/web/src/api/groupsMembersInsert.ts` — mutation hook.
+- `packages/web/src/api/groupsMembersDelete.ts` — mutation hook.
+- `packages/web/src/routes/admin/groupDetail.tsx` — 상세 페이지 (AppShell + 그룹 정보 + MembersTable).
+- `packages/web/src/routes/admin/MembersTable.tsx` — 멤버 표 컴포넌트.
+- `packages/web/src/routes/admin/AddMemberDialog.tsx` — 추가 다이얼로그.
+- `packages/web/src/routes/admin/RemoveMemberDialog.tsx` — 제거 확인 다이얼로그.
+- `packages/web/tests/groupsMembersList.test.tsx` — API 시나리오 5.
+- `packages/web/tests/groupsMembersInsert.test.tsx` — API 시나리오 5.
+- `packages/web/tests/groupsMembersDelete.test.tsx` — API 시나리오 5.
+- `packages/web/tests/MembersTable.test.tsx` — 표 시나리오 5.
+- `packages/web/tests/AddMemberDialog.test.tsx` — 다이얼로그 시나리오 5.
+- `packages/web/tests/RemoveMemberDialog.test.tsx` — 다이얼로그 시나리오 5.
 
 **손대지 마라**:
-- `groups/list.ts` · `groups/create.ts` · `groups/update.ts` · `groups/delete.ts` — 이번 슬라이스 밖.
-- `packages/web/*` — 프론트엔드는 v0.17.
-- middleware · writeAudit — 헬퍼 그대로.
+- accounts 관련 파일, KpiCard 등.
+- 백엔드.
+- middleware.
 
 ### 세부 요구
 
-#### 1. `directoryClient.ts` — `groups.members` 하위
+#### 1. API 클라이언트 3 개
 
-**인터페이스 확장**:
+**`groupsMembersList.ts`** — v0.10 `auditLogList.ts` 패턴 (loadMore + useState + reload):
 ```ts
-groups: {
-  list: ...;
-  insert: ...;
-  patch: ...;
-  delete: ...;
-  get: ...;
-  members: {
-    list: (params: { groupKey: string; pageToken?: string; maxResults?: number }) => Promise<{ data: any }>;
-    insert: (params: { groupKey: string; requestBody: { email: string; role?: string } }) => Promise<{ data: any }>;
-    delete: (params: { groupKey: string; memberKey: string }) => Promise<{ data: any }>;
-  };
-};
-```
-
-**실 impl** — googleapis 자동 (`google.admin({version:'directory_v1'}).members.list/insert/delete`).
-
-**stub impl** — `stub.data.members` 배열 또는 `stub.data.memberInsert/memberDelete` 사용.
-
-#### 2. `packages/functions/src/callable/groups/members/list.ts` (신규)
-
-**입력**:
-```ts
-export interface GroupsMembersListRequest {
-  groupEmail: string;   // 그룹 이메일
-  pageToken?: string;   // 페이지네이션 (선택)
-  maxResults?: number;  // 1..200, default 200
-}
-
-export interface GroupItem {
+export interface GroupMemberItem {
   email: string;
   role: 'OWNER' | 'MANAGER' | 'MEMBER';
   type: 'USER' | 'GROUP' | 'CUSTOMER' | 'EXTERNAL';
-  status: string;  // 'ACTIVE' 등
+  status: string;
 }
-
-export interface GroupsMembersListResponse {
-  members: GroupItem[];
-  nextPageToken: string | null;
+export function useGroupMembersList(groupEmail: string, pageSize = 100): {
+  members: GroupMemberItem[];
+  loading: boolean;
+  error: Error | null;
+  hasMore: boolean;
+  loadMore: () => void;
+  reload: () => void;
 }
 ```
 
-**구조** — `users/list.ts` 패턴:
-1. `authenticateRequest` (실패 → denied audit `action: 'groups.read'`)
-2. `assertHasCap(user, 'groups.read')` + `assertHasScopes(['admin.directory.group.member.readonly'])` (실패 → denied)
-3. **입력 검증**: `groupEmail` 필수, 도메인 매치. `maxResults` clamp 1..200.
-4. **members 목록 조회** — 한 페이지만 (프론트엔드에서 pageToken 넘기며 다음 페이지 요청):
-   ```ts
-   const res = await directory.groups.members.list({
-     groupKey: trimmedEmail,
-     maxResults,
-     pageToken: pageToken || undefined,
-   });
-   const members = (res.data.members ?? []).map((m: any): GroupItem => ({
-     email: m.email ?? '',
-     role: m.role ?? 'MEMBER',
-     type: m.type ?? 'USER',
-     status: m.status ?? '',
-   }));
-   ```
-5. 성공 audit: `message: 'listed N members of group X'`.
-6. `nextPageToken`: `res.data.nextPageToken ?? null`.
+**`groupsMembersInsert.ts`** — `usersCreate.ts` 패턴, `useAddMember()` mutation, `onSuccess` invalidate `groups/members/{groupEmail}`.
 
-**REQUIRED_SCOPES**:
-```ts
-const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/admin.directory.group.member.readonly',
-] as const;
+**`groupsMembersDelete.ts`** — `usersDelete.ts` 패턴, `useRemoveMember()` mutation.
+
+모두 `_googleAccessToken` in body (b976a87 규약) + Cloud Functions 직접 URL.
+
+#### 2. `groupDetail.tsx` — 상세 페이지
+
+```tsx
+import { useParams, useNavigate } from 'react-router-dom';
+import { AppShell } from '../../components/shell/AppShell';
+import { MembersTable } from './MembersTable';
+
+export function GroupDetailPage() {
+  const { email = '' } = useParams<{ email: string }>();
+  const groupEmail = decodeURIComponent(email);
+  const navigate = useNavigate();
+  const { role } = useAuth();
+  return (
+    <AppShell role={role} pageTitle={`그룹: ${groupEmail}`}>
+      <div className="space-y-6">
+        <button onClick={() => navigate('/admin/groups')} className="text-fg-secondary hover:text-fg-primary text-small">
+          ← 그룹 목록
+        </button>
+        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+          <h2 className="text-h2 font-semibold text-fg-primary">멤버 관리</h2>
+          <p className="text-small text-fg-secondary font-mono">{groupEmail}</p>
+          <MembersTable groupEmail={groupEmail} />
+        </section>
+      </div>
+    </AppShell>
+  );
+}
 ```
 
-#### 3. `packages/functions/src/callable/groups/members/insert.ts` (신규)
+- `App.tsx` 에 라우트 `/admin/groups/:email` → `GroupDetailPage` (super_admin + admin RoleGuard).
+- URL 인코딩된 이메일 (예: `team-a%40cam.hs.kr`) → decodeURIComponent.
 
-**입력**:
+#### 3. `MembersTable.tsx` — 멤버 표
+
+**Props**:
 ```ts
-export interface GroupsMembersInsertRequest {
+interface MembersTableProps {
   groupEmail: string;
-  memberEmail: string;
-  role?: 'OWNER' | 'MANAGER' | 'MEMBER';  // default 'MEMBER'
-}
-
-export interface GroupsMembersInsertResponse {
-  groupEmail: string;
-  memberEmail: string;
-  role: string;
 }
 ```
 
-**구조** — `users/create.ts` 패턴:
-1. `authenticateRequest` (denied audit `action: 'groups.write'`)
-2. `assertHasCap('groups.write')` + `assertHasScopes(['admin.directory.group.member'])`
-3. **입력 검증**:
-   - `groupEmail`·`memberEmail` 둘 다 필수, 도메인 매치
-   - `role` 은 지정 시 세 값 중 하나. 아니면 `MEMBER` default.
-4. `directory.groups.members.insert({ groupKey: groupEmail, requestBody: { email: memberEmail, role: finalRole } })`.
-5. 성공 audit: `message: 'added ${memberEmail} to group ${groupEmail} as ${finalRole}'`.
+**컬럼** (4):
+- 이메일 (`font-mono text-small`)
+- 역할 (`text-micro` — OWNER/MANAGER/MEMBER, OWNER 강조 `font-medium`)
+- 타입 (`text-micro` — USER/GROUP/CUSTOMER/EXTERNAL)
+- 관리 (「제거」 텍스트 링크, `state-danger`)
 
-**REQUIRED_SCOPES**:
+**상단 로우**: 왼쪽 「N 명 멤버」, 오른쪽 「+ 멤버 추가」 Primary Button.
+
+**하단**: 「더 보기」 버튼 (hasMore 시).
+
+**상태**:
+- 로딩: `data-testid="members-loading"`
+- 오류: `border border-state-danger p-4` 배너
+- 빈 상태: 「멤버가 없습니다.」
+- 각 행 `data-testid="member-row-{email}"`
+
+**액션**:
+- 「+ 멤버 추가」 → `AddMemberDialog` 열림 (`groupEmail` prop 전달)
+- 각 행 「제거」 → `RemoveMemberDialog` 열림 (`groupEmail + memberEmail`)
+
+#### 4. `AddMemberDialog.tsx`
+
+**Props**:
 ```ts
-'https://www.googleapis.com/auth/admin.directory.group.member',
-```
-
-#### 4. `packages/functions/src/callable/groups/members/delete.ts` (신규)
-
-**입력**:
-```ts
-export interface GroupsMembersDeleteRequest {
+interface AddMemberDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   groupEmail: string;
-  memberEmail: string;
-}
-
-export interface GroupsMembersDeleteResponse {
-  groupEmail: string;
-  memberEmail: string;
-  deleted: true;
 }
 ```
 
-**구조** — `users/delete.ts` 패턴:
-1. `authenticateRequest` (denied audit `action: 'groups.delete'`)
-2. `assertHasCap('groups.delete')` + `assertHasScopes(['admin.directory.group.member'])`
-3. **입력 검증**: 두 이메일 필수, 도메인 매치.
-4. `directory.groups.members.delete({ groupKey: groupEmail, memberKey: memberEmail })`.
-5. 성공 audit: `message: 'removed ${memberEmail} from group ${groupEmail}'`.
+**필드**:
+- 멤버 이메일 (검증: `@cam.hs.kr` 도메인)
+- 역할 (라디오 3 개: OWNER · MANAGER · MEMBER, default MEMBER)
 
-**주의**: 자기 자신을 그룹에서 제외 가능. 그룹의 마지막 OWNER 를 제외하는 규칙은 Directory API 가 자체 처리 (에러 던짐), 우리 코드는 별도 검사 안 함.
+**검증**: 이메일 필수 + 도메인 매치. 역할 유효 값.
 
-#### 5. `packages/functions/src/index.ts`
+**성공**: 다이얼로그 닫힘 + `useAddMember` mutation `onSuccess` → 표 자동 새로고침.
 
+**오류 매핑**: `409` (이미 멤버) → 「이 사용자는 이미 그룹의 멤버입니다.」, `permission-denied` → 「멤버 추가 권한이 없거나 스코프가 부족합니다.」
+
+#### 5. `RemoveMemberDialog.tsx`
+
+**Props**:
 ```ts
-export { groupsMembersList } from './callable/groups/members/list.js';
-export { groupsMembersInsert } from './callable/groups/members/insert.js';
-export { groupsMembersDelete } from './callable/groups/members/delete.js';
+interface RemoveMemberDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  groupEmail: string;
+  member: { email: string; role: string } | null;
+}
 ```
 
-#### 6. 테스트 (총 22~26 + emu 9)
+**표시**: 「이 작업은 되돌릴 수 없습니다.」 + 대상 이메일 + 역할 + 그룹.
 
-**`groupsMembersList.test.ts`** (8~10):
-1. 인증 실패 → denied
-2. cap 없음 (teacher) → denied
-3. scopes 없음 → denied
-4. 이메일 검증 실패 → error
-5. admin + 유효 입력 + 3 멤버 → ok audit + members 배열
-6. super_admin 도 성공
-7. 그룹 존재 안 함 (404) → error audit
-8. `maxResults` clamp (0 → 1, 999 → 200)
-9. `pageToken` 전달 확인
-10. `nextPageToken` 반환 확인
+**확인 입력**: 멤버 이메일 재입력.
 
-**`groupsMembersInsert.test.ts`** (8~10):
-1. 인증 실패 → denied
-2. cap 없음 → denied
-3. scopes 없음 → denied
-4. 이메일 검증 실패 (memberEmail 도메인) → error
-5. 이메일 검증 실패 (groupEmail 도메인) → error
-6. admin + default MEMBER role → ok audit
-7. admin + explicit OWNER role → ok audit
-8. Directory API 409 (이미 멤버) → error audit + throw
-9. 잘못된 role 값 → error
-10. groupEmail 없음 → error
+**하단 버튼**: Secondary 취소 + Danger 제거.
 
-**`groupsMembersDelete.test.ts`** (6~8):
-1. 인증 실패 → denied
-2. cap 없음 → denied
-3. scopes 없음 → denied
-4. 이메일 검증 실패 → error
-5. admin + 유효 → ok audit
-6. Directory API 404 (멤버 아님) → error audit
-7. super_admin 도 성공
-8. 마지막 OWNER 제외 시도 → Directory API 오류 → error audit
+**주의**: 마지막 OWNER 제거 시도 → Directory API 오류 → 배너 「마지막 소유자는 제거할 수 없습니다.」
 
-**각 emu 테스트** (3 × 3 = 9):
-- allow (admin)
-- denied non-admin
-- denied scope 없음
+#### 6. `GroupsTable.tsx` — 이메일 열 링크화
+
+각 행 이메일 셀을 `<Link to={`/admin/groups/${encodeURIComponent(email)}`} className="text-fg-primary hover:underline">{email}</Link>` 로.
+
+#### 7. 테스트 (신규 30 = API 15 + Dialogs 10 + MembersTable 5)
+
+각 파일 시나리오는 accounts 대응 파일 (`usersCreate.test.tsx` 등) 미러.
 
 ### 완료 확인
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 279 + 신규 22~28 = 301~307 근처.
-5. `pnpm -r test:emu` — 이전 31 + 신규 9 = 40 통과.
-6. 프로덕션 번들 grep — emulator 코드 0 건.
+4. `pnpm -r test` — 이전 307 + 신규 30 = 337 근처.
+5. dev 서버 확인:
+   - `/admin/groups` 에서 그룹 이메일 클릭 → `/admin/groups/{email}` 로 이동
+   - 멤버 표 로드
+   - 「+ 멤버 추가」 다이얼로그 열림 → 저장 → 표 새로고침
+   - 각 행 「제거」 → 확인 다이얼로그 → 표 새로고침
+6. 프로덕션 번들 grep — 0 건.
 
 ### 판정 불가
 
-- **실 워크스페이스 멤버 관리 실측** — 프론트엔드 UI (v0.17) + 사용자 실행.
-- **OWNER 제한 로직** — Directory API 가 처리, 우리 미검사.
-- **역할 수정 (`members.update`)** — 별도 slice.
-- **대량 처리 (bulk)** — 별도 slice.
-- **프론트엔드 UI** — v0.17.
+- **실 워크스페이스 멤버 관리 실측** — 사용자 배포 후 실행 테스트.
+- **역할 수정 (`members.update`)** — 백엔드 없음, 별도 slice.
+- **대량 처리 (bulk add/remove via CSV)** — 별도 slice.
+- **멤버 검색·필터** — 다음 slice.
+- **모니터링·감사** — audit_log 에 자동 기록 됨.
 
 ### 커밋 규칙
 
-**4~5 커밋 분리**:
-1. `feat(functions): directoryClient 에 groups.members 하위 (list/insert/delete) 추가`
-2. `feat(functions): groups.members.list callable + 감사`
-3. `feat(functions): groups.members.insert callable + 감사`
-4. `feat(functions): groups.members.delete callable + 감사`
-5. `test(functions): groups.members.* 단위 + emu (총 22-28 + 9)`
+**5~6 커밋 분리**:
+1. `feat(web): groupsMembersList API 클라이언트 + hook`
+2. `feat(web): groupsMembersInsert·Delete API 클라이언트 + mutation`
+3. `feat(web): MembersTable 컴포넌트`
+4. `feat(web): AddMemberDialog · RemoveMemberDialog 컴포넌트`
+5. `feat(web): /admin/groups/:email 라우트 + GroupDetailPage`
+6. `feat(web): GroupsTable 이메일 열 링크화`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/groups-members-v16`.
+**작업 브랜치** — `git push -u origin feat/groups-members-ui-v17`.
 
 ## 상태 보고 (필수)
 
