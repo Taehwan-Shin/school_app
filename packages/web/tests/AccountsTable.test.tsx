@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 
 const mockUseUsersList = vi.fn();
 const mockCurrentUser = { email: "admin@cam.hs.kr" };
@@ -540,6 +540,175 @@ describe("AccountsTable component", () => {
     expect(screen.queryByText("admin2@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
     expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–1 of 1");
+  });
+
+  it("restores search query from URL q= parameter on initial load", () => {
+    const mockUsers = [
+      {
+        email: "hong@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "kim@cam.hs.kr",
+        firstName: "철수",
+        lastName: "김",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "lee@cam.hs.kr",
+        firstName: "영희",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "park@cam.hs.kr",
+        firstName: "민수",
+        lastName: "박",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "choi@cam.hs.kr",
+        firstName: "지원",
+        lastName: "최",
+        orgUnitPath: "/행정",
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />, ['/admin?q=홍']);
+
+    expect(screen.getByText("hong@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("kim@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("lee@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("park@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("choi@cam.hs.kr")).toBeNull();
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–1 of 1");
+    const searchInput = screen.getByTestId("accounts-search-input") as HTMLInputElement;
+    expect(searchInput.value).toBe("홍");
+  });
+
+  it("restores sort state from URL sort= and dir= parameters on initial load", () => {
+    const mockUsers = [
+      {
+        email: "alice@cam.hs.kr",
+        firstName: "영희",
+        lastName: "김",
+        orgUnitPath: "/교사",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "bob@cam.hs.kr",
+        firstName: "민수",
+        lastName: "박",
+        orgUnitPath: "/행정",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "charlie@cam.hs.kr",
+        firstName: "철수",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "david@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "eve@cam.hs.kr",
+        firstName: "지원",
+        lastName: "최",
+        orgUnitPath: "/행정",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />, ['/admin?sort=email&dir=desc']);
+
+    const emailHeader = screen.getByTestId("accounts-sort-email");
+    expect(emailHeader.getAttribute("aria-sort")).toBe("descending");
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("eve@cam.hs.kr");
+    expect(rows[1].textContent).toContain("david@cam.hs.kr");
+    expect(rows[2].textContent).toContain("charlie@cam.hs.kr");
+    expect(rows[3].textContent).toContain("bob@cam.hs.kr");
+    expect(rows[4].textContent).toContain("alice@cam.hs.kr");
+  });
+
+  it("reflects search query input into URL search params", () => {
+    let capturedSearch = "";
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <LocationSpy />
+        <AccountsTable />
+      </MemoryRouter>
+    );
+
+    const searchInput = screen.getByTestId("accounts-search-input");
+    fireEvent.change(searchInput, { target: { value: "관리" } });
+
+    expect(decodeURIComponent(capturedSearch)).toBe("?q=관리");
+
+    fireEvent.change(searchInput, { target: { value: "" } });
+    expect(capturedSearch).toBe("");
   });
 });
 
