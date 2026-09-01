@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export interface DirectoryClient {
   users: {
@@ -11,6 +12,7 @@ export interface DirectoryClient {
   };
   groups: {
     list: (params?: any) => Promise<{ data: any }>;
+    insert: (params: { requestBody: any }) => Promise<{ data: any }>;
   };
 }
 
@@ -36,12 +38,20 @@ function readStubResponse(): { data: any } {
   if (!path) {
     return { data: { users: [], nextPageToken: null } };
   }
-  try {
-    const raw = readFileSync(path, 'utf8');
-    return JSON.parse(raw) as { data: any };
-  } catch {
-    return { data: { users: [], nextPageToken: null } };
+  const candidates = [
+    path,
+    resolve(process.cwd(), path),
+    resolve(process.cwd(), '..', path),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const raw = readFileSync(candidate, 'utf8');
+      return JSON.parse(raw) as { data: any };
+    } catch {
+      // try next candidate
+    }
   }
+  return { data: { users: [], nextPageToken: null } };
 }
 
 function getStubClient(): DirectoryClient {
@@ -112,6 +122,21 @@ function getStubClient(): DirectoryClient {
           return { data: stub.data };
         }
         return { data: { groups: [], nextPageToken: null } };
+      },
+      insert: async (params: { requestBody: any }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.groupInsert) {
+          return { data: stub.data.groupInsert };
+        }
+        return {
+          data: {
+            id: 'stub-group-' + Date.now(),
+            email: params?.requestBody?.email,
+            name: params?.requestBody?.name,
+            description: params?.requestBody?.description ?? '',
+            directMembersCount: '0',
+          },
+        };
       },
     },
   };

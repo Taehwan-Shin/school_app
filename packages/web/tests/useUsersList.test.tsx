@@ -79,7 +79,9 @@ describe('usersList API & Hook', () => {
         'X-Google-Scopes': 'https://www.googleapis.com/auth/admin.directory.user.readonly',
       });
       expect(options.headers['X-Request-Id']).toBeDefined();
-      expect(JSON.parse(options.body)).toEqual({ data: {} });
+      expect(JSON.parse(options.body)).toEqual({
+        data: { _googleAccessToken: 'mock-google-access-token' },
+      });
       expect(result).toEqual({ users: mockUsers });
     });
 
