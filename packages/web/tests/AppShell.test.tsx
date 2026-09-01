@@ -66,6 +66,11 @@ describe('AppShell', () => {
     expect(screen.getByText('클래스룸')).toBeDefined();
     expect(screen.getByText('감사 로그')).toBeDefined();
     expect(screen.getByText('시스템 설정')).toBeDefined();
+
+    // 감사 로그 항목은 active link (<a>) 로 렌더되어야 한다.
+    const auditLogItem = screen.getByText('감사 로그');
+    expect(auditLogItem.tagName).toBe('A');
+    expect(auditLogItem.getAttribute('href')).toBe('/super_admin/audit');
   });
 
   it('renders admin navigation items correctly', () => {

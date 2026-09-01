@@ -18,7 +18,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { label: '그룹', to: '/super_admin/groups', disabled: true },
     { label: '챗방', to: '/super_admin/chat', disabled: true },
     { label: '클래스룸', to: '/super_admin/classrooms', disabled: true },
-    { label: '감사 로그', to: '/super_admin/audit', disabled: true },
+    { label: '감사 로그', to: '/super_admin/audit' },
     { label: '시스템 설정', to: '/super_admin/settings', disabled: true },
   ],
   admin: [

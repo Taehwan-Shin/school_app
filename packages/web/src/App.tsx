@@ -6,6 +6,7 @@ import { LoginPage } from './routes/login';
 import { RootRedirect } from './routes/RootRedirect';
 import { RoleGuard } from './routes/RoleGuard';
 import { SuperAdminPage } from './routes/super_admin';
+import { AuditLogPage } from './routes/super_admin/audit';
 import { AdminPage } from './routes/admin';
 import { TeacherPage } from './routes/teacher';
 
@@ -30,6 +31,7 @@ export function App() {
 
               <Route element={<RoleGuard expectedRole="super_admin" />}>
                 <Route path="/super_admin" element={<SuperAdminPage />} />
+                <Route path="/super_admin/audit" element={<AuditLogPage />} />
               </Route>
 
               <Route element={<RoleGuard expectedRoles={['super_admin', 'admin']} />}>
