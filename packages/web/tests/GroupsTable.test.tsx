@@ -265,4 +265,31 @@ describe('GroupsTable component', () => {
     expect(screen.getAllByText('team-a@cam.hs.kr').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Team A').length).toBeGreaterThanOrEqual(1);
   });
+
+  it('renders group email as link to group details page with encoded email', () => {
+    const mockGroups = [
+      {
+        email: 'team-a@cam.hs.kr',
+        name: 'Team A',
+        description: 'Team A group',
+        aliases: [],
+        directMembersCount: 5,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+
+    const link = screen.getByRole('link', { name: 'team-a@cam.hs.kr' });
+    expect(link).toBeDefined();
+    expect(link.getAttribute('href')).toBe(
+      `/admin/groups/${encodeURIComponent('team-a@cam.hs.kr')}`
+    );
+  });
 });
