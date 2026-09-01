@@ -7,6 +7,7 @@ export interface DirectoryClient {
     insert: (params: { requestBody: any }) => Promise<{ data: any }>;
     delete: (params: { userKey: string }) => Promise<{ data: any }>;
     get: (params: { userKey: string }) => Promise<{ data: any }>;
+    patch: (params: { userKey: string; requestBody: any }) => Promise<{ data: any }>;
   };
 }
 
@@ -85,6 +86,18 @@ function getStubClient(): DirectoryClient {
             primaryEmail: params?.userKey,
             isAdmin: false,
             suspended: false,
+          },
+        };
+      },
+      patch: async (params: { userKey: string; requestBody: any }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.patch) {
+          return { data: stub.data.patch };
+        }
+        return {
+          data: {
+            primaryEmail: params?.userKey,
+            ...params?.requestBody,
           },
         };
       },
