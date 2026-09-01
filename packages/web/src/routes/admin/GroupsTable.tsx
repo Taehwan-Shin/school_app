@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -17,22 +17,35 @@ import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
 type SortDirection = 'asc' | 'desc';
 
+const PAGE_SIZE = 25;
+
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const sortColumn: SortColumn = (() => {
+    const raw = searchParams.get('sort');
+    return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
+  })();
+  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortColumn, sortDirection]);
 
   const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
+    const next = new URLSearchParams(searchParams);
     if (sortColumn === column) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+      next.set('sort', column);
+      next.set('dir', 'asc');
     }
+    setSearchParams(next, { replace: false });
   };
 
   const sortedFilteredGroups = useMemo(() => {
@@ -63,6 +76,9 @@ export function GroupsTable() {
     return result;
   }, [data?.groups, searchQuery, sortColumn, sortDirection]);
 
+  const total = sortedFilteredGroups.length;
+  const paginatedGroups = sortedFilteredGroups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -73,7 +89,12 @@ export function GroupsTable() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('q', v); else next.delete('q');
+              setSearchParams(next, { replace: true });
+            }}
             placeholder="이메일, 이름 또는 설명으로 검색"
             aria-label="그룹 검색"
             data-testid="groups-search-input"
@@ -155,7 +176,7 @@ export function GroupsTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedFilteredGroups.map((group: GroupItem) => {
+                  {paginatedGroups.map((group: GroupItem) => {
                 const aliasText =
                   group.aliases && group.aliases.length > 0 ? group.aliases.join(', ') : '-';
 
@@ -223,6 +244,32 @@ export function GroupsTable() {
               </Table>
             </div>
           )}
+
+          <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
+            <span data-testid="groups-pagination-info">
+              {total === 0 ? '결과 없음' : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total}`}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                data-testid="groups-pagination-prev"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(p => p + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                data-testid="groups-pagination-next"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                다음
+              </button>
+            </div>
+          </div>
         </>
       )}
 
