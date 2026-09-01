@@ -32,7 +32,7 @@ export default [
     },
   },
   {
-    files: ['src/audit/writeAudit.ts'],
+    files: ['src/audit/writeAudit.ts', 'src/audit/readAudit.ts'],
     rules: {
       'no-restricted-syntax': 'off',
     },
