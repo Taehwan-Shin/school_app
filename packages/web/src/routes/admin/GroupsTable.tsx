@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
+import { Button } from '../../components/ui/button';
 import {
   Table,
   TableBody,
@@ -7,9 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+import { CreateGroupDialog } from './CreateGroupDialog';
+import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
+import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
 
   return (
     <div className="space-y-4">
@@ -17,6 +25,12 @@ export function GroupsTable() {
         <p className="text-small text-fg-secondary">
           조직 내 등록된 Google Workspace 그룹 및 멤버 현황
         </p>
+        <Button
+          onClick={() => setIsCreateOpen(true)}
+          data-testid="add-group-btn"
+        >
+          + 그룹 추가
+        </Button>
       </div>
 
       {isLoading && (
@@ -55,6 +69,7 @@ export function GroupsTable() {
                 <TableHead>설명</TableHead>
                 <TableHead>별칭</TableHead>
                 <TableHead className="text-right">멤버 수</TableHead>
+                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -82,6 +97,38 @@ export function GroupsTable() {
                     <TableCell className="text-right font-mono text-small text-fg-primary">
                       {group.directMembersCount}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditTarget({
+                              email: group.email,
+                              name: group.name,
+                              description: group.description || '',
+                            })
+                          }
+                          data-testid={`edit-group-${group.email}`}
+                          className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                        >
+                          편집
+                        </button>
+                        <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteTarget({
+                              email: group.email,
+                              name: group.name,
+                            })
+                          }
+                          data-testid={`delete-group-${group.email}`}
+                          className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -89,6 +136,27 @@ export function GroupsTable() {
           </Table>
         </div>
       )}
+
+      <CreateGroupDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
+
+      <EditGroupDialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        group={editTarget}
+      />
+
+      <DeleteGroupDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        group={deleteTarget}
+      />
     </div>
   );
 }
