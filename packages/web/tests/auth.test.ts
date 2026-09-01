@@ -5,11 +5,13 @@ const createUserWithEmailAndPasswordMock = vi.fn();
 const signInWithPopupMock = vi.fn();
 const signOutMock = vi.fn();
 const credentialFromResultMock = vi.fn();
+const addScopeMock = vi.fn();
+const setCustomParametersMock = vi.fn();
 
 vi.mock('firebase/auth', () => {
   const GoogleAuthProvider = vi.fn(() => ({
-    setCustomParameters: vi.fn(),
-    addScope: vi.fn(),
+    setCustomParameters: (...args: any[]) => setCustomParametersMock(...args),
+    addScope: (...args: any[]) => addScopeMock(...args),
   }));
   (GoogleAuthProvider as any).credentialFromResult = (...args: any[]) => credentialFromResultMock(...args);
 
@@ -74,6 +76,22 @@ describe('Auth & Session Helpers', () => {
 
       expect(signInWithPopupMock).toHaveBeenCalled();
       expect(getGoogleAccessTokenFromSession()).toBeNull();
+    });
+
+    it('configures scopes including admin.directory.group.readonly and custom parameters', async () => {
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 'google-oauth-token-xyz' });
+
+      await signInWithGoogle();
+
+      expect(addScopeMock).toHaveBeenCalledTimes(3);
+      expect(addScopeMock).toHaveBeenNthCalledWith(1, 'https://www.googleapis.com/auth/admin.directory.user.readonly');
+      expect(addScopeMock).toHaveBeenNthCalledWith(2, 'https://www.googleapis.com/auth/admin.directory.user');
+      expect(addScopeMock).toHaveBeenNthCalledWith(3, 'https://www.googleapis.com/auth/admin.directory.group.readonly');
+      expect(setCustomParametersMock).toHaveBeenCalledWith({
+        hd: 'cam.hs.kr',
+        prompt: 'select_account',
+      });
     });
   });
 
