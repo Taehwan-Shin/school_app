@@ -122,9 +122,11 @@ export function AccountsTable() {
                         }
                         data-testid={`delete-user-${user.email}`}
                         className={
+                          // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
+                          // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
                           isSelf
-                            ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-state-danger focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                         }
                       >
                         삭제
