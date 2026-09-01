@@ -16,6 +16,8 @@ build/
 .next/
 out/
 functions/lib/
+# Firebase Functions 배포용 자립형 아티팩트 (prepare-deploy.mjs 생성)
+packages/functions/deploy/
 
 # 파이어베이스
 .firebase/

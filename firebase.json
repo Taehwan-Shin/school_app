@@ -1,16 +1,16 @@
 {
   "functions": [
     {
-      "source": "packages/functions",
+      "source": "packages/functions/deploy",
       "codebase": "default",
       "ignore": [
-        "node_modules",
+        "node_modules/.pnpm",
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log"
       ],
       "predeploy": [
-        "pnpm --filter @school-app/functions build"
+        "node packages/functions/scripts/prepare-deploy.mjs"
       ]
     }
   ],
