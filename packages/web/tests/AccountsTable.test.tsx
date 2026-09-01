@@ -91,7 +91,7 @@ describe("AccountsTable component", () => {
 
     render(<AccountsTable />);
     expect(screen.getByTestId("accounts-empty")).toBeDefined();
-    expect(screen.getByText("계정이 없습니다.")).toBeDefined();
+    expect(screen.getByText("등록된 계정이 없습니다.")).toBeDefined();
     expect(screen.getByTestId("add-account-btn")).toBeDefined();
   });
 

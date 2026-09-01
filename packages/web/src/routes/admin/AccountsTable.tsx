@@ -22,11 +22,10 @@ export function AccountsTable() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-slate-600">
+        <p className="text-small text-fg-secondary">
           조직 내 등록된 사용자 계정 및 권한 상태
         </p>
         <Button
-          size="sm"
           onClick={() => setIsCreateOpen(true)}
           data-testid="add-account-btn"
         >
@@ -35,14 +34,14 @@ export function AccountsTable() {
       </div>
 
       {isLoading && (
-        <div className="py-8 text-center text-slate-500 text-sm" data-testid="accounts-loading">
+        <div className="py-8 text-center text-small text-fg-secondary" data-testid="accounts-loading">
           계정 목록을 불러오는 중...
         </div>
       )}
 
       {isError && (
         <div
-          className="p-4 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm"
+          className="border border-state-danger p-4 text-small text-state-danger"
           data-testid="accounts-error"
         >
           {error?.message?.includes("permission-denied") ||
@@ -55,22 +54,22 @@ export function AccountsTable() {
       )}
 
       {!isLoading && !isError && (!data?.users || data.users.length === 0) && (
-        <div className="py-8 text-center text-slate-500 text-sm" data-testid="accounts-empty">
-          계정이 없습니다.
+        <div className="py-12 text-center text-small text-fg-secondary" data-testid="accounts-empty">
+          등록된 계정이 없습니다.
         </div>
       )}
 
       {!isLoading && !isError && data?.users && data.users.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
           <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50">
-                <TableHead className="font-semibold text-slate-700">Email</TableHead>
-                <TableHead className="font-semibold text-slate-700">이름</TableHead>
-                <TableHead className="font-semibold text-slate-700">조직 단위</TableHead>
-                <TableHead className="font-semibold text-slate-700 text-center">관리자</TableHead>
-                <TableHead className="font-semibold text-slate-700 text-center">정지</TableHead>
-                <TableHead className="font-semibold text-slate-700 text-center">관리</TableHead>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>이름</TableHead>
+                <TableHead>조직 단위</TableHead>
+                <TableHead className="text-center">관리자</TableHead>
+                <TableHead className="text-center">정지</TableHead>
+                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -82,37 +81,36 @@ export function AccountsTable() {
 
                 return (
                   <TableRow key={user.email}>
-                    <TableCell className="font-medium text-slate-900">{user.email}</TableCell>
-                    <TableCell className="text-slate-700">{fullName}</TableCell>
-                    <TableCell className="text-slate-600 font-mono text-xs">
+                    <TableCell className="font-mono text-small text-fg-primary">{user.email}</TableCell>
+                    <TableCell className="text-fg-primary">{fullName}</TableCell>
+                    <TableCell className="font-mono text-small text-fg-secondary">
                       {user.orgUnitPath || "/"}
                     </TableCell>
                     <TableCell className="text-center">
                       {user.isAdmin ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="text-micro font-medium text-fg-primary">
                           관리자
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                        <span className="text-micro text-fg-muted">
                           일반
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
                       {user.isSuspended ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                        <span className="text-micro font-medium text-state-danger">
                           정지됨
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        <span className="text-micro text-fg-muted">
                           정상
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="destructive"
-                        size="sm"
+                    <TableCell className="text-right">
+                      <button
+                        type="button"
                         disabled={isSelf}
                         title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
                         onClick={() =>
@@ -123,9 +121,16 @@ export function AccountsTable() {
                           })
                         }
                         data-testid={`delete-user-${user.email}`}
+                        className={
+                          // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
+                          // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
+                          isSelf
+                            ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                        }
                       >
                         삭제
-                      </Button>
+                      </button>
                     </TableCell>
                   </TableRow>
                 );
@@ -150,3 +155,4 @@ export function AccountsTable() {
     </div>
   );
 }
+
