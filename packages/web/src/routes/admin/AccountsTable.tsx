@@ -123,8 +123,8 @@ export function AccountsTable() {
                         data-testid={`delete-user-${user.email}`}
                         className={
                           isSelf
-                            ? "text-fg-muted cursor-not-allowed no-underline text-small"
-                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer"
+                            ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-state-danger focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                         }
                       >
                         삭제
