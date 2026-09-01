@@ -22,26 +22,33 @@ const PAGE_SIZE = 25;
 export function AccountsTable() {
   const { user: currentUser } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const kpiFilter = searchParams.get('filter');
+  const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const sortColumn: SortColumn = (() => {
+    const raw = searchParams.get('sort');
+    return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
+  })();
+  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, kpiFilter]);
+  }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
+    const next = new URLSearchParams(searchParams);
     if (sortColumn === column) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      // 같은 컬럼: 방향 토글
+      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+      // 다른 컬럼: 그 컬럼으로 asc
+      next.set('sort', column);
+      next.set('dir', 'asc');
     }
+    setSearchParams(next, { replace: false });
   };
 
   const sortedFilteredUsers = useMemo(() => {
@@ -100,7 +107,12 @@ export function AccountsTable() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('q', v); else next.delete('q');
+              setSearchParams(next, { replace: true });
+            }}
             placeholder="이메일 또는 이름으로 검색"
             aria-label="계정 검색"
             data-testid="accounts-search-input"
