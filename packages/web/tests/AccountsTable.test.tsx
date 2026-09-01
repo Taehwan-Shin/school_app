@@ -183,4 +183,250 @@ describe("AccountsTable component", () => {
     expect(screen.getByText("계정 삭제 확인")).toBeDefined();
     expect(screen.getAllByText("teacher1@cam.hs.kr").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("filters accounts by search query matching email or name", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "teacher1@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "student1@cam.hs.kr",
+        firstName: "민수",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "admin2@cam.hs.kr",
+        firstName: "영희",
+        lastName: "박",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "teacher2@cam.hs.kr",
+        firstName: "철수",
+        lastName: "김",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const searchInput = screen.getByTestId("accounts-search-input");
+
+    // Type 'admin'
+    fireEvent.change(searchInput, { target: { value: "admin" } });
+    expect(screen.getByText("admin@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("admin2@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("teacher1@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("student1@cam.hs.kr")).toBeNull();
+    expect(screen.queryByText("teacher2@cam.hs.kr")).toBeNull();
+
+    // Type '길동' (search by name)
+    fireEvent.change(searchInput, { target: { value: "길동" } });
+    expect(screen.getByText("teacher1@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("admin@cam.hs.kr")).toBeNull();
+  });
+
+  it("renders search empty state when search query matches no accounts", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const searchInput = screen.getByTestId("accounts-search-input");
+    fireEvent.change(searchInput, { target: { value: "nonexistent" } });
+
+    expect(screen.getByTestId("accounts-search-empty")).toBeDefined();
+    expect(screen.getByText("검색 결과가 없습니다.")).toBeDefined();
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("결과 없음");
+    expect(screen.queryByText("admin@cam.hs.kr")).toBeNull();
+  });
+
+  it("toggles sorting when clicking column headers", () => {
+    const mockUsers = [
+      {
+        email: "charlie@cam.hs.kr",
+        firstName: "철수",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "alice@cam.hs.kr",
+        firstName: "영희",
+        lastName: "김",
+        orgUnitPath: "/교사",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "bob@cam.hs.kr",
+        firstName: "민수",
+        lastName: "박",
+        orgUnitPath: "/행정",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const emailHeader = screen.getByTestId("accounts-sort-email");
+
+    // Click 1: Email asc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute("aria-sort")).toBe("ascending");
+    let rows = screen.getAllByRole("row").slice(1); // exclude header row
+    expect(rows[0].textContent).toContain("alice@cam.hs.kr");
+    expect(rows[1].textContent).toContain("bob@cam.hs.kr");
+    expect(rows[2].textContent).toContain("charlie@cam.hs.kr");
+
+    // Click 2: Email desc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute("aria-sort")).toBe("descending");
+    rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("charlie@cam.hs.kr");
+    expect(rows[1].textContent).toContain("bob@cam.hs.kr");
+    expect(rows[2].textContent).toContain("alice@cam.hs.kr");
+
+    // Click name header: Name asc
+    const nameHeader = screen.getByTestId("accounts-sort-name");
+    fireEvent.click(nameHeader);
+    expect(nameHeader.getAttribute("aria-sort")).toBe("ascending");
+    expect(emailHeader.getAttribute("aria-sort")).toBe("none");
+    rows = screen.getAllByRole("row").slice(1);
+    // 김영희, 박민수, 이철수
+    expect(rows[0].textContent).toContain("김영희");
+    expect(rows[1].textContent).toContain("박민수");
+    expect(rows[2].textContent).toContain("이철수");
+  });
+
+  it("navigates between pages with 25 users per page", () => {
+    const mockUsers = Array.from({ length: 30 }, (_, i) => ({
+      email: `user${String(i + 1).padStart(2, "0")}@cam.hs.kr`,
+      firstName: `이름${i + 1}`,
+      lastName: "김",
+      orgUnitPath: "/",
+      isAdmin: false,
+      isSuspended: false,
+    }));
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+
+    const paginationInfo = screen.getByTestId("accounts-pagination-info");
+    const prevBtn = screen.getByTestId("accounts-pagination-prev") as HTMLButtonElement;
+    const nextBtn = screen.getByTestId("accounts-pagination-next") as HTMLButtonElement;
+
+    // Page 0: 1–25 of 30
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+    expect(screen.getByText("user01@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("user25@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("user26@cam.hs.kr")).toBeNull();
+
+    // Click Next -> Page 1: 26–30 of 30 (rows 26-30)
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe("26–30 of 30");
+    expect(prevBtn.disabled).toBe(false);
+    expect(nextBtn.disabled).toBe(true);
+    expect(screen.queryByText("user01@cam.hs.kr")).toBeNull();
+    expect(screen.getByText("user26@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("user30@cam.hs.kr")).toBeDefined();
+
+    // Click Prev -> Page 0: 1–25 of 30
+    fireEvent.click(prevBtn);
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+  });
+
+  it("resets to first page when search query changes", () => {
+    const mockUsers = Array.from({ length: 30 }, (_, i) => ({
+      email: `user${String(i + 1).padStart(2, "0")}@cam.hs.kr`,
+      firstName: `이름${i + 1}`,
+      lastName: "김",
+      orgUnitPath: "/",
+      isAdmin: false,
+      isSuspended: false,
+    }));
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const nextBtn = screen.getByTestId("accounts-pagination-next");
+    const searchInput = screen.getByTestId("accounts-search-input");
+    const paginationInfo = screen.getByTestId("accounts-pagination-info");
+
+    // Move to page 1
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe("26–30 of 30");
+
+    // Type in search query -> resets to page 0
+    fireEvent.change(searchInput, { target: { value: "user" } });
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+
+    // Type more specific search query
+    fireEvent.change(searchInput, { target: { value: "user28" } });
+    expect(paginationInfo.textContent).toBe("1–1 of 1");
+    expect(screen.getByText("user28@cam.hs.kr")).toBeDefined();
+  });
 });
