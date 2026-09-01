@@ -13,6 +13,9 @@ export interface DirectoryClient {
   groups: {
     list: (params?: any) => Promise<{ data: any }>;
     insert: (params: { requestBody: any }) => Promise<{ data: any }>;
+    patch: (params: { groupKey: string; requestBody: any }) => Promise<{ data: any }>;
+    delete: (params: { groupKey: string }) => Promise<{ data: any }>;
+    get: (params: { groupKey: string }) => Promise<{ data: any }>;
   };
 }
 
@@ -134,6 +137,49 @@ function getStubClient(): DirectoryClient {
             email: params?.requestBody?.email,
             name: params?.requestBody?.name,
             description: params?.requestBody?.description ?? '',
+            directMembersCount: '0',
+          },
+        };
+      },
+      patch: async (params: { groupKey: string; requestBody: any }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.groupPatch) {
+          return { data: stub.data.groupPatch };
+        }
+        return {
+          data: {
+            email: params?.groupKey,
+            groupKey: params?.groupKey,
+            ...params?.requestBody,
+          },
+        };
+      },
+      delete: async () => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.groupDelete) {
+          return { data: stub.data.groupDelete };
+        }
+        return { data: {} };
+      },
+      get: async (params: { groupKey: string }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.groupGet) {
+          return { data: stub.data.groupGet };
+        }
+        if (stub.data && Array.isArray(stub.data.groups)) {
+          const found = stub.data.groups.find(
+            (g: any) => g.email === params?.groupKey || g.id === params?.groupKey,
+          );
+          if (found) {
+            return { data: found };
+          }
+        }
+        return {
+          data: {
+            id: 'stub-group-' + Date.now(),
+            email: params?.groupKey,
+            name: 'Stub Group',
+            description: '',
             directMembersCount: '0',
           },
         };
