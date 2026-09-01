@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **검색·정렬 URL 동기화 v0.6** — KPI 필터 링크 v0.5 (`858e967`) 위에 검색어와 정렬 상태도 URL 쿼리 파라미터로 반영해 뷰 상태 전체를 공유 가능한 링크로 만든다.
+> 지금 이 파일의 오더는 **users.update 백엔드 v0.7** — 사용자 이름·조직 단위 편집 callable 추가. 프론트엔드 통합은 v0.8 에서.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/url-sync-v6`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/users-update-v7`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -17,148 +17,217 @@
 
 **추가**: 완료 후 반드시 스레드 보고 (브랜치 이름 + 커밋 해시). 커밋 3 개로 분리.
 
+**writeAudit 규율**: 이 슬라이스는 감사 로그를 다루는 새 callable 을 추가한다. 반드시:
+- 모든 실패·성공 경로에서 `writeAudit` 호출
+- Firestore `audit_log` 컬렉션에 직접 쓰지 마라 (ESLint AST 규칙이 잡음)
+- `action: 'users.write'`, `role: user.role`, `actor: user.email` 그대로
+- 인증 실패 경로에서 `role: 'unknown'` 사용
+
 ## 기준 커밋
 
-**Base**: `858e967` (KPI 필터 링크 v0.5 병합 커밋)
+**Base**: `73b6205` (검색·정렬 URL 동기화 v0.6 병합 커밋)
 
-## 지금 할 것 — 검색어·정렬 상태의 URL 반영
+## 지금 할 것 — users.update callable
 
 ### 왜
 
-v0.5 가 KPI 필터를 URL 쿼리 (`?filter=admin`) 로 반영했다. 지금 검색어 (`searchQuery`) 와 정렬 상태 (`sortColumn`·`sortDirection`) 는 컴포넌트 로컬 `useState` 로만 존재해서 페이지 새로고침 시 사라지고 URL 로 공유할 수도 없다.
+지금 users CRUD 는 create/read/delete 뿐. **update** 가 빠져 있다. 실 운영에서 사용자 이름 오탈자 수정, 부서 이동 시 organizational unit 변경, 성명 변경 등이 필요하다. 원본 `계정관리.gs` 도 이 편집 기능을 가지고 있다.
 
 이 슬라이스가 세 가지를 한다:
-1. **검색어 URL 반영** — 입력 시 `?q=<검색어>` 로. 빈 문자열이면 파라미터 삭제.
-2. **정렬 상태 URL 반영** — 헤더 클릭 시 `?sort=email&dir=asc` 등으로. 초기 정렬 없으면 파라미터 없음.
-3. **URL → 초기 상태 복원** — 페이지 로드 시 URL 쿼리에서 읽어 상태 초기화.
+1. **`users.update` callable 추가** — `firstName` · `lastName` · `orgUnitPath` 부분 편집. Directory API `patch` 사용.
+2. **`directoryClient.users.patch` 추가** — 실 API 호출 + 파일 stub 지원.
+3. **`writeAudit` before/after 기록** — 변경 전 값과 변경 후 값을 함께 감사 로그에.
 
-이렇게 되면 「관리자 정지된 계정 이메일 오름차순 검색어 '홍'」 같은 뷰 상태 전체가 `?filter=admin&q=홍&sort=email&dir=asc` 한 링크로 공유 가능해진다.
+**하지 않는 것**: 이메일 (primaryEmail) 변경 — Directory API 는 별도 rename 흐름이라 이번 슬라이스 밖. 관리자 권한 (`isAdmin`) 토글 — 별도 slice. 정지 (`suspended`) 토글 — 별도 slice. 비밀번호 재설정 — 별도 slice. 프론트엔드 UI — v0.8.
 
-**하지 않는 것**: 페이지 번호 URL 반영 (페이지는 데이터셋에 따라 유효 범위가 바뀌므로 URL 상태로 두면 오히려 혼란). 필터 · 검색 · 정렬 값 검증 (미지 값은 자연히 매칭 없음). URL history entry 전략 (일단 `setSearchParams` 기본).
+**보안**: 자기 자신 편집은 허용 (일반 사용자가 자기 이름을 고치는 흐름은 나중 슬라이스에서 non-admin 캡으로 별도 처리). super_admin/workspace admin 편집은 super_admin 만 (users.delete 와 동일 규칙 재사용).
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/web/src/routes/admin/AccountsTable.tsx` — `useState` 로 관리하던 `searchQuery`·`sortColumn`·`sortDirection` 을 `useSearchParams` 로 대체. `handleSort` · 검색 인풋 `onChange` 가 `setSearchParams` 호출하도록.
-- `packages/web/tests/AccountsTable.test.tsx` — 신규 URL 시나리오 3 추가. 기존 테스트 유지.
+- `packages/functions/src/google/directoryClient.ts` — `DirectoryClient.users` 인터페이스에 `patch` 추가. 실 impl (googleapis) + 파일 stub 지원. stub 은 `stub.data.patch` 또는 `stub.data.get` 반환.
+- `packages/functions/src/index.ts` — `usersUpdate` export 추가.
 
-**신규 파일**: 없음.
+**신규 파일**:
+- `packages/functions/src/callable/users/update.ts` — 새 callable.
+- `packages/functions/tests/usersUpdate.test.ts` — 단위 테스트 8~10 개.
+- `packages/functions/tests/usersUpdate.emu.test.ts` — emu HTTP 종단 테스트 3 개 (allow · denied non-admin · admin editing admin denied).
 
 **손대지 마라**:
-- `packages/web/src/components/dashboard/*` — v0.5 결과 그대로
-- 다른 라우트 · 컴포넌트 · API — 이 슬라이스 밖
+- `packages/web/*` — 이 슬라이스는 백엔드만. 프론트 통합은 v0.8.
+- `packages/functions/src/callable/users/create.ts` · `list.ts` · `delete.ts` — 기존 로직 손대지 마라.
+- `packages/functions/src/audit/writeAudit.ts` — 헬퍼는 그대로 사용, 개조 금지.
 
 ### 세부 요구
 
-#### 1. `AccountsTable.tsx` 상태 이관
+#### 1. `directoryClient.ts` — `patch` 메서드
 
-**교체 전**:
-```tsx
-const [searchQuery, setSearchQuery] = useState("");
-const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-const [searchParams] = useSearchParams();
-const kpiFilter = searchParams.get('filter');
+**인터페이스에 추가** (기존 `users` 객체에):
+```ts
+patch: (params: { userKey: string; requestBody: any }) => Promise<{ data: any }>;
 ```
 
-**교체 후**:
-```tsx
-const [searchParams, setSearchParams] = useSearchParams();
-const kpiFilter = searchParams.get('filter');
-const searchQuery = searchParams.get('q') ?? '';
-const sortColumn: SortColumn = (() => {
-  const raw = searchParams.get('sort');
-  return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
-})();
-const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
-```
+**실 impl** — googleapis 는 자동. `google.admin({version:'directory_v1', auth}).users.patch(...)` 이미 존재.
 
-**검색 인풋 onChange**:
-```tsx
-onChange={(e) => {
-  const next = new URLSearchParams(searchParams);
-  const v = e.target.value;
-  if (v) next.set('q', v); else next.delete('q');
-  setSearchParams(next, { replace: true });
-}}
-```
-- **주의**: `replace: true` — 검색은 타이핑마다 URL 이 바뀌므로 히스토리에 매번 항목을 남기지 않게 replace. KPI 필터·정렬은 명시적 클릭이므로 `replace: false` (v0.5 규칙 그대로) 유지.
-
-**handleSort 재작성**:
-```tsx
-const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
-  const next = new URLSearchParams(searchParams);
-  if (sortColumn === column) {
-    // 같은 컬럼: 방향 토글
-    next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
-  } else {
-    // 다른 컬럼: 그 컬럼으로 asc
-    next.set('sort', column);
-    next.set('dir', 'asc');
+**stub impl** — `stub.data.patch` 있으면 그 값. 없으면 요청받은 `requestBody` 를 그대로 반환 (merge simulation):
+```ts
+patch: async (params: { userKey: string; requestBody: any }) => {
+  const stub = readStubResponse();
+  if (stub.data && stub.data.patch) {
+    return { data: stub.data.patch };
   }
-  setSearchParams(next, { replace: false });
-};
+  return {
+    data: {
+      primaryEmail: params?.userKey,
+      ...params?.requestBody,
+    },
+  };
+},
 ```
 
-**페이지 리셋 useEffect 트리거 확장**:
-```tsx
-useEffect(() => {
-  setPage(0);
-}, [searchQuery, kpiFilter, sortColumn, sortDirection]);
+#### 2. `packages/functions/src/callable/users/update.ts` (신규)
+
+**입력 스키마**:
+```ts
+export interface UsersUpdateRequest {
+  primaryEmail: string;          // 대상 사용자 이메일 (필수)
+  firstName?: string;            // 부분 편집 — 값 있으면 반영
+  lastName?: string;
+  orgUnitPath?: string;
+}
+
+export interface UsersUpdateResponse {
+  primaryEmail: string;
+  updatedFields: string[];       // 실제로 변경된 필드 이름들
+}
 ```
-- 정렬 변경 시에도 페이지 0 으로 리셋 (v0.4 는 정렬 변경 시 유지였지만, URL 이 다뤄지는 지금은 뷰 상태 변경으로 통일).
 
-#### 2. `AccountsTable.test.tsx` 신규 시나리오 3
-
-기존 14 유지. 다음 3 추가 (`MemoryRouter` 로 초기 경로 지정):
-
-1. **URL q=홍 초기 로드** — `initialEntries={['/admin?q=홍']}` + 5 users (하나만 lastName='홍') → 표에 홍씨 1 명만.
-2. **URL sort=email&dir=desc 초기 로드** — `initialEntries={['/admin?sort=email&dir=desc']}` + 5 users → 이메일 내림차순 정렬 상태로 렌더. `aria-sort="descending"` 확인.
-3. **검색 인풋 입력 → URL 반영** — 초기 `/admin`, 입력 「관리」 → `history.location.search` 에 `q=관리` 확인 (테스트에서 `useLocation` mock 이나 `window.location.search` 관찰). 실제로는 `MemoryRouter` 이므로 `useLocation` hook 을 노출하는 헬퍼로 관찰:
-   ```tsx
-   let capturedSearch = '';
-   function LocationSpy() {
-     const location = useLocation();
-     capturedSearch = location.search;
-     return null;
+**구조** — `create.ts` 패턴을 따라:
+1. `requestId = header('x-request-id') ?? crypto.randomUUID()`
+2. `authenticateRequest` (실패 시 role='unknown' 로 denied audit)
+3. `assertHasCap(user, 'users.write')` + `assertHasScopes(user, REQUIRED_SCOPES)` (실패 시 denied audit)
+4. **입력 검증**:
+   - `primaryEmail` 필수, `@ALLOWED_DOMAIN` 매치
+   - `firstName`·`lastName`·`orgUnitPath` 중 최소 하나는 있어야 함. 셋 다 없으면 `invalid-argument: no_fields_to_update`
+   - `orgUnitPath` 는 `/` 로 시작하도록 정규화
+5. **자기 편집이 아니라면 target 이 super_admin/workspace admin 인지 확인**:
+   ```ts
+   if (targetEmail !== user.email && user.role !== 'super_admin') {
+     const [appRoleSnap, workspaceUser] = await Promise.all([
+       db.collection('users').where('email', '==', targetEmail).limit(1).get(),
+       directory.users.get({ userKey: targetEmail }),
+     ]);
+     const appRoleIsSuperAdmin = !appRoleSnap.empty && appRoleSnap.docs[0].data()?.role === 'super_admin';
+     const isWorkspaceAdmin = workspaceUser.data?.isAdmin === true;
+     if (appRoleIsSuperAdmin || isWorkspaceAdmin) {
+       throw new HttpsError('permission-denied', 'admin_cannot_edit_admin');
+     }
    }
-   // render(<MemoryRouter><LocationSpy /><AccountsTable /></MemoryRouter>);
    ```
+   `db` 는 `getFirestore()` 로 얻고 `directory` 는 이미 있음.
+6. **before 조회**: `const before = await directory.users.get({ userKey: targetEmail })`. `before.data.name.givenName`·`familyName`·`orgUnitPath` 를 감사에 담을 스냅샷으로.
+7. **patch 요청 바디 구성** (제공된 필드만):
+   ```ts
+   const requestBody: any = {};
+   const updatedFields: string[] = [];
+   if (typeof firstName === 'string' && firstName.trim()) {
+     requestBody.name = { ...(requestBody.name ?? {}), givenName: firstName.trim() };
+     updatedFields.push('firstName');
+   }
+   if (typeof lastName === 'string' && lastName.trim()) {
+     requestBody.name = { ...(requestBody.name ?? {}), familyName: lastName.trim() };
+     updatedFields.push('lastName');
+   }
+   if (typeof orgUnitPath === 'string' && orgUnitPath.trim()) {
+     const path = orgUnitPath.trim().startsWith('/') ? orgUnitPath.trim() : '/' + orgUnitPath.trim();
+     requestBody.orgUnitPath = path;
+     updatedFields.push('orgUnitPath');
+   }
+   if (updatedFields.length === 0) {
+     throw new HttpsError('invalid-argument', 'no_fields_to_update');
+   }
+   ```
+8. **patch 호출**: `await directory.users.patch({ userKey: targetEmail, requestBody })`
+9. **성공 audit** — before/after 스냅샷 함께:
+   ```ts
+   await writeAudit({
+     actor: user.email,
+     role: user.role,
+     action: 'users.write',
+     target: targetEmail,
+     request_id: requestId,
+     result: 'ok',
+     message: `updated fields: ${updatedFields.join(', ')} | before: ${JSON.stringify({firstName: before.data?.name?.givenName, lastName: before.data?.name?.familyName, orgUnitPath: before.data?.orgUnitPath})} | after: ${JSON.stringify(requestBody)}`,
+   });
+   ```
+10. **반환**: `{ primaryEmail: targetEmail, updatedFields }`.
+11. **catch** — `error` audit + HttpsError rethrow (create 패턴).
+
+#### 3. `packages/functions/src/index.ts` — export
+
+기존 `usersList` · `usersCreate` · `usersDelete` · `getMe` 옆에 `usersUpdate` 추가.
+
+#### 4. `packages/functions/tests/usersUpdate.test.ts` (신규)
+
+`usersCreate.test.ts` 패턴 따라 8~10 케이스:
+1. 인증 실패 → denied audit + throw
+2. cap 없음 (teacher) → denied audit + throw
+3. scopes 없음 → denied audit + throw
+4. 이메일 검증 실패 (도메인 불일치) → error audit + throw
+5. 편집 필드 없음 → error audit (`no_fields_to_update`) + throw
+6. admin 이 workspace admin 편집 시도 → permission-denied audit + throw
+7. super_admin 이 workspace admin 편집 성공
+8. admin 이 일반 사용자 편집 성공 (firstName 만)
+9. admin 이 일반 사용자 편집 성공 (orgUnitPath 만 — `/` 자동 prefix)
+10. 자기 자신 편집 성공 (admin 이 자기 이름 변경)
+
+각 케이스에서 `writeAudit` 호출을 mock 검증 (횟수·인자).
+
+#### 5. `packages/functions/tests/usersUpdate.emu.test.ts` (신규)
+
+`usersDelete.emu.test.ts` (또는 `usersCreate.emu.test.ts`) 패턴 따라 3 케이스:
+1. **allow** — admin 계정 로그인 → `/api/usersUpdate` POST → 200 응답 + audit_log 에 ok 항목
+2. **denied non-admin** — teacher 계정 로그인 → 403 응답 + audit_log 에 denied 항목
+3. **admin_cannot_edit_admin** — admin 이 다른 admin 편집 시도 → 403 + audit_log 에 permission-denied 항목
+
+stub 파일 (`EMULATOR_DIRECTORY_STUB_FILE`) 은 `users` · `get` · `patch` 셋을 채워야 함. 예:
+```json
+{
+  "data": {
+    "users": [{"primaryEmail": "target@cam.hs.kr", "isAdmin": false, "name": {"givenName": "Old", "familyName": "Name"}, "orgUnitPath": "/"}],
+    "get": {"primaryEmail": "target@cam.hs.kr", "isAdmin": false, "name": {"givenName": "Old", "familyName": "Name"}, "orgUnitPath": "/"},
+    "patch": {"primaryEmail": "target@cam.hs.kr", "name": {"givenName": "New", "familyName": "Name"}, "orgUnitPath": "/"}
+  }
+}
+```
 
 ### 완료 확인 방법
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
-3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 127 + 신규 3 = 130 근처 유지.
-5. dev 서버로 로컬 눈 확인 목록:
-   - `/admin` 에서 검색어 입력 → 주소창 URL 이 즉시 `?q=...` 로 바뀜
-   - Email 헤더 클릭 → 주소창 `?sort=email&dir=asc` (또는 기존 필터와 병합)
-   - 다시 Email 클릭 → `?sort=email&dir=desc` 방향 토글
-   - 이름 헤더 클릭 → `?sort=name&dir=asc` 새 컬럼
-   - 브라우저 새로고침 → 검색어·정렬·KPI 필터 상태 그대로 복원
-   - URL 을 복사해 새 탭에 붙여넣기 → 같은 뷰 상태
-   - 뒤로 가기 (KPI 필터·정렬은 히스토리 항목, 검색어는 replace 라 스킵) → 필터·정렬 이전 상태로
+3. `pnpm -r lint` 통과 — 특히 `no-restricted-syntax` (audit_log 직접 접근 금지 규칙).
+4. `pnpm -r test` — 이전 130 + 신규 10~13 = 140~143 근처.
+5. `pnpm -r test:emu` — 이전 emu 테스트 유지 + 신규 3 통과.
 6. 프로덕션 번들 grep — emulator 코드 계속 0 건 유지.
 
 ### 판정 불가로 두는 것
 
-- **필터 URL 값 검증** — `?filter=xyz` 미지 값은 자연히 매칭 없음, 별도 에러 처리 안 함.
-- **다중 필터 URL** — 카드 하나만 활성이라는 v0.5 규칙 유지.
-- **페이지 번호 URL** — 이번 슬라이스 밖 (데이터셋 크기와 페이지 유효 범위 관계로 복잡).
-- **정렬 방향 asc/desc 외 값** — 다른 값은 무시하고 asc 로.
-- **실 계정 조작** — 사용자 콘솔 조치 후 실측.
+- **실 Directory API `patch` 응답** — 사용자 콘솔 조치 후 실측 (v0.8 프론트 통합 후).
+- **`workspaceUser.data?.isAdmin` 조회 시 `directory.users.get` 이 stub 인지 실인지** — stub 이면 항상 `isAdmin: false` 로 응답. emu 테스트는 stub 통해 검증.
+- **before 스냅샷 실패 시 처리** — Directory API `get` 이 404 이면 target 이 존재 안 함. 이 경우 error audit + `not-found` throw.
+- **updatedFields 비어있을 때 예방책** — 이미 검증에서 잡음.
+- **동시성** (같은 사용자 동시 편집) — 다음 슬라이스에서 판단.
 
 ### 커밋 규칙
 
 **3 커밋 분리**:
-1. `refactor(web): AccountsTable 검색어 상태를 URL 쿼리로 이관`
-2. `refactor(web): AccountsTable 정렬 상태를 URL 쿼리로 이관`
-3. `test(web): URL 초기 로드·검색 반영 시나리오 3 추가`
+1. `feat(functions): directoryClient 에 users.patch 메서드 추가 (실 + stub)`
+2. `feat(functions): users.update callable 추가 (before/after 감사 로그)`
+3. `test(functions): users.update 단위 + emu 통합 테스트`
 
 각 커밋 conventional commits. `git add -A` 금지, 파일 명시.
 
-**작업 브랜치 원격 push 필수** — `git push -u origin feat/url-sync-v6`.
+**작업 브랜치 원격 push 필수** — `git push -u origin feat/users-update-v7`.
 
 ## 상태 보고 (필수)
 
