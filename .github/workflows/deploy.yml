@@ -1,0 +1,52 @@
+name: Deploy
+
+# CI (`ci.yml`) 이 main 에서 성공한 직후에만 배포.
+# main 이외 브랜치 · CI 실패는 배포 안 함.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # CI 성공 시에만 실행. 실패·취소면 skip.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # workflow_run 은 기본 default 브랜치를 checkout 하므로 명시적으로 main 지정.
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          # Firebase Functions 런타임이 Node 20 이므로 배포도 Node 20 으로 빌드.
+          node-version: '20.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm -r build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SCHOOL_APP_5A636 }}
+
+      - name: Deploy to Firebase Hosting + Functions
+        run: npx firebase-tools@13 deploy --only hosting,functions --project school-app-5a636 --non-interactive

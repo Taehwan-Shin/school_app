@@ -39,8 +39,20 @@
         "function": { "functionId": "usersCreate", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/usersUpdate",
+        "function": { "functionId": "usersUpdate", "region": "asia-northeast3" }
+      },
+      {
         "source": "/api/usersDelete",
         "function": { "functionId": "usersDelete", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/groupsList",
+        "function": { "functionId": "groupsList", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/auditLogList",
+        "function": { "functionId": "auditLogList", "region": "asia-northeast3" }
       },
       {
         "source": "**",
