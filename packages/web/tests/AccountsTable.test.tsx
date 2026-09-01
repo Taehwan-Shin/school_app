@@ -35,6 +35,14 @@ vi.mock("../src/api/usersDelete.js", () => ({
   }),
 }));
 
+vi.mock("../src/api/usersUpdate.js", () => ({
+  useUpdateUser: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { AccountsTable } from "../src/routes/admin/AccountsTable.js";
 
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin']) {
@@ -709,6 +717,76 @@ describe("AccountsTable component", () => {
 
     fireEvent.change(searchInput, { target: { value: "" } });
     expect(capturedSearch).toBe("");
+  });
+
+  it("renders edit button for each account row including self", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "teacher1@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const selfEditBtn = screen.getByTestId("edit-user-admin@cam.hs.kr") as HTMLButtonElement;
+    const otherEditBtn = screen.getByTestId("edit-user-teacher1@cam.hs.kr") as HTMLButtonElement;
+
+    expect(selfEditBtn).toBeDefined();
+    expect(selfEditBtn.disabled).toBe(false);
+    expect(otherEditBtn).toBeDefined();
+    expect(otherEditBtn.disabled).toBe(false);
+  });
+
+  it("opens EditUserDialog with pre-filled target when clicking edit button", () => {
+    const mockUsers = [
+      {
+        email: "teacher1@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    fireEvent.click(screen.getByTestId("edit-user-teacher1@cam.hs.kr"));
+    expect(screen.getByText("사용자 편집")).toBeDefined();
+    expect(screen.getByTestId("edit-user-email").textContent).toBe("teacher1@cam.hs.kr");
+    const familyNameInput = screen.getByLabelText(/성 \*/) as HTMLInputElement;
+    const givenNameInput = screen.getByLabelText(/이름 \*/) as HTMLInputElement;
+    const orgUnitInput = screen.getByLabelText(/조직 단위/) as HTMLInputElement;
+    expect(familyNameInput.value).toBe("홍");
+    expect(givenNameInput.value).toBe("길동");
+    expect(orgUnitInput.value).toBe("/교사");
   });
 });
 

@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
@@ -27,6 +28,7 @@ export function AccountsTable() {
   const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
@@ -230,28 +232,46 @@ export function AccountsTable() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <button
-                            type="button"
-                            disabled={isSelf}
-                            title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
-                            onClick={() =>
-                              setDeleteTarget({
-                                email: user.email,
-                                firstName: user.firstName,
-                                lastName: user.lastName,
-                              })
-                            }
-                            data-testid={`delete-user-${user.email}`}
-                            className={
-                              // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
-                              // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
-                              isSelf
-                                ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-                                : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-                            }
-                          >
-                            삭제
-                          </button>
+                          <div className="flex justify-end items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditTarget({
+                                  email: user.email,
+                                  firstName: user.firstName,
+                                  lastName: user.lastName,
+                                  orgUnitPath: user.orgUnitPath || "/",
+                                })
+                              }
+                              data-testid={`edit-user-${user.email}`}
+                              className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            >
+                              편집
+                            </button>
+                            <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                            <button
+                              type="button"
+                              disabled={isSelf}
+                              title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
+                              onClick={() =>
+                                setDeleteTarget({
+                                  email: user.email,
+                                  firstName: user.firstName,
+                                  lastName: user.lastName,
+                                })
+                              }
+                              data-testid={`delete-user-${user.email}`}
+                              className={
+                                // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
+                                // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
+                                isSelf
+                                  ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                  : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                              }
+                            >
+                              삭제
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -292,6 +312,14 @@ export function AccountsTable() {
       <CreateUserDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
+      />
+
+      <EditUserDialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        user={editTarget}
       />
 
       <DeleteUserDialog
