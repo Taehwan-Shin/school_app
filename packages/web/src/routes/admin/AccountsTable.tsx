@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
@@ -18,19 +18,42 @@ export function AccountsTable() {
   const { data, isLoading, isError, error } = useUsersList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredUsers = useMemo(() => {
+    if (!data?.users) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return data.users;
+    return data.users.filter((user: UserItem) => {
+      const email = (user.email || "").toLowerCase();
+      const fullName = `${user.lastName || ""}${user.firstName || ""}`.toLowerCase();
+      return email.includes(q) || fullName.includes(q);
+    });
+  }, [data?.users, searchQuery]);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           조직 내 등록된 사용자 계정 및 권한 상태
         </p>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          data-testid="add-account-btn"
-        >
-          + 계정 추가
-        </Button>
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="이메일 또는 이름으로 검색"
+            aria-label="계정 검색"
+            data-testid="accounts-search-input"
+            className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            data-testid="add-account-btn"
+          >
+            + 계정 추가
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -60,20 +83,26 @@ export function AccountsTable() {
       )}
 
       {!isLoading && !isError && data?.users && data.users.length > 0 && (
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>이름</TableHead>
-                <TableHead>조직 단위</TableHead>
-                <TableHead className="text-center">관리자</TableHead>
-                <TableHead className="text-center">정지</TableHead>
-                <TableHead className="text-right">관리</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.users.map((user: UserItem) => {
+        <>
+          {filteredUsers.length === 0 ? (
+            <div className="py-12 text-center text-small text-fg-secondary" data-testid="accounts-search-empty">
+              검색 결과가 없습니다.
+            </div>
+          ) : (
+            <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead>조직 단위</TableHead>
+                    <TableHead className="text-center">관리자</TableHead>
+                    <TableHead className="text-center">정지</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user: UserItem) => {
                 const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
                 const isSelf =
                   Boolean(currentUser?.email) &&
@@ -135,10 +164,12 @@ export function AccountsTable() {
                   </TableRow>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </>
+    )}
 
       <CreateUserDialog
         open={isCreateOpen}
