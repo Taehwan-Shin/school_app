@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
@@ -21,6 +22,8 @@ const PAGE_SIZE = 25;
 export function AccountsTable() {
   const { user: currentUser } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
+  const [searchParams] = useSearchParams();
+  const kpiFilter = searchParams.get('filter');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,7 +33,7 @@ export function AccountsTable() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery]);
+  }, [searchQuery, kpiFilter]);
 
   const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
     if (sortColumn === column) {
@@ -43,8 +46,19 @@ export function AccountsTable() {
 
   const sortedFilteredUsers = useMemo(() => {
     if (!data?.users) return [];
-    const q = searchQuery.trim().toLowerCase();
     let result = data.users;
+
+    // KPI 필터 먼저 (검색어와 독립적으로 적용)
+    if (kpiFilter === 'admin') {
+      result = result.filter((u: UserItem) => u.isAdmin);
+    } else if (kpiFilter === 'suspended') {
+      result = result.filter((u: UserItem) => u.isSuspended);
+    } else if (kpiFilter === 'normal') {
+      result = result.filter((u: UserItem) => !u.isAdmin && !u.isSuspended);
+    }
+
+    // 검색어 필터
+    const q = searchQuery.trim().toLowerCase();
     if (q) {
       result = result.filter((user: UserItem) => {
         const email = (user.email || "").toLowerCase();
@@ -52,6 +66,8 @@ export function AccountsTable() {
         return email.includes(q) || fullName.includes(q);
       });
     }
+
+    // 정렬 (기존 코드 그대로)
     if (sortColumn) {
       result = [...result].sort((a: UserItem, b: UserItem) => {
         let cmp = 0;
@@ -67,8 +83,9 @@ export function AccountsTable() {
         return sortDirection === 'asc' ? cmp : -cmp;
       });
     }
+
     return result;
-  }, [data?.users, searchQuery, sortColumn, sortDirection]);
+  }, [data?.users, kpiFilter, searchQuery, sortColumn, sortDirection]);
 
   const total = sortedFilteredUsers.length;
   const paginatedUsers = sortedFilteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
