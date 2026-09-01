@@ -45,7 +45,7 @@ export async function callUsersList(): Promise<UsersListResponse> {
       'X-Google-Scopes': 'https://www.googleapis.com/auth/admin.directory.user.readonly',
       'X-Request-Id': requestId,
     },
-    body: JSON.stringify({ data: {} }),
+    body: JSON.stringify({ data: { _googleAccessToken: googleAccessToken } }),
   });
 
   if (!res.ok) {

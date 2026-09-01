@@ -57,7 +57,7 @@ export async function callAuditLogList(
       'X-Google-Scopes': '',
       'X-Request-Id': requestId,
     },
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data: { ...data, _googleAccessToken: googleAccessToken } }),
   });
 
   if (!res.ok) {

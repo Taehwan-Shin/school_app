@@ -35,11 +35,22 @@ export async function authenticateRequest(request: CallableRequest): Promise<Aut
     throw new HttpsError('failed-precondition', 'role_not_assigned');
   }
 
+  // Google OAuth access token 은 우선 body (`data._googleAccessToken`) 에서 읽고,
+  // 없으면 헤더 (`X-Google-Access-Token`) 로 fallback. firebase-functions v6 의
+  // onCall 에서 `request.rawRequest.headers` 로 커스텀 헤더가 안 전달되는 케이스가
+  // 있어서 body 를 primary transport 로 사용.
+  const bodyData = request.data as { _googleAccessToken?: string } | undefined;
+  const bodyToken =
+    bodyData && typeof bodyData._googleAccessToken === 'string' ? bodyData._googleAccessToken : '';
+
   const rawHeaders = request.rawRequest?.headers ?? {};
   const rawToken = rawHeaders['x-google-access-token'] ?? rawHeaders['X-Google-Access-Token'];
-  const googleAccessToken = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+  const headerToken = Array.isArray(rawToken) ? rawToken[0] : rawToken;
 
-  if (!googleAccessToken || typeof googleAccessToken !== 'string') {
+  const googleAccessToken =
+    bodyToken || (typeof headerToken === 'string' ? headerToken : '');
+
+  if (!googleAccessToken) {
     throw new HttpsError('unauthenticated', 'missing_google_access_token');
   }
 

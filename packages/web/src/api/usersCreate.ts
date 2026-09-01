@@ -44,7 +44,7 @@ export async function callUsersCreate(data: UsersCreateRequest): Promise<UsersCr
       "X-Google-Scopes": "https://www.googleapis.com/auth/admin.directory.user",
       "X-Request-Id": requestId,
     },
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data: { ...data, _googleAccessToken: googleAccessToken } }),
   });
 
   if (!res.ok) {

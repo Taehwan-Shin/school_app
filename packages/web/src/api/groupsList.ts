@@ -44,7 +44,7 @@ export async function callGroupsList(): Promise<GroupsListResponse> {
       'X-Google-Scopes': 'https://www.googleapis.com/auth/admin.directory.group.readonly',
       'X-Request-Id': requestId,
     },
-    body: JSON.stringify({ data: {} }),
+    body: JSON.stringify({ data: { _googleAccessToken: googleAccessToken } }),
   });
 
   if (!res.ok) {
