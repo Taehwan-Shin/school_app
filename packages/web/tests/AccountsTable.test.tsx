@@ -277,6 +277,7 @@ describe("AccountsTable component", () => {
 
     expect(screen.getByTestId("accounts-search-empty")).toBeDefined();
     expect(screen.getByText("검색 결과가 없습니다.")).toBeDefined();
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("결과 없음");
     expect(screen.queryByText("admin@cam.hs.kr")).toBeNull();
   });
 
@@ -344,5 +345,88 @@ describe("AccountsTable component", () => {
     expect(rows[0].textContent).toContain("김영희");
     expect(rows[1].textContent).toContain("박민수");
     expect(rows[2].textContent).toContain("이철수");
+  });
+
+  it("navigates between pages with 25 users per page", () => {
+    const mockUsers = Array.from({ length: 30 }, (_, i) => ({
+      email: `user${String(i + 1).padStart(2, "0")}@cam.hs.kr`,
+      firstName: `이름${i + 1}`,
+      lastName: "김",
+      orgUnitPath: "/",
+      isAdmin: false,
+      isSuspended: false,
+    }));
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+
+    const paginationInfo = screen.getByTestId("accounts-pagination-info");
+    const prevBtn = screen.getByTestId("accounts-pagination-prev") as HTMLButtonElement;
+    const nextBtn = screen.getByTestId("accounts-pagination-next") as HTMLButtonElement;
+
+    // Page 0: 1–25 of 30
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+    expect(screen.getByText("user01@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("user25@cam.hs.kr")).toBeDefined();
+    expect(screen.queryByText("user26@cam.hs.kr")).toBeNull();
+
+    // Click Next -> Page 1: 26–30 of 30 (rows 26-30)
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe("26–30 of 30");
+    expect(prevBtn.disabled).toBe(false);
+    expect(nextBtn.disabled).toBe(true);
+    expect(screen.queryByText("user01@cam.hs.kr")).toBeNull();
+    expect(screen.getByText("user26@cam.hs.kr")).toBeDefined();
+    expect(screen.getByText("user30@cam.hs.kr")).toBeDefined();
+
+    // Click Prev -> Page 0: 1–25 of 30
+    fireEvent.click(prevBtn);
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+  });
+
+  it("resets to first page when search query changes", () => {
+    const mockUsers = Array.from({ length: 30 }, (_, i) => ({
+      email: `user${String(i + 1).padStart(2, "0")}@cam.hs.kr`,
+      firstName: `이름${i + 1}`,
+      lastName: "김",
+      orgUnitPath: "/",
+      isAdmin: false,
+      isSuspended: false,
+    }));
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<AccountsTable />);
+    const nextBtn = screen.getByTestId("accounts-pagination-next");
+    const searchInput = screen.getByTestId("accounts-search-input");
+    const paginationInfo = screen.getByTestId("accounts-pagination-info");
+
+    // Move to page 1
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe("26–30 of 30");
+
+    // Type in search query -> resets to page 0
+    fireEvent.change(searchInput, { target: { value: "user" } });
+    expect(paginationInfo.textContent).toBe("1–25 of 30");
+
+    // Type more specific search query
+    fireEvent.change(searchInput, { target: { value: "user28" } });
+    expect(paginationInfo.textContent).toBe("1–1 of 1");
+    expect(screen.getByText("user28@cam.hs.kr")).toBeDefined();
   });
 });

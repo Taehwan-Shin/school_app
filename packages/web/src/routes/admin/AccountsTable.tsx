@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
@@ -16,6 +16,8 @@ import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
 
+const PAGE_SIZE = 25;
+
 export function AccountsTable() {
   const { user: currentUser } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
@@ -24,6 +26,11 @@ export function AccountsTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery]);
 
   const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
     if (sortColumn === column) {
@@ -62,6 +69,9 @@ export function AccountsTable() {
     }
     return result;
   }, [data?.users, searchQuery, sortColumn, sortDirection]);
+
+  const total = sortedFilteredUsers.length;
+  const paginatedUsers = sortedFilteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -155,74 +165,100 @@ export function AccountsTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedFilteredUsers.map((user: UserItem) => {
-                const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
-                const isSelf =
-                  Boolean(currentUser?.email) &&
-                  currentUser?.email?.toLowerCase() === user.email.toLowerCase();
+                  {paginatedUsers.map((user: UserItem) => {
+                    const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
+                    const isSelf =
+                      Boolean(currentUser?.email) &&
+                      currentUser?.email?.toLowerCase() === user.email.toLowerCase();
 
-                return (
-                  <TableRow key={user.email}>
-                    <TableCell className="font-mono text-small text-fg-primary">{user.email}</TableCell>
-                    <TableCell className="text-fg-primary">{fullName}</TableCell>
-                    <TableCell className="font-mono text-small text-fg-secondary">
-                      {user.orgUnitPath || "/"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {user.isAdmin ? (
-                        <span className="text-micro font-medium text-fg-primary">
-                          관리자
-                        </span>
-                      ) : (
-                        <span className="text-micro text-fg-muted">
-                          일반
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {user.isSuspended ? (
-                        <span className="text-micro font-medium text-state-danger">
-                          정지됨
-                        </span>
-                      ) : (
-                        <span className="text-micro text-fg-muted">
-                          정상
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <button
-                        type="button"
-                        disabled={isSelf}
-                        title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
-                        onClick={() =>
-                          setDeleteTarget({
-                            email: user.email,
-                            firstName: user.firstName,
-                            lastName: user.lastName,
-                          })
-                        }
-                        data-testid={`delete-user-${user.email}`}
-                        className={
-                          // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
-                          // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
-                          isSelf
-                            ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-                            : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-                        }
-                      >
-                        삭제
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              </TableBody>
-            </Table>
+                    return (
+                      <TableRow key={user.email}>
+                        <TableCell className="font-mono text-small text-fg-primary">{user.email}</TableCell>
+                        <TableCell className="text-fg-primary">{fullName}</TableCell>
+                        <TableCell className="font-mono text-small text-fg-secondary">
+                          {user.orgUnitPath || "/"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {user.isAdmin ? (
+                            <span className="text-micro font-medium text-fg-primary">
+                              관리자
+                            </span>
+                          ) : (
+                            <span className="text-micro text-fg-muted">
+                              일반
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {user.isSuspended ? (
+                            <span className="text-micro font-medium text-state-danger">
+                              정지됨
+                            </span>
+                          ) : (
+                            <span className="text-micro text-fg-muted">
+                              정상
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <button
+                            type="button"
+                            disabled={isSelf}
+                            title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
+                            onClick={() =>
+                              setDeleteTarget({
+                                email: user.email,
+                                firstName: user.firstName,
+                                lastName: user.lastName,
+                              })
+                            }
+                            data-testid={`delete-user-${user.email}`}
+                            className={
+                              // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
+                              // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
+                              isSelf
+                                ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                            }
+                          >
+                            삭제
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
+            <span data-testid="accounts-pagination-info">
+              {total === 0 ? '결과 없음' : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total}`}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                data-testid="accounts-pagination-prev"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(p => p + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                data-testid="accounts-pagination-next"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                다음
+              </button>
+            </div>
           </div>
-        )}
-      </>
-    )}
+        </>
+      )}
 
       <CreateUserDialog
         open={isCreateOpen}
