@@ -7,7 +7,15 @@
         "node_modules/.pnpm",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log"
+        "firebase-debug.*.log",
+        "src/**",
+        "tests/**",
+        "scripts/**",
+        "eslint.config.js",
+        "vitest.config.ts",
+        "vitest.emu.config.ts",
+        "firestore-debug.log",
+        "tsconfig.json"
       ],
       "predeploy": [
         "node packages/functions/scripts/prepare-deploy.mjs"

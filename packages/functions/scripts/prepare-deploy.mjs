@@ -59,7 +59,10 @@ async function main() {
     console.error(`missing injected shared: ${injectedShared}`);
     process.exit(1);
   }
-  await cp(injectedShared, finalShared, { recursive: true });
+  // dereference: true 로 심볼릭 링크를 실제 파일로 복사한다.
+  // pnpm 이 워크스페이스 사본을 심어놓을 때 종종 node_modules/.pnpm/... 로 심볼릭
+  // 링크로 만드는데, 뒤에서 node_modules 를 통째로 지우면 링크가 dangling 이 된다.
+  await cp(injectedShared, finalShared, { recursive: true, dereference: true });
   await rm(injectedShared, { recursive: true, force: true });
 
   console.log('[prepare-deploy] deploy/package.json 재작성 (workspace 별칭 → file:./_shared)...');
@@ -82,6 +85,28 @@ async function main() {
   // pnpm 전용 필드는 npm 에게 무해하나 정리 차원에서 제거.
   delete pkg.pnpm;
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+
+  // Cloud Build 는 deploy dir 에 pnpm-lock.yaml 이 보이면 pnpm 을 쓰려 하는데,
+  // 그 lockfile 에는 로컬 절대 경로 (예: file:///Users/...) 로 shared 가 잠겨 있어
+  // Cloud Build 환경에서 resolve 실패 + OUTDATED_LOCKFILE 오류.
+  // pnpm-lock.yaml 을 제거하고 pnpm 이 심어놓은 node_modules 도 지워서
+  // Cloud Build 가 자연스럽게 npm install 로 fallback 하고 package.json 만
+  // 참고하도록 한다.
+  console.log('[prepare-deploy] pnpm 잔여물 (lockfile, node_modules) 제거...');
+  const lockfile = resolve(DEPLOY_DIR, 'pnpm-lock.yaml');
+  if (existsSync(lockfile)) {
+    await rm(lockfile, { force: true });
+  }
+  const npmrcCopy = resolve(DEPLOY_DIR, '.npmrc');
+  if (existsSync(npmrcCopy)) {
+    // 워크스페이스 .npmrc 가 복사됐다면 이것도 제거 (inject-workspace-packages 는
+    // deploy dir 안에서 무의미하고 오히려 npm 이 인식 못 하는 옵션이 있으면 경고).
+    await rm(npmrcCopy, { force: true });
+  }
+  const deployNodeModules = resolve(DEPLOY_DIR, 'node_modules');
+  if (existsSync(deployNodeModules)) {
+    await rm(deployNodeModules, { recursive: true, force: true });
+  }
 
   console.log('[prepare-deploy] 완료.');
 }
