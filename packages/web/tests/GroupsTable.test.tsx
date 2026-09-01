@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const mockUseGroupsList = vi.fn();
 
@@ -292,4 +292,299 @@ describe('GroupsTable component', () => {
       `/admin/groups/${encodeURIComponent('team-a@cam.hs.kr')}`
     );
   });
+
+  it('filters groups by search query matching email, name, or description', () => {
+    const mockGroups = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 전체',
+        description: '교직원 안내용 그룹',
+        aliases: [],
+        directMembersCount: 42,
+      },
+      {
+        email: 'students@cam.hs.kr',
+        name: '학생 전체',
+        description: '재학생 공지용',
+        aliases: [],
+        directMembersCount: 300,
+      },
+      {
+        email: 'devclub@cam.hs.kr',
+        name: '코딩 동아리',
+        description: '동아리 활동',
+        aliases: [],
+        directMembersCount: 12,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+    const searchInput = screen.getByTestId('groups-search-input');
+
+    // Search by email
+    fireEvent.change(searchInput, { target: { value: 'teachers' } });
+    expect(screen.getByText('teachers@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('students@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('devclub@cam.hs.kr')).toBeNull();
+
+    // Search by name
+    fireEvent.change(searchInput, { target: { value: '학생' } });
+    expect(screen.getByText('students@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('teachers@cam.hs.kr')).toBeNull();
+
+    // Search by description
+    fireEvent.change(searchInput, { target: { value: '동아리' } });
+    expect(screen.getByText('devclub@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('teachers@cam.hs.kr')).toBeNull();
+
+    // Search with no matches
+    fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+    expect(screen.getByTestId('groups-search-empty')).toBeDefined();
+    expect(screen.getByText('검색 결과가 없습니다.')).toBeDefined();
+    expect(screen.queryByText('devclub@cam.hs.kr')).toBeNull();
+  });
+
+  it('toggles sorting when clicking column headers', () => {
+    const mockGroups = [
+      {
+        email: 'charlie@cam.hs.kr',
+        name: '다 그룹',
+        description: '설명 다',
+        aliases: [],
+        directMembersCount: 10,
+      },
+      {
+        email: 'alice@cam.hs.kr',
+        name: '가 그룹',
+        description: '설명 가',
+        aliases: [],
+        directMembersCount: 30,
+      },
+      {
+        email: 'bob@cam.hs.kr',
+        name: '나 그룹',
+        description: '설명 나',
+        aliases: [],
+        directMembersCount: 20,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+    const emailHeader = screen.getByTestId('groups-sort-email');
+
+    // Click 1: Email asc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute('aria-sort')).toBe('ascending');
+    let rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('alice@cam.hs.kr');
+    expect(rows[1].textContent).toContain('bob@cam.hs.kr');
+    expect(rows[2].textContent).toContain('charlie@cam.hs.kr');
+
+    // Click 2: Email desc
+    fireEvent.click(emailHeader);
+    expect(emailHeader.getAttribute('aria-sort')).toBe('descending');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('charlie@cam.hs.kr');
+    expect(rows[1].textContent).toContain('bob@cam.hs.kr');
+    expect(rows[2].textContent).toContain('alice@cam.hs.kr');
+
+    // Click name header: Name asc
+    const nameHeader = screen.getByTestId('groups-sort-name');
+    fireEvent.click(nameHeader);
+    expect(nameHeader.getAttribute('aria-sort')).toBe('ascending');
+    expect(emailHeader.getAttribute('aria-sort')).toBe('none');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('가 그룹');
+    expect(rows[1].textContent).toContain('나 그룹');
+    expect(rows[2].textContent).toContain('다 그룹');
+
+    // Click directMembersCount header: directMembersCount asc
+    const countHeader = screen.getByTestId('groups-sort-directMembersCount');
+    fireEvent.click(countHeader);
+    expect(countHeader.getAttribute('aria-sort')).toBe('ascending');
+    expect(nameHeader.getAttribute('aria-sort')).toBe('none');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('10');
+    expect(rows[1].textContent).toContain('20');
+    expect(rows[2].textContent).toContain('30');
+
+    // Click directMembersCount desc
+    fireEvent.click(countHeader);
+    expect(countHeader.getAttribute('aria-sort')).toBe('descending');
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('30');
+    expect(rows[1].textContent).toContain('20');
+    expect(rows[2].textContent).toContain('10');
+  });
+
+  it('navigates between pages with 25 groups per page and resets page on search query change', () => {
+    const mockGroups = Array.from({ length: 30 }, (_, i) => ({
+      email: `group${String(i + 1).padStart(2, '0')}@cam.hs.kr`,
+      name: `그룹 ${i + 1}`,
+      description: `설명 ${i + 1}`,
+      aliases: [],
+      directMembersCount: i + 1,
+    }));
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+
+    const paginationInfo = screen.getByTestId('groups-pagination-info');
+    const prevBtn = screen.getByTestId('groups-pagination-prev') as HTMLButtonElement;
+    const nextBtn = screen.getByTestId('groups-pagination-next') as HTMLButtonElement;
+
+    // Page 0: 1–25 of 30
+    expect(paginationInfo.textContent).toBe('1–25 of 30');
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+    expect(screen.getByText('group01@cam.hs.kr')).toBeDefined();
+    expect(screen.getByText('group25@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('group26@cam.hs.kr')).toBeNull();
+
+    // Click Next -> Page 1: 26–30 of 30
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe('26–30 of 30');
+    expect(prevBtn.disabled).toBe(false);
+    expect(nextBtn.disabled).toBe(true);
+    expect(screen.queryByText('group01@cam.hs.kr')).toBeNull();
+    expect(screen.getByText('group26@cam.hs.kr')).toBeDefined();
+    expect(screen.getByText('group30@cam.hs.kr')).toBeDefined();
+
+    // Click Prev -> Page 0: 1–25 of 30
+    fireEvent.click(prevBtn);
+    expect(paginationInfo.textContent).toBe('1–25 of 30');
+    expect(prevBtn.disabled).toBe(true);
+    expect(nextBtn.disabled).toBe(false);
+
+    // Navigate to page 1 again, then change search query -> resets to page 0
+    fireEvent.click(nextBtn);
+    expect(paginationInfo.textContent).toBe('26–30 of 30');
+
+    const searchInput = screen.getByTestId('groups-search-input');
+    fireEvent.change(searchInput, { target: { value: 'group' } });
+    expect(paginationInfo.textContent).toBe('1–25 of 30');
+
+    // Type more specific search query
+    fireEvent.change(searchInput, { target: { value: 'group28' } });
+    expect(paginationInfo.textContent).toBe('1–1 of 1');
+    expect(screen.getByText('group28@cam.hs.kr')).toBeDefined();
+  });
+
+  it('restores search query and sort state from URL parameters on initial load', () => {
+    const mockGroups = [
+      {
+        email: 'alpha@cam.hs.kr',
+        name: '알파 그룹',
+        description: '첫번째',
+        aliases: [],
+        directMembersCount: 50,
+      },
+      {
+        email: 'beta@cam.hs.kr',
+        name: '베타 그룹',
+        description: '두번째',
+        aliases: [],
+        directMembersCount: 20,
+      },
+      {
+        email: 'gamma@cam.hs.kr',
+        name: '감마 그룹',
+        description: '세번째',
+        aliases: [],
+        directMembersCount: 35,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />, ['/admin/groups?q=그룹&sort=directMembersCount&dir=desc']);
+
+    const searchInput = screen.getByTestId('groups-search-input') as HTMLInputElement;
+    expect(searchInput.value).toBe('그룹');
+
+    const countHeader = screen.getByTestId('groups-sort-directMembersCount');
+    expect(countHeader.getAttribute('aria-sort')).toBe('descending');
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('alpha@cam.hs.kr');
+    expect(rows[1].textContent).toContain('gamma@cam.hs.kr');
+    expect(rows[2].textContent).toContain('beta@cam.hs.kr');
+  });
+
+  it('reflects search query and sort toggle into URL search params', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    const mockGroups = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 전체',
+        description: '교직원',
+        aliases: [],
+        directMembersCount: 42,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin/groups']}>
+        <LocationSpy />
+        <GroupsTable />
+      </MemoryRouter>
+    );
+
+    // Search query reflection
+    const searchInput = screen.getByTestId('groups-search-input');
+    fireEvent.change(searchInput, { target: { value: '교사' } });
+    expect(decodeURIComponent(capturedSearch)).toBe('?q=교사');
+
+    // Clear search
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(capturedSearch).toBe('');
+
+    // Sort toggle reflection
+    const nameHeader = screen.getByTestId('groups-sort-name');
+    fireEvent.click(nameHeader);
+    expect(capturedSearch).toBe('?sort=name&dir=asc');
+
+    fireEvent.click(nameHeader);
+    expect(capturedSearch).toBe('?sort=name&dir=desc');
+  });
 });
+
+

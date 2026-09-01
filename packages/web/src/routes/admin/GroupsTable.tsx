@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -14,11 +14,70 @@ import { CreateGroupDialog } from './CreateGroupDialog';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 
+type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
+type SortDirection = 'asc' | 'desc';
+
+const PAGE_SIZE = 25;
+
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
+  const sortColumn: SortColumn = (() => {
+    const raw = searchParams.get('sort');
+    return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
+  })();
+  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortColumn, sortDirection]);
+
+  const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
+    const next = new URLSearchParams(searchParams);
+    if (sortColumn === column) {
+      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      next.set('sort', column);
+      next.set('dir', 'asc');
+    }
+    setSearchParams(next, { replace: false });
+  };
+
+  const sortedFilteredGroups = useMemo(() => {
+    if (!data?.groups) return [];
+    let result = data.groups;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((group: GroupItem) => {
+        const email = (group.email || '').toLowerCase();
+        const name = (group.name || '').toLowerCase();
+        const description = (group.description || '').toLowerCase();
+        return email.includes(q) || name.includes(q) || description.includes(q);
+      });
+    }
+    if (sortColumn) {
+      result = [...result].sort((a: GroupItem, b: GroupItem) => {
+        let cmp = 0;
+        if (sortColumn === 'email') {
+          cmp = (a.email || '').localeCompare(b.email || '');
+        } else if (sortColumn === 'name') {
+          cmp = (a.name || '').localeCompare(b.name || '');
+        } else if (sortColumn === 'directMembersCount') {
+          cmp = (a.directMembersCount ?? 0) - (b.directMembersCount ?? 0);
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [data?.groups, searchQuery, sortColumn, sortDirection]);
+
+  const total = sortedFilteredGroups.length;
+  const paginatedGroups = sortedFilteredGroups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -26,12 +85,28 @@ export function GroupsTable() {
         <p className="text-small text-fg-secondary">
           조직 내 등록된 Google Workspace 그룹 및 멤버 현황
         </p>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          data-testid="add-group-btn"
-        >
-          + 그룹 추가
-        </Button>
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('q', v); else next.delete('q');
+              setSearchParams(next, { replace: true });
+            }}
+            placeholder="이메일, 이름 또는 설명으로 검색"
+            aria-label="그룹 검색"
+            data-testid="groups-search-input"
+            className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            data-testid="add-group-btn"
+          >
+            + 그룹 추가
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -61,20 +136,47 @@ export function GroupsTable() {
       )}
 
       {!isLoading && !isError && data?.groups && data.groups.length > 0 && (
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>이메일</TableHead>
-                <TableHead>이름</TableHead>
-                <TableHead>설명</TableHead>
-                <TableHead>별칭</TableHead>
-                <TableHead className="text-right">멤버 수</TableHead>
-                <TableHead className="text-right">관리</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.groups.map((group: GroupItem) => {
+        <>
+          {sortedFilteredGroups.length === 0 ? (
+            <div className="py-12 text-center text-small text-fg-secondary" data-testid="groups-search-empty">
+              검색 결과가 없습니다.
+            </div>
+          ) : (
+            <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      onClick={() => handleSort('email')}
+                      className="cursor-pointer select-none"
+                      data-testid="groups-sort-email"
+                      aria-sort={sortColumn === 'email' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      이메일 {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => handleSort('name')}
+                      className="cursor-pointer select-none"
+                      data-testid="groups-sort-name"
+                      aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead>설명</TableHead>
+                    <TableHead>별칭</TableHead>
+                    <TableHead
+                      onClick={() => handleSort('directMembersCount')}
+                      className="text-right cursor-pointer select-none"
+                      data-testid="groups-sort-directMembersCount"
+                      aria-sort={sortColumn === 'directMembersCount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      멤버 수 {sortColumn === 'directMembersCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedGroups.map((group: GroupItem) => {
                 const aliasText =
                   group.aliases && group.aliases.length > 0 ? group.aliases.join(', ') : '-';
 
@@ -138,9 +240,37 @@ export function GroupsTable() {
                   </TableRow>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
+            <span data-testid="groups-pagination-info">
+              {total === 0 ? '결과 없음' : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total}`}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                data-testid="groups-pagination-prev"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(p => p + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                data-testid="groups-pagination-next"
+                className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       <CreateGroupDialog
