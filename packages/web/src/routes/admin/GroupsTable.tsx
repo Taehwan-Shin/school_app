@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -80,7 +81,12 @@ export function GroupsTable() {
                 return (
                   <TableRow key={group.email} data-testid={`group-row-${group.email}`}>
                     <TableCell className="font-mono text-small text-fg-primary">
-                      {group.email}
+                      <Link
+                        to={`/admin/groups/${encodeURIComponent(group.email)}`}
+                        className="text-fg-primary hover:underline"
+                      >
+                        {group.email}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-fg-primary">
                       {group.name || '-'}
