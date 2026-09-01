@@ -17,3 +17,4 @@ export { groupsUpdate } from './callable/groups/update.js';
 export { groupsDelete } from './callable/groups/delete.js';
 export { groupsMembersList } from './callable/groups/members/list.js';
 export { groupsMembersInsert } from './callable/groups/members/insert.js';
+export { groupsMembersDelete } from './callable/groups/members/delete.js';
