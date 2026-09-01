@@ -1,5 +1,6 @@
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
+import { KpiCardRow } from '../../components/dashboard/KpiCardRow';
 import { AccountsTable } from './AccountsTable';
 
 export function AdminPage() {
@@ -8,6 +9,8 @@ export function AdminPage() {
   return (
     <AppShell role={role} pageTitle="관리자">
       <div className="space-y-8">
+        <KpiCardRow />
+
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
           <div>
             <h2 className="text-h2 font-semibold text-fg-primary">Google Workspace 계정 목록</h2>
