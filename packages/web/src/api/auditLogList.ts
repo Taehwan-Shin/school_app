@@ -19,6 +19,9 @@ export interface AuditLogEntryRead {
 export interface AuditLogListRequest {
   limit?: number;
   before?: number;
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
 }
 
 export interface AuditLogListResponse {

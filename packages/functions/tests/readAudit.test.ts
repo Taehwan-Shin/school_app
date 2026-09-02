@@ -148,4 +148,39 @@ describe('readAuditEntries unit tests', () => {
     expect(result.entries[0].at).toBeGreaterThanOrEqual(beforeTime);
     expect(result.entries[0].at).toBeLessThanOrEqual(afterTime);
   });
+
+  it('applies filterActor where clause when filterActor is provided', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({ limit: 50, filterActor: 'super@cam.hs.kr' });
+
+    expect(mockWhere).toHaveBeenCalledWith('actor', '==', 'super@cam.hs.kr');
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  it('applies filterTarget and filterResult where clauses when combined', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterTarget: 'users/u123',
+      filterResult: 'ok',
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('target', '==', 'users/u123');
+    expect(mockWhere).toHaveBeenCalledWith('result', '==', 'ok');
+    expect(mockWhere).toHaveBeenCalledTimes(2);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  it('does not apply any filter where clauses when no filters are provided', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({ limit: 30 });
+
+    expect(mockWhere).not.toHaveBeenCalled();
+    expect(mockLimit).toHaveBeenCalledWith(30);
+  });
 });
+
