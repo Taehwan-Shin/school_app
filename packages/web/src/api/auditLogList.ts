@@ -75,7 +75,16 @@ export async function callAuditLogList(
   return (body.result ?? body) as AuditLogListResponse;
 }
 
-export function useAuditLogList(pageSize = 25): {
+export interface AuditLogFilters {
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
+}
+
+export function useAuditLogList(
+  pageSize = 25,
+  filters?: AuditLogFilters
+): {
   entries: AuditLogEntryRead[];
   loading: boolean;
   error: Error | null;
@@ -102,6 +111,7 @@ export function useAuditLogList(pageSize = 25): {
         const res = await callAuditLogList({
           limit: pageSize,
           before: targetCursor,
+          ...filters,
         });
         if (isReload) {
           setEntries(res.entries);
@@ -117,14 +127,16 @@ export function useAuditLogList(pageSize = 25): {
         setLoading(false);
       }
     },
-    [pageSize]
+    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult]
   );
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    callAuditLogList({ limit: pageSize })
+    setEntries([]);
+    setCursor(undefined);
+    callAuditLogList({ limit: pageSize, ...filters })
       .then((res) => {
         if (!cancelled) {
           setEntries(res.entries);
@@ -141,7 +153,7 @@ export function useAuditLogList(pageSize = 25): {
     return () => {
       cancelled = true;
     };
-  }, [pageSize, fetchTrigger]);
+  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult]);
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || cursorRef.current === null || cursorRef.current === undefined) {
