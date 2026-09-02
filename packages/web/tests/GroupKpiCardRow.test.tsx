@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const mockUseGroupsList = vi.fn();
 
@@ -9,6 +10,15 @@ vi.mock('../src/api/groupsList.js', () => ({
 }));
 
 import { GroupKpiCardRow } from '../src/components/dashboard/GroupKpiCardRow.js';
+
+function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin/groups']) {
+  return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+}
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location-search">{location.search}</div>;
+}
 
 describe('GroupKpiCardRow component', () => {
   beforeEach(() => {
@@ -23,7 +33,7 @@ describe('GroupKpiCardRow component', () => {
       error: null,
     });
 
-    render(<GroupKpiCardRow />);
+    renderWithRouter(<GroupKpiCardRow />);
 
     const totalCard = screen.getByTestId('kpi-card-총 그룹');
     const withMembersCard = screen.getByTestId('kpi-card-멤버 있는 그룹');
@@ -83,7 +93,7 @@ describe('GroupKpiCardRow component', () => {
       error: null,
     });
 
-    render(<GroupKpiCardRow />);
+    renderWithRouter(<GroupKpiCardRow />);
 
     const totalCard = screen.getByTestId('kpi-card-총 그룹');
     const withMembersCard = screen.getByTestId('kpi-card-멤버 있는 그룹');
@@ -109,7 +119,7 @@ describe('GroupKpiCardRow component', () => {
       error: new Error('Query error'),
     });
 
-    render(<GroupKpiCardRow />);
+    renderWithRouter(<GroupKpiCardRow />);
 
     const totalCard = screen.getByTestId('kpi-card-총 그룹');
     const withMembersCard = screen.getByTestId('kpi-card-멤버 있는 그룹');
@@ -128,5 +138,77 @@ describe('GroupKpiCardRow component', () => {
 
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBe(4);
+  });
+
+  it('scenario 4: reflects active card and button tag when URL contains filter query', () => {
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupKpiCardRow />, ['/admin/groups?filter=with-members']);
+
+    const totalCard = screen.getByTestId('kpi-card-총 그룹');
+    const withMembersCard = screen.getByTestId('kpi-card-멤버 있는 그룹');
+    const emptyCard = screen.getByTestId('kpi-card-빈 그룹');
+    const avgCard = screen.getByTestId('kpi-card-평균 멤버 수');
+
+    expect(totalCard.tagName).toBe('DIV');
+    expect(totalCard.getAttribute('data-active')).toBe('false');
+
+    expect(withMembersCard.tagName).toBe('BUTTON');
+    expect(withMembersCard.getAttribute('data-active')).toBe('true');
+
+    expect(emptyCard.tagName).toBe('BUTTON');
+    expect(emptyCard.getAttribute('data-active')).toBe('false');
+
+    expect(avgCard.tagName).toBe('DIV');
+    expect(avgCard.getAttribute('data-active')).toBe('false');
+  });
+
+  it('scenario 5: updates URL search params when clicking KPI cards and toggles off on reclick', () => {
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(
+      <>
+        <GroupKpiCardRow />
+        <LocationDisplay />
+      </>,
+      ['/admin/groups'],
+    );
+
+    const withMembersCard = screen.getByTestId('kpi-card-멤버 있는 그룹');
+    const emptyCard = screen.getByTestId('kpi-card-빈 그룹');
+    const locDisplay = screen.getByTestId('location-search');
+
+    expect(locDisplay.textContent).toBe('');
+    expect(withMembersCard.getAttribute('data-active')).toBe('false');
+
+    // Click 'with-members' card -> URL becomes ?filter=with-members
+    fireEvent.click(withMembersCard);
+    expect(locDisplay.textContent).toBe('?filter=with-members');
+    expect(withMembersCard.getAttribute('data-active')).toBe('true');
+
+    // Click 'with-members' card again -> toggle off
+    fireEvent.click(withMembersCard);
+    expect(locDisplay.textContent).toBe('');
+    expect(withMembersCard.getAttribute('data-active')).toBe('false');
+
+    // Click 'empty' card -> URL becomes ?filter=empty
+    fireEvent.click(emptyCard);
+    expect(locDisplay.textContent).toBe('?filter=empty');
+    expect(emptyCard.getAttribute('data-active')).toBe('true');
+
+    // Click 'empty' card again -> toggle off
+    fireEvent.click(emptyCard);
+    expect(locDisplay.textContent).toBe('');
+    expect(emptyCard.getAttribute('data-active')).toBe('false');
   });
 });
