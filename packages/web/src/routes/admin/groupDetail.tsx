@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { useGroupsList } from '../../api/groupsList';
 import { MembersTable } from './MembersTable';
 import { GroupAuditTrail } from './GroupAuditTrail';
+import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
+import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 
 export function GroupDetailPage() {
   const { email = '' } = useParams<{ email: string }>();
@@ -12,6 +15,9 @@ export function GroupDetailPage() {
   const { role } = useAuth();
   const { data, isLoading, isError } = useGroupsList();
   const group = data?.groups?.find((g) => g.email.toLowerCase() === groupEmail.toLowerCase());
+
+  const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
 
   return (
     <AppShell role={role} pageTitle={`그룹: ${groupEmail}`}>
@@ -26,7 +32,41 @@ export function GroupDetailPage() {
 
         {/* 정보 카드 */}
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
-          <h2 className="text-h2 font-semibold text-fg-primary">그룹 정보</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-h2 font-semibold text-fg-primary">그룹 정보</h2>
+            {group && (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditTarget({
+                      email: group.email,
+                      name: group.name,
+                      description: group.description || '',
+                    })
+                  }
+                  data-testid={`group-detail-edit-${group.email}`}
+                  className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                >
+                  편집
+                </button>
+                <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteTarget({
+                      email: group.email,
+                      name: group.name,
+                    })
+                  }
+                  data-testid={`group-detail-delete-${group.email}`}
+                  className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
           {isLoading && <p className="text-small text-fg-secondary">불러오는 중...</p>}
           {isError && (
             <div className="border border-state-danger p-4 text-small text-state-danger">
@@ -76,6 +116,21 @@ export function GroupDetailPage() {
           <GroupAuditTrail groupEmail={groupEmail} />
         </section>
       </div>
+
+      {editTarget && (
+        <EditGroupDialog
+          open={!!editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          group={editTarget}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteGroupDialog
+          open={!!deleteTarget}
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          group={deleteTarget}
+        />
+      )}
     </AppShell>
   );
 }

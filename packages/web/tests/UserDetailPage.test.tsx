@@ -1,9 +1,33 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { UserDetailPage } from '../src/routes/admin/userDetail';
 import type { UserItem } from '../src/api/usersList';
+
+vi.mock('../src/api/usersDelete', () => ({
+  useDeleteUser: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/usersUpdate', () => ({
+  useUpdateUser: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/usersResetPassword', () => ({
+  useResetPassword: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
 
 const mockUseUsersList = vi.fn();
 const mockUseAuditLogList = vi.fn();
@@ -188,5 +212,97 @@ describe('UserDetailPage', () => {
     renderDetailPage('teacher1@cam.hs.kr');
 
     expect(mockUseGroupsList).toHaveBeenCalledWith(true, { userKey: 'teacher1@cam.hs.kr' });
+  });
+
+  it('scenario 6: clicking "편집" opens EditUserDialog', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'teacher1@cam.hs.kr',
+        firstName: '영희',
+        lastName: '이',
+        orgUnitPath: '/연구부',
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('teacher1@cam.hs.kr');
+
+    const editBtn = screen.getByTestId('user-detail-edit-teacher1@cam.hs.kr');
+    expect(editBtn).toBeDefined();
+
+    fireEvent.click(editBtn);
+
+    expect(screen.getByText('사용자 편집')).toBeDefined();
+    expect(screen.getByTestId('edit-user-submit')).toBeDefined();
+  });
+
+  it('scenario 7: self user disables suspend, delete, and reset password buttons', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'admin@cam.hs.kr',
+        firstName: '철수',
+        lastName: '김',
+        orgUnitPath: '/관리부',
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('admin@cam.hs.kr');
+
+    const editBtn = screen.getByTestId('user-detail-edit-admin@cam.hs.kr') as HTMLButtonElement;
+    const resetBtn = screen.getByTestId('user-detail-reset-admin@cam.hs.kr') as HTMLButtonElement;
+    const suspendBtn = screen.getByTestId('user-detail-suspend-admin@cam.hs.kr') as HTMLButtonElement;
+    const deleteBtn = screen.getByTestId('user-detail-delete-admin@cam.hs.kr') as HTMLButtonElement;
+
+    expect(editBtn.disabled).toBe(false);
+    expect(resetBtn.disabled).toBe(true);
+    expect(suspendBtn.disabled).toBe(true);
+    expect(deleteBtn.disabled).toBe(true);
+  });
+
+  it('scenario 8: clicking "삭제" opens DeleteUserDialog', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'teacher1@cam.hs.kr',
+        firstName: '영희',
+        lastName: '이',
+        orgUnitPath: '/연구부',
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('teacher1@cam.hs.kr');
+
+    const deleteBtn = screen.getByTestId('user-detail-delete-teacher1@cam.hs.kr');
+    expect(deleteBtn).toBeDefined();
+
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByText('계정 삭제 확인')).toBeDefined();
+    expect(screen.getByTestId('delete-user-submit')).toBeDefined();
   });
 });
