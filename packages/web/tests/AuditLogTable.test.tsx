@@ -196,4 +196,178 @@ describe('AuditLogTable component', () => {
     fireEvent.click(reloadButton);
     expect(mockReload).toHaveBeenCalledTimes(1);
   });
+
+  it('filters table rows by result filter dropdown', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'log-2',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.update',
+        target: 'teacher@cam.hs.kr',
+        request_id: 'req-2',
+        result: 'error',
+        at: 1725140000000,
+      },
+      {
+        id: 'log-3',
+        actor: 'anon@cam.hs.kr',
+        role: 'unknown',
+        action: 'audit.read',
+        target: '*',
+        request_id: 'req-3',
+        result: 'denied',
+        at: 1725130000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    render(<AuditLogTable />);
+
+    expect(screen.getByTestId('audit-log-row-log-1')).toBeDefined();
+    expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
+    expect(screen.getByTestId('audit-log-row-log-3')).toBeDefined();
+
+    const select = screen.getByTestId('audit-log-filter-result');
+    fireEvent.change(select, { target: { value: 'denied' } });
+
+    expect(screen.getByTestId('audit-log-row-log-3')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
+    expect(screen.queryByTestId('audit-log-row-log-2')).toBeNull();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 3건/)).toBeDefined();
+  });
+
+  it('filters table rows by action search input', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'log-2',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.update',
+        target: 'teacher@cam.hs.kr',
+        request_id: 'req-2',
+        result: 'error',
+        at: 1725140000000,
+      },
+      {
+        id: 'log-3',
+        actor: 'anon@cam.hs.kr',
+        role: 'unknown',
+        action: 'audit.read',
+        target: '*',
+        request_id: 'req-3',
+        result: 'denied',
+        at: 1725130000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    render(<AuditLogTable />);
+
+    const input = screen.getByTestId('audit-log-filter-action');
+    fireEvent.change(input, { target: { value: 'users' } });
+
+    expect(screen.getByTestId('audit-log-row-log-1')).toBeDefined();
+    expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-row-log-3')).toBeNull();
+    expect(screen.getByText(/2건 표시됨 \/ 전체 3건/)).toBeDefined();
+  });
+
+  it('filters table rows by combining result filter and action search', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'log-2',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.update',
+        target: 'teacher@cam.hs.kr',
+        request_id: 'req-2',
+        result: 'error',
+        at: 1725140000000,
+      },
+      {
+        id: 'log-3',
+        actor: 'anon@cam.hs.kr',
+        role: 'unknown',
+        action: 'audit.read',
+        target: '*',
+        request_id: 'req-3',
+        result: 'denied',
+        at: 1725130000000,
+      },
+      {
+        id: 'log-4',
+        actor: 'hacker@cam.hs.kr',
+        role: 'unknown',
+        action: 'users.export',
+        target: '*',
+        request_id: 'req-4',
+        result: 'denied',
+        at: 1725120000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    render(<AuditLogTable />);
+
+    const select = screen.getByTestId('audit-log-filter-result');
+    const input = screen.getByTestId('audit-log-filter-action');
+
+    fireEvent.change(select, { target: { value: 'denied' } });
+    fireEvent.change(input, { target: { value: 'users' } });
+
+    expect(screen.getByTestId('audit-log-row-log-4')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
+    expect(screen.queryByTestId('audit-log-row-log-2')).toBeNull();
+    expect(screen.queryByTestId('audit-log-row-log-3')).toBeNull();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 4건/)).toBeDefined();
+
+    // When filter matches 0 entries, empty state should appear
+    fireEvent.change(input, { target: { value: 'groups' } });
+    expect(screen.getByTestId('audit-log-filter-empty')).toBeDefined();
+    expect(screen.getByText('필터에 매칭되는 로그가 없습니다.')).toBeDefined();
+    expect(screen.getByText(/0건 표시됨 \/ 전체 4건/)).toBeDefined();
+  });
 });
