@@ -19,9 +19,15 @@ export interface DeleteGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   group: DeleteGroupTarget | null;
+  onSuccess?: () => void;
 }
 
-export function DeleteGroupDialog({ open, onOpenChange, group }: DeleteGroupDialogProps) {
+export function DeleteGroupDialog({
+  open,
+  onOpenChange,
+  group,
+  onSuccess,
+}: DeleteGroupDialogProps) {
   const [confirmEmail, setConfirmEmail] = useState("");
   const { mutateAsync: deleteGroup, isPending, error: mutationError } = useDeleteGroup();
 
@@ -41,6 +47,7 @@ export function DeleteGroupDialog({ open, onOpenChange, group }: DeleteGroupDial
     try {
       await deleteGroup({ email: group.email.trim() });
       handleClose(false);
+      onSuccess?.();
     } catch {
       // Mutation error handled below
     }

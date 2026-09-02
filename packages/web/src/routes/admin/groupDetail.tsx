@@ -129,6 +129,7 @@ export function GroupDetailPage() {
           open={!!deleteTarget}
           onOpenChange={(o) => !o && setDeleteTarget(null)}
           group={deleteTarget}
+          onSuccess={() => navigate('/admin/groups')}
         />
       )}
     </AppShell>
