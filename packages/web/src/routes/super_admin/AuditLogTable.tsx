@@ -12,25 +12,26 @@ import {
 } from '../../components/ui/table';
 
 export function AuditLogTable() {
-  const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25);
   const [searchParams, setSearchParams] = useSearchParams();
   const resultFilter = (() => {
     const raw = searchParams.get('result');
     return raw === 'ok' || raw === 'error' || raw === 'denied' ? raw : 'all';
   })();
   const actionSearch = searchParams.get('q') ?? '';
+  const actorFilter = searchParams.get('actor') ?? '';
+
+  const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
+    filterActor: actorFilter || undefined,
+    filterResult: resultFilter !== 'all' ? resultFilter : undefined,
+  });
 
   const filteredEntries = useMemo(() => {
-    let result = entries;
-    if (resultFilter !== 'all') {
-      result = result.filter((e) => e.result === resultFilter);
-    }
     const q = actionSearch.trim().toLowerCase();
-    if (q) {
-      result = result.filter((e) => e.action.toLowerCase().includes(q));
+    if (!q) {
+      return entries;
     }
-    return result;
-  }, [entries, resultFilter, actionSearch]);
+    return entries.filter((e) => e.action.toLowerCase().includes(q));
+  }, [entries, actionSearch]);
 
   const handleExportCsv = () => {
     const header = ['시간', '행위자', '역할', '액션', '대상', '결과', '요청 ID', '메시지'];
@@ -65,6 +66,20 @@ export function AuditLogTable() {
           {filteredEntries.length}건 표시됨 / 전체 {entries.length}건 · 최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
         </p>
         <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={actorFilter}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('actor', v); else next.delete('actor');
+              setSearchParams(next, { replace: false });
+            }}
+            placeholder="행위자 이메일"
+            aria-label="행위자 필터"
+            data-testid="audit-log-filter-actor"
+            className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
+          />
           <select
             value={resultFilter}
             onChange={(e) => {
@@ -142,7 +157,9 @@ export function AuditLogTable() {
           className="py-12 text-center text-small text-fg-secondary"
           data-testid="audit-log-empty"
         >
-          감사 로그 항목이 없습니다.
+          {actorFilter || resultFilter !== 'all'
+            ? '해당 필터에 매칭되는 로그가 없습니다.'
+            : '감사 로그 항목이 없습니다.'}
         </div>
       )}
 

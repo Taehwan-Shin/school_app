@@ -7,7 +7,7 @@ import type { AuditLogEntryRead } from '../src/api/auditLogList';
 const mockUseAuditLogList = vi.fn();
 
 vi.mock('../src/api/auditLogList', () => ({
-  useAuditLogList: () => mockUseAuditLogList(),
+  useAuditLogList: (pageSize?: number, filters?: any) => mockUseAuditLogList(pageSize, filters),
 }));
 
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin/audit']) {
@@ -236,9 +236,14 @@ describe('AuditLogTable component', () => {
       },
     ];
 
-    mockUseAuditLogList.mockReturnValue({
-      ...defaultMockReturn,
-      entries: mockEntries,
+    mockUseAuditLogList.mockImplementation((_pageSize?: number, filters?: any) => {
+      const filtered = filters?.filterResult
+        ? mockEntries.filter((e) => e.result === filters.filterResult)
+        : mockEntries;
+      return {
+        ...defaultMockReturn,
+        entries: filtered,
+      };
     });
 
     renderWithRouter(<AuditLogTable />);
@@ -250,10 +255,14 @@ describe('AuditLogTable component', () => {
     const select = screen.getByTestId('audit-log-filter-result');
     fireEvent.change(select, { target: { value: 'denied' } });
 
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ filterResult: 'denied' })
+    );
     expect(screen.getByTestId('audit-log-row-log-3')).toBeDefined();
     expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
     expect(screen.queryByTestId('audit-log-row-log-2')).toBeNull();
-    expect(screen.getByText(/1건 표시됨 \/ 전체 3건/)).toBeDefined();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 1건/)).toBeDefined();
   });
 
   it('filters table rows by action search input', () => {
@@ -350,9 +359,14 @@ describe('AuditLogTable component', () => {
       },
     ];
 
-    mockUseAuditLogList.mockReturnValue({
-      ...defaultMockReturn,
-      entries: mockEntries,
+    mockUseAuditLogList.mockImplementation((_pageSize?: number, filters?: any) => {
+      const filtered = filters?.filterResult
+        ? mockEntries.filter((e) => e.result === filters.filterResult)
+        : mockEntries;
+      return {
+        ...defaultMockReturn,
+        entries: filtered,
+      };
     });
 
     renderWithRouter(<AuditLogTable />);
@@ -367,13 +381,13 @@ describe('AuditLogTable component', () => {
     expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
     expect(screen.queryByTestId('audit-log-row-log-2')).toBeNull();
     expect(screen.queryByTestId('audit-log-row-log-3')).toBeNull();
-    expect(screen.getByText(/1건 표시됨 \/ 전체 4건/)).toBeDefined();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 2건/)).toBeDefined();
 
     // When filter matches 0 entries, empty state should appear
     fireEvent.change(input, { target: { value: 'groups' } });
     expect(screen.getByTestId('audit-log-filter-empty')).toBeDefined();
     expect(screen.getByText('필터에 매칭되는 로그가 없습니다.')).toBeDefined();
-    expect(screen.getByText(/0건 표시됨 \/ 전체 4건/)).toBeDefined();
+    expect(screen.getByText(/0건 표시됨 \/ 전체 2건/)).toBeDefined();
   });
 
   it('applies result filter from initial URL search params (?result=denied)', () => {
@@ -400,18 +414,27 @@ describe('AuditLogTable component', () => {
       },
     ];
 
-    mockUseAuditLogList.mockReturnValue({
-      ...defaultMockReturn,
-      entries: mockEntries,
+    mockUseAuditLogList.mockImplementation((_pageSize?: number, filters?: any) => {
+      const filtered = filters?.filterResult
+        ? mockEntries.filter((e) => e.result === filters.filterResult)
+        : mockEntries;
+      return {
+        ...defaultMockReturn,
+        entries: filtered,
+      };
     });
 
     renderWithRouter(<AuditLogTable />, ['/super_admin/audit?result=denied']);
 
     const select = screen.getByTestId('audit-log-filter-result') as HTMLSelectElement;
     expect(select.value).toBe('denied');
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ filterResult: 'denied' })
+    );
     expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
     expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
-    expect(screen.getByText(/1건 표시됨 \/ 전체 2건/)).toBeDefined();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 1건/)).toBeDefined();
   });
 
   it('updates URL search params when result dropdown and action search change', () => {
@@ -563,5 +586,70 @@ describe('AuditLogTable component', () => {
     const exportButton = screen.getByTestId('audit-log-export-csv');
     expect(exportButton).toBeDefined();
     expect(exportButton.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('applies actor filter from initial URL search params (?actor=super@cam.hs.kr) and passes filterActor to hook', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?actor=super@cam.hs.kr']);
+
+    const actorInput = screen.getByTestId('audit-log-filter-actor') as HTMLInputElement;
+    expect(actorInput.value).toBe('super@cam.hs.kr');
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ filterActor: 'super@cam.hs.kr' })
+    );
+    expect(screen.getByTestId('audit-log-row-log-1')).toBeDefined();
+  });
+
+  it('updates URL search params when actor filter input changes', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const input = screen.getByTestId('audit-log-filter-actor');
+    fireEvent.change(input, { target: { value: 'teacher@cam.hs.kr' } });
+    expect(capturedSearch).toBe('?actor=teacher%40cam.hs.kr');
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(capturedSearch).toBe('');
+  });
+
+  it('renders filter-empty message when server returns 0 entries with active filter', () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [],
+    });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?actor=unknown@cam.hs.kr']);
+
+    expect(screen.getByTestId('audit-log-empty')).toBeDefined();
+    expect(screen.getByText('해당 필터에 매칭되는 로그가 없습니다.')).toBeDefined();
   });
 });
