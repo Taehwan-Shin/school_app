@@ -1,13 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
+import { useGroupsList } from '../../api/groupsList';
 import { MembersTable } from './MembersTable';
+import { GroupAuditTrail } from './GroupAuditTrail';
 
 export function GroupDetailPage() {
   const { email = '' } = useParams<{ email: string }>();
   const groupEmail = decodeURIComponent(email);
   const navigate = useNavigate();
   const { role } = useAuth();
+  const { data, isLoading, isError } = useGroupsList();
+  const group = data?.groups?.find((g) => g.email.toLowerCase() === groupEmail.toLowerCase());
 
   return (
     <AppShell role={role} pageTitle={`그룹: ${groupEmail}`}>
@@ -19,10 +23,57 @@ export function GroupDetailPage() {
         >
           ← 그룹 목록
         </button>
+
+        {/* 정보 카드 */}
+        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+          <h2 className="text-h2 font-semibold text-fg-primary">그룹 정보</h2>
+          {isLoading && <p className="text-small text-fg-secondary">불러오는 중...</p>}
+          {isError && (
+            <div className="border border-state-danger p-4 text-small text-state-danger">
+              그룹 정보를 불러오지 못했습니다.
+            </div>
+          )}
+          {!isLoading && !isError && !group && (
+            <p className="text-small text-fg-secondary" data-testid="group-detail-not-found">
+              그룹을 찾을 수 없습니다: {groupEmail}
+            </p>
+          )}
+          {group && (
+            <dl className="grid grid-cols-2 gap-x-8 gap-y-3" data-testid="group-detail-info">
+              <div>
+                <dt className="text-micro uppercase tracking-wide text-fg-secondary">이메일</dt>
+                <dd className="text-body font-mono text-fg-primary">{group.email}</dd>
+              </div>
+              <div>
+                <dt className="text-micro uppercase tracking-wide text-fg-secondary">이름</dt>
+                <dd className="text-body text-fg-primary">{group.name || '-'}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-micro uppercase tracking-wide text-fg-secondary">설명</dt>
+                <dd className="text-body text-fg-secondary">{group.description || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-micro uppercase tracking-wide text-fg-secondary">멤버 수</dt>
+                <dd className="text-body font-mono text-fg-primary">{group.directMembersCount}</dd>
+              </div>
+            </dl>
+          )}
+        </section>
+
+        {/* 멤버 관리 (기존) */}
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
           <h2 className="text-h2 font-semibold text-fg-primary">멤버 관리</h2>
           <p className="text-small text-fg-secondary font-mono">{groupEmail}</p>
           <MembersTable groupEmail={groupEmail} />
+        </section>
+
+        {/* 감사 이력 */}
+        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+          <h2 className="text-h2 font-semibold text-fg-primary">감사 이력</h2>
+          <p className="text-small text-fg-secondary">
+            이 그룹을 대상으로 발생한 모든 관리자 행위의 기록입니다.
+          </p>
+          <GroupAuditTrail groupEmail={groupEmail} />
         </section>
       </div>
     </AppShell>
