@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AuditLogTable } from '../src/routes/super_admin/AuditLogTable';
 import type { AuditLogEntryRead } from '../src/api/auditLogList';
 
@@ -8,6 +9,10 @@ const mockUseAuditLogList = vi.fn();
 vi.mock('../src/api/auditLogList', () => ({
   useAuditLogList: () => mockUseAuditLogList(),
 }));
+
+function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin/audit']) {
+  return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+}
 
 describe('AuditLogTable component', () => {
   const defaultMockReturn = {
@@ -31,7 +36,7 @@ describe('AuditLogTable component', () => {
       entries: [],
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     expect(screen.getByTestId('audit-log-loading')).toBeDefined();
     expect(screen.getByText('감사 로그를 불러오는 중...')).toBeDefined();
@@ -79,7 +84,7 @@ describe('AuditLogTable component', () => {
       entries: mockEntries,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     expect(screen.getByTestId('audit-log-row-log-1')).toBeDefined();
     expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
@@ -119,7 +124,7 @@ describe('AuditLogTable component', () => {
       loadMore: mockLoadMore,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     const loadMoreButton = screen.getByTestId('audit-log-load-more');
     expect(loadMoreButton).toBeDefined();
@@ -149,7 +154,7 @@ describe('AuditLogTable component', () => {
       hasMore: false,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     expect(screen.queryByTestId('audit-log-load-more')).toBeNull();
   });
@@ -162,7 +167,7 @@ describe('AuditLogTable component', () => {
       error: null,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     expect(screen.getByTestId('audit-log-empty')).toBeDefined();
     expect(screen.getByText('감사 로그 항목이 없습니다.')).toBeDefined();
@@ -174,7 +179,7 @@ describe('AuditLogTable component', () => {
       error: new Error('permission-denied: requires super_admin role'),
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     const errorBanner = screen.getByTestId('audit-log-error');
     expect(errorBanner).toBeDefined();
@@ -188,7 +193,7 @@ describe('AuditLogTable component', () => {
       reload: mockReload,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     const reloadButton = screen.getByTestId('audit-log-reload');
     expect(reloadButton).toBeDefined();
@@ -236,7 +241,7 @@ describe('AuditLogTable component', () => {
       entries: mockEntries,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     expect(screen.getByTestId('audit-log-row-log-1')).toBeDefined();
     expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
@@ -290,7 +295,7 @@ describe('AuditLogTable component', () => {
       entries: mockEntries,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     const input = screen.getByTestId('audit-log-filter-action');
     fireEvent.change(input, { target: { value: 'users' } });
@@ -350,7 +355,7 @@ describe('AuditLogTable component', () => {
       entries: mockEntries,
     });
 
-    render(<AuditLogTable />);
+    renderWithRouter(<AuditLogTable />);
 
     const select = screen.getByTestId('audit-log-filter-result');
     const input = screen.getByTestId('audit-log-filter-action');
@@ -369,5 +374,91 @@ describe('AuditLogTable component', () => {
     expect(screen.getByTestId('audit-log-filter-empty')).toBeDefined();
     expect(screen.getByText('필터에 매칭되는 로그가 없습니다.')).toBeDefined();
     expect(screen.getByText(/0건 표시됨 \/ 전체 4건/)).toBeDefined();
+  });
+
+  it('applies result filter from initial URL search params (?result=denied)', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'log-2',
+        actor: 'anon@cam.hs.kr',
+        role: 'unknown',
+        action: 'audit.read',
+        target: '*',
+        request_id: 'req-2',
+        result: 'denied',
+        at: 1725130000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?result=denied']);
+
+    const select = screen.getByTestId('audit-log-filter-result') as HTMLSelectElement;
+    expect(select.value).toBe('denied');
+    expect(screen.getByTestId('audit-log-row-log-2')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-row-log-1')).toBeNull();
+    expect(screen.getByText(/1건 표시됨 \/ 전체 2건/)).toBeDefined();
+  });
+
+  it('updates URL search params when result dropdown and action search change', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const select = screen.getByTestId('audit-log-filter-result');
+    fireEvent.change(select, { target: { value: 'denied' } });
+    expect(capturedSearch).toBe('?result=denied');
+
+    const input = screen.getByTestId('audit-log-filter-action');
+    fireEvent.change(input, { target: { value: 'users' } });
+    expect(capturedSearch).toBe('?result=denied&q=users');
+
+    fireEvent.change(select, { target: { value: 'all' } });
+    expect(capturedSearch).toBe('?q=users');
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(capturedSearch).toBe('');
   });
 });

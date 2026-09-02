@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
 import {
@@ -12,8 +13,12 @@ import {
 
 export function AuditLogTable() {
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25);
-  const [resultFilter, setResultFilter] = useState<'all' | 'ok' | 'error' | 'denied'>('all');
-  const [actionSearch, setActionSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resultFilter = (() => {
+    const raw = searchParams.get('result');
+    return raw === 'ok' || raw === 'error' || raw === 'denied' ? raw : 'all';
+  })();
+  const actionSearch = searchParams.get('q') ?? '';
 
   const filteredEntries = useMemo(() => {
     let result = entries;
@@ -36,7 +41,12 @@ export function AuditLogTable() {
         <div className="flex items-center gap-3">
           <select
             value={resultFilter}
-            onChange={(e) => setResultFilter(e.target.value as 'all' | 'ok' | 'error' | 'denied')}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v && v !== 'all') next.set('result', v); else next.delete('result');
+              setSearchParams(next, { replace: false });
+            }}
             data-testid="audit-log-filter-result"
             className="border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary focus:outline-none focus:border-border-strong"
           >
@@ -48,7 +58,12 @@ export function AuditLogTable() {
           <input
             type="text"
             value={actionSearch}
-            onChange={(e) => setActionSearch(e.target.value)}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('q', v); else next.delete('q');
+              setSearchParams(next, { replace: true });
+            }}
             placeholder="액션 검색"
             data-testid="audit-log-filter-action"
             className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
