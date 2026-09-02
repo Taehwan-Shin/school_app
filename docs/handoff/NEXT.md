@@ -1,201 +1,189 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **감사 로그 v4 (서버 사이드 필터) v0.26** — `readAudit` 헬퍼와 `auditLog.list` callable 을 확장해 서버 사이드 actor·target·result 필터 지원. 클라이언트는 request 에 filter 파라미터 전달. 프론트엔드 UI 는 v0.27 에서 확장.
+> 지금 이 파일의 오더는 **감사 로그 v4 프론트엔드 UI v0.27** — v0.26 백엔드 서버 사이드 필터를 UI 로. `useAuditLogList` hook 이 filter 파라미터 받도록. 결과 필터를 client → server 이관. 신규 「행위자」 인풋. URL 동기화 확장.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/audit-log-v4-v26`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/audit-log-v4-ui-v27`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 3 개.
-
-**writeAudit 규율**: audit_log 접근 헬퍼 확장. ESLint 예외 목록 (`readAudit.ts`) 그대로.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
 
 ## 기준 커밋
 
-**Base**: `65b0aa8` (super_admin 대시보드 v0.25)
+**Base**: `b359599` (감사 로그 v4 백엔드 v0.26)
 
-## 지금 할 것 — 감사 로그 서버 사이드 필터
+## 지금 할 것 — AuditLogTable 서버 사이드 필터 활용
 
 ### 왜
 
-v0.22/v0.24 로 클라이언트 사이드 필터를 놓았지만 audit_log 가 커지면 (수천~수만 건) 로드된 페이지에만 필터 적용됨. 실 감사 사용 시 「이 사용자에 대한 모든 이벤트」 를 정확히 보려면 서버가 미리 필터해서 페이지네이션 유지해야 함.
-
-**하지 않는 것**: 프론트엔드 UI 갱신 (v0.27 로 미룸). 새 audit action 필터. 복합 필터 3 개 동시 (Firestore 인덱스 필요 — 별도 slice).
-
-**허용하는 조합**: actor / target / result 중 최대 2 개 동시 필터. actor+result 조합은 이미 Firestore 단일 필드 인덱스로 처리 가능. target+at, actor+at 는 자동 복합 인덱스.
+v0.26 로 백엔드가 서버 사이드 필터 지원. 이제 프론트엔드가 그 능력을 활용해야 함:
+- 결과 필터를 서버로 옮겨 audit_log 대량 시 정확한 필터
+- 새 「행위자」 인풋 (서버 필터)
+- 액션 검색은 여전히 client-side (Firestore 는 substring 검색 안 함)
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/functions/src/audit/readAudit.ts` — `ReadAuditEntriesOptions` 에 filter 필드 추가. Firestore where 체인.
-- `packages/functions/src/callable/audit/list.ts` — `AuditLogListRequest` 에 filter 추가, `readAuditEntries` 로 전달, audit message 에 필터 반영.
-- `packages/functions/tests/readAudit.test.ts` — 필터 시나리오 3 추가.
-- `packages/functions/tests/auditLogList.test.ts` — 필터 시나리오 3 추가.
-- `packages/web/src/api/auditLogList.ts` — 인터페이스 확장 (backward compatible).
-- `firestore.indexes.json` — 복합 인덱스 추가 (`target,at` + `actor,at` + `result,at`).
+- `packages/web/src/api/auditLogList.ts` — `useAuditLogList` hook 이 filter 옵션 받도록 확장. 필터 변경 시 entries 리셋 + 페이지 0 재fetch.
+- `packages/web/src/routes/super_admin/AuditLogTable.tsx` — resultFilter 를 server-side (hook 전달), 새 「행위자」 인풋 추가, URL 동기화 확장 (`?actor=`).
+- `packages/web/tests/auditLogList.test.tsx` — 필터 옵션 시나리오 2 추가.
+- `packages/web/tests/AuditLogTable.test.tsx` — 새 UI 시나리오 3 추가.
 
 **신규 파일**: 없음.
 
 **손대지 마라**:
-- `AuditLogTable.tsx` · 프론트엔드 UI — v0.27.
-- 다른 callable · middleware · writeAudit.
+- 백엔드.
+- 다른 라우트.
 
 ### 세부 요구
 
-#### 1. `readAudit.ts` 확장
+#### 1. `useAuditLogList` 확장
 
+**현재 시그니처**:
 ```ts
-export interface ReadAuditEntriesOptions {
-  limit: number;
-  before?: number;
-  // 신규 필터 (조합 허용, 하지만 클라이언트는 최대 2 개 조합만 보내는 것이 안전):
-  filterActor?: string;    // 정확 매치
-  filterTarget?: string;   // 정확 매치
-  filterResult?: 'ok' | 'error' | 'denied';
-}
+export function useAuditLogList(pageSize = 25): { entries, loading, error, hasMore, loadMore, reload }
 ```
 
-**구현** — Firestore `.where()` 체인. 각 필터가 있으면 추가:
+**변경 후**:
 ```ts
-let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
-if (before !== undefined) {
-  query = query.where('at', '<', Timestamp.fromMillis(before));
-}
-if (filterActor) {
-  query = query.where('actor', '==', filterActor);
-}
-if (filterTarget) {
-  query = query.where('target', '==', filterTarget);
-}
-if (filterResult) {
-  query = query.where('result', '==', filterResult);
-}
-query = query.limit(limit);
-```
-
-**주의 (Firestore 제약)**:
-- `orderBy('at', 'desc')` + `where('at', '<', ...)` + `where('actor', '==', ...)` — 복합 인덱스 필요.
-- `firestore.indexes.json` 에 명시적 등록 (다음 항목).
-
-#### 2. `firestore.indexes.json` — 복합 인덱스 등록
-
-기존 파일에 다음 인덱스 3 개 추가 (audit_log 컬렉션):
-```json
-{
-  "collectionGroup": "audit_log",
-  "queryScope": "COLLECTION",
-  "fields": [
-    { "fieldPath": "actor", "order": "ASCENDING" },
-    { "fieldPath": "at", "order": "DESCENDING" }
-  ]
-},
-{
-  "collectionGroup": "audit_log",
-  "queryScope": "COLLECTION",
-  "fields": [
-    { "fieldPath": "target", "order": "ASCENDING" },
-    { "fieldPath": "at", "order": "DESCENDING" }
-  ]
-},
-{
-  "collectionGroup": "audit_log",
-  "queryScope": "COLLECTION",
-  "fields": [
-    { "fieldPath": "result", "order": "ASCENDING" },
-    { "fieldPath": "at", "order": "DESCENDING" }
-  ]
-}
-```
-
-**배포 시 참고**: `firebase deploy --only firestore:indexes` 필요 (헤드가 자동 배포 시 hosting,functions 만 이었음). 이번 슬라이스 배포 후 헤드가 별도로 실행.
-
-#### 3. `auditLog.list` callable 확장
-
-**입력 스키마**:
-```ts
-export interface AuditLogListRequest {
-  limit?: number;
-  before?: number;
+export interface AuditLogFilters {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
 }
-```
 
-**readAuditEntries 호출**: 위 파라미터 그대로 전달.
-
-**성공 audit message** (기존 message 확장):
-```ts
-const filters = [];
-if (filterActor) filters.push(`actor=${filterActor}`);
-if (filterTarget) filters.push(`target=${filterTarget}`);
-if (filterResult) filters.push(`result=${filterResult}`);
-const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';
-message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})${filterStr}`,
-```
-
-#### 4. `packages/web/src/api/auditLogList.ts` — 타입 확장
-
-`AuditLogListRequest` 에 3 필드 추가 (optional). `useAuditLogList` hook 은 이번 슬라이스에서는 기존 시그니처 그대로 (v0.27 에서 필터 전달 추가 예정).
-
-**변경**:
-```ts
-export interface AuditLogListRequest {
-  limit?: number;
-  before?: number;
-  filterActor?: string;
-  filterTarget?: string;
-  filterResult?: 'ok' | 'error' | 'denied';
+export function useAuditLogList(pageSize = 25, filters?: AuditLogFilters): {
+  entries: AuditLogEntryRead[];
+  loading: boolean;
+  error: Error | null;
+  hasMore: boolean;
+  loadMore: () => void;
+  reload: () => void;
 }
 ```
 
-#### 5. 테스트
+**구현 규칙**:
+- `useEffect` 트리거에 `filters` 추가 (deps). 필터 변경 시 entries 리셋 + 페이지 0 재fetch.
+- `fetchPage` 호출 시 filters 도 함께 전달 (`callAuditLogList({ limit, before, ...filters })`).
+- loadMore 도 filters 유지.
+- reload 도 filters 유지.
 
-**`readAudit.test.ts`** 신규 3:
-1. `filterActor='super@cam.hs.kr'` → Firestore `where` 체인 확인 (mock spy on `.where`)
-2. `filterTarget + filterResult` 조합 → 두 where 호출 확인
-3. 필터 없음 → 기존 동작 그대로 (backward compat)
+**주의 (안정 참조)** — filters 객체 참조 변경 시 useEffect 재실행. 각 필드를 개별 dep 로:
+```ts
+useEffect(() => {
+  // ...
+}, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult]);
+```
 
-**`auditLogList.test.ts`** 신규 3:
-1. `filterActor` 전달 시 `readAuditEntries` 에 그대로 전달 확인
-2. 성공 audit message 에 필터 정보 포함 확인
-3. 필터 없이 호출 시 기존 동작 그대로
+#### 2. `AuditLogTable.tsx` — UI 확장
+
+**현재 필터 UI** (v0.24):
+- Result 드롭다운 (client-side)
+- Action 검색 (client-side)
+- 새로 고침 · CSV 내보내기
+
+**변경 후**:
+- Result 드롭다운 → **서버 필터** (`useAuditLogList` filters.filterResult 전달)
+- Action 검색 → **client-side 유지** (Firestore 는 contains 지원 안 함, 로드된 페이지 안에서만)
+- **행위자 인풋 신규** → 서버 필터 (`filters.filterActor`)
+- URL 파라미터: `?actor=` 추가
+
+**상태 정의**:
+```ts
+const [searchParams, setSearchParams] = useSearchParams();
+const resultFilter = ...;  // 기존, 서버 필터로 이관
+const actionSearch = ...;  // 기존, 여전히 client
+const actorFilter = searchParams.get('actor') ?? '';  // 신규
+```
+
+**hook 호출**:
+```ts
+const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
+  filterActor: actorFilter || undefined,
+  filterResult: resultFilter !== 'all' ? resultFilter : undefined,
+});
+```
+
+**필터 UI 로우** (기존 「N건 표시됨」 옆에):
+```tsx
+<div className="flex items-center gap-3">
+  <input
+    type="text"
+    value={actorFilter}
+    onChange={(e) => {
+      const next = new URLSearchParams(searchParams);
+      const v = e.target.value;
+      if (v) next.set('actor', v); else next.delete('actor');
+      setSearchParams(next, { replace: false });  // 서버 필터, 히스토리에 저장
+    }}
+    placeholder="행위자 이메일"
+    aria-label="행위자 필터"
+    data-testid="audit-log-filter-actor"
+    className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
+  />
+  <select value={resultFilter} onChange={...}>...</select>
+  <input type="text" value={actionSearch} onChange={...} placeholder="액션 검색" ... />
+  <Button ...>새로 고침</Button>
+  <Button ...>CSV 내보내기</Button>
+</div>
+```
+
+**client-side 필터 후 remaining** — 이제는 actionSearch 만 client. `filteredEntries` useMemo 는 그것만 처리.
+
+**빈 상태 문구 개선**:
+- 서버가 0 반환 (result + actor 필터 매칭 없음) → 「해당 필터에 매칭되는 로그가 없습니다.」
+- 서버는 반환했지만 client 액션 검색으로 0 → 기존 문구 유지
+
+#### 3. 테스트
+
+**`auditLogList.test.tsx`** 신규 2:
+1. hook 이 filter 옵션 받으면 fetch body 에 그 필터 포함되어 전송
+2. filter 변경 시 entries 리셋 + 페이지 0 재fetch (mock fetchMock 두 번 호출 확인)
+
+**`AuditLogTable.test.tsx`** 신규 3:
+1. URL `?actor=super@cam.hs.kr` 초기 로드 → 인풋 값 반영 + fetch body 에 filterActor
+2. 「행위자」 인풋에 입력 → URL 갱신
+3. 서버 필터 매칭 0 → 「해당 필터에 매칭되는 로그가 없습니다.」
 
 ### 완료 확인
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 393 + 신규 6 = 399 근처.
-5. `pnpm -r test:emu` — 이전 43 유지 (신규 emu 없음, 기존 emu 는 필터 안 씀).
+4. `pnpm -r test` — 이전 399 + 신규 5 = 404 근처.
+5. dev 서버 확인:
+   - `/super_admin/audit?actor=admin2@cam.hs.kr` 로 초기 접근 → 인풋 값 채워지고 서버 필터 적용된 결과만 로드
+   - 「행위자」 인풋 변경 → URL 갱신 + 자동 재fetch
+   - 「결과」 드롭다운 「거부」 → 서버 필터로 denied 만 반환
+   - 「액션 검색」 은 여전히 client-side (로드된 페이지에서만)
+   - 세 필터 조합 시 정상 (server 는 actor+result, client 는 action)
 6. 프로덕션 번들 grep — 0 건.
 
 ### 판정 불가
 
-- **실 Firestore 복합 인덱스 활성화** — 헤드가 `firebase deploy --only firestore:indexes` 실행 후 자동 index 빌드. 실 사용 전 인덱스 활성 확인.
-- **3-way 필터 조합** — 별도 인덱스 필요, 이번 슬라이스 밖.
-- **필터 값 검증** — `filterActor` · `filterTarget` 에 특수 문자 · injection 있으면 Firestore 가 처리. 우리 코드 별도 sanitize 안 함.
-- **프론트엔드 UI** — v0.27.
+- **target 필터 UI** — 사용자 상세 페이지에서 사용 예정 (별도 slice).
+- **날짜 범위 필터** — 별도 slice (before/after 파라미터 UI).
+- **actor 자동완성** — 별도 slice.
+- **실 Firestore composite index 활성 확인** — v0.26 배포 시 인덱스 빌드 완료 필요. 미완이면 「인덱스 없음」 에러가 뜰 수 있음.
 
 ### 커밋 규칙
 
-**3 커밋 분리**:
-1. `feat(functions): readAudit 에 actor·target·result 필터 지원`
-2. `feat(functions): auditLog.list callable 에 필터 파라미터 전달 + 감사 message 확장`
-3. `chore(firestore): audit_log 복합 인덱스 3 개 (actor·target·result + at desc)`
+**2 커밋 분리**:
+1. `feat(web): useAuditLogList hook 에 서버 사이드 filter 옵션 전달`
+2. `feat(web): AuditLogTable 행위자 필터 인풋 + result 서버 사이드 이관 + URL 동기화`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/audit-log-v4-v26`.
+**작업 브랜치** — `git push -u origin feat/audit-log-v4-ui-v27`.
 
 ## 상태 보고 (필수)
 
