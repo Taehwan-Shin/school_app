@@ -14,6 +14,7 @@ import {
 import { CreateUserDialog } from "./CreateUserDialog";
 import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
+import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -28,6 +29,7 @@ export function AccountsTable() {
   const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<SuspendUserTarget | null>(null);
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
@@ -252,6 +254,30 @@ export function AccountsTable() {
                             <button
                               type="button"
                               disabled={isSelf}
+                              title={isSelf ? "자기 계정은 정지·복구할 수 없습니다" : (user.isSuspended ? "계정 복구" : "계정 정지")}
+                              onClick={() =>
+                                setSuspendTarget({
+                                  email: user.email,
+                                  firstName: user.firstName,
+                                  lastName: user.lastName,
+                                  isSuspended: user.isSuspended,
+                                })
+                              }
+                              data-testid={`suspend-user-${user.email}`}
+                              className={
+                                isSelf
+                                  ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                  : user.isSuspended
+                                  ? "text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                  : "text-state-warning underline decoration-transparent hover:decoration-state-warning text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                              }
+                            >
+                              {user.isSuspended ? "복구" : "정지"}
+                            </button>
+                            <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                            <button
+                              type="button"
+                              disabled={isSelf}
                               title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
                               onClick={() =>
                                 setDeleteTarget({
@@ -328,6 +354,14 @@ export function AccountsTable() {
           if (!open) setDeleteTarget(null);
         }}
         user={deleteTarget}
+      />
+
+      <SuspendUserDialog
+        open={Boolean(suspendTarget)}
+        onOpenChange={(open) => {
+          if (!open) setSuspendTarget(null);
+        }}
+        user={suspendTarget}
       />
     </div>
   );

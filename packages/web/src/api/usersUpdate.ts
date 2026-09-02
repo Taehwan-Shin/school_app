@@ -7,6 +7,7 @@ export interface UsersUpdateRequest {
   firstName?: string;
   lastName?: string;
   orgUnitPath?: string;
+  suspended?: boolean;
 }
 
 export interface UsersUpdateResponse {

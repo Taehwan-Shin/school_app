@@ -93,6 +93,38 @@ describe("usersUpdate API & Hook", () => {
       expect(parsedBody.data.lastName).toBe("김");
     });
 
+    it("includes suspended field in request body when suspended is provided", async () => {
+      let capturedInit: RequestInit | undefined;
+
+      global.fetch = vi.fn(async (_url: any, init: any) => {
+        capturedInit = init;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            result: {
+              primaryEmail: "target@cam.hs.kr",
+              updatedFields: ["suspended"],
+            },
+          }),
+        } as any;
+      });
+
+      const result = await callUsersUpdate({
+        primaryEmail: "target@cam.hs.kr",
+        suspended: true,
+      });
+
+      expect(result).toEqual({
+        primaryEmail: "target@cam.hs.kr",
+        updatedFields: ["suspended"],
+      });
+
+      const parsedBody = JSON.parse(capturedInit?.body as string);
+      expect(parsedBody.data.primaryEmail).toBe("target@cam.hs.kr");
+      expect(parsedBody.data.suspended).toBe(true);
+    });
+
     it("throws 403 permission-denied error when admin_cannot_edit_admin", async () => {
       global.fetch = vi.fn(async () => {
         return {

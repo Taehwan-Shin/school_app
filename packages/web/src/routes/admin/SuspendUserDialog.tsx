@@ -48,7 +48,7 @@ export function SuspendUserDialog({ open, onOpenChange, user }: SuspendUserDialo
     if (!isConfirmed) return;
 
     try {
-      await (updateUser as (data: { primaryEmail: string; suspended?: boolean }) => Promise<unknown>)({
+      await updateUser({
         primaryEmail: user.email.trim(),
         suspended: !user.isSuspended,
       });

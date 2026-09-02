@@ -141,7 +141,7 @@ describe("AccountsTable component", () => {
     expect(screen.getByText("Email")).toBeDefined();
     expect(screen.getByText("이름")).toBeDefined();
     expect(screen.getByText("조직 단위")).toBeDefined();
-    expect(screen.getByText("정지")).toBeDefined();
+    expect(screen.getAllByText("정지").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("관리")).toBeDefined();
     expect(screen.getAllByText("관리자").length).toBeGreaterThanOrEqual(2);
 
@@ -787,6 +787,88 @@ describe("AccountsTable component", () => {
     expect(familyNameInput.value).toBe("홍");
     expect(givenNameInput.value).toBe("길동");
     expect(orgUnitInput.value).toBe("/교사");
+  });
+
+  it("renders suspend and restore buttons correctly based on user suspension state", () => {
+    const mockUsers = [
+      {
+        email: "normal@cam.hs.kr",
+        firstName: "정상",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "suspended@cam.hs.kr",
+        firstName: "정지",
+        lastName: "박",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: true,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const normalSuspendBtn = screen.getByTestId("suspend-user-normal@cam.hs.kr") as HTMLButtonElement;
+    expect(normalSuspendBtn).toBeDefined();
+    expect(normalSuspendBtn.textContent).toBe("정지");
+    expect(normalSuspendBtn.title).toBe("계정 정지");
+    expect(normalSuspendBtn.disabled).toBe(false);
+
+    const suspendedRestoreBtn = screen.getByTestId("suspend-user-suspended@cam.hs.kr") as HTMLButtonElement;
+    expect(suspendedRestoreBtn).toBeDefined();
+    expect(suspendedRestoreBtn.textContent).toBe("복구");
+    expect(suspendedRestoreBtn.title).toBe("계정 복구");
+    expect(suspendedRestoreBtn.disabled).toBe(false);
+  });
+
+  it("disables suspend button for self account with appropriate title", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리자",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "other@cam.hs.kr",
+        firstName: "다른",
+        lastName: "이",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const selfSuspendBtn = screen.getByTestId("suspend-user-admin@cam.hs.kr") as HTMLButtonElement;
+    expect(selfSuspendBtn).toBeDefined();
+    expect(selfSuspendBtn.disabled).toBe(true);
+    expect(selfSuspendBtn.title).toBe("자기 계정은 정지·복구할 수 없습니다");
+
+    const otherSuspendBtn = screen.getByTestId("suspend-user-other@cam.hs.kr") as HTMLButtonElement;
+    expect(otherSuspendBtn).toBeDefined();
+    expect(otherSuspendBtn.disabled).toBe(false);
+    expect(otherSuspendBtn.title).toBe("계정 정지");
   });
 });
 
