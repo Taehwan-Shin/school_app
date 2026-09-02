@@ -18,6 +18,9 @@ export interface AuditLogEntryRead {
 export interface ReadAuditEntriesOptions {
   limit: number; // 1..200
   before?: number; // ms since epoch, exclusive
+  filterActor?: string; // 정확 매치
+  filterTarget?: string; // 정확 매치
+  filterResult?: 'ok' | 'error' | 'denied';
 }
 
 export interface ReadAuditEntriesResult {
@@ -29,11 +32,20 @@ export async function readAuditEntries(
   options: ReadAuditEntriesOptions,
 ): Promise<ReadAuditEntriesResult> {
   const db = getFirestore();
-  const { limit, before } = options;
+  const { limit, before, filterActor, filterTarget, filterResult } = options;
 
   let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
   if (before !== undefined) {
     query = query.where('at', '<', Timestamp.fromMillis(before));
+  }
+  if (filterActor) {
+    query = query.where('actor', '==', filterActor);
+  }
+  if (filterTarget) {
+    query = query.where('target', '==', filterTarget);
+  }
+  if (filterResult) {
+    query = query.where('result', '==', filterResult);
   }
   query = query.limit(limit);
 
