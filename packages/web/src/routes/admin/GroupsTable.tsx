@@ -22,6 +22,7 @@ const PAGE_SIZE = 25;
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
   const [searchParams, setSearchParams] = useSearchParams();
+  const kpiFilter = searchParams.get('filter');
   const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
@@ -35,7 +36,7 @@ export function GroupsTable() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, sortColumn, sortDirection]);
+  }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
     const next = new URLSearchParams(searchParams);
@@ -51,6 +52,16 @@ export function GroupsTable() {
   const sortedFilteredGroups = useMemo(() => {
     if (!data?.groups) return [];
     let result = data.groups;
+
+    // KPI 필터 먼저
+    if (kpiFilter === 'with-members') {
+      result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) > 0);
+    } else if (kpiFilter === 'empty') {
+      result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) === 0);
+    } else if (kpiFilter) {
+      result = [];
+    }
+
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       result = result.filter((group: GroupItem) => {
@@ -74,7 +85,7 @@ export function GroupsTable() {
       });
     }
     return result;
-  }, [data?.groups, searchQuery, sortColumn, sortDirection]);
+  }, [data?.groups, kpiFilter, searchQuery, sortColumn, sortDirection]);
 
   const total = sortedFilteredGroups.length;
   const paginatedGroups = sortedFilteredGroups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
