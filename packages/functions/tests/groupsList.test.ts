@@ -33,6 +33,7 @@ describe('groupsList unit tests', () => {
       requestId?: string;
       auth?: boolean;
       scopes?: string | null;
+      data?: any;
     } = {},
   ) {
     const hasAuth = options.auth !== false;
@@ -58,7 +59,7 @@ describe('groupsList unit tests', () => {
     }
 
     return {
-      data: {},
+      data: options.data ?? {},
       auth: hasAuth
         ? {
             token: {
@@ -203,6 +204,79 @@ describe('groupsList unit tests', () => {
       result: 'ok',
       message: 'listed 3 groups',
     });
+  });
+
+  it('allows admin with userKey to list groups for user and writes ok audit log with userKey', async () => {
+    mockDirectoryGroupsList.mockResolvedValueOnce({
+      data: {
+        groups: [
+          {
+            email: 'group1@cam.hs.kr',
+            name: 'Group 1',
+            description: 'Desc 1',
+            aliases: [],
+            directMembersCount: 10,
+          },
+          {
+            email: 'group2@cam.hs.kr',
+            name: 'Group 2',
+            description: 'Desc 2',
+            aliases: [],
+            directMembersCount: 20,
+          },
+        ],
+        nextPageToken: null,
+      },
+    });
+
+    const req = createRequest({
+      email: 'admin@cam.hs.kr',
+      role: 'admin',
+      data: { userKey: 'student@cam.hs.kr' },
+    });
+    const result = await groupsList.run(req);
+
+    expect(result.groups).toHaveLength(2);
+    expect(mockDirectoryGroupsList).toHaveBeenCalledWith({
+      userKey: 'student@cam.hs.kr',
+      maxResults: 200,
+      pageToken: undefined,
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'groups.read',
+        target: '*',
+        result: 'ok',
+        message: 'listed 2 groups for user student@cam.hs.kr',
+      }),
+    );
+  });
+
+  it('rejects userKey with invalid domain and writes error audit log', async () => {
+    const req = createRequest({
+      email: 'admin@cam.hs.kr',
+      role: 'admin',
+      data: { userKey: 'user@bad-domain.com' },
+    });
+
+    await expect(groupsList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_email_domain',
+    });
+
+    expect(mockDirectoryGroupsList).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'groups.read',
+        target: '*',
+        result: 'error',
+        message: 'invalid_email_domain',
+      }),
+    );
   });
 
   it('allows super_admin to list groups and writes ok audit log', async () => {
