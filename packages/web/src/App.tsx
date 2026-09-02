@@ -10,6 +10,7 @@ import { AuditLogPage } from './routes/super_admin/audit';
 import { AdminPage } from './routes/admin';
 import { GroupsPage } from './routes/admin/groups';
 import { GroupDetailPage } from './routes/admin/groupDetail';
+import { UserDetailPage } from './routes/admin/userDetail';
 import { TeacherPage } from './routes/teacher';
 
 const queryClient = new QueryClient({
@@ -40,6 +41,7 @@ export function App() {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/groups" element={<GroupsPage />} />
                 <Route path="/admin/groups/:email" element={<GroupDetailPage />} />
+                <Route path="/admin/users/:email" element={<UserDetailPage />} />
               </Route>
 
               <Route element={<RoleGuard expectedRole="teacher" />}>

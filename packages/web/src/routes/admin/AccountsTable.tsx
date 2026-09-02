@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
@@ -218,7 +218,11 @@ export function AccountsTable() {
 
                     return (
                       <TableRow key={user.email}>
-                        <TableCell className="font-mono text-small text-fg-primary">{user.email}</TableCell>
+                        <TableCell className="font-mono text-small">
+                          <Link to={`/admin/users/${encodeURIComponent(user.email)}`} className="text-fg-primary hover:underline">
+                            {user.email}
+                          </Link>
+                        </TableCell>
                         <TableCell className="text-fg-primary">{fullName}</TableCell>
                         <TableCell className="font-mono text-small text-fg-secondary">
                           {user.orgUnitPath || "/"}
