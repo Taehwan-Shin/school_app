@@ -585,6 +585,111 @@ describe('GroupsTable component', () => {
     fireEvent.click(nameHeader);
     expect(capturedSearch).toBe('?sort=name&dir=desc');
   });
+
+  it('filters groups by URL filter=with-members on initial load', () => {
+    const mockGroups = [
+      {
+        email: 'group1@cam.hs.kr',
+        name: '그룹 1',
+        description: '설명 1',
+        aliases: [],
+        directMembersCount: 5,
+      },
+      {
+        email: 'group2@cam.hs.kr',
+        name: '그룹 2',
+        description: '설명 2',
+        aliases: [],
+        directMembersCount: 10,
+      },
+      {
+        email: 'empty1@cam.hs.kr',
+        name: '빈 그룹 1',
+        description: '설명 3',
+        aliases: [],
+        directMembersCount: 0,
+      },
+      {
+        email: 'empty2@cam.hs.kr',
+        name: '빈 그룹 2',
+        description: '설명 4',
+        aliases: [],
+        directMembersCount: 0,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />, ['/admin/groups?filter=with-members']);
+
+    expect(screen.getByText('group1@cam.hs.kr')).toBeDefined();
+    expect(screen.getByText('group2@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('empty1@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('empty2@cam.hs.kr')).toBeNull();
+    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–2 of 2');
+  });
+
+  it('merges KPI filter with search query filtering', () => {
+    const mockGroups = [
+      {
+        email: 'empty-target@cam.hs.kr',
+        name: '타겟 빈그룹',
+        description: '매칭 설명',
+        aliases: [],
+        directMembersCount: 0,
+      },
+      {
+        email: 'empty-other@cam.hs.kr',
+        name: '다른 빈그룹',
+        description: '기타 설명',
+        aliases: [],
+        directMembersCount: 0,
+      },
+      {
+        email: 'with-members@cam.hs.kr',
+        name: '타겟 유멤버',
+        description: '매칭 설명',
+        aliases: [],
+        directMembersCount: 5,
+      },
+      {
+        email: 'other-with-members@cam.hs.kr',
+        name: '다른 유멤버',
+        description: '기타 설명',
+        aliases: [],
+        directMembersCount: 10,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />, ['/admin/groups?filter=empty']);
+
+    expect(screen.getByText('empty-target@cam.hs.kr')).toBeDefined();
+    expect(screen.getByText('empty-other@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('with-members@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('other-with-members@cam.hs.kr')).toBeNull();
+    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–2 of 2');
+
+    const searchInput = screen.getByTestId('groups-search-input');
+    fireEvent.change(searchInput, { target: { value: '타겟' } });
+
+    expect(screen.getByText('empty-target@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('empty-other@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('with-members@cam.hs.kr')).toBeNull();
+    expect(screen.queryByText('other-with-members@cam.hs.kr')).toBeNull();
+    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–1 of 1');
+  });
 });
 
 

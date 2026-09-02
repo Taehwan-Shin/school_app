@@ -1,8 +1,21 @@
+import { useSearchParams } from 'react-router-dom';
 import { useGroupsList } from '../../api/groupsList';
 import { KpiCard } from './KpiCard';
 
 export function GroupKpiCardRow() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentFilter = searchParams.get('filter');
   const { data, isLoading, isError } = useGroupsList();
+
+  const handleCardClick = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (currentFilter === value) {
+      next.delete('filter');
+    } else {
+      next.set('filter', value);
+    }
+    setSearchParams(next, { replace: false });
+  };
 
   if (isError) {
     return (
@@ -41,13 +54,17 @@ export function GroupKpiCardRow() {
         label="멤버 있는 그룹"
         value={withMembersGroups}
         loading={isLoading}
-        href={undefined}
+        href="with-members"
+        active={currentFilter === 'with-members'}
+        onClick={() => handleCardClick('with-members')}
       />
       <KpiCard
         label="빈 그룹"
         value={emptyGroups}
         loading={isLoading}
-        href={undefined}
+        href="empty"
+        active={currentFilter === 'empty'}
+        onClick={() => handleCardClick('empty')}
       />
       <KpiCard
         label="평균 멤버 수"
