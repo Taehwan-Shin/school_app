@@ -15,6 +15,7 @@ import { CreateUserDialog } from "./CreateUserDialog";
 import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
+import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -31,6 +32,8 @@ export function AccountsTable() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<SuspendUserTarget | null>(null);
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
+  const [resetTarget, setResetTarget] = useState<ResetPasswordTarget | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
@@ -130,6 +133,15 @@ export function AccountsTable() {
           </Button>
         </div>
       </div>
+
+      {successBanner && (
+        <div
+          className="border border-state-success bg-surface p-4 text-small text-state-success"
+          data-testid="accounts-success-banner"
+        >
+          {successBanner}
+        </div>
+      )}
 
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="accounts-loading">
@@ -254,6 +266,27 @@ export function AccountsTable() {
                             <button
                               type="button"
                               disabled={isSelf}
+                              title={isSelf ? "자기 계정 비밀번호는 여기서 재설정할 수 없습니다" : "비밀번호 재설정"}
+                              onClick={() =>
+                                setResetTarget({
+                                  email: user.email,
+                                  firstName: user.firstName,
+                                  lastName: user.lastName,
+                                })
+                              }
+                              data-testid={`reset-password-${user.email}`}
+                              className={
+                                isSelf
+                                  ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                  : "text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                              }
+                            >
+                              비밀번호
+                            </button>
+                            <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                            <button
+                              type="button"
+                              disabled={isSelf}
                               title={isSelf ? "자기 계정은 정지·복구할 수 없습니다" : (user.isSuspended ? "계정 복구" : "계정 정지")}
                               onClick={() =>
                                 setSuspendTarget({
@@ -362,6 +395,20 @@ export function AccountsTable() {
           if (!open) setSuspendTarget(null);
         }}
         user={suspendTarget}
+      />
+
+      <ResetPasswordDialog
+        open={Boolean(resetTarget)}
+        onOpenChange={(open) => {
+          if (!open) setResetTarget(null);
+        }}
+        user={resetTarget}
+        onSuccess={() => {
+          setSuccessBanner("비밀번호가 재설정되었습니다.");
+          setTimeout(() => {
+            setSuccessBanner(null);
+          }, 3000);
+        }}
       />
     </div>
   );

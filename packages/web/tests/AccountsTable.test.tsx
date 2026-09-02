@@ -43,6 +43,14 @@ vi.mock("../src/api/usersUpdate.js", () => ({
   }),
 }));
 
+vi.mock("../src/api/usersResetPassword.js", () => ({
+  useResetPassword: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { AccountsTable } from "../src/routes/admin/AccountsTable.js";
 
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin']) {
@@ -869,6 +877,78 @@ describe("AccountsTable component", () => {
     expect(otherSuspendBtn).toBeDefined();
     expect(otherSuspendBtn.disabled).toBe(false);
     expect(otherSuspendBtn.title).toBe("계정 정지");
+  });
+
+  it("renders password reset button in actions column, disabled for self with appropriate title", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리자",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "other@cam.hs.kr",
+        firstName: "다른",
+        lastName: "이",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const selfResetBtn = screen.getByTestId("reset-password-admin@cam.hs.kr") as HTMLButtonElement;
+    expect(selfResetBtn).toBeDefined();
+    expect(selfResetBtn.textContent).toBe("비밀번호");
+    expect(selfResetBtn.disabled).toBe(true);
+    expect(selfResetBtn.title).toBe("자기 계정 비밀번호는 여기서 재설정할 수 없습니다");
+
+    const otherResetBtn = screen.getByTestId("reset-password-other@cam.hs.kr") as HTMLButtonElement;
+    expect(otherResetBtn).toBeDefined();
+    expect(otherResetBtn.textContent).toBe("비밀번호");
+    expect(otherResetBtn.disabled).toBe(false);
+    expect(otherResetBtn.title).toBe("비밀번호 재설정");
+  });
+
+  it("opens ResetPasswordDialog when clicking password reset button", () => {
+    const mockUsers = [
+      {
+        email: "target@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const resetBtn = screen.getByTestId("reset-password-target@cam.hs.kr");
+    fireEvent.click(resetBtn);
+
+    expect(screen.getByText("비밀번호 재설정")).toBeDefined();
+    expect(screen.getAllByText("target@cam.hs.kr").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId("reset-password-new")).toBeDefined();
+    expect(screen.getByTestId("reset-password-submit")).toBeDefined();
   });
 });
 

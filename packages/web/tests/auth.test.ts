@@ -84,13 +84,14 @@ describe('Auth & Session Helpers', () => {
 
       await signInWithGoogle();
 
-      expect(addScopeMock).toHaveBeenCalledTimes(6);
+      expect(addScopeMock).toHaveBeenCalledTimes(7);
       expect(addScopeMock).toHaveBeenNthCalledWith(1, 'https://www.googleapis.com/auth/admin.directory.user.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(2, 'https://www.googleapis.com/auth/admin.directory.user');
       expect(addScopeMock).toHaveBeenNthCalledWith(3, 'https://www.googleapis.com/auth/admin.directory.group.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(4, 'https://www.googleapis.com/auth/admin.directory.group');
       expect(addScopeMock).toHaveBeenNthCalledWith(5, 'https://www.googleapis.com/auth/admin.directory.group.member.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(6, 'https://www.googleapis.com/auth/admin.directory.group.member');
+      expect(addScopeMock).toHaveBeenNthCalledWith(7, 'https://www.googleapis.com/auth/admin.directory.user.security');
       expect(setCustomParametersMock).toHaveBeenCalledWith({
         hd: 'cam.hs.kr',
         prompt: 'select_account',
