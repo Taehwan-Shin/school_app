@@ -1,9 +1,25 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { GroupDetailPage } from '../src/routes/admin/groupDetail';
 import type { GroupItem } from '../src/api/groupsList';
+
+vi.mock('../src/api/groupsUpdate', () => ({
+  useUpdateGroup: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/groupsDelete', () => ({
+  useDeleteGroup: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
 
 const mockUseGroupsList = vi.fn();
 const mockUseAuditLogList = vi.fn();
@@ -155,5 +171,63 @@ describe('GroupDetailPage', () => {
     expect(screen.queryByTestId('group-detail-info')).toBeNull();
     expect(screen.getByText('멤버 관리')).toBeDefined();
     expect(screen.getByText('감사 이력')).toBeDefined();
+  });
+
+  it('scenario 4: clicking "편집" opens EditGroupDialog', () => {
+    const mockGroups: GroupItem[] = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 그룹',
+        description: '전체 교사 그룹입니다.',
+        aliases: [],
+        directMembersCount: 15,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('teachers@cam.hs.kr');
+
+    const editBtn = screen.getByTestId('group-detail-edit-teachers@cam.hs.kr');
+    expect(editBtn).toBeDefined();
+
+    fireEvent.click(editBtn);
+
+    expect(screen.getByText('그룹 편집')).toBeDefined();
+    expect(screen.getByTestId('edit-group-submit')).toBeDefined();
+  });
+
+  it('scenario 5: clicking "삭제" opens DeleteGroupDialog', () => {
+    const mockGroups: GroupItem[] = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 그룹',
+        description: '전체 교사 그룹입니다.',
+        aliases: [],
+        directMembersCount: 15,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('teachers@cam.hs.kr');
+
+    const deleteBtn = screen.getByTestId('group-detail-delete-teachers@cam.hs.kr');
+    expect(deleteBtn).toBeDefined();
+
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByText('그룹 삭제 확인')).toBeDefined();
+    expect(screen.getByTestId('delete-group-submit')).toBeDefined();
   });
 });
