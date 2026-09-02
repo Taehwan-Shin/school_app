@@ -1,203 +1,201 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **super_admin 대시보드 재설계 v0.25** — 현재 shadcn 스타일 placeholder 인 `/super_admin` 페이지를 UI_SYSTEM 톤 + 실 KPI (총 사용자·총 그룹·최근 24 시간 감사 이벤트) + 감사 로그 shortcut 로 재작성.
+> 지금 이 파일의 오더는 **감사 로그 v4 (서버 사이드 필터) v0.26** — `readAudit` 헬퍼와 `auditLog.list` callable 을 확장해 서버 사이드 actor·target·result 필터 지원. 클라이언트는 request 에 filter 파라미터 전달. 프론트엔드 UI 는 v0.27 에서 확장.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/super-admin-dashboard-v25`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/audit-log-v4-v26`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 3 개.
 
-**Designer 몫**: `docs/design/UI_SYSTEM.md` §4.3 (KPI 카드) + §4.5 (버튼) + accounts KpiCard 재사용.
+**writeAudit 규율**: audit_log 접근 헬퍼 확장. ESLint 예외 목록 (`readAudit.ts`) 그대로.
 
 ## 기준 커밋
 
-**Base**: `5d28514` (감사 로그 v3 v0.24)
+**Base**: `65b0aa8` (super_admin 대시보드 v0.25)
 
-## 지금 할 것 — /super_admin 대시보드 재작성
+## 지금 할 것 — 감사 로그 서버 사이드 필터
 
 ### 왜
 
-`/super_admin` 페이지는 v0.1 이전의 shadcn 기본 스타일 (bg-white·rounded-lg·shadow-sm·text-slate-*) 그대로 남아있고 placeholder 문구가 실 기능과 어긋남 (「감사 로그 자리」 라고 하지만 이미 `/super_admin/audit` 가 실 뷰).
+v0.22/v0.24 로 클라이언트 사이드 필터를 놓았지만 audit_log 가 커지면 (수천~수만 건) 로드된 페이지에만 필터 적용됨. 실 감사 사용 시 「이 사용자에 대한 모든 이벤트」 를 정확히 보려면 서버가 미리 필터해서 페이지네이션 유지해야 함.
 
-이 슬라이스가 사용자 역할별 진입 페이지를 재작성.
+**하지 않는 것**: 프론트엔드 UI 갱신 (v0.27 로 미룸). 새 audit action 필터. 복합 필터 3 개 동시 (Firestore 인덱스 필요 — 별도 slice).
 
-**하지 않는 것**: `/teacher` 재작성 (다음 slice). 새 백엔드 (기존 hook 재사용). 상세 통계 그래프 (별도 slice).
+**허용하는 조합**: actor / target / result 중 최대 2 개 동시 필터. actor+result 조합은 이미 Firestore 단일 필드 인덱스로 처리 가능. target+at, actor+at 는 자동 복합 인덱스.
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/web/src/routes/super_admin/index.tsx` — 재작성.
+- `packages/functions/src/audit/readAudit.ts` — `ReadAuditEntriesOptions` 에 filter 필드 추가. Firestore where 체인.
+- `packages/functions/src/callable/audit/list.ts` — `AuditLogListRequest` 에 filter 추가, `readAuditEntries` 로 전달, audit message 에 필터 반영.
+- `packages/functions/tests/readAudit.test.ts` — 필터 시나리오 3 추가.
+- `packages/functions/tests/auditLogList.test.ts` — 필터 시나리오 3 추가.
+- `packages/web/src/api/auditLogList.ts` — 인터페이스 확장 (backward compatible).
+- `firestore.indexes.json` — 복합 인덱스 추가 (`target,at` + `actor,at` + `result,at`).
 
-**신규 파일**:
-- `packages/web/tests/SuperAdminPage.test.tsx` — 신규 시나리오 3.
+**신규 파일**: 없음.
 
 **손대지 마라**:
-- `AuditLogTable` · KPI 컴포넌트 · 다른 라우트.
-- 백엔드.
-- teacher 페이지 (별도 slice).
+- `AuditLogTable.tsx` · 프론트엔드 UI — v0.27.
+- 다른 callable · middleware · writeAudit.
 
 ### 세부 요구
 
-#### 1. `super_admin/index.tsx` 재작성
+#### 1. `readAudit.ts` 확장
 
-**참고**: `useUsersList` + `useGroupsList` + `useAuditLogList` 이미 있음. 모두 재사용.
-
-**레이아웃**:
-```tsx
-import { useAuth } from '../../lib/auth';
-import { AppShell } from '../../components/shell/AppShell';
-import { KpiCard } from '../../components/dashboard/KpiCard';
-import { useUsersList } from '../../api/usersList';
-import { useGroupsList } from '../../api/groupsList';
-import { useAuditLogList } from '../../api/auditLogList';
-import { Link } from 'react-router-dom';
-
-export function SuperAdminPage() {
-  const { role } = useAuth();
-  const users = useUsersList();
-  const groups = useGroupsList();
-  const audit = useAuditLogList(50);  // 최근 50 개만 KPI 계산용
-
-  // 최근 24 시간 감사 이벤트 수
-  const now = Date.now();
-  const dayAgo = now - 24 * 60 * 60 * 1000;
-  const recentEvents = audit.entries.filter((e) => e.at >= dayAgo);
-
-  return (
-    <AppShell role={role} pageTitle="슈퍼 관리자">
-      <div className="space-y-8">
-        {/* KPI 로우 */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <KpiCard
-            label="총 사용자"
-            value={users.data?.users?.length ?? 0}
-            loading={users.isLoading}
-          />
-          <KpiCard
-            label="총 그룹"
-            value={groups.data?.groups?.length ?? 0}
-            loading={groups.isLoading}
-          />
-          <KpiCard
-            label="최근 24시간 이벤트"
-            value={recentEvents.length}
-            loading={audit.loading}
-          />
-        </div>
-
-        {/* 감사 로그 shortcut */}
-        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-h2 font-semibold text-fg-primary">최근 감사 이벤트</h2>
-              <p className="text-small text-fg-secondary mt-1">
-                {recentEvents.length > 0
-                  ? `최근 24시간에 ${recentEvents.length}건의 이벤트가 기록되었습니다.`
-                  : '최근 24시간에 이벤트가 없습니다.'}
-              </p>
-            </div>
-            <Link
-              to="/super_admin/audit"
-              className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors"
-            >
-              감사 로그 전체 보기 →
-            </Link>
-          </div>
-          {/* 최근 5 개 이벤트만 미리보기 */}
-          {recentEvents.length > 0 && (
-            <ul className="space-y-2" data-testid="super-admin-recent-events">
-              {recentEvents.slice(0, 5).map((e) => (
-                <li key={e.id} className="flex items-center gap-3 text-small">
-                  <span className="font-mono text-fg-secondary w-40 shrink-0">
-                    {new Date(e.at).toLocaleString('ko-KR')}
-                  </span>
-                  <span className="font-mono text-fg-primary">{e.action}</span>
-                  <span className="text-fg-secondary">·</span>
-                  <span
-                    className={
-                      e.result === 'ok'
-                        ? 'text-fg-primary'
-                        : e.result === 'error'
-                        ? 'text-state-danger'
-                        : 'text-state-warning'
-                    }
-                  >
-                    {e.result}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* 시스템 설정 shortcut */}
-        <section className="bg-elevated p-8 border border-border-subtle space-y-2">
-          <h2 className="text-h3 font-semibold text-fg-primary">시스템 설정 (준비 중)</h2>
-          <p className="text-small text-fg-secondary">
-            역할 관리 · 캡 매트릭스 · 기초값 · 배포 상태 등. 다음 슬라이스에서 붙습니다.
-          </p>
-        </section>
-      </div>
-    </AppShell>
-  );
+```ts
+export interface ReadAuditEntriesOptions {
+  limit: number;
+  before?: number;
+  // 신규 필터 (조합 허용, 하지만 클라이언트는 최대 2 개 조합만 보내는 것이 안전):
+  filterActor?: string;    // 정확 매치
+  filterTarget?: string;   // 정확 매치
+  filterResult?: 'ok' | 'error' | 'denied';
 }
 ```
 
-**주의**:
-- `useAuditLogList(50)` — 초기 50 개만 로드 (KPI 계산 + 프리뷰 5 개 용). 「더 보기」 없음.
-- `useUsersList` / `useGroupsList` — 모두 병렬 (React Query 병렬 fetch).
-- KPI 로우: 3 개 (accounts 4 개와 다름, super_admin 관점).
-- 감사 shortcut 섹션 하단 프리뷰 5 개 (event.result 색상 구분).
+**구현** — Firestore `.where()` 체인. 각 필터가 있으면 추가:
+```ts
+let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
+if (before !== undefined) {
+  query = query.where('at', '<', Timestamp.fromMillis(before));
+}
+if (filterActor) {
+  query = query.where('actor', '==', filterActor);
+}
+if (filterTarget) {
+  query = query.where('target', '==', filterTarget);
+}
+if (filterResult) {
+  query = query.where('result', '==', filterResult);
+}
+query = query.limit(limit);
+```
 
-**하단 「시스템 설정」 섹션**: shadcn 스타일 유지하지 마라. UI_SYSTEM 톤 (bg-elevated + border-border-subtle + text-h3).
+**주의 (Firestore 제약)**:
+- `orderBy('at', 'desc')` + `where('at', '<', ...)` + `where('actor', '==', ...)` — 복합 인덱스 필요.
+- `firestore.indexes.json` 에 명시적 등록 (다음 항목).
 
-#### 2. `SuperAdminPage.test.tsx` 신규 3
+#### 2. `firestore.indexes.json` — 복합 인덱스 등록
 
-`MemoryRouter` 래퍼 + hook mock 시나리오:
+기존 파일에 다음 인덱스 3 개 추가 (audit_log 컬렉션):
+```json
+{
+  "collectionGroup": "audit_log",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "actor", "order": "ASCENDING" },
+    { "fieldPath": "at", "order": "DESCENDING" }
+  ]
+},
+{
+  "collectionGroup": "audit_log",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "target", "order": "ASCENDING" },
+    { "fieldPath": "at", "order": "DESCENDING" }
+  ]
+},
+{
+  "collectionGroup": "audit_log",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "result", "order": "ASCENDING" },
+    { "fieldPath": "at", "order": "DESCENDING" }
+  ]
+}
+```
 
-1. **KPI 로우 렌더** — mock users.data.users=[5개], groups.data.groups=[3개], audit.entries=[10개 (5개는 24시간 이내)] → 3 KPI 카드 값 (5·3·5).
-2. **최근 이벤트 프리뷰** — audit.entries 로 5 개 렌더, 각 `super-admin-recent-events` 아래에 이벤트 표시.
-3. **빈 이벤트 상태** — audit.entries=[] → 「최근 24시간에 이벤트가 없습니다.」
+**배포 시 참고**: `firebase deploy --only firestore:indexes` 필요 (헤드가 자동 배포 시 hosting,functions 만 이었음). 이번 슬라이스 배포 후 헤드가 별도로 실행.
+
+#### 3. `auditLog.list` callable 확장
+
+**입력 스키마**:
+```ts
+export interface AuditLogListRequest {
+  limit?: number;
+  before?: number;
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
+}
+```
+
+**readAuditEntries 호출**: 위 파라미터 그대로 전달.
+
+**성공 audit message** (기존 message 확장):
+```ts
+const filters = [];
+if (filterActor) filters.push(`actor=${filterActor}`);
+if (filterTarget) filters.push(`target=${filterTarget}`);
+if (filterResult) filters.push(`result=${filterResult}`);
+const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';
+message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})${filterStr}`,
+```
+
+#### 4. `packages/web/src/api/auditLogList.ts` — 타입 확장
+
+`AuditLogListRequest` 에 3 필드 추가 (optional). `useAuditLogList` hook 은 이번 슬라이스에서는 기존 시그니처 그대로 (v0.27 에서 필터 전달 추가 예정).
+
+**변경**:
+```ts
+export interface AuditLogListRequest {
+  limit?: number;
+  before?: number;
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
+}
+```
+
+#### 5. 테스트
+
+**`readAudit.test.ts`** 신규 3:
+1. `filterActor='super@cam.hs.kr'` → Firestore `where` 체인 확인 (mock spy on `.where`)
+2. `filterTarget + filterResult` 조합 → 두 where 호출 확인
+3. 필터 없음 → 기존 동작 그대로 (backward compat)
+
+**`auditLogList.test.ts`** 신규 3:
+1. `filterActor` 전달 시 `readAuditEntries` 에 그대로 전달 확인
+2. 성공 audit message 에 필터 정보 포함 확인
+3. 필터 없이 호출 시 기존 동작 그대로
 
 ### 완료 확인
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 390 + 신규 3 = 393 근처.
-5. dev 서버 확인:
-   - `admin2@cam.hs.kr` 로 로그인 → `/super_admin` 자동 이동
-   - 3 KPI 카드 (총 사용자·총 그룹·최근 24시간 이벤트) 큰 숫자 렌더
-   - 「최근 감사 이벤트」 섹션에 최근 5 개 이벤트 프리뷰
-   - 「감사 로그 전체 보기 →」 클릭 시 `/super_admin/audit` 로 이동
-   - 다크 모드 자연 전환
+4. `pnpm -r test` — 이전 393 + 신규 6 = 399 근처.
+5. `pnpm -r test:emu` — 이전 43 유지 (신규 emu 없음, 기존 emu 는 필터 안 씀).
 6. 프로덕션 번들 grep — 0 건.
 
 ### 판정 불가
 
-- **`/teacher` 대시보드** — 다음 slice.
-- **역할 관리 UI** — 별도 slice (`system.manage_roles` cap 이미 정의됨).
-- **상세 통계 그래프** — 별도 slice.
+- **실 Firestore 복합 인덱스 활성화** — 헤드가 `firebase deploy --only firestore:indexes` 실행 후 자동 index 빌드. 실 사용 전 인덱스 활성 확인.
+- **3-way 필터 조합** — 별도 인덱스 필요, 이번 슬라이스 밖.
+- **필터 값 검증** — `filterActor` · `filterTarget` 에 특수 문자 · injection 있으면 Firestore 가 처리. 우리 코드 별도 sanitize 안 함.
+- **프론트엔드 UI** — v0.27.
 
 ### 커밋 규칙
 
-**2 커밋 분리**:
-1. `feat(web): SuperAdminPage 재작성 (UI_SYSTEM 톤 + 실 KPI + 감사 shortcut)`
-2. `test(web): SuperAdminPage 시나리오 3 추가`
+**3 커밋 분리**:
+1. `feat(functions): readAudit 에 actor·target·result 필터 지원`
+2. `feat(functions): auditLog.list callable 에 필터 파라미터 전달 + 감사 message 확장`
+3. `chore(firestore): audit_log 복합 인덱스 3 개 (actor·target·result + at desc)`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/super-admin-dashboard-v25`.
+**작업 브랜치** — `git push -u origin feat/audit-log-v4-v26`.
 
 ## 상태 보고 (필수)
 
