@@ -12,6 +12,7 @@ import {
 import { cn } from '../../lib/utils';
 import { AddMemberDialog } from './AddMemberDialog';
 import { RemoveMemberDialog } from './RemoveMemberDialog';
+import { EditMemberRoleDialog } from './EditMemberRoleDialog';
 
 export interface MembersTableProps {
   groupEmail: string;
@@ -21,6 +22,7 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
   const { members, loading, error, hasMore, loadMore, reload } = useGroupMembersList(groupEmail);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<GroupMemberItem | null>(null);
+  const [roleEditTarget, setRoleEditTarget] = useState<GroupMemberItem | null>(null);
 
   return (
     <div className="space-y-4">
@@ -91,7 +93,15 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
                   <TableCell className="text-micro text-fg-secondary">
                     {member.type}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right space-x-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setRoleEditTarget(member)}
+                      data-testid={`edit-role-btn-${member.email}`}
+                    >
+                      역할 변경
+                    </Button>
                     <button
                       type="button"
                       onClick={() => setRemoveTarget(member)}
@@ -137,6 +147,19 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
         member={removeTarget}
         onSuccess={reload}
       />
+
+      {roleEditTarget && (
+        <EditMemberRoleDialog
+          open={Boolean(roleEditTarget)}
+          onOpenChange={(open) => {
+            if (!open) setRoleEditTarget(null);
+          }}
+          groupEmail={groupEmail}
+          memberEmail={roleEditTarget.email}
+          currentRole={roleEditTarget.role}
+          onSuccess={reload}
+        />
+      )}
     </div>
   );
 }
