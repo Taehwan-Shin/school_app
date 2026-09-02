@@ -212,5 +212,29 @@ describe('groupsList API & Hook', () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+
+    it('sends userKey in request body when userKey option is provided', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: { groups: [] } }),
+      });
+      global.fetch = fetchMock as any;
+
+      const { result } = renderHook(
+        () => useGroupsList(true, { userKey: 'admin@cam.hs.kr' }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, options] = fetchMock.mock.calls[0];
+      expect(JSON.parse(options.body)).toEqual({
+        data: {
+          _googleAccessToken: 'mock-google-access-token',
+          userKey: 'admin@cam.hs.kr',
+        },
+      });
+    });
   });
 });

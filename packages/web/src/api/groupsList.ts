@@ -14,7 +14,7 @@ export interface GroupsListResponse {
   groups: GroupItem[];
 }
 
-export async function callGroupsList(): Promise<GroupsListResponse> {
+export async function callGroupsList(data: { userKey?: string } = {}): Promise<GroupsListResponse> {
   const user = auth.currentUser;
   if (!user) {
     throw new Error('not_authenticated');
@@ -35,6 +35,11 @@ export async function callGroupsList(): Promise<GroupsListResponse> {
       ? crypto.randomUUID()
       : Math.random().toString(36).substring(2);
 
+  const requestData: Record<string, any> = { _googleAccessToken: googleAccessToken };
+  if (data.userKey) {
+    requestData.userKey = data.userKey;
+  }
+
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -44,7 +49,7 @@ export async function callGroupsList(): Promise<GroupsListResponse> {
       'X-Google-Scopes': 'https://www.googleapis.com/auth/admin.directory.group.readonly',
       'X-Request-Id': requestId,
     },
-    body: JSON.stringify({ data: { _googleAccessToken: googleAccessToken } }),
+    body: JSON.stringify({ data: requestData }),
   });
 
   if (!res.ok) {
@@ -59,10 +64,15 @@ export async function callGroupsList(): Promise<GroupsListResponse> {
   return (body.result ?? body) as GroupsListResponse;
 }
 
-export function useGroupsList(enabled = true, options?: { retry?: number | boolean }) {
+export interface UseGroupsListOptions {
+  userKey?: string;
+  retry?: number | boolean;
+}
+
+export function useGroupsList(enabled = true, options?: UseGroupsListOptions) {
   return useQuery<GroupsListResponse, Error>({
-    queryKey: ['groups', 'list'],
-    queryFn: () => callGroupsList(),
+    queryKey: options?.userKey ? ['groups', 'list', 'byUser', options.userKey] : ['groups', 'list'],
+    queryFn: () => callGroupsList({ userKey: options?.userKey }),
     enabled,
     staleTime: 60_000,
     // 4xx 는 재시도하지 않는다 — 서버가 이미 denied/permission-denied 감사 로그를 남긴 상태.

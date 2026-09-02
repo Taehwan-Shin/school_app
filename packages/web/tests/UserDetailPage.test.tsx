@@ -33,6 +33,12 @@ vi.mock('../src/api/auditLogList', () => ({
   useAuditLogList: (pageSize?: number, filters?: any) => mockUseAuditLogList(pageSize, filters),
 }));
 
+const mockUseGroupsList = vi.fn();
+
+vi.mock('../src/api/groupsList', () => ({
+  useGroupsList: (enabled?: boolean, options?: any) => mockUseGroupsList(enabled, options),
+}));
+
 function renderDetailPage(initialEmail = 'admin2@cam.hs.kr') {
   return render(
     <MemoryRouter initialEntries={[`/admin/users/${encodeURIComponent(initialEmail)}`]}>
@@ -53,6 +59,12 @@ describe('UserDetailPage', () => {
       hasMore: false,
       loadMore: vi.fn(),
       reload: vi.fn(),
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
     });
   });
 
@@ -108,6 +120,7 @@ describe('UserDetailPage', () => {
     expect(screen.getByTestId('user-detail-not-found')).toBeDefined();
     expect(screen.getByText('사용자를 찾을 수 없습니다: admin2@cam.hs.kr')).toBeDefined();
     expect(screen.queryByTestId('user-detail-info')).toBeNull();
+    expect(screen.queryByText('소속 그룹')).toBeNull();
     expect(screen.queryByText('감사 이력')).toBeNull();
   });
 
@@ -123,5 +136,57 @@ describe('UserDetailPage', () => {
 
     expect(screen.getByText('불러오는 중...')).toBeDefined();
     expect(screen.queryByTestId('user-detail-info')).toBeNull();
+  });
+
+  it('scenario 4: user exists - renders user groups section', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'admin2@cam.hs.kr',
+        firstName: '철수',
+        lastName: '김',
+        orgUnitPath: '/교무부',
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('admin2@cam.hs.kr');
+
+    expect(screen.getByText('소속 그룹')).toBeDefined();
+    expect(
+      screen.getByText('이 사용자가 속한 Google Workspace 그룹 목록입니다.')
+    ).toBeDefined();
+    expect(screen.getByTestId('user-groups-empty')).toBeDefined();
+  });
+
+  it('scenario 5: passes correct userKey to useGroupsList', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'teacher1@cam.hs.kr',
+        firstName: '영희',
+        lastName: '이',
+        orgUnitPath: '/연구부',
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('teacher1@cam.hs.kr');
+
+    expect(mockUseGroupsList).toHaveBeenCalledWith(true, { userKey: 'teacher1@cam.hs.kr' });
   });
 });

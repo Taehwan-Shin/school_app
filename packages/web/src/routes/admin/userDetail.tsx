@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { useUsersList } from '../../api/usersList';
 import { UserAuditTrail } from './UserAuditTrail';
+import { UserGroups } from './UserGroups';
 
 export function UserDetailPage() {
   const { email = '' } = useParams<{ email: string }>();
@@ -75,6 +76,17 @@ export function UserDetailPage() {
             </dl>
           )}
         </section>
+
+        {/* 소속 그룹 */}
+        {user && (
+          <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+            <h2 className="text-h2 font-semibold text-fg-primary">소속 그룹</h2>
+            <p className="text-small text-fg-secondary">
+              이 사용자가 속한 Google Workspace 그룹 목록입니다.
+            </p>
+            <UserGroups userEmail={user.email} />
+          </section>
+        )}
 
         {/* 감사 이력 */}
         {user && (

@@ -4,6 +4,7 @@ import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getDirectoryClient } from '../../google/directoryClient.js';
+import { ALLOWED_DOMAIN } from '../../auth/onUserCreate.js';
 
 export interface GroupItem {
   email: string;
@@ -11,6 +12,10 @@ export interface GroupItem {
   description: string;
   aliases: string[];
   directMembersCount: number;
+}
+
+export interface GroupsListRequest {
+  userKey?: string;
 }
 
 export interface GroupsListResponse {
@@ -73,14 +78,27 @@ export const groupsList = onCall(
     }
 
     try {
+      const data = request.data as Partial<GroupsListRequest> | undefined;
+      const rawUserKey = data?.userKey;
+      let userKey: string | undefined;
+      if (typeof rawUserKey === 'string' && rawUserKey.trim()) {
+        userKey = rawUserKey.trim();
+        const domain = userKey.split('@')[1];
+        if (domain !== ALLOWED_DOMAIN) {
+          throw new HttpsError('invalid-argument', 'invalid_email_domain');
+        }
+      }
+
       const directory = getDirectoryClient(user.googleAccessToken);
       const results: GroupItem[] = [];
       let pageToken: string | undefined;
 
       do {
+        const params: any = userKey
+          ? { userKey, maxResults: 200 }
+          : { customer: 'my_customer', maxResults: 200 };
         const res = await directory.groups.list({
-          customer: 'my_customer',
-          maxResults: 200,
+          ...params,
           pageToken,
         });
         results.push(
@@ -105,7 +123,9 @@ export const groupsList = onCall(
         target: '*',
         request_id: requestId,
         result: 'ok',
-        message: `listed ${results.length} groups`,
+        message: userKey
+          ? `listed ${results.length} groups for user ${userKey}`
+          : `listed ${results.length} groups`,
       });
 
       return { groups: results };
