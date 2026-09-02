@@ -522,4 +522,172 @@ describe("usersUpdate unit tests", () => {
       message: "Google Directory 500 Internal Error",
     });
   });
+
+  // 13. admin 이 일반 사용자 정지 (suspended=true 만 편집)
+  it("allows admin to suspend regular user with suspended=true and writes ok audit", async () => {
+    setTargetAppRole(null);
+    mockDirectoryUsersGet.mockResolvedValueOnce({
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        isAdmin: false,
+        name: { givenName: "Given", familyName: "Family" },
+        orgUnitPath: "/학생",
+        suspended: false,
+      },
+    });
+    mockDirectoryUsersPatch.mockResolvedValueOnce({ data: {} });
+
+    const req = createRequest({
+      email: "admin@cam.hs.kr",
+      role: "admin",
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        suspended: true,
+      },
+    });
+
+    const result = await usersUpdate.run(req);
+
+    expect(result).toEqual({
+      primaryEmail: "student@cam.hs.kr",
+      updatedFields: ["suspended"],
+    });
+
+    expect(mockDirectoryUsersPatch).toHaveBeenCalledWith({
+      userKey: "student@cam.hs.kr",
+      requestBody: {
+        suspended: true,
+      },
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: "admin@cam.hs.kr",
+      role: "admin",
+      action: "users.write",
+      target: "student@cam.hs.kr",
+      request_id: "req-test-update-123",
+      result: "ok",
+      message: `updated fields: suspended | before: ${JSON.stringify({
+        firstName: "Given",
+        lastName: "Family",
+        orgUnitPath: "/학생",
+        suspended: false,
+      })} | after: ${JSON.stringify({
+        suspended: true,
+      })}`,
+    });
+  });
+
+  // 14. admin 이 일반 사용자 복구 (suspended=false 만 편집)
+  it("allows admin to restore suspended regular user with suspended=false and writes ok audit", async () => {
+    setTargetAppRole(null);
+    mockDirectoryUsersGet.mockResolvedValueOnce({
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        isAdmin: false,
+        name: { givenName: "Given", familyName: "Family" },
+        orgUnitPath: "/학생",
+        suspended: true,
+      },
+    });
+    mockDirectoryUsersPatch.mockResolvedValueOnce({ data: {} });
+
+    const req = createRequest({
+      email: "admin@cam.hs.kr",
+      role: "admin",
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        suspended: false,
+      },
+    });
+
+    const result = await usersUpdate.run(req);
+
+    expect(result).toEqual({
+      primaryEmail: "student@cam.hs.kr",
+      updatedFields: ["suspended"],
+    });
+
+    expect(mockDirectoryUsersPatch).toHaveBeenCalledWith({
+      userKey: "student@cam.hs.kr",
+      requestBody: {
+        suspended: false,
+      },
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: "admin@cam.hs.kr",
+      role: "admin",
+      action: "users.write",
+      target: "student@cam.hs.kr",
+      request_id: "req-test-update-123",
+      result: "ok",
+      message: `updated fields: suspended | before: ${JSON.stringify({
+        firstName: "Given",
+        lastName: "Family",
+        orgUnitPath: "/학생",
+        suspended: true,
+      })} | after: ${JSON.stringify({
+        suspended: false,
+      })}`,
+    });
+  });
+
+  // 15. admin 이 firstName + suspended 함께 편집
+  it("allows admin to edit firstName and suspended together and writes ok audit", async () => {
+    setTargetAppRole(null);
+    mockDirectoryUsersGet.mockResolvedValueOnce({
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        isAdmin: false,
+        name: { givenName: "OldName", familyName: "Family" },
+        orgUnitPath: "/학생",
+        suspended: false,
+      },
+    });
+    mockDirectoryUsersPatch.mockResolvedValueOnce({ data: {} });
+
+    const req = createRequest({
+      email: "admin@cam.hs.kr",
+      role: "admin",
+      data: {
+        primaryEmail: "student@cam.hs.kr",
+        firstName: "NewName",
+        suspended: true,
+      },
+    });
+
+    const result = await usersUpdate.run(req);
+
+    expect(result).toEqual({
+      primaryEmail: "student@cam.hs.kr",
+      updatedFields: ["firstName", "suspended"],
+    });
+
+    expect(mockDirectoryUsersPatch).toHaveBeenCalledWith({
+      userKey: "student@cam.hs.kr",
+      requestBody: {
+        name: { givenName: "NewName" },
+        suspended: true,
+      },
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: "admin@cam.hs.kr",
+      role: "admin",
+      action: "users.write",
+      target: "student@cam.hs.kr",
+      request_id: "req-test-update-123",
+      result: "ok",
+      message: `updated fields: firstName, suspended | before: ${JSON.stringify({
+        firstName: "OldName",
+        lastName: "Family",
+        orgUnitPath: "/학생",
+        suspended: false,
+      })} | after: ${JSON.stringify({
+        name: { givenName: "NewName" },
+        suspended: true,
+      })}`,
+    });
+  });
 });
