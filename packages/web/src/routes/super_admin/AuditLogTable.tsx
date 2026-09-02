@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
 import {
@@ -11,21 +12,56 @@ import {
 
 export function AuditLogTable() {
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25);
+  const [resultFilter, setResultFilter] = useState<'all' | 'ok' | 'error' | 'denied'>('all');
+  const [actionSearch, setActionSearch] = useState('');
+
+  const filteredEntries = useMemo(() => {
+    let result = entries;
+    if (resultFilter !== 'all') {
+      result = result.filter((e) => e.result === resultFilter);
+    }
+    const q = actionSearch.trim().toLowerCase();
+    if (q) {
+      result = result.filter((e) => e.action.toLowerCase().includes(q));
+    }
+    return result;
+  }, [entries, resultFilter, actionSearch]);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
-          {entries.length}건 표시됨 · 최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
+          {filteredEntries.length}건 표시됨 / 전체 {entries.length}건 · 최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
         </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={reload}
-          data-testid="audit-log-reload"
-        >
-          새로 고침
-        </Button>
+        <div className="flex items-center gap-3">
+          <select
+            value={resultFilter}
+            onChange={(e) => setResultFilter(e.target.value as 'all' | 'ok' | 'error' | 'denied')}
+            data-testid="audit-log-filter-result"
+            className="border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary focus:outline-none focus:border-border-strong"
+          >
+            <option value="all">모든 결과</option>
+            <option value="ok">성공</option>
+            <option value="error">오류</option>
+            <option value="denied">거부</option>
+          </select>
+          <input
+            type="text"
+            value={actionSearch}
+            onChange={(e) => setActionSearch(e.target.value)}
+            placeholder="액션 검색"
+            data-testid="audit-log-filter-action"
+            className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={reload}
+            data-testid="audit-log-reload"
+          >
+            새로 고침
+          </Button>
+        </div>
       </div>
 
       {loading && entries.length === 0 && (
@@ -62,74 +98,83 @@ export function AuditLogTable() {
 
       {entries.length > 0 && (
         <>
-          <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>시간</TableHead>
-                  <TableHead>행위자</TableHead>
-                  <TableHead>역할</TableHead>
-                  <TableHead>액션</TableHead>
-                  <TableHead>대상</TableHead>
-                  <TableHead>결과</TableHead>
-                  <TableHead>요청 ID</TableHead>
-                  <TableHead>메시지</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.map((entry) => {
-                  const resultColor =
-                    entry.result === 'ok'
-                      ? 'text-fg-primary'
-                      : entry.result === 'error'
-                      ? 'text-state-danger'
-                      : entry.result === 'denied'
-                      ? 'text-state-warning'
-                      : 'text-fg-primary';
+          {filteredEntries.length === 0 ? (
+            <div
+              className="py-12 text-center text-small text-fg-secondary"
+              data-testid="audit-log-filter-empty"
+            >
+              필터에 매칭되는 로그가 없습니다.
+            </div>
+          ) : (
+            <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>시간</TableHead>
+                    <TableHead>행위자</TableHead>
+                    <TableHead>역할</TableHead>
+                    <TableHead>액션</TableHead>
+                    <TableHead>대상</TableHead>
+                    <TableHead>결과</TableHead>
+                    <TableHead>요청 ID</TableHead>
+                    <TableHead>메시지</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEntries.map((entry) => {
+                    const resultColor =
+                      entry.result === 'ok'
+                        ? 'text-fg-primary'
+                        : entry.result === 'error'
+                        ? 'text-state-danger'
+                        : entry.result === 'denied'
+                        ? 'text-state-warning'
+                        : 'text-fg-primary';
 
-                  const roleColor =
-                    entry.role === 'unknown' ? 'text-fg-muted' : 'text-fg-primary';
+                    const roleColor =
+                      entry.role === 'unknown' ? 'text-fg-muted' : 'text-fg-primary';
 
-                  const shortRequestId =
-                    entry.request_id && entry.request_id.length > 8
-                      ? entry.request_id.slice(-8)
-                      : entry.request_id || '-';
+                    const shortRequestId =
+                      entry.request_id && entry.request_id.length > 8
+                        ? entry.request_id.slice(-8)
+                        : entry.request_id || '-';
 
-                  return (
-                    <TableRow key={entry.id} data-testid={`audit-log-row-${entry.id}`}>
-                      <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                        {new Date(entry.at).toLocaleString('ko-KR')}
-                      </TableCell>
-                      <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                        {entry.actor}
-                      </TableCell>
-                      <TableCell className={`text-micro whitespace-nowrap ${roleColor}`}>
-                        {entry.role}
-                      </TableCell>
-                      <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                        {entry.action}
-                      </TableCell>
-                      <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                        {entry.target}
-                      </TableCell>
-                      <TableCell className={`text-micro font-medium whitespace-nowrap ${resultColor}`}>
-                        {entry.result}
-                      </TableCell>
-                      <TableCell className="text-micro font-mono text-fg-muted whitespace-nowrap">
-                        {shortRequestId}
-                      </TableCell>
-                      <TableCell
-                        className="text-small text-fg-secondary max-w-xs truncate"
-                        title={entry.message}
-                      >
-                        {entry.message || '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                    return (
+                      <TableRow key={entry.id} data-testid={`audit-log-row-${entry.id}`}>
+                        <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+                          {new Date(entry.at).toLocaleString('ko-KR')}
+                        </TableCell>
+                        <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+                          {entry.actor}
+                        </TableCell>
+                        <TableCell className={`text-micro whitespace-nowrap ${roleColor}`}>
+                          {entry.role}
+                        </TableCell>
+                        <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+                          {entry.action}
+                        </TableCell>
+                        <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+                          {entry.target}
+                        </TableCell>
+                        <TableCell className={`text-micro font-medium whitespace-nowrap ${resultColor}`}>
+                          {entry.result}
+                        </TableCell>
+                        <TableCell className="text-micro font-mono text-fg-muted whitespace-nowrap">
+                          {shortRequestId}
+                        </TableCell>
+                        <TableCell
+                          className="text-small text-fg-secondary max-w-xs truncate"
+                          title={entry.message}
+                        >
+                          {entry.message || '-'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
           {hasMore && (
             <div className="flex justify-center mt-4">
