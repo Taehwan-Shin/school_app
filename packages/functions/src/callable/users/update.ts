@@ -12,6 +12,7 @@ export interface UsersUpdateRequest {
   firstName?: string;
   lastName?: string;
   orgUnitPath?: string;
+  suspended?: boolean;
 }
 
 export interface UsersUpdateResponse {
@@ -79,7 +80,7 @@ export const usersUpdate = onCall(
         throw new HttpsError("invalid-argument", "missing_request_data");
       }
 
-      const { primaryEmail, firstName, lastName, orgUnitPath } = data;
+      const { primaryEmail, firstName, lastName, orgUnitPath, suspended } = data;
 
       if (!primaryEmail || typeof primaryEmail !== "string") {
         throw new HttpsError("invalid-argument", "email_required");
@@ -108,6 +109,11 @@ export const usersUpdate = onCall(
         const path = orgUnitPath.trim().startsWith("/") ? orgUnitPath.trim() : "/" + orgUnitPath.trim();
         requestBody.orgUnitPath = path;
         updatedFields.push("orgUnitPath");
+      }
+
+      if (typeof suspended === "boolean") {
+        requestBody.suspended = suspended;
+        updatedFields.push("suspended");
       }
 
       if (updatedFields.length === 0) {
@@ -153,6 +159,7 @@ export const usersUpdate = onCall(
           firstName: before.data?.name?.givenName,
           lastName: before.data?.name?.familyName,
           orgUnitPath: before.data?.orgUnitPath,
+          suspended: before.data?.suspended,
         })} | after: ${JSON.stringify(requestBody)}`,
       });
 
