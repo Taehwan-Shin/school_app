@@ -25,6 +25,14 @@ vi.mock('../src/api/groupsMembersDelete.js', () => ({
   }),
 }));
 
+vi.mock('../src/api/groupsMembersUpdate.js', () => ({
+  useUpdateMemberRole: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { MembersTable } from '../src/routes/admin/MembersTable.js';
 
 describe('MembersTable component', () => {
@@ -118,8 +126,38 @@ describe('MembersTable component', () => {
     const memberRoleCell = screen.getByText('MEMBER');
     expect(memberRoleCell.className).not.toContain('font-medium');
 
+    expect(screen.getByTestId('edit-role-btn-owner@cam.hs.kr')).toBeDefined();
+    expect(screen.getByTestId('edit-role-btn-member@cam.hs.kr')).toBeDefined();
     expect(screen.getByTestId('remove-member-owner@cam.hs.kr')).toBeDefined();
     expect(screen.getByTestId('remove-member-member@cam.hs.kr')).toBeDefined();
+  });
+
+  it('opens edit member role dialog when role edit button is clicked', () => {
+    mockUseGroupMembersList.mockReturnValue({
+      members: [
+        {
+          email: 'member@cam.hs.kr',
+          role: 'MEMBER' as const,
+          type: 'USER' as const,
+          status: 'ACTIVE',
+        },
+      ],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    expect(screen.queryByTestId('edit-member-role-dialog')).toBeNull();
+
+    const editBtn = screen.getByTestId('edit-role-btn-member@cam.hs.kr');
+    fireEvent.click(editBtn);
+
+    expect(screen.getByTestId('edit-member-role-dialog')).toBeDefined();
+    expect(screen.getByText('그룹 멤버 역할 변경')).toBeDefined();
   });
 
   it('calls loadMore when more button is clicked', () => {

@@ -64,6 +64,10 @@
         "function": { "functionId": "auditLogList", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/groupsMembersUpdate",
+        "function": { "functionId": "groupsMembersUpdate", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
