@@ -243,6 +243,82 @@ describe('auditLogList unit tests', () => {
     expect(result.entries).toHaveLength(2);
   });
 
+  it('passes filterActor to readAuditEntries when provided', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+    });
+
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActor: 'admin@cam.hs.kr' },
+    });
+    await auditLogList.run(req);
+
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 50,
+      before: undefined,
+      filterActor: 'admin@cam.hs.kr',
+      filterTarget: undefined,
+      filterResult: undefined,
+    });
+  });
+
+  it('includes filter information in successful audit message', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+    });
+
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        filterActor: 'admin@cam.hs.kr',
+        filterTarget: 'user@cam.hs.kr',
+        filterResult: 'ok',
+      },
+    });
+    await auditLogList.run(req);
+
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: 'read 0 entries (limit 50) [actor=admin@cam.hs.kr, target=user@cam.hs.kr, result=ok]',
+      }),
+    );
+  });
+
+  it('preserves existing behavior and message format when no filters are provided', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+    });
+
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {},
+    });
+    await auditLogList.run(req);
+
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 50,
+      before: undefined,
+      filterActor: undefined,
+      filterTarget: undefined,
+      filterResult: undefined,
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: 'read 0 entries (limit 50)',
+      }),
+    );
+  });
+
   it('rejects admin with permission-denied and writes denied audit log', async () => {
     const req = createRequest({ email: 'admin@cam.hs.kr', role: 'admin' });
 

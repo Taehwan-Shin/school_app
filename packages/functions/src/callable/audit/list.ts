@@ -8,6 +8,9 @@ import { readAuditEntries, type AuditLogEntryRead } from '../../audit/readAudit.
 export interface AuditLogListRequest {
   limit?: number;
   before?: number;
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
 }
 
 export interface AuditLogListResponse {
@@ -78,7 +81,32 @@ export const auditLogList = onCall(
           ? data.before
           : undefined;
 
-      const result = await readAuditEntries({ limit, before });
+      const filterActor =
+        typeof data?.filterActor === 'string' && data.filterActor.length > 0
+          ? data.filterActor
+          : undefined;
+      const filterTarget =
+        typeof data?.filterTarget === 'string' && data.filterTarget.length > 0
+          ? data.filterTarget
+          : undefined;
+      const filterResult =
+        data?.filterResult === 'ok' || data?.filterResult === 'error' || data?.filterResult === 'denied'
+          ? data.filterResult
+          : undefined;
+
+      const result = await readAuditEntries({
+        limit,
+        before,
+        filterActor,
+        filterTarget,
+        filterResult,
+      });
+
+      const filters = [];
+      if (filterActor) filters.push(`actor=${filterActor}`);
+      if (filterTarget) filters.push(`target=${filterTarget}`);
+      if (filterResult) filters.push(`result=${filterResult}`);
+      const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';
 
       await writeAudit({
         actor: user.email,
@@ -87,7 +115,7 @@ export const auditLogList = onCall(
         target: '*',
         request_id: requestId,
         result: 'ok',
-        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})`,
+        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})${filterStr}`,
       });
 
       return result;
