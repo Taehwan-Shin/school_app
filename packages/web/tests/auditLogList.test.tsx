@@ -321,5 +321,115 @@ describe('auditLogList API & Hook', () => {
       expect(result.current.error?.message).toBe('permission-denied');
       expect(result.current.entries).toEqual([]);
     });
+
+    it('passes filter options to callAuditLogList when filters are provided', async () => {
+      const mockEntries: AuditLogEntryRead[] = [
+        {
+          id: 'log-1',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.delete',
+          target: 'bad@cam.hs.kr',
+          request_id: 'req-001',
+          result: 'ok',
+          at: 1725150000000,
+        },
+      ];
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: { entries: mockEntries, nextCursor: null },
+        }),
+      });
+      global.fetch = fetchMock as any;
+
+      const { result } = renderHook(() =>
+        useAuditLogList(25, {
+          filterActor: 'super@cam.hs.kr',
+          filterResult: 'ok',
+        })
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(callBody.data).toEqual(
+        expect.objectContaining({
+          limit: 25,
+          filterActor: 'super@cam.hs.kr',
+          filterResult: 'ok',
+        })
+      );
+      expect(result.current.entries).toEqual(mockEntries);
+    });
+
+    it('resets entries and refetches page 0 when filters change', async () => {
+      const entries1: AuditLogEntryRead[] = [
+        {
+          id: 'log-1',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.create',
+          target: 'user1@cam.hs.kr',
+          request_id: 'req-001',
+          result: 'ok',
+          at: 1725150000000,
+        },
+      ];
+      const entries2: AuditLogEntryRead[] = [
+        {
+          id: 'log-2',
+          actor: 'admin@cam.hs.kr',
+          role: 'admin',
+          action: 'users.delete',
+          target: 'user2@cam.hs.kr',
+          request_id: 'req-002',
+          result: 'denied',
+          at: 1725140000000,
+        },
+      ];
+
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            result: { entries: entries1, nextCursor: 1725150000000 },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            result: { entries: entries2, nextCursor: null },
+          }),
+        });
+      global.fetch = fetchMock as any;
+
+      const { result, rerender } = renderHook(
+        ({ filters }) => useAuditLogList(25, filters),
+        { initialProps: { filters: { filterActor: 'super@cam.hs.kr' } } }
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.entries).toEqual(entries1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // Change filters
+      rerender({ filters: { filterActor: 'admin@cam.hs.kr' } });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(secondCallBody.data).toEqual(
+        expect.objectContaining({
+          limit: 25,
+          filterActor: 'admin@cam.hs.kr',
+        })
+      );
+      expect(result.current.entries).toEqual(entries2);
+    });
   });
 });
