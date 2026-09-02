@@ -32,6 +32,32 @@ export function AuditLogTable() {
     return result;
   }, [entries, resultFilter, actionSearch]);
 
+  const handleExportCsv = () => {
+    const header = ['시간', '행위자', '역할', '액션', '대상', '결과', '요청 ID', '메시지'];
+    const rows = filteredEntries.map((e) => [
+      new Date(e.at).toISOString(),
+      e.actor,
+      e.role,
+      e.action,
+      e.target,
+      e.result,
+      e.request_id,
+      (e.message ?? '').replace(/\n/g, ' '), // 개행 제거
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM 으로 Excel 한글 지원
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -75,6 +101,15 @@ export function AuditLogTable() {
             data-testid="audit-log-reload"
           >
             새로 고침
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={filteredEntries.length === 0}
+            data-testid="audit-log-export-csv"
+          >
+            CSV 내보내기
           </Button>
         </div>
       </div>

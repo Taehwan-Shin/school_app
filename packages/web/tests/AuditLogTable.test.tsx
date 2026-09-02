@@ -461,4 +461,107 @@ describe('AuditLogTable component', () => {
     fireEvent.change(input, { target: { value: '' } });
     expect(capturedSearch).toBe('');
   });
+
+  it('triggers CSV download with BOM and formatted filename when export button is clicked', async () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+        message: '사용자 "영구" 삭제\n확인 완료',
+      },
+      {
+        id: 'log-2',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.update',
+        target: 'teacher@cam.hs.kr',
+        request_id: 'req-2',
+        result: 'error',
+        at: 1725140000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    let createdBlob: Blob | null = null;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const mockCreateObjectURL = vi.fn((blob: Blob) => {
+      createdBlob = blob;
+      return 'blob:mock-url';
+    });
+    const mockRevokeObjectURL = vi.fn();
+    URL.createObjectURL = mockCreateObjectURL;
+    URL.revokeObjectURL = mockRevokeObjectURL;
+
+    let createdAnchor: HTMLAnchorElement | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      const el = originalCreateElement(tagName, options);
+      if (tagName === 'a') {
+        createdAnchor = el as HTMLAnchorElement;
+      }
+      return el;
+    }) as typeof document.createElement);
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      renderWithRouter(<AuditLogTable />);
+
+      const exportButton = screen.getByTestId('audit-log-export-csv');
+      expect(exportButton).toBeDefined();
+      expect(exportButton.hasAttribute('disabled')).toBe(false);
+
+      fireEvent.click(exportButton);
+
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
+      expect(createdBlob).not.toBeNull();
+      expect(createdAnchor).not.toBeNull();
+      expect(createdAnchor?.download).toMatch(/^audit-log-\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+
+      if (createdBlob) {
+        const buf = await (createdBlob as Blob).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        // Verify UTF-8 BOM: 0xEF, 0xBB, 0xBF
+        expect(bytes[0]).toBe(0xEF);
+        expect(bytes[1]).toBe(0xBB);
+        expect(bytes[2]).toBe(0xBF);
+
+        const text = await (createdBlob as Blob).text();
+        expect(text.startsWith('"시간","행위자","역할","액션","대상","결과","요청 ID","메시지"')).toBe(true);
+        // Quoted strings and replaced newlines
+        expect(text).toContain('사용자 ""영구"" 삭제 확인 완료');
+      }
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      createElementSpy.mockRestore();
+      clickSpy.mockRestore();
+    }
+  });
+
+  it('disables CSV export button when filteredEntries is empty', () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [],
+    });
+
+    renderWithRouter(<AuditLogTable />);
+
+    const exportButton = screen.getByTestId('audit-log-export-csv');
+    expect(exportButton).toBeDefined();
+    expect(exportButton.hasAttribute('disabled')).toBe(true);
+  });
 });
