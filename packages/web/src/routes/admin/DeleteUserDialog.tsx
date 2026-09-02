@@ -20,9 +20,15 @@ export interface DeleteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: DeleteUserTarget | null;
+  onSuccess?: () => void;
 }
 
-export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogProps) {
+export function DeleteUserDialog({
+  open,
+  onOpenChange,
+  user,
+  onSuccess,
+}: DeleteUserDialogProps) {
   const [confirmEmail, setConfirmEmail] = useState("");
   const { mutateAsync: deleteUser, isPending, error: mutationError } = useDeleteUser();
 
@@ -43,6 +49,7 @@ export function DeleteUserDialog({ open, onOpenChange, user }: DeleteUserDialogP
     try {
       await deleteUser({ primaryEmail: user.email.trim() });
       handleClose(false);
+      onSuccess?.();
     } catch {
       // Mutation error handled below
     }
