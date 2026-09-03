@@ -1,136 +1,185 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **일괄 삭제 v0.42** — BulkSuspendDialog 대칭. AccountsTable 액션 바에 「선택 삭제」 버튼 + BulkDeleteDialog. `callUsersDelete` 반복 호출. 확인 강화 (`삭제 {count}` 문구 타이핑).
+> 지금 이 파일의 오더는 **멤버 일괄 제거 v0.43** — MembersTable 체크박스 컬럼 + 선택 상태 + BulkRemoveMembersDialog. `callGroupsMembersDelete` 반복 호출.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/bulk-delete-v42`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/bulk-remove-members-v43`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 1 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
 
 ## 기준 커밋
 
-**Base**: `596bd54` (일괄 정지 v0.41)
+**Base**: `18d98fd` (일괄 삭제 v0.42)
 
-## 지금 할 것 — 일괄 삭제 (bulk delete)
+## 지금 할 것 — MembersTable 일괄 제거
 
 ### 왜
 
-v0.41 로 일괄 정지 완비. 삭제는 정지보다 훨씬 위험 (되돌릴 수 없음, Google Workspace 실 삭제) — UX 확인 강화 필요. 백엔드는 이미 `users.delete` (`cannot_delete_self`, `admin_cannot_delete_admin` 방어) 완비. 클라이언트 반복 호출 패턴은 v0.41 그대로 재활용.
+v0.41·v0.42 로 Users 도메인 일괄 정지·삭제 완비. Groups 도메인 멤버 관리에서도 유사 시나리오: 「졸업생 30 명을 all-students@ 그룹에서 일괄 제거」. MembersTable 은 이미 검색·역할 필터·CSV 있음. 체크박스 + 일괄 제거만 추가하면 대칭 완성.
 
-**하지 않는 것**: 백엔드 batch endpoint (지금 규모 충분). Undo (Google Workspace 20 일 복구 창이 있지만 그건 워크스페이스 관리자가 별도 처리). MembersTable / GroupsTable 일괄 삭제 — 별도 slice.
+**하지 않는 것**: 멤버 일괄 역할 변경 (별도 slice). 멤버 일괄 이동 (그룹 A → 그룹 B) — 복잡한 UX, 별도. GroupsTable 일괄 삭제 — v0.44 후보.
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/web/src/routes/admin/AccountsTable.tsx` — 액션 바에 「선택 삭제」 버튼 + BulkDeleteDialog 상태·렌더
-- `packages/web/tests/AccountsTable.test.tsx` — 「선택 삭제」 버튼 렌더 시나리오 1
+- `packages/web/src/routes/admin/MembersTable.tsx` — 체크박스 컬럼 + selection state + 액션 바
+- `packages/web/tests/MembersTable.test.tsx` — 시나리오 2 (체크박스 렌더 + 액션 바 표시)
 
 **신규 파일**:
-- `packages/web/src/routes/admin/BulkDeleteDialog.tsx` — BulkSuspendDialog 패턴 그대로, callUsersDelete 사용, 확인 문구 강화
-- `packages/web/tests/BulkDeleteDialog.test.tsx` — 시나리오 3 (확인 문구, 성공 반복, 실패 반복)
+- `packages/web/src/routes/admin/BulkRemoveMembersDialog.tsx` — BulkDeleteDialog 패턴, callGroupsMembersDelete 사용
+- `packages/web/tests/BulkRemoveMembersDialog.test.tsx` — 시나리오 3
 
 **손대지 마라**:
-- `BulkSuspendDialog` — 그대로 (복제 대신 참고만).
-- `callUsersDelete` · `useDeleteUser` — 그대로.
+- `useGroupMembersList` · `callGroupsMembersDelete` · `useRemoveMember` — 그대로.
+- `RemoveMemberDialog` (개별) — 그대로.
 - 백엔드 · middleware · audit.
-- 개별 DeleteUserDialog — 그대로.
+- `AccountsTable` · `BulkSuspendDialog` · `BulkDeleteDialog` — 그대로 (참고만).
 
 ### 세부 요구
 
-#### 1. `BulkDeleteDialog.tsx` — BulkSuspendDialog 대칭
+#### 1. `MembersTable.tsx` — 체크박스 컬럼 + 선택 상태
 
-`BulkSuspendDialog.tsx` (`packages/web/src/routes/admin/BulkSuspendDialog.tsx`) 를 참고. 다른 점:
-
-**API**: `callUsersDelete({ primaryEmail })` (아니라 update).
-
-**확인 문구 강화**:
+**state**:
 ```ts
-const requiredPhrase = `삭제 ${emails.length}`;
-```
-사용자 입력이 정확히 이 문구와 일치해야 「삭제 실행」 버튼 활성:
-```tsx
-<Button
-  onClick={handleConfirm}
-  disabled={confirmText.trim() !== requiredPhrase}
-  variant="danger"   // BulkSuspendDialog 는 기본, 여기는 danger
-  data-testid="bulk-delete-confirm-btn"
->
-  삭제 실행
-</Button>
+const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+const [isBulkRemoveOpen, setIsBulkRemoveOpen] = useState(false);
 ```
 
-*(만약 `variant="danger"` 가 Button 컴포넌트에 없으면 기본으로 유지 + className 으로 위험 색상 추가 — `packages/web/src/components/ui/button.tsx` 확인 후 실 지원 variant 사용.)*
+**필터 변경 시 선택 초기화**:
+```ts
+useEffect(() => {
+  setSelectedEmails(new Set());
+}, [searchQuery, roleFilter]);
+```
+(기존 useState 옆에 추가 — `packages/web/src/routes/admin/MembersTable.tsx:26-27` 근처.)
 
-**Title/Description**:
+**헤더 체크박스**:
+- `checked = filteredMembers.length > 0 && filteredMembers.every((m) => selectedEmails.has(m.email))`
+- `indeterminate = filteredMembers.some((m) => selectedEmails.has(m.email)) && !checked`
+- onChange: 전체 선택/해제.
+
+**행 체크박스**: 각 행 맨 앞에.
+
+**액션 바 (선택 > 0)** — 기존 「상단 요약 + 액션」 (`packages/web/src/routes/admin/MembersTable.tsx:43-53`) 바로 아래 조건부:
 ```tsx
-<DialogTitle className="text-state-danger">일괄 삭제 확인</DialogTitle>
-<DialogDescription>
-  선택한 {emails.length}명 계정을 Google Workspace 에서 영구 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-</DialogDescription>
+{selectedEmails.size > 0 && (
+  <div
+    className="flex items-center justify-between bg-surface border border-border-strong p-4"
+    data-testid="members-bulk-action-bar"
+  >
+    <div className="text-small text-fg-primary">
+      <strong className="font-mono">{selectedEmails.size}</strong>명 선택됨
+    </div>
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setSelectedEmails(new Set())}
+        className="text-fg-secondary hover:text-fg-primary text-small cursor-pointer"
+        data-testid="members-bulk-clear-btn"
+      >
+        선택 해제
+      </button>
+      <Button
+        variant="secondary"
+        onClick={() => setIsBulkRemoveOpen(true)}
+        data-testid="members-bulk-remove-btn"
+        className="text-state-danger"
+      >
+        선택 제거
+      </Button>
+    </div>
+  </div>
+)}
 ```
 
-**확인 라벨**:
+**표 헤더/행 수정**: 기존 4 컬럼 (이메일·역할·타입·관리) 앞에 체크박스 컬럼 추가 → 5 컬럼.
+
+**다이얼로그 렌더** (컴포넌트 맨 아래):
 ```tsx
-<label className="text-small text-fg-primary">
-  실행하려면 아래 문구를 정확히 입력하세요: <strong className="font-mono">{requiredPhrase}</strong>
-</label>
-```
-
-**data-testid 접두사**: `bulk-delete-*` (bulk-suspend 와 구분).
-
-**나머지 (phase state, running 진행 바, done 요약)**: BulkSuspendDialog 와 동일 패턴. queryClient key 도 `["users", "list"]` 그대로.
-
-#### 2. `AccountsTable.tsx` — 「선택 삭제」 버튼
-
-`selectedEmails.size > 0` 액션 바 (`bulk-action-bar`) 안에 기존 「선택 정지」 버튼 옆에:
-
-```tsx
-<Button
-  variant="secondary"
-  onClick={() => setIsBulkDeleteOpen(true)}
-  data-testid="bulk-delete-btn"
-  className="text-state-danger"   // 위험 표시 (또는 variant="danger" 있으면 그것)
->
-  선택 삭제
-</Button>
-```
-
-**state**: `const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);`
-
-**다이얼로그 렌더**: BulkSuspendDialog 옆:
-```tsx
-<BulkDeleteDialog
-  open={isBulkDeleteOpen}
-  onOpenChange={setIsBulkDeleteOpen}
-  emails={Array.from(selectedEmails)}
+<BulkRemoveMembersDialog
+  open={isBulkRemoveOpen}
+  onOpenChange={setIsBulkRemoveOpen}
+  groupEmail={groupEmail}
+  memberEmails={Array.from(selectedEmails)}
   onDone={() => setSelectedEmails(new Set())}
 />
 ```
 
 **주의**:
-- 「선택 삭제」 를 「선택 정지」 오른쪽에 배치 — 시각적 흐름 (덜 위험 → 더 위험).
-- `variant="danger"` 지원 여부 확인 후 사용. 없으면 `className` 로 색상만.
+- Users 도메인은 `isSelf` 방어 필요했지만 멤버는 사용자 이메일이 그룹에 속하는 관계 — self 방어 불필요 (본인이 그룹에서 스스로 빠지는 것은 정상 오퍼레이션이라 서버에서 방어 안 함).
+- 그룹 상세 페이지 이동 시 MembersTable 이 새로 mount → selectedEmails 자연 초기화.
+
+#### 2. `BulkRemoveMembersDialog.tsx` — 다이얼로그
+
+`BulkDeleteDialog.tsx` (`packages/web/src/routes/admin/BulkDeleteDialog.tsx`) 참고. 다른 점:
+
+**Props**:
+```ts
+export interface BulkRemoveMembersDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  groupEmail: string;         // 그룹 이메일 (신규)
+  memberEmails: string[];     // 제거 대상 멤버 이메일 (이전 emails)
+  onDone?: () => void;
+}
+```
+
+**API**: `callGroupsMembersDelete({ groupEmail, memberEmail })` — 두 필드 다 필요.
+
+**iteration**:
+```ts
+for (let i = 0; i < memberEmails.length; i++) {
+  const memberEmail = memberEmails[i];
+  try {
+    await callGroupsMembersDelete({ groupEmail, memberEmail });
+  } catch (e) {
+    localFailures.push({ email: memberEmail, message: (e as Error).message });
+  }
+  setProgress(i + 1);
+}
+```
+
+**queryClient invalidation**:
+```ts
+queryClient.invalidateQueries({ queryKey: ['groups', 'members', groupEmail] });
+queryClient.invalidateQueries({ queryKey: [`groups/members/${groupEmail}`] });
+```
+(useRemoveMember 이 이미 두 키 형태 사용 — 같은 방식 유지, `packages/web/src/api/groupsMembersDelete.ts:67-68`.)
+
+**확인 문구**: 「제거 {count}」 (예: 「제거 3」).
+
+**Title**:
+```tsx
+<DialogTitle className="text-state-danger">일괄 멤버 제거 확인</DialogTitle>
+<DialogDescription>
+  <span className="font-mono">{groupEmail}</span> 에서 {memberEmails.length}명 멤버를 제거합니다. 그룹 자체는 유지됩니다.
+</DialogDescription>
+```
+
+**data-testid 접두사**: `bulk-remove-*`.
+
+**나머지 phase 구조**: BulkDeleteDialog · BulkSuspendDialog 와 동일.
 
 #### 3. 테스트
 
-**web `BulkDeleteDialog.test.tsx`** (3 신규 시나리오):
+**web `MembersTable.test.tsx`** (2 신규):
+1. 3 명 로드 → 3 개 체크박스 존재, 헤더 checkbox 존재.
+2. 체크박스 하나 클릭 → `members-bulk-action-bar` 렌더, 「1명 선택됨」.
 
-1. **확인 문구 요구**: emails=[a,b,c] → `bulk-delete-confirm-btn` disabled. `confirmText="삭제 3"` 입력 후 enabled.
-2. **성공 반복**: mock `callUsersDelete` all resolve → done phase, `failures.length === 0`.
-3. **실패 반복**: mock 하나만 reject (예: `admin_cannot_delete_admin`) → done phase, `failures` 배열에 그 이메일.
-
-**web `AccountsTable.test.tsx`** (1 회귀 시나리오):
-- 선택 > 0 → `bulk-delete-btn` 존재 확인 (기존 `bulk-suspend-btn` 옆).
+**web `BulkRemoveMembersDialog.test.tsx`** (3 신규):
+1. **확인 요구**: memberEmails=[a,b,c] → `bulk-remove-confirm-btn` disabled, `confirmText="제거 3"` 후 enabled.
+2. **성공 반복**: mock callGroupsMembersDelete resolves → done phase, failures 0.
+3. **실패 반복**: mock 하나 reject → done phase, failures 배열.
 
 기존 시나리오 회귀 유지.
 
@@ -139,28 +188,30 @@ const requiredPhrase = `삭제 ${emails.length}`;
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 488 + 신규 4 = 492 근처.
+4. `pnpm -r test` — 이전 492 + 신규 5 = 497 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin` 선택 > 0 → 액션 바에 「선택 정지 · 선택 삭제」 두 버튼
-   - 「선택 삭제」 → 다이얼로그 (빨간 헤더) → 「삭제 N」 문구 정확히 타이핑 → 실행
-   - 진행 바 → 결과 요약 (성공/실패)
+   - `/admin/groups/{email}` 멤버 표 최좌측 체크박스 컬럼
+   - 선택 > 0 → 「선택 제거」 액션 바
+   - 「선택 제거」 → 다이얼로그 → 「제거 N」 타이핑 → 실행
+   - 완료 후 멤버 표 새로고침
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **일괄 복구 (unsuspend)** — 별도 slice.
-- **일괄 편집 (orgUnitPath 변경 등)** — 별도 slice.
-- **Google Workspace 20 일 삭제 복구창** — 워크스페이스 관리자 콘솔에서 별도 처리 (앱 범위 밖).
+- **멤버 역할 일괄 변경** — 별도 slice.
+- **멤버 그룹 이동 (A → B)** — 복잡한 UX, 별도.
+- **GroupsTable 일괄 삭제** — v0.44 후보.
 
 ### 커밋 규칙
 
-**1 커밋**:
-- `feat(web): BulkDeleteDialog + AccountsTable 액션 바 「선택 삭제」 버튼`
+**2 커밋 분리**:
+1. `feat(web): MembersTable 체크박스 컬럼 + 선택 상태 + 일괄 액션 바`
+2. `feat(web): BulkRemoveMembersDialog (선택 멤버 반복 제거)`
 
-conventional commit. `git add -A` 금지.
+각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/bulk-delete-v42`.
+**작업 브랜치** — `git push -u origin feat/bulk-remove-members-v43`.
 
 ## 상태 보고 (필수)
 
