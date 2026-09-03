@@ -17,6 +17,7 @@ import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
 import { BulkSuspendDialog } from "./BulkSuspendDialog";
+import { BulkDeleteDialog } from "./BulkDeleteDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -44,6 +45,7 @@ export function AccountsTable() {
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkSuspendOpen, setIsBulkSuspendOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -217,6 +219,14 @@ export function AccountsTable() {
               data-testid="bulk-suspend-btn"
             >
               선택 정지
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              data-testid="bulk-delete-btn"
+              className="text-state-danger"
+            >
+              선택 삭제
             </Button>
           </div>
         </div>
@@ -533,6 +543,13 @@ export function AccountsTable() {
       <BulkSuspendDialog
         open={isBulkSuspendOpen}
         onOpenChange={setIsBulkSuspendOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
+      />
+
+      <BulkDeleteDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={setIsBulkDeleteOpen}
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />

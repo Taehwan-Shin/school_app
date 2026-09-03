@@ -28,6 +28,7 @@ vi.mock("../src/api/usersCreate.js", () => ({
 }));
 
 vi.mock("../src/api/usersDelete.js", () => ({
+  callUsersDelete: vi.fn(),
   useDeleteUser: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
@@ -1166,6 +1167,41 @@ describe("AccountsTable component", () => {
 
     expect(screen.queryByTestId("bulk-action-bar")).toBeNull();
     expect(user1Check.checked).toBe(false);
+  });
+
+  it("renders bulk-action-bar with bulk-suspend-btn and bulk-delete-btn when selection > 0", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const user1Check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    fireEvent.click(user1Check);
+
+    const suspendBtn = screen.getByTestId("bulk-suspend-btn");
+    const deleteBtn = screen.getByTestId("bulk-delete-btn");
+
+    expect(suspendBtn).toBeDefined();
+    expect(deleteBtn).toBeDefined();
+    expect(deleteBtn.textContent).toContain("선택 삭제");
+
+    fireEvent.click(deleteBtn);
+    expect(screen.getByText("일괄 삭제 확인")).toBeDefined();
   });
 });
 
