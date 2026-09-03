@@ -38,6 +38,28 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
     return result;
   }, [members, searchQuery, roleFilter]);
 
+  const handleExportCsv = () => {
+    const header = ['이메일', '역할', '타입'];
+    const rows = filteredMembers.map((m) => [
+      m.email,
+      m.role,
+      m.type ?? '',
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeGroupSlug = groupEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `members-${safeGroupSlug}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       {/* 상단 요약 + 액션 */}
@@ -47,9 +69,19 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
             ? `${filteredMembers.length}명 표시됨 / 전체 ${members.length}명`
             : `${members.length}명 멤버`}
         </p>
-        <Button onClick={() => setIsAddOpen(true)} data-testid="add-member-btn">
-          + 멤버 추가
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleExportCsv}
+            data-testid="members-export-csv-btn"
+            disabled={filteredMembers.length === 0}
+          >
+            CSV 내보내기
+          </Button>
+          <Button onClick={() => setIsAddOpen(true)} data-testid="add-member-btn">
+            + 멤버 추가
+          </Button>
+        </div>
       </div>
 
       {/* 필터 로우 */}

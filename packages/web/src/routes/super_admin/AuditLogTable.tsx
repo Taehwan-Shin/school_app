@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+import { cn } from '../../lib/utils';
 
 export function AuditLogTable() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,6 +73,43 @@ export function AuditLogTable() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handlePreset = (days: number | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (days === null) {
+      next.delete('atMin');
+      next.delete('atMax');
+    } else {
+      const atMinDate = new Date();
+      atMinDate.setDate(atMinDate.getDate() - days);
+      const yyyy = atMinDate.getFullYear();
+      const mm = String(atMinDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(atMinDate.getDate()).padStart(2, '0');
+      next.set('atMin', `${yyyy}-${mm}-${dd}`);
+      next.delete('atMax');
+    }
+    setSearchParams(next, { replace: false });
+  };
+
+  const activePreset: number | 'all' | null = (() => {
+    if (!searchParams.get('atMin') && !searchParams.get('atMax')) return 'all';
+    if (searchParams.get('atMax')) return null;
+    const raw = searchParams.get('atMin');
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    const now = new Date();
+    const check = (days: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - days);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}` === raw;
+    };
+    if (check(1)) return 1;
+    if (check(7)) return 7;
+    if (check(30)) return 30;
+    return null;
+  })();
 
   return (
     <div className="space-y-4">
@@ -167,6 +205,33 @@ export function AuditLogTable() {
           >
             CSV 내보내기
           </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <div className="flex items-center gap-2" role="group" aria-label="날짜 프리셋">
+          <span className="text-small text-fg-secondary mr-1">프리셋:</span>
+          {[
+            { key: 1 as const, label: '지난 24시간' },
+            { key: 7 as const, label: '지난 7일' },
+            { key: 30 as const, label: '지난 30일' },
+            { key: 'all' as const, label: '전체' },
+          ].map(({ key, label }) => (
+            <button
+              key={String(key)}
+              type="button"
+              onClick={() => handlePreset(key === 'all' ? null : key)}
+              data-testid={`audit-log-preset-${key}`}
+              className={cn(
+                'px-3 py-1 text-small border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong',
+                activePreset === key
+                  ? 'bg-fg-primary text-canvas border-fg-primary'
+                  : 'bg-canvas text-fg-primary border-border-subtle hover:border-border-strong',
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
