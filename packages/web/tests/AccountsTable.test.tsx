@@ -977,5 +977,37 @@ describe("AccountsTable component", () => {
     expect(link.tagName).toBe("A");
     expect(link.getAttribute("href")).toBe("/admin/users/user1%40cam.hs.kr");
   });
+
+  it("renders export CSV button, enabled when accounts exist and disabled when empty", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "김",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const exportBtn = screen.getByTestId("accounts-export-csv-btn") as HTMLButtonElement;
+    expect(exportBtn).toBeDefined();
+    expect(exportBtn.disabled).toBe(false);
+    expect(exportBtn.textContent).toContain("CSV 내보내기");
+
+    const searchInput = screen.getByTestId("accounts-search-input");
+    fireEvent.change(searchInput, { target: { value: "nonexistent" } });
+
+    expect(exportBtn.disabled).toBe(true);
+  });
 });
 

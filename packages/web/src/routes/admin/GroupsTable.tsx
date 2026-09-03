@@ -90,6 +90,28 @@ export function GroupsTable() {
   const total = sortedFilteredGroups.length;
   const paginatedGroups = sortedFilteredGroups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  const handleExportCsv = () => {
+    const header = ['이메일', '이름', '설명', '멤버 수'];
+    const rows = sortedFilteredGroups.map((g) => [
+      g.email,
+      g.name || '-',
+      g.description || '-',
+      String(g.directMembersCount ?? 0),
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `groups-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -111,6 +133,14 @@ export function GroupsTable() {
             data-testid="groups-search-input"
             className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          <Button
+            variant="secondary"
+            onClick={handleExportCsv}
+            data-testid="groups-export-csv-btn"
+            disabled={sortedFilteredGroups.length === 0}
+          >
+            CSV 내보내기
+          </Button>
           <Button
             onClick={() => setIsCreateOpen(true)}
             data-testid="add-group-btn"
