@@ -131,4 +131,45 @@ describe('GroupAuditTrail component', () => {
     fireEvent.click(loadMoreBtn);
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
+
+  it('scenario 5: renders actor as user detail link when ending with @cam.hs.kr, and plain text for non-domain actor', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'entry-1',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'groups.update',
+        target: 'teachers@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'entry-2',
+        actor: 'unknown',
+        role: 'unknown',
+        action: 'system.sync',
+        target: 'teachers@cam.hs.kr',
+        request_id: 'req-2',
+        result: 'ok',
+        at: 1725151000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    renderWithRouter(<GroupAuditTrail groupEmail="teachers@cam.hs.kr" />);
+
+    const link = screen.getByTestId('audit-actor-link-admin@cam.hs.kr');
+    expect(link).toBeDefined();
+    expect(link.getAttribute('href')).toBe('/admin/users/admin%40cam.hs.kr');
+    expect(link.textContent).toBe('admin@cam.hs.kr');
+
+    expect(screen.queryByTestId('audit-actor-link-unknown')).toBeNull();
+    expect(screen.getByText('unknown')).toBeDefined();
+  });
 });
+

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
 import {
@@ -11,6 +11,23 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
+
+const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
+
+function renderActor(actor: string) {
+  if (typeof actor === 'string' && actor.toLowerCase().endsWith(ALLOWED_DOMAIN_SUFFIX)) {
+    return (
+      <Link
+        to={`/admin/users/${encodeURIComponent(actor)}`}
+        className="text-fg-primary hover:underline"
+        data-testid={`audit-actor-link-${actor}`}
+      >
+        {actor}
+      </Link>
+    );
+  }
+  return <span>{actor}</span>;
+}
 
 export function AuditLogTable() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -318,7 +335,7 @@ export function AuditLogTable() {
                           {new Date(entry.at).toLocaleString('ko-KR')}
                         </TableCell>
                         <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                          {entry.actor}
+                          {renderActor(entry.actor)}
                         </TableCell>
                         <TableCell className={`text-micro whitespace-nowrap ${roleColor}`}>
                           {entry.role}

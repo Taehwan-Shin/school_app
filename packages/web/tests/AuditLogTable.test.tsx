@@ -754,4 +754,45 @@ describe('AuditLogTable component', () => {
 
     expect(capturedSearch).toBe('');
   });
+
+  it('renders actor as a link to user detail when actor ends with @cam.hs.kr, and plain text for non-domain actor', () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.update',
+        target: 'teacher@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+      {
+        id: 'log-2',
+        actor: 'unknown',
+        role: 'admin',
+        action: 'system.cleanup',
+        target: '*',
+        request_id: 'req-2',
+        result: 'ok',
+        at: 1725140000000,
+      },
+    ];
+
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+    });
+
+    renderWithRouter(<AuditLogTable />);
+
+    const link = screen.getByTestId('audit-actor-link-admin@cam.hs.kr');
+    expect(link).toBeDefined();
+    expect(link.getAttribute('href')).toBe('/admin/users/admin%40cam.hs.kr');
+    expect(link.textContent).toBe('admin@cam.hs.kr');
+
+    expect(screen.queryByTestId('audit-actor-link-unknown')).toBeNull();
+    expect(screen.getByText('unknown')).toBeDefined();
+  });
 });
+
