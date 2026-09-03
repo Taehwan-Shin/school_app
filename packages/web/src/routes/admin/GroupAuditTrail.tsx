@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
 import {
@@ -8,6 +9,23 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+
+const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
+
+function renderActor(actor: string) {
+  if (typeof actor === 'string' && actor.toLowerCase().endsWith(ALLOWED_DOMAIN_SUFFIX)) {
+    return (
+      <Link
+        to={`/admin/users/${encodeURIComponent(actor)}`}
+        className="text-fg-primary hover:underline"
+        data-testid={`audit-actor-link-${actor}`}
+      >
+        {actor}
+      </Link>
+    );
+  }
+  return <span>{actor}</span>;
+}
 
 export interface GroupAuditTrailProps {
   groupEmail: string;
@@ -64,7 +82,7 @@ export function GroupAuditTrail({ groupEmail }: GroupAuditTrailProps) {
                       <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
                         {new Date(e.at).toLocaleString('ko-KR')}
                       </TableCell>
-                      <TableCell className="font-mono text-small text-fg-primary">{e.actor}</TableCell>
+                      <TableCell className="font-mono text-small text-fg-primary">{renderActor(e.actor)}</TableCell>
                       <TableCell className="font-mono text-small text-fg-primary">{e.action}</TableCell>
                       <TableCell className={`text-micro font-medium whitespace-nowrap ${resultColor}`}>
                         {e.result}
