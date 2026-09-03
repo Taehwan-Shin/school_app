@@ -233,4 +233,34 @@ describe('SuperAdminPage', () => {
     expect(screen.getByText('최근 24시간에 이벤트가 없습니다.')).toBeDefined();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
   });
+
+  it('scenario 4: renders suspended accounts KPI card with count of suspended users (1 out of 3)', () => {
+    const mockUsers: UserItem[] = [
+      { email: 'u1@cam.hs.kr', firstName: '일', lastName: '김', orgUnitPath: '/', isAdmin: false, isSuspended: false },
+      { email: 'u2@cam.hs.kr', firstName: '이', lastName: '김', orgUnitPath: '/', isAdmin: false, isSuspended: true },
+      { email: 'u3@cam.hs.kr', firstName: '삼', lastName: '이', orgUnitPath: '/', isAdmin: false, isSuspended: false },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    const suspendedCard = screen.getByTestId('kpi-card-정지된 계정');
+    expect(suspendedCard).toBeDefined();
+    expect(suspendedCard.textContent).toContain('1');
+  });
 });
