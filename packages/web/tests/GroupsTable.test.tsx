@@ -690,6 +690,37 @@ describe('GroupsTable component', () => {
     expect(screen.queryByText('other-with-members@cam.hs.kr')).toBeNull();
     expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–1 of 1');
   });
+
+  it('renders export CSV button, enabled when groups exist and disabled when empty', () => {
+    const mockGroups = [
+      {
+        email: 'teachers@cam.hs.kr',
+        name: '교사 그룹',
+        description: '교사 전체',
+        aliases: [],
+        directMembersCount: 15,
+      },
+    ];
+
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<GroupsTable />);
+
+    const exportBtn = screen.getByTestId('groups-export-csv-btn') as HTMLButtonElement;
+    expect(exportBtn).toBeDefined();
+    expect(exportBtn.disabled).toBe(false);
+    expect(exportBtn.textContent).toContain('CSV 내보내기');
+
+    const searchInput = screen.getByTestId('groups-search-input');
+    fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+
+    expect(exportBtn.disabled).toBe(true);
+  });
 });
 
 
