@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 
 const mockUseGroupMembersList = vi.fn();
 
@@ -117,13 +117,14 @@ describe('MembersTable component', () => {
     render(<MembersTable groupEmail={defaultGroupEmail} />);
 
     expect(screen.getByText('2명 멤버')).toBeDefined();
-    expect(screen.getByTestId('member-row-owner@cam.hs.kr')).toBeDefined();
-    expect(screen.getByTestId('member-row-member@cam.hs.kr')).toBeDefined();
-
-    const ownerRoleCell = screen.getByText('OWNER');
+    const ownerRow = screen.getByTestId('member-row-owner@cam.hs.kr');
+    expect(ownerRow).toBeDefined();
+    const ownerRoleCell = within(ownerRow).getByText('OWNER');
     expect(ownerRoleCell.className).toContain('font-medium');
 
-    const memberRoleCell = screen.getByText('MEMBER');
+    const memberRow = screen.getByTestId('member-row-member@cam.hs.kr');
+    expect(memberRow).toBeDefined();
+    const memberRoleCell = within(memberRow).getByText('MEMBER');
     expect(memberRoleCell.className).not.toContain('font-medium');
 
     expect(screen.getByTestId('edit-role-btn-owner@cam.hs.kr')).toBeDefined();
@@ -184,5 +185,86 @@ describe('MembersTable component', () => {
 
     fireEvent.click(loadMoreBtn);
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters members by email search query', () => {
+    const mockMembers = [
+      { email: 'alice@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'bob@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'carol@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    expect(screen.getByTestId('member-row-alice@cam.hs.kr')).toBeDefined();
+    expect(screen.getByTestId('member-row-bob@cam.hs.kr')).toBeDefined();
+    expect(screen.getByTestId('member-row-carol@cam.hs.kr')).toBeDefined();
+
+    const searchInput = screen.getByTestId('members-search-input');
+    fireEvent.change(searchInput, { target: { value: 'alice@' } });
+
+    expect(screen.getByTestId('member-row-alice@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByTestId('member-row-bob@cam.hs.kr')).toBeNull();
+    expect(screen.queryByTestId('member-row-carol@cam.hs.kr')).toBeNull();
+    expect(screen.getByText('1명 표시됨 / 전체 3명')).toBeDefined();
+  });
+
+  it('filters members by role chip selection', () => {
+    const mockMembers = [
+      { email: 'owner@cam.hs.kr', role: 'OWNER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'manager@cam.hs.kr', role: 'MANAGER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'member@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    const ownerChip = screen.getByTestId('members-role-chip-OWNER');
+    fireEvent.click(ownerChip);
+
+    expect(screen.getByTestId('member-row-owner@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByTestId('member-row-manager@cam.hs.kr')).toBeNull();
+    expect(screen.queryByTestId('member-row-member@cam.hs.kr')).toBeNull();
+    expect(screen.getByText('1명 표시됨 / 전체 3명')).toBeDefined();
+  });
+
+  it('displays empty search result message when no members match filter', () => {
+    const mockMembers = [
+      { email: 'alice@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'bob@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'carol@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    const searchInput = screen.getByTestId('members-search-input');
+    fireEvent.change(searchInput, { target: { value: 'nonexistent@' } });
+
+    expect(screen.getByTestId('members-search-empty')).toBeDefined();
+    expect(screen.getByText('검색·필터에 맞는 멤버가 없습니다.')).toBeDefined();
+    expect(screen.queryByTestId('member-row-alice@cam.hs.kr')).toBeNull();
   });
 });

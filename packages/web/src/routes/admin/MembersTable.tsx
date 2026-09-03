@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGroupMembersList, type GroupMemberItem } from '../../api/groupsMembersList';
 import { Button } from '../../components/ui/button';
 import {
@@ -23,19 +23,64 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<GroupMemberItem | null>(null);
   const [roleEditTarget, setRoleEditTarget] = useState<GroupMemberItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'OWNER' | 'MANAGER' | 'MEMBER'>('ALL');
+
+  const filteredMembers = useMemo(() => {
+    let result = members;
+    if (roleFilter !== 'ALL') {
+      result = result.filter((m) => m.role === roleFilter);
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((m) => m.email.toLowerCase().includes(q));
+    }
+    return result;
+  }, [members, searchQuery, roleFilter]);
 
   return (
     <div className="space-y-4">
+      {/* 상단 요약 + 액션 */}
       <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
-          {members.length}명 멤버
+          {filteredMembers.length !== members.length
+            ? `${filteredMembers.length}명 표시됨 / 전체 ${members.length}명`
+            : `${members.length}명 멤버`}
         </p>
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          data-testid="add-member-btn"
-        >
+        <Button onClick={() => setIsAddOpen(true)} data-testid="add-member-btn">
           + 멤버 추가
         </Button>
+      </div>
+
+      {/* 필터 로우 */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="멤버 이메일 검색"
+          aria-label="멤버 검색"
+          data-testid="members-search-input"
+          className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+        />
+        <div className="flex items-center gap-2" role="group" aria-label="역할 필터">
+          {(['ALL', 'OWNER', 'MANAGER', 'MEMBER'] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRoleFilter(r)}
+              data-testid={`members-role-chip-${r}`}
+              className={cn(
+                'px-3 py-1 text-small border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong',
+                roleFilter === r
+                  ? 'bg-fg-primary text-canvas border-fg-primary'
+                  : 'bg-canvas text-fg-primary border-border-subtle hover:border-border-strong',
+              )}
+            >
+              {r === 'ALL' ? '전체' : r}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && members.length === 0 && (
@@ -63,7 +108,13 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
         </div>
       )}
 
-      {members.length > 0 && (
+      {!loading && !error && members.length > 0 && filteredMembers.length === 0 && (
+        <div className="py-12 text-center text-small text-fg-secondary" data-testid="members-search-empty">
+          검색·필터에 맞는 멤버가 없습니다.
+        </div>
+      )}
+
+      {filteredMembers.length > 0 && (
         <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
           <Table>
             <TableHeader>
@@ -75,7 +126,7 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
+              {filteredMembers.map((member) => (
                 <TableRow key={member.email} data-testid={`member-row-${member.email}`}>
                   <TableCell className="font-mono text-small text-fg-primary">
                     {member.email}
