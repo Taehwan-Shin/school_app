@@ -1203,6 +1203,38 @@ describe("AccountsTable component", () => {
     fireEvent.click(deleteBtn);
     expect(screen.getByText("일괄 삭제 확인")).toBeDefined();
   });
+
+  it("renders bulk-move-ou-btn in bulk-action-bar when selection > 0 and opens BulkMoveOuDialog", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const user1Check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    fireEvent.click(user1Check);
+
+    const moveOuBtn = screen.getByTestId("bulk-move-ou-btn");
+    expect(moveOuBtn).toBeDefined();
+    expect(moveOuBtn.textContent).toContain("선택 조직 이동");
+
+    fireEvent.click(moveOuBtn);
+    expect(screen.getByText("일괄 조직 이동 확인")).toBeDefined();
+  });
 });
 
 
