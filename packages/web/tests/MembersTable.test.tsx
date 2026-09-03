@@ -267,4 +267,81 @@ describe('MembersTable component', () => {
     expect(screen.getByText('검색·필터에 맞는 멤버가 없습니다.')).toBeDefined();
     expect(screen.queryByTestId('member-row-alice@cam.hs.kr')).toBeNull();
   });
+
+  it('enables CSV export button when members exist and disables when filtered to 0', async () => {
+    const mockMembers = [
+      { email: 'alice@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'bob@cam.hs.kr', role: 'OWNER' as const, type: 'GROUP' as const, status: 'ACTIVE' },
+      { email: 'carol@cam.hs.kr', role: 'MANAGER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    let createdBlob: Blob | null = null;
+    let createdAnchor: HTMLAnchorElement | null = null;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const mockCreateObjectURL = vi.fn((blob: Blob) => {
+      createdBlob = blob;
+      return 'blob:mock-url';
+    });
+    const mockRevokeObjectURL = vi.fn();
+    URL.createObjectURL = mockCreateObjectURL;
+    URL.revokeObjectURL = mockRevokeObjectURL;
+
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      const el = originalCreateElement(tagName, options);
+      if (tagName === 'a') {
+        createdAnchor = el as HTMLAnchorElement;
+      }
+      return el;
+    }) as typeof document.createElement);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+      const exportBtn = screen.getByTestId('members-export-csv-btn') as HTMLButtonElement;
+      expect(exportBtn).toBeDefined();
+      expect(exportBtn.disabled).toBe(false);
+
+      fireEvent.click(exportBtn);
+
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
+      expect(createdAnchor?.download).toMatch(/^members-group-a-\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+
+      if (createdBlob) {
+        const buf = await (createdBlob as Blob).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        expect(bytes[0]).toBe(0xEF);
+        expect(bytes[1]).toBe(0xBB);
+        expect(bytes[2]).toBe(0xBF);
+
+        const text = await (createdBlob as Blob).text();
+        expect(text.startsWith('"이메일","역할","타입"')).toBe(true);
+        expect(text).toContain('"alice@cam.hs.kr","MEMBER","USER"');
+        expect(text).toContain('"bob@cam.hs.kr","OWNER","GROUP"');
+        expect(text).toContain('"carol@cam.hs.kr","MANAGER","USER"');
+      }
+
+      const searchInput = screen.getByTestId('members-search-input');
+      fireEvent.change(searchInput, { target: { value: 'nonexistent@' } });
+
+      expect(exportBtn.disabled).toBe(true);
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      createElementSpy.mockRestore();
+      clickSpy.mockRestore();
+    }
+  });
 });
