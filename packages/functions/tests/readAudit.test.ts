@@ -182,5 +182,57 @@ describe('readAuditEntries unit tests', () => {
     expect(mockWhere).not.toHaveBeenCalled();
     expect(mockLimit).toHaveBeenCalledWith(30);
   });
+
+  it('applies atMin filter (at >= atMin) when atMin is provided', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({ limit: 50, atMin: 1700000000000 });
+
+    expect(mockWhere).toHaveBeenCalledWith('at', '>=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  it('applies atMax filter (at <= atMax) when atMax is provided', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({ limit: 50, atMax: 1700000005000 });
+
+    expect(mockWhere).toHaveBeenCalledWith('at', '<=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  it('applies both atMin and atMax filters when both are provided', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      atMin: 1700000000000,
+      atMax: 1700000005000,
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('at', '>=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledWith('at', '<=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledTimes(2);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  it('combines actor filter with atMin and atMax filters', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActor: 'super@cam.hs.kr',
+      atMin: 1700000000000,
+      atMax: 1700000005000,
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('at', '>=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledWith('at', '<=', expect.any(Timestamp));
+    expect(mockWhere).toHaveBeenCalledWith('actor', '==', 'super@cam.hs.kr');
+    expect(mockWhere).toHaveBeenCalledTimes(3);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+  });
 });
 

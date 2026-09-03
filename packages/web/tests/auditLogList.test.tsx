@@ -110,6 +110,27 @@ describe('auditLogList API & Hook', () => {
 
       await expect(callAuditLogList()).rejects.toThrow('permission-denied: requires super_admin role');
     });
+
+    it('passes atMin and atMax in callAuditLogList request body', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: { entries: [], nextCursor: null },
+        }),
+      });
+      global.fetch = fetchMock as any;
+
+      await callAuditLogList({ limit: 25, atMin: 1725100000000, atMax: 1725200000000 });
+
+      const [, options] = fetchMock.mock.calls[0];
+      expect(JSON.parse(options.body)).toEqual({
+        data: expect.objectContaining({
+          limit: 25,
+          atMin: 1725100000000,
+          atMax: 1725200000000,
+        }),
+      });
+    });
   });
 
   describe('useAuditLogList Hook', () => {
@@ -430,6 +451,33 @@ describe('auditLogList API & Hook', () => {
         })
       );
       expect(result.current.entries).toEqual(entries2);
+    });
+
+    it('passes atMin and atMax filter options to callAuditLogList and refetches when they change', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: { entries: [], nextCursor: null },
+        }),
+      });
+      global.fetch = fetchMock as any;
+
+      const { rerender } = renderHook(
+        ({ filters }) => useAuditLogList(25, filters),
+        { initialProps: { filters: { atMin: 1725100000000 } } }
+      );
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      let body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.data).toEqual(expect.objectContaining({ atMin: 1725100000000 }));
+
+      rerender({ filters: { atMin: 1725100000000, atMax: 1725200000000 } });
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      body = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(body.data).toEqual(
+        expect.objectContaining({ atMin: 1725100000000, atMax: 1725200000000 })
+      );
     });
   });
 });

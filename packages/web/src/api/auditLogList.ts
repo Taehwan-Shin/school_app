@@ -19,6 +19,8 @@ export interface AuditLogEntryRead {
 export interface AuditLogListRequest {
   limit?: number;
   before?: number;
+  atMin?: number;
+  atMax?: number;
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
@@ -79,11 +81,15 @@ export interface AuditLogFilters {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
+  atMin?: number;
+  atMax?: number;
 }
+
+export type UseAuditLogListOptions = AuditLogFilters;
 
 export function useAuditLogList(
   pageSize = 25,
-  filters?: AuditLogFilters
+  filters?: UseAuditLogListOptions
 ): {
   entries: AuditLogEntryRead[];
   loading: boolean;
@@ -127,7 +133,7 @@ export function useAuditLogList(
         setLoading(false);
       }
     },
-    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult]
+    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.atMin, filters?.atMax]
   );
 
   useEffect(() => {
@@ -153,7 +159,7 @@ export function useAuditLogList(
     return () => {
       cancelled = true;
     };
-  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult]);
+  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.atMin, filters?.atMax]);
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || cursorRef.current === null || cursorRef.current === undefined) {
