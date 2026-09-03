@@ -290,6 +290,42 @@ describe('auditLogList unit tests', () => {
     );
   });
 
+  it('passes atMin and atMax to readAuditEntries and formats them in audit message', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+    });
+
+    const atMin = 1700000000000;
+    const atMax = 1700000005000;
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        atMin,
+        atMax,
+      },
+    });
+    await auditLogList.run(req);
+
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 50,
+      before: undefined,
+      atMin,
+      atMax,
+      filterActor: undefined,
+      filterTarget: undefined,
+      filterResult: undefined,
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: `read 0 entries (limit 50) [atMin=${new Date(atMin).toISOString()}, atMax=${new Date(atMax).toISOString()}]`,
+      }),
+    );
+  });
+
   it('preserves existing behavior and message format when no filters are provided', async () => {
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: [],

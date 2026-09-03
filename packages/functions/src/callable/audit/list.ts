@@ -8,6 +8,8 @@ import { readAuditEntries, type AuditLogEntryRead } from '../../audit/readAudit.
 export interface AuditLogListRequest {
   limit?: number;
   before?: number;
+  atMin?: number;
+  atMax?: number;
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
@@ -80,6 +82,14 @@ export const auditLogList = onCall(
         typeof data?.before === 'number' && Number.isFinite(data.before) && data.before > 0
           ? data.before
           : undefined;
+      const atMin =
+        typeof data?.atMin === 'number' && Number.isFinite(data.atMin) && data.atMin > 0
+          ? data.atMin
+          : undefined;
+      const atMax =
+        typeof data?.atMax === 'number' && Number.isFinite(data.atMax) && data.atMax > 0
+          ? data.atMax
+          : undefined;
 
       const filterActor =
         typeof data?.filterActor === 'string' && data.filterActor.length > 0
@@ -97,6 +107,8 @@ export const auditLogList = onCall(
       const result = await readAuditEntries({
         limit,
         before,
+        atMin,
+        atMax,
         filterActor,
         filterTarget,
         filterResult,
@@ -106,6 +118,8 @@ export const auditLogList = onCall(
       if (filterActor) filters.push(`actor=${filterActor}`);
       if (filterTarget) filters.push(`target=${filterTarget}`);
       if (filterResult) filters.push(`result=${filterResult}`);
+      if (atMin) filters.push(`atMin=${new Date(atMin).toISOString()}`);
+      if (atMax) filters.push(`atMax=${new Date(atMax).toISOString()}`);
       const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';
 
       await writeAudit({
