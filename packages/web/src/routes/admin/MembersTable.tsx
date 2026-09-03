@@ -13,6 +13,7 @@ import { cn } from '../../lib/utils';
 import { AddMemberDialog } from './AddMemberDialog';
 import { RemoveMemberDialog } from './RemoveMemberDialog';
 import { EditMemberRoleDialog } from './EditMemberRoleDialog';
+import { BulkRemoveMembersDialog } from './BulkRemoveMembersDialog';
 
 export interface MembersTableProps {
   groupEmail: string;
@@ -26,7 +27,7 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'OWNER' | 'MANAGER' | 'MEMBER'>('ALL');
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-  const [, setIsBulkRemoveOpen] = useState(false);
+  const [isBulkRemoveOpen, setIsBulkRemoveOpen] = useState(false);
 
   useEffect(() => {
     setSelectedEmails(new Set());
@@ -320,6 +321,17 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
           onSuccess={reload}
         />
       )}
+
+      <BulkRemoveMembersDialog
+        open={isBulkRemoveOpen}
+        onOpenChange={setIsBulkRemoveOpen}
+        groupEmail={groupEmail}
+        memberEmails={Array.from(selectedEmails)}
+        onDone={() => {
+          setSelectedEmails(new Set());
+          reload();
+        }}
+      />
     </div>
   );
 }
