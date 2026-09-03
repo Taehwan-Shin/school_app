@@ -18,6 +18,7 @@ import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
 import { BulkSuspendDialog } from "./BulkSuspendDialog";
 import { BulkDeleteDialog } from "./BulkDeleteDialog";
+import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -44,6 +45,7 @@ export function AccountsTable() {
   const [page, setPage] = useState(0);
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);
   const [isBulkSuspendOpen, setIsBulkSuspendOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
@@ -213,6 +215,13 @@ export function AccountsTable() {
             >
               선택 해제
             </button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkMoveOuOpen(true)}
+              data-testid="bulk-move-ou-btn"
+            >
+              선택 조직 이동
+            </Button>
             <Button
               variant="secondary"
               onClick={() => setIsBulkSuspendOpen(true)}
@@ -538,6 +547,13 @@ export function AccountsTable() {
             setSuccessBanner(null);
           }, 3000);
         }}
+      />
+
+      <BulkMoveOuDialog
+        open={isBulkMoveOuOpen}
+        onOpenChange={setIsBulkMoveOuOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
       />
 
       <BulkSuspendDialog
