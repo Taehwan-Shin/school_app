@@ -4,10 +4,11 @@ import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogList } from '../../api/auditLogList';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
   const { role } = useAuth();
+  const navigate = useNavigate();
   const users = useUsersList();
   const groups = useGroupsList();
   const audit = useAuditLogList(50); // 최근 50 개만 KPI 계산용
@@ -19,6 +20,13 @@ export function SuperAdminPage() {
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const yyyy = todayStart.getFullYear();
+  const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+  const dd = String(todayStart.getDate()).padStart(2, '0');
+  const todayIso = `${yyyy}-${mm}-${dd}`;
+
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
       <div className="space-y-8">
@@ -28,21 +36,29 @@ export function SuperAdminPage() {
             label="총 사용자"
             value={users.data?.users?.length ?? 0}
             loading={users.isLoading}
+            href="nav"
+            onClick={() => navigate('/admin')}
           />
           <KpiCard
             label="총 그룹"
             value={groups.data?.groups?.length ?? 0}
             loading={groups.isLoading}
+            href="nav"
+            onClick={() => navigate('/admin/groups')}
           />
           <KpiCard
             label="정지된 계정"
             value={suspendedCount}
             loading={users.isLoading}
+            href="nav"
+            onClick={() => navigate('/admin?filter=suspended')}
           />
           <KpiCard
             label="최근 24시간 이벤트"
             value={recentEvents.length}
             loading={audit.loading}
+            href="nav"
+            onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
         </div>
 
