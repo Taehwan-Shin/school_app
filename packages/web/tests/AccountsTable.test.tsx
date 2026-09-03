@@ -1009,5 +1009,153 @@ describe("AccountsTable component", () => {
 
     expect(exportBtn.disabled).toBe(true);
   });
+
+  it("renders checkboxes for each account with self account disabled", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "user2@cam.hs.kr",
+        firstName: "이",
+        lastName: "박",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const selfCheck = screen.getByTestId("bulk-check-admin@cam.hs.kr") as HTMLInputElement;
+    const user1Check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    const user2Check = screen.getByTestId("bulk-check-user2@cam.hs.kr") as HTMLInputElement;
+
+    expect(selfCheck).toBeDefined();
+    expect(selfCheck.disabled).toBe(true);
+    expect(user1Check).toBeDefined();
+    expect(user1Check.disabled).toBe(false);
+    expect(user2Check).toBeDefined();
+    expect(user2Check.disabled).toBe(false);
+  });
+
+  it("toggles select all for non-self users on header checkbox click", () => {
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "user2@cam.hs.kr",
+        firstName: "이",
+        lastName: "박",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    const headerCheck = screen.getByTestId("bulk-check-all") as HTMLInputElement;
+    const selfCheck = screen.getByTestId("bulk-check-admin@cam.hs.kr") as HTMLInputElement;
+    const user1Check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    const user2Check = screen.getByTestId("bulk-check-user2@cam.hs.kr") as HTMLInputElement;
+
+    expect(headerCheck.checked).toBe(false);
+    expect(user1Check.checked).toBe(false);
+    expect(user2Check.checked).toBe(false);
+
+    // Click header check: selects 2 non-self users
+    fireEvent.click(headerCheck);
+
+    expect(user1Check.checked).toBe(true);
+    expect(user2Check.checked).toBe(true);
+    expect(selfCheck.checked).toBe(false);
+    expect(screen.getByTestId("bulk-action-bar").textContent).toContain("2명 선택됨");
+
+    // Click again: deselects all
+    fireEvent.click(headerCheck);
+
+    expect(user1Check.checked).toBe(false);
+    expect(user2Check.checked).toBe(false);
+    expect(screen.queryByTestId("bulk-action-bar")).toBeNull();
+  });
+
+  it("renders bulk-action-bar when selection > 0 and clears selection on clear button click", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+
+    expect(screen.queryByTestId("bulk-action-bar")).toBeNull();
+
+    const user1Check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    fireEvent.click(user1Check);
+
+    expect(screen.getByTestId("bulk-action-bar")).toBeDefined();
+    expect(screen.getByTestId("bulk-action-bar").textContent).toContain("1명 선택됨");
+
+    const clearBtn = screen.getByTestId("bulk-clear-btn");
+    fireEvent.click(clearBtn);
+
+    expect(screen.queryByTestId("bulk-action-bar")).toBeNull();
+    expect(user1Check.checked).toBe(false);
+  });
 });
+
 

@@ -41,9 +41,16 @@ export function AccountsTable() {
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
 
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [, setIsBulkSuspendOpen] = useState(false);
+
   useEffect(() => {
     setPage(0);
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
+
+  useEffect(() => {
+    setSelectedEmails(new Set());
+  }, [page, searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
     const next = new URLSearchParams(searchParams);
@@ -103,6 +110,18 @@ export function AccountsTable() {
 
   const total = sortedFilteredUsers.length;
   const paginatedUsers = sortedFilteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const isSelf = (email: string) =>
+    Boolean(currentUser?.email) && currentUser!.email!.toLowerCase() === email.toLowerCase();
+
+  const eligibleEmails = paginatedUsers
+    .filter((u) => !isSelf(u.email))
+    .map((u) => u.email);
+
+  const isAllEligibleSelected =
+    eligibleEmails.length > 0 && eligibleEmails.every((e) => selectedEmails.has(e));
+  const isSomeEligibleSelected =
+    eligibleEmails.some((e) => selectedEmails.has(e)) && !isAllEligibleSelected;
 
   const handleExportCsv = () => {
     const header = ['이메일', '이름', '조직 단위', '관리자', '상태'];
@@ -174,6 +193,34 @@ export function AccountsTable() {
         </div>
       )}
 
+      {selectedEmails.size > 0 && (
+        <div
+          className="flex items-center justify-between bg-surface border border-border-strong p-4"
+          data-testid="bulk-action-bar"
+        >
+          <div className="text-small text-fg-primary">
+            <strong className="font-mono">{selectedEmails.size}</strong>명 선택됨
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedEmails(new Set())}
+              className="text-fg-secondary hover:text-fg-primary text-small cursor-pointer"
+              data-testid="bulk-clear-btn"
+            >
+              선택 해제
+            </button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkSuspendOpen(true)}
+              data-testid="bulk-suspend-btn"
+            >
+              선택 정지
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="accounts-loading">
           계정 목록을 불러오는 중...
@@ -211,6 +258,28 @@ export function AccountsTable() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={isAllEligibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isSomeEligibleSelected;
+                        }}
+                        disabled={eligibleEmails.length === 0}
+                        onChange={(e) => {
+                          const next = new Set(selectedEmails);
+                          if (e.target.checked) {
+                            eligibleEmails.forEach((email) => next.add(email));
+                          } else {
+                            eligibleEmails.forEach((email) => next.delete(email));
+                          }
+                          setSelectedEmails(next);
+                        }}
+                        aria-label="전체 선택"
+                        data-testid="bulk-check-all"
+                        className="cursor-pointer disabled:cursor-not-allowed"
+                      />
+                    </TableHead>
                     <TableHead
                       onClick={() => handleSort('email')}
                       className="cursor-pointer select-none"
@@ -243,12 +312,26 @@ export function AccountsTable() {
                 <TableBody>
                   {paginatedUsers.map((user: UserItem) => {
                     const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
-                    const isSelf =
-                      Boolean(currentUser?.email) &&
-                      currentUser?.email?.toLowerCase() === user.email.toLowerCase();
+                    const userIsSelf = isSelf(user.email);
 
                     return (
                       <TableRow key={user.email}>
+                        <TableCell className="w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmails.has(user.email)}
+                            disabled={userIsSelf}
+                            onChange={(e) => {
+                              const next = new Set(selectedEmails);
+                              if (e.target.checked) next.add(user.email);
+                              else next.delete(user.email);
+                              setSelectedEmails(next);
+                            }}
+                            aria-label={`${user.email} 선택`}
+                            data-testid={`bulk-check-${user.email}`}
+                            className="cursor-pointer disabled:cursor-not-allowed"
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-small">
                           <Link to={`/admin/users/${encodeURIComponent(user.email)}`} className="text-fg-primary hover:underline">
                             {user.email}
@@ -300,8 +383,8 @@ export function AccountsTable() {
                             <span className="text-fg-muted text-small" aria-hidden="true">·</span>
                             <button
                               type="button"
-                              disabled={isSelf}
-                              title={isSelf ? "자기 계정 비밀번호는 여기서 재설정할 수 없습니다" : "비밀번호 재설정"}
+                              disabled={userIsSelf}
+                              title={userIsSelf ? "자기 계정 비밀번호는 여기서 재설정할 수 없습니다" : "비밀번호 재설정"}
                               onClick={() =>
                                 setResetTarget({
                                   email: user.email,
@@ -311,7 +394,7 @@ export function AccountsTable() {
                               }
                               data-testid={`reset-password-${user.email}`}
                               className={
-                                isSelf
+                                userIsSelf
                                   ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                                   : "text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                               }
@@ -321,8 +404,8 @@ export function AccountsTable() {
                             <span className="text-fg-muted text-small" aria-hidden="true">·</span>
                             <button
                               type="button"
-                              disabled={isSelf}
-                              title={isSelf ? "자기 계정은 정지·복구할 수 없습니다" : (user.isSuspended ? "계정 복구" : "계정 정지")}
+                              disabled={userIsSelf}
+                              title={userIsSelf ? "자기 계정은 정지·복구할 수 없습니다" : (user.isSuspended ? "계정 복구" : "계정 정지")}
                               onClick={() =>
                                 setSuspendTarget({
                                   email: user.email,
@@ -333,7 +416,7 @@ export function AccountsTable() {
                               }
                               data-testid={`suspend-user-${user.email}`}
                               className={
-                                isSelf
+                                userIsSelf
                                   ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                                   : user.isSuspended
                                   ? "text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
@@ -345,8 +428,8 @@ export function AccountsTable() {
                             <span className="text-fg-muted text-small" aria-hidden="true">·</span>
                             <button
                               type="button"
-                              disabled={isSelf}
-                              title={isSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
+                              disabled={userIsSelf}
+                              title={userIsSelf ? "자기 계정은 삭제할 수 없습니다" : "계정 삭제"}
                               onClick={() =>
                                 setDeleteTarget({
                                   email: user.email,
@@ -358,7 +441,7 @@ export function AccountsTable() {
                               className={
                                 // 포커스 링은 UI_SYSTEM §5 공통 토큰 (`ring-border-strong`) 로 통일.
                                 // 액션 색(붉은 밑줄)과 포커스 색은 분리하는 것이 승인 스펙.
-                                isSelf
+                                userIsSelf
                                   ? "text-fg-muted cursor-not-allowed no-underline text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                                   : "text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                               }
