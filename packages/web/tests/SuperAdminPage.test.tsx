@@ -263,4 +263,44 @@ describe('SuperAdminPage', () => {
     expect(suspendedCard).toBeDefined();
     expect(suspendedCard.textContent).toContain('1');
   });
+
+  it('scenario 5: renders recent event row as link to audit log filtered by actor', () => {
+    const now = Date.now();
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-nav-1',
+        actor: 'special-actor@cam.hs.kr',
+        role: 'admin',
+        action: 'users.create',
+        target: 'new@cam.hs.kr',
+        request_id: 'req-nav-1',
+        result: 'ok',
+        at: now - 1000,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: mockEntries,
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    const eventLink = screen.getByTestId('super-admin-recent-event-log-nav-1');
+    expect(eventLink).toBeDefined();
+    expect(eventLink.getAttribute('href')).toBe(
+      `/super_admin/audit?actor=${encodeURIComponent('special-actor@cam.hs.kr')}`,
+    );
+  });
 });

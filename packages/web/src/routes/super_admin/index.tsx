@@ -68,23 +68,31 @@ export function SuperAdminPage() {
           {recentEvents.length > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
               {recentEvents.slice(0, 5).map((e) => (
-                <li key={e.id} className="flex items-center gap-3 text-small">
-                  <span className="font-mono text-fg-secondary w-40 shrink-0">
-                    {new Date(e.at).toLocaleString('ko-KR')}
-                  </span>
-                  <span className="font-mono text-fg-primary">{e.action}</span>
-                  <span className="text-fg-secondary">·</span>
-                  <span
-                    className={
-                      e.result === 'ok'
-                        ? 'text-fg-primary'
-                        : e.result === 'error'
-                        ? 'text-state-danger'
-                        : 'text-state-warning'
-                    }
+                <li key={e.id}>
+                  <Link
+                    to={`/super_admin/audit?actor=${encodeURIComponent(e.actor)}`}
+                    className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
+                    data-testid={`super-admin-recent-event-${e.id}`}
                   >
-                    {e.result}
-                  </span>
+                    <span className="font-mono text-fg-secondary w-40 shrink-0">
+                      {new Date(e.at).toLocaleString('ko-KR')}
+                    </span>
+                    <span className="font-mono text-fg-primary">{e.action}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span className="font-mono text-fg-primary">{e.actor}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span
+                      className={
+                        e.result === 'ok'
+                          ? 'text-fg-primary'
+                          : e.result === 'error'
+                          ? 'text-state-danger'
+                          : 'text-state-warning'
+                      }
+                    >
+                      {e.result}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
