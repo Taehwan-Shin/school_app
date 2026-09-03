@@ -1,11 +1,17 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SuperAdminPage } from '../src/routes/super_admin/index';
 import type { AuditLogEntryRead } from '../src/api/auditLogList';
 import type { UserItem } from '../src/api/usersList';
 import type { GroupItem } from '../src/api/groupsList';
+
+const navigateMock = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => navigateMock };
+});
 
 const mockUseUsersList = vi.fn();
 const mockUseGroupsList = vi.fn();
@@ -302,5 +308,104 @@ describe('SuperAdminPage', () => {
     expect(eventLink.getAttribute('href')).toBe(
       `/super_admin/audit?actor=${encodeURIComponent('special-actor@cam.hs.kr')}`,
     );
+  });
+
+  it('scenario 6: clicking "총 사용자" KPI card navigates to /admin', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    fireEvent.click(screen.getByTestId('kpi-card-총 사용자'));
+    expect(navigateMock).toHaveBeenCalledWith('/admin');
+  });
+
+  it('scenario 7: clicking "총 그룹" KPI card navigates to /admin/groups', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    fireEvent.click(screen.getByTestId('kpi-card-총 그룹'));
+    expect(navigateMock).toHaveBeenCalledWith('/admin/groups');
+  });
+
+  it('scenario 8: clicking "정지된 계정" KPI card navigates to /admin?filter=suspended', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    fireEvent.click(screen.getByTestId('kpi-card-정지된 계정'));
+    expect(navigateMock).toHaveBeenCalledWith('/admin?filter=suspended');
+  });
+
+  it('scenario 9: clicking "최근 24시간 이벤트" KPI card navigates to /super_admin/audit?atMin=YYYY-MM-DD', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const yyyy = todayStart.getFullYear();
+    const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+    const dd = String(todayStart.getDate()).padStart(2, '0');
+    const todayIso = `${yyyy}-${mm}-${dd}`;
+
+    fireEvent.click(screen.getByTestId('kpi-card-최근 24시간 이벤트'));
+    expect(navigateMock).toHaveBeenCalledWith(`/super_admin/audit?atMin=${todayIso}`);
   });
 });
