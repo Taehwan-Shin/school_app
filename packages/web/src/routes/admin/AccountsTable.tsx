@@ -104,6 +104,29 @@ export function AccountsTable() {
   const total = sortedFilteredUsers.length;
   const paginatedUsers = sortedFilteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  const handleExportCsv = () => {
+    const header = ['이메일', '이름', '조직 단위', '관리자', '상태'];
+    const rows = sortedFilteredUsers.map((u) => [
+      u.email,
+      `${u.lastName ?? ''}${u.firstName ?? ''}`.trim() || '-',
+      u.orgUnitPath || '/',
+      u.isAdmin ? '관리자' : '일반',
+      u.isSuspended ? '정지됨' : '정상',
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `accounts-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -125,6 +148,14 @@ export function AccountsTable() {
             data-testid="accounts-search-input"
             className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          <Button
+            variant="secondary"
+            onClick={handleExportCsv}
+            data-testid="accounts-export-csv-btn"
+            disabled={sortedFilteredUsers.length === 0}
+          >
+            CSV 내보내기
+          </Button>
           <Button
             onClick={() => setIsCreateOpen(true)}
             data-testid="add-account-btn"
