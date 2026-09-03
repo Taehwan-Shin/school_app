@@ -344,4 +344,69 @@ describe('MembersTable component', () => {
       clickSpy.mockRestore();
     }
   });
+
+  it('renders checkbox column for members and header checkbox', () => {
+    const mockMembers = [
+      { email: 'alice@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'bob@cam.hs.kr', role: 'OWNER' as const, type: 'GROUP' as const, status: 'ACTIVE' },
+      { email: 'carol@cam.hs.kr', role: 'MANAGER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    const headerCheck = screen.getByTestId('members-bulk-check-all') as HTMLInputElement;
+    const aliceCheck = screen.getByTestId('members-bulk-check-alice@cam.hs.kr') as HTMLInputElement;
+    const bobCheck = screen.getByTestId('members-bulk-check-bob@cam.hs.kr') as HTMLInputElement;
+    const carolCheck = screen.getByTestId('members-bulk-check-carol@cam.hs.kr') as HTMLInputElement;
+
+    expect(headerCheck).toBeDefined();
+    expect(headerCheck.checked).toBe(false);
+    expect(aliceCheck).toBeDefined();
+    expect(aliceCheck.checked).toBe(false);
+    expect(bobCheck).toBeDefined();
+    expect(bobCheck.checked).toBe(false);
+    expect(carolCheck).toBeDefined();
+    expect(carolCheck.checked).toBe(false);
+  });
+
+  it('renders members-bulk-action-bar when member is selected and clears on clear button click', () => {
+    const mockMembers = [
+      { email: 'alice@cam.hs.kr', role: 'MEMBER' as const, type: 'USER' as const, status: 'ACTIVE' },
+      { email: 'bob@cam.hs.kr', role: 'OWNER' as const, type: 'GROUP' as const, status: 'ACTIVE' },
+      { email: 'carol@cam.hs.kr', role: 'MANAGER' as const, type: 'USER' as const, status: 'ACTIVE' },
+    ];
+    mockUseGroupMembersList.mockReturnValue({
+      members: mockMembers,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    render(<MembersTable groupEmail={defaultGroupEmail} />);
+
+    expect(screen.queryByTestId('members-bulk-action-bar')).toBeNull();
+
+    const aliceCheck = screen.getByTestId('members-bulk-check-alice@cam.hs.kr') as HTMLInputElement;
+    fireEvent.click(aliceCheck);
+
+    expect(screen.getByTestId('members-bulk-action-bar')).toBeDefined();
+    expect(screen.getByTestId('members-bulk-action-bar').textContent).toContain('1명 선택됨');
+    expect(screen.getByTestId('members-bulk-remove-btn')).toBeDefined();
+
+    const clearBtn = screen.getByTestId('members-bulk-clear-btn');
+    fireEvent.click(clearBtn);
+
+    expect(screen.queryByTestId('members-bulk-action-bar')).toBeNull();
+    expect(aliceCheck.checked).toBe(false);
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useGroupMembersList, type GroupMemberItem } from '../../api/groupsMembersList';
 import { Button } from '../../components/ui/button';
 import {
@@ -25,6 +25,12 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
   const [roleEditTarget, setRoleEditTarget] = useState<GroupMemberItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'OWNER' | 'MANAGER' | 'MEMBER'>('ALL');
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [, setIsBulkRemoveOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedEmails(new Set());
+  }, [searchQuery, roleFilter]);
 
   const filteredMembers = useMemo(() => {
     let result = members;
@@ -37,6 +43,11 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
     }
     return result;
   }, [members, searchQuery, roleFilter]);
+
+  const isAllSelected =
+    filteredMembers.length > 0 && filteredMembers.every((m) => selectedEmails.has(m.email));
+  const isSomeSelected =
+    filteredMembers.some((m) => selectedEmails.has(m.email)) && !isAllSelected;
 
   const handleExportCsv = () => {
     const header = ['이메일', '역할', '타입'];
@@ -83,6 +94,35 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
           </Button>
         </div>
       </div>
+
+      {selectedEmails.size > 0 && (
+        <div
+          className="flex items-center justify-between bg-surface border border-border-strong p-4"
+          data-testid="members-bulk-action-bar"
+        >
+          <div className="text-small text-fg-primary">
+            <strong className="font-mono">{selectedEmails.size}</strong>명 선택됨
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedEmails(new Set())}
+              className="text-fg-secondary hover:text-fg-primary text-small cursor-pointer"
+              data-testid="members-bulk-clear-btn"
+            >
+              선택 해제
+            </button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkRemoveOpen(true)}
+              data-testid="members-bulk-remove-btn"
+              className="text-state-danger"
+            >
+              선택 제거
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 필터 로우 */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -151,6 +191,28 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeSelected;
+                    }}
+                    disabled={filteredMembers.length === 0}
+                    onChange={(e) => {
+                      const next = new Set(selectedEmails);
+                      if (e.target.checked) {
+                        filteredMembers.forEach((m) => next.add(m.email));
+                      } else {
+                        filteredMembers.forEach((m) => next.delete(m.email));
+                      }
+                      setSelectedEmails(next);
+                    }}
+                    aria-label="전체 선택"
+                    data-testid="members-bulk-check-all"
+                    className="cursor-pointer disabled:cursor-not-allowed"
+                  />
+                </TableHead>
                 <TableHead>이메일</TableHead>
                 <TableHead>역할</TableHead>
                 <TableHead>타입</TableHead>
@@ -160,6 +222,21 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
             <TableBody>
               {filteredMembers.map((member) => (
                 <TableRow key={member.email} data-testid={`member-row-${member.email}`}>
+                  <TableCell className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedEmails.has(member.email)}
+                      onChange={(e) => {
+                        const next = new Set(selectedEmails);
+                        if (e.target.checked) next.add(member.email);
+                        else next.delete(member.email);
+                        setSelectedEmails(next);
+                      }}
+                      aria-label={`${member.email} 선택`}
+                      data-testid={`members-bulk-check-${member.email}`}
+                      className="cursor-pointer"
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-small text-fg-primary">
                     {member.email}
                   </TableCell>
