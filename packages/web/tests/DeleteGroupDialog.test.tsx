@@ -78,6 +78,33 @@ describe("DeleteGroupDialog component", () => {
     });
   });
 
+  it("calls onSuccess callback after closing dialog on successful deletion", async () => {
+    mockMutateAsync.mockResolvedValueOnce({ email: "team-a@cam.hs.kr", deleted: true });
+    const onOpenChange = vi.fn();
+    const onSuccess = vi.fn();
+
+    renderWithRouter(
+      <DeleteGroupDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        group={targetGroup}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    const input = screen.getByLabelText(/삭제하려면/);
+    fireEvent.change(input, { target: { value: "team-a@cam.hs.kr" } });
+
+    const deleteBtn = screen.getByTestId("delete-group-submit");
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({ email: "team-a@cam.hs.kr" });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // 4. 오류 매핑
   it("displays server error message when deletion fails", () => {
     mockError = new Error("permission-denied");

@@ -227,6 +227,7 @@ export function UserDetailPage() {
           open={!!deleteTarget}
           onOpenChange={(o) => !o && setDeleteTarget(null)}
           user={deleteTarget}
+          onSuccess={() => navigate('/admin')}
         />
       )}
     </AppShell>

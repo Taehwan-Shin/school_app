@@ -71,6 +71,33 @@ describe("DeleteUserDialog component", () => {
     });
   });
 
+  it("calls onSuccess callback after closing dialog on successful deletion", async () => {
+    mockMutateAsync.mockResolvedValueOnce({ primaryEmail: "student@cam.hs.kr", deleted: true });
+    const onOpenChange = vi.fn();
+    const onSuccess = vi.fn();
+
+    render(
+      <DeleteUserDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        user={targetUser}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    const input = screen.getByLabelText(/삭제하려면/);
+    fireEvent.change(input, { target: { value: "student@cam.hs.kr" } });
+
+    const deleteBtn = screen.getByTestId("delete-user-submit");
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({ primaryEmail: "student@cam.hs.kr" });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("displays server error message when self-delete fails", () => {
     mockError = new Error("cannot_delete_self");
 
