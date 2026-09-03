@@ -16,6 +16,7 @@ import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
+import { BulkSuspendDialog } from "./BulkSuspendDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -42,7 +43,7 @@ export function AccountsTable() {
   const [page, setPage] = useState(0);
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-  const [, setIsBulkSuspendOpen] = useState(false);
+  const [isBulkSuspendOpen, setIsBulkSuspendOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -527,6 +528,13 @@ export function AccountsTable() {
             setSuccessBanner(null);
           }, 3000);
         }}
+      />
+
+      <BulkSuspendDialog
+        open={isBulkSuspendOpen}
+        onOpenChange={setIsBulkSuspendOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
       />
     </div>
   );

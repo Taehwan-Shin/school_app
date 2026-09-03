@@ -51,10 +51,19 @@ vi.mock("../src/api/usersResetPassword.js", () => ({
   }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AccountsTable } from "../src/routes/admin/AccountsTable.js";
 
+const testQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/admin']) {
-  return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+  return render(
+    <QueryClientProvider client={testQueryClient}>
+      <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+    </QueryClientProvider>
+  );
 }
 
 describe("AccountsTable component", () => {
@@ -712,10 +721,12 @@ describe("AccountsTable component", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/admin"]}>
-        <LocationSpy />
-        <AccountsTable />
-      </MemoryRouter>
+      <QueryClientProvider client={testQueryClient}>
+        <MemoryRouter initialEntries={["/admin"]}>
+          <LocationSpy />
+          <AccountsTable />
+        </MemoryRouter>
+      </QueryClientProvider>
     );
 
     const searchInput = screen.getByTestId("accounts-search-input");
