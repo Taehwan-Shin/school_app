@@ -17,11 +17,13 @@ export function SuperAdminPage() {
   const dayAgo = now - 24 * 60 * 60 * 1000;
   const recentEvents = audit.entries.filter((e) => e.at >= dayAgo);
 
+  const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
+
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
       <div className="space-y-8">
         {/* KPI 로우 */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard
             label="총 사용자"
             value={users.data?.users?.length ?? 0}
@@ -31,6 +33,11 @@ export function SuperAdminPage() {
             label="총 그룹"
             value={groups.data?.groups?.length ?? 0}
             loading={groups.isLoading}
+          />
+          <KpiCard
+            label="정지된 계정"
+            value={suspendedCount}
+            loading={users.isLoading}
           />
           <KpiCard
             label="최근 24시간 이벤트"
@@ -61,23 +68,31 @@ export function SuperAdminPage() {
           {recentEvents.length > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
               {recentEvents.slice(0, 5).map((e) => (
-                <li key={e.id} className="flex items-center gap-3 text-small">
-                  <span className="font-mono text-fg-secondary w-40 shrink-0">
-                    {new Date(e.at).toLocaleString('ko-KR')}
-                  </span>
-                  <span className="font-mono text-fg-primary">{e.action}</span>
-                  <span className="text-fg-secondary">·</span>
-                  <span
-                    className={
-                      e.result === 'ok'
-                        ? 'text-fg-primary'
-                        : e.result === 'error'
-                        ? 'text-state-danger'
-                        : 'text-state-warning'
-                    }
+                <li key={e.id}>
+                  <Link
+                    to={`/super_admin/audit?actor=${encodeURIComponent(e.actor)}`}
+                    className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
+                    data-testid={`super-admin-recent-event-${e.id}`}
                   >
-                    {e.result}
-                  </span>
+                    <span className="font-mono text-fg-secondary w-40 shrink-0">
+                      {new Date(e.at).toLocaleString('ko-KR')}
+                    </span>
+                    <span className="font-mono text-fg-primary">{e.action}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span className="font-mono text-fg-primary">{e.actor}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span
+                      className={
+                        e.result === 'ok'
+                          ? 'text-fg-primary'
+                          : e.result === 'error'
+                          ? 'text-state-danger'
+                          : 'text-state-warning'
+                      }
+                    >
+                      {e.result}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
