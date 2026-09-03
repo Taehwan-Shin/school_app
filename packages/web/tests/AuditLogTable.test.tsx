@@ -705,4 +705,53 @@ describe('AuditLogTable component', () => {
     fireEvent.change(input, { target: { value: '' } });
     expect(capturedSearch).toBe('');
   });
+
+  it('updates URL with atMin when 7-day preset chip is clicked and clears atMax', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?atMax=2026-09-03']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const preset7Btn = screen.getByTestId('audit-log-preset-7');
+    fireEvent.click(preset7Btn);
+
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const expectedDate = `${yyyy}-${mm}-${dd}`;
+
+    expect(capturedSearch).toBe(`?atMin=${expectedDate}`);
+  });
+
+  it('clears atMin and atMax URL parameters when all preset chip is clicked', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?atMin=2026-09-01&atMax=2026-09-03']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const presetAllBtn = screen.getByTestId('audit-log-preset-all');
+    fireEvent.click(presetAllBtn);
+
+    expect(capturedSearch).toBe('');
+  });
 });
