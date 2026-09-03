@@ -19,10 +19,24 @@ export function AuditLogTable() {
   })();
   const actionSearch = searchParams.get('q') ?? '';
   const actorFilter = searchParams.get('actor') ?? '';
+  const atMinMs = (() => {
+    const raw = searchParams.get('atMin');
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+    const d = new Date(`${raw}T00:00:00`);
+    return isNaN(d.getTime()) ? undefined : d.getTime();
+  })();
+  const atMaxMs = (() => {
+    const raw = searchParams.get('atMax');
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+    const d = new Date(`${raw}T23:59:59.999`);
+    return isNaN(d.getTime()) ? undefined : d.getTime();
+  })();
 
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
     filterActor: actorFilter || undefined,
     filterResult: resultFilter !== 'all' ? resultFilter : undefined,
+    atMin: atMinMs,
+    atMax: atMaxMs,
   });
 
   const filteredEntries = useMemo(() => {
@@ -97,6 +111,33 @@ export function AuditLogTable() {
             <option value="denied">거부</option>
           </select>
           <input
+            type="date"
+            value={searchParams.get('atMin') ?? ''}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('atMin', v); else next.delete('atMin');
+              setSearchParams(next, { replace: false });
+            }}
+            aria-label="시작 날짜"
+            data-testid="audit-log-filter-atmin"
+            className="border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <span className="text-fg-muted text-small" aria-hidden="true">~</span>
+          <input
+            type="date"
+            value={searchParams.get('atMax') ?? ''}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('atMax', v); else next.delete('atMax');
+              setSearchParams(next, { replace: false });
+            }}
+            aria-label="끝 날짜"
+            data-testid="audit-log-filter-atmax"
+            className="border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <input
             type="text"
             value={actionSearch}
             onChange={(e) => {
@@ -157,7 +198,7 @@ export function AuditLogTable() {
           className="py-12 text-center text-small text-fg-secondary"
           data-testid="audit-log-empty"
         >
-          {actorFilter || resultFilter !== 'all'
+          {actorFilter || resultFilter !== 'all' || searchParams.get('atMin') || searchParams.get('atMax')
             ? '해당 필터에 매칭되는 로그가 없습니다.'
             : '감사 로그 항목이 없습니다.'}
         </div>

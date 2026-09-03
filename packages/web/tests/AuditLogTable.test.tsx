@@ -652,4 +652,57 @@ describe('AuditLogTable component', () => {
     expect(screen.getByTestId('audit-log-empty')).toBeDefined();
     expect(screen.getByText('해당 필터에 매칭되는 로그가 없습니다.')).toBeDefined();
   });
+
+  it('updates URL and passes atMin timestamp to hook when atMin date input changes', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const input = screen.getByTestId('audit-log-filter-atmin');
+    fireEvent.change(input, { target: { value: '2026-09-01' } });
+
+    expect(capturedSearch).toBe('?atMin=2026-09-01');
+    const expectedAtMin = new Date('2026-09-01T00:00:00').getTime();
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ atMin: expectedAtMin })
+    );
+  });
+
+  it('reads atMax from URL and removes URL parameter when cleared', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?atMax=2026-09-03']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const input = screen.getByTestId('audit-log-filter-atmax') as HTMLInputElement;
+    expect(input.value).toBe('2026-09-03');
+    const expectedAtMax = new Date('2026-09-03T23:59:59.999').getTime();
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ atMax: expectedAtMax })
+    );
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(capturedSearch).toBe('');
+  });
 });
