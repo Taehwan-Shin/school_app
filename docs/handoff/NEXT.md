@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **super_admin KPI 클릭 nav v0.39** — 4 개 KPI 카드에 클릭 시 대상 페이지 nav 추가. 프론트엔드 only.
+> 지금 이 파일의 오더는 **감사 로그 actor 링크 v0.40** — 3 개 감사 로그 테이블 (AuditLogTable · UserAuditTrail · GroupAuditTrail) 에서 actor 필드가 `@cam.hs.kr` 이메일이면 사용자 상세 페이지 링크로 표시.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/super-kpi-nav-v39`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/audit-actor-link-v40`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,104 +19,99 @@
 
 ## 기준 커밋
 
-**Base**: `d573260` (super_admin 대시보드 v0.38)
+**Base**: `6cb3015` (super_admin KPI 클릭 nav v0.39)
 
-## 지금 할 것 — super_admin KPI 4 개 클릭 nav
+## 지금 할 것 — 감사 로그 actor 를 사용자 상세 링크로
 
 ### 왜
 
-v0.38 로 super_admin 최근 이벤트 행에는 클릭 nav 를 붙였지만 KPI 카드 4 개는 여전히 display-only. AccountsTable 의 KpiCardRow 는 각 KPI 를 클릭하면 URL 필터가 토글됨 (`packages/web/src/components/dashboard/KpiCardRow.tsx`). super_admin 도 클릭 nav 로 오퍼레이션 페이지에 바로 이동시키면 대시보드 → 관리 흐름이 원클릭.
+감사 로그의 actor 필드는 관리자 이메일 (예: `admin@cam.hs.kr`) 이지만 지금은 plain text. 실 감사 시나리오에서 「이 액션을 누가 했지?」 → 그 사람의 상세 페이지로 바로 가고 싶은 요구가 강함. actor 가 도메인 이메일이면 `Link` 로 감싸서 클릭 시 사용자 상세 페이지로 nav.
 
-**하지 않는 것**: KpiCard 컴포넌트 자체 수정 (button 렌더 로직 재설계는 별도 slice). 새 라우트. 새 필터 유형.
+**하지 않는 것**: target 링크 (user vs group email 판정 애매, false positive 발생 위험). 액션 코드 한글 라벨 (`users.write` → 「계정 수정」) — 검색·필터 손실. 링크 스타일 특별화 — 기존 「hover:underline」 재사용.
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/web/src/routes/super_admin/index.tsx` — 4 개 KPI 에 `href`(dummy) + `onClick` (useNavigate) 추가
-- `packages/web/tests/SuperAdminPage.test.tsx` — 시나리오 4 추가 (KPI 각 1개씩 클릭 → navigate mock 호출 확인)
+- `packages/web/src/routes/super_admin/AuditLogTable.tsx` — actor cell 을 Link 로 (조건부)
+- `packages/web/src/routes/admin/UserAuditTrail.tsx` — 동일
+- `packages/web/src/routes/admin/GroupAuditTrail.tsx` — 동일
+- `packages/web/tests/AuditLogTable.test.tsx` — actor 링크 렌더 시나리오 1
+- `packages/web/tests/UserAuditTrail.test.tsx` — 동일
+- `packages/web/tests/GroupAuditTrail.test.tsx` — 동일
 
 **손대지 마라**:
-- `KpiCard` 컴포넌트 자체 — 그대로 (dummy href 로 button 렌더 유도).
-- `KpiCardRow` — 그대로 (admin 페이지 URL 토글 로직 계속 사용).
-- 백엔드 · 다른 라우트.
+- 백엔드 · Firestore · middleware — 그대로.
+- target 필드 — 그대로 (plain text).
+- 액션·결과·메시지 필드 — 그대로.
+- 새 헬퍼 파일 만들지 마라 (한 줄 헬퍼 각 파일 인라인).
 
 ### 세부 요구
 
-#### 1. `super_admin/index.tsx` — useNavigate 추가
+#### 1. 공통 로직 (인라인)
 
+각 파일 안에 헬퍼 (혹은 render inline):
 ```ts
-import { useNavigate, Link } from 'react-router-dom';
-// ...
-const navigate = useNavigate();
+const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
+function renderActor(actor: string) {
+  if (typeof actor === 'string' && actor.toLowerCase().endsWith(ALLOWED_DOMAIN_SUFFIX)) {
+    return (
+      <Link
+        to={`/admin/users/${encodeURIComponent(actor)}`}
+        className="text-fg-primary hover:underline"
+        data-testid={`audit-actor-link-${actor}`}
+      >
+        {actor}
+      </Link>
+    );
+  }
+  return <span>{actor}</span>;
+}
 ```
 
-#### 2. KPI 각 카드 nav 로직
+**주의**:
+- 도메인 상수 (`@cam.hs.kr`) 하드코딩 허용 — 이미 여러 곳에 있음 (auth.tsx `hd: 'cam.hs.kr'` 등).
+- 시스템 actor 값 (`unknown` 등) 은 plain span 으로.
+- `Link` 는 이미 각 파일에서 import 가능 (`AuditLogTable` 은 super_admin/audit.tsx 를 통해; UserAuditTrail·GroupAuditTrail 은 `react-router-dom` 새로 import).
 
-**오늘 자정 계산** (최근 24시간 이벤트 nav 용):
-```ts
-const todayStart = new Date();
-todayStart.setHours(0, 0, 0, 0);
-const yyyy = todayStart.getFullYear();
-const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
-const dd = String(todayStart.getDate()).padStart(2, '0');
-const todayIso = `${yyyy}-${mm}-${dd}`;
-```
+#### 2. `AuditLogTable.tsx` — actor cell 교체
 
-**KpiCard 확장** (기존 4 카드 전부):
+기존:
 ```tsx
-<KpiCard
-  label="총 사용자"
-  value={users.data?.users?.length ?? 0}
-  loading={users.isLoading}
-  href="nav"
-  onClick={() => navigate('/admin')}
-/>
-<KpiCard
-  label="총 그룹"
-  value={groups.data?.groups?.length ?? 0}
-  loading={groups.isLoading}
-  href="nav"
-  onClick={() => navigate('/admin/groups')}
-/>
-<KpiCard
-  label="정지된 계정"
-  value={suspendedCount}
-  loading={users.isLoading}
-  href="nav"
-  onClick={() => navigate('/admin?filter=suspended')}
-/>
-<KpiCard
-  label="최근 24시간 이벤트"
-  value={recentEvents.length}
-  loading={audit.loading}
-  href="nav"
-  onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
-/>
+<TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+  {entry.actor}
+</TableCell>
 ```
 
-주의:
-- `href="nav"` 은 dummy — KpiCard 내부 `if (href)` 체크로 button 렌더링만 유도 (`packages/web/src/components/dashboard/KpiCard.tsx:45`).
-- 실제 nav 는 `onClick` 이 처리.
-- `active` prop 은 pass 하지 않음 (super_admin 대시보드에서 활성 상태 없음).
+변경 후:
+```tsx
+<TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+  {renderActor(entry.actor)}
+</TableCell>
+```
 
-#### 3. 테스트
+`import { Link } from 'react-router-dom'` 이 이미 있으면 재활용, 없으면 추가.
 
-**web `SuperAdminPage.test.tsx`** (4 신규 시나리오 — 기존 확장):
+**주의**:
+- CSV export (`handleExportCsv`, `packages/web/src/routes/super_admin/AuditLogTable.tsx:36-60`) 는 그대로 (텍스트 그대로 export).
 
-Mock `useNavigate`:
+#### 3. `UserAuditTrail.tsx` · `GroupAuditTrail.tsx` — 동일
+
+각 파일 상단에 `Link` import 추가 (없으면):
 ```ts
-const navigateMock = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-  return { ...actual, useNavigate: () => navigateMock };
-});
+import { Link } from 'react-router-dom';
 ```
 
-시나리오:
-1. `kpi-card-총 사용자` 클릭 → `navigateMock('/admin')` 호출.
-2. `kpi-card-총 그룹` 클릭 → `navigateMock('/admin/groups')`.
-3. `kpi-card-정지된 계정` 클릭 → `navigateMock('/admin?filter=suspended')`.
-4. `kpi-card-최근 24시간 이벤트` 클릭 → `navigateMock('/super_admin/audit?atMin=YYYY-MM-DD')` (오늘 자정 iso).
+그리고 actor cell (`packages/web/src/routes/admin/UserAuditTrail.tsx:67`, `packages/web/src/routes/admin/GroupAuditTrail.tsx:67`) 교체.
+
+#### 4. 테스트
+
+각 테이블 파일마다 시나리오 1 추가 (총 3):
+
+1. **AuditLogTable**: entry 하나 로드 (actor = `admin@cam.hs.kr`) → `audit-actor-link-admin@cam.hs.kr` 로 Link 렌더 + href `/admin/users/admin%40cam.hs.kr` 확인.
+2. **UserAuditTrail**: 동일 패턴.
+3. **GroupAuditTrail**: 동일 패턴.
+
+시스템 actor (`unknown`) → Link 렌더 안 됨 (span 만) — 한 시나리오 안에 병행 검증 가능.
 
 기존 회귀 유지.
 
@@ -125,27 +120,28 @@ vi.mock('react-router-dom', async () => {
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 475 + 신규 4 = 479 근처.
+4. `pnpm -r test` — 이전 479 + 신규 3 = 482 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/super_admin` KPI 카드 4 개 모두 hover 시 border 강조 + 클릭 시 해당 페이지로 nav
-   - 정지된 계정 클릭 → `/admin?filter=suspended` (KPI 필터 활성)
-   - 최근 24시간 이벤트 클릭 → `/super_admin/audit?atMin=YYYY-MM-DD` (오늘 자정 이후 이벤트)
+   - `/super_admin/audit` actor 컬럼 이메일 클릭 → 사용자 상세 페이지
+   - `/admin/users/{email}` 감사 이력 actor 이메일 클릭 → 다른 사용자 상세로 nav
+   - `/admin/groups/{email}` 감사 이력 동일
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **KpiCard 리팩터 (button + Link 통합)** — 별도 slice.
-- **KPI 활성 상태 (active prop)** — super_admin 대시보드에서 「어떤 필터가 활성인지」 개념 없음 (여기선 nav 만).
+- **target 링크 (user vs group)** — 두 도메인 겹치므로 별도 slice (레지스트리 조회 필요).
+- **actor === `unknown` 렌더** — 그대로 plain text.
+- **삭제된 사용자의 actor 링크** — 상세 페이지에서 「사용자를 찾을 수 없습니다」 폴백 (기존 UX).
 
 ### 커밋 규칙
 
 **1 커밋**:
-- `feat(web): super_admin KPI 카드 4 개 클릭 시 대상 페이지 nav`
+- `feat(web): 감사 로그 actor 를 사용자 상세 페이지 링크로 (3 테이블)`
 
 conventional commit. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/super-kpi-nav-v39`.
+**작업 브랜치** — `git push -u origin feat/audit-actor-link-v40`.
 
 ## 상태 보고 (필수)
 
