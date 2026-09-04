@@ -13,6 +13,7 @@ export function BasicDataPanel() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
+  const [, setIsRostersEditOpen] = useState(false);
 
   useEffect(() => {
     const parsed = Number.parseInt(yearInput, 10);
@@ -88,6 +89,15 @@ export function BasicDataPanel() {
           </Button>
           <Button
             variant="secondary"
+            onClick={() => setIsRostersEditOpen(true)}
+            data-testid="basic-data-rosters-edit-btn"
+            disabled={!data?.data || (data.data.grades ?? []).length === 0}
+            title={!data?.data ? '기초값 먼저 설정하세요' : '반별 학생 명단 편집'}
+          >
+            학생 명단 편집
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => setIsEditOpen(true)}
             data-testid="basic-data-edit-btn"
           >
@@ -122,15 +132,21 @@ export function BasicDataPanel() {
                 {g.grade}학년
               </div>
               <div className="flex flex-wrap gap-2">
-                {g.classes.map((c) => (
-                  <span
-                    key={c}
-                    className="px-2 py-1 border border-border-subtle bg-canvas text-small font-mono text-fg-primary"
-                    data-testid={`basic-data-class-${g.grade}-${c}`}
-                  >
-                    {c}
-                  </span>
-                ))}
+                {g.classes.map((c) => {
+                  const rosterCount = data.data?.rosters?.[String(g.grade)]?.[c]?.length ?? 0;
+                  return (
+                    <span
+                      key={c}
+                      className="px-2 py-1 border border-border-subtle bg-canvas text-small font-mono text-fg-primary"
+                      data-testid={`basic-data-class-${g.grade}-${c}`}
+                    >
+                      {c}
+                      {rosterCount > 0 && (
+                        <span className="ml-1 text-fg-muted text-micro">({rosterCount})</span>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ))}

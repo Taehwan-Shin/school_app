@@ -316,5 +316,70 @@ describe('BasicDataPanel component', () => {
     expect(yearInput.value).toBe('2025');
     expect(mockUseBasicDataGet).toHaveBeenCalledWith(2025);
   });
+
+  it('scenario 12: rosters edit button is disabled when data is null or grades empty, enabled when grades exist', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(<BasicDataPanel />);
+    const btnDisabled = screen.getByTestId('basic-data-rosters-edit-btn') as HTMLButtonElement;
+    expect(btnDisabled.disabled).toBe(true);
+
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    const btnEnabled = screen.getByTestId('basic-data-rosters-edit-btn') as HTMLButtonElement;
+    expect(btnEnabled.disabled).toBe(false);
+  });
+
+  it('scenario 13: renders roster student count badge when rosters exist', () => {
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A', 'B'] }],
+          rosters: {
+            '1': {
+              A: ['s1@cam.hs.kr', 's2@cam.hs.kr'],
+              B: [],
+            },
+          },
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const badgeA = screen.getByTestId('basic-data-class-1-A');
+    expect(badgeA).toBeDefined();
+    expect(badgeA.textContent).toContain('(2)');
+
+    const badgeB = screen.getByTestId('basic-data-class-1-B');
+    expect(badgeB).toBeDefined();
+    expect(badgeB.textContent).toBe('B');
+  });
 });
 
