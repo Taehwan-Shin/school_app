@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **basic_data 백엔드 v0.45** — Firestore `basic_data/{year}` 스키마 정의 + `basicData.get` / `basicData.set` callable. Google API 불필요, 새 스코프 없음. Cap 은 이미 shared 에 등록됨.
+> 지금 이 파일의 오더는 **basic_data 프론트엔드 조회 v0.46** — admin 페이지 「기초값 관리」 placeholder 를 실 컴포넌트로 교체. useBasicDataGet hook + BasicDataPanel (read-only). 편집은 별도 slice.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/basic-data-backend-v45`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/basic-data-panel-v46`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,200 +19,252 @@
 
 ## 기준 커밋
 
-**Base**: `26ac925` (일괄 조직 이동 v0.44)
+**Base**: `43de168` (basic_data 백엔드 v0.45)
 
-## 지금 할 것 — basic_data 최소 스키마 + 2 callable
+## 지금 할 것 — BasicDataPanel (read-only)
 
 ### 왜
 
-DESIGN v1 (`docs/DESIGN_v1.md`) 은 `basic_data/{year}` 를 「원본 「기초값」 시트 대체 (학년·반·부서 구조)」 로 정의. 아직 미구현. 그룹 생성·사용자 OU 결정·클래스룸 이름 생성 등에서 참조할 중심 데이터. Google Directory API 불필요 — Firestore only, 이번 세션 릴레이의 유일한 「외부 API 활성화 필요 없음」 미개척 도메인.
+v0.45 로 백엔드 `basicData.get`·`basicData.set` 배포 완료. admin 페이지의 「기초값 관리」 자리 (`packages/web/src/routes/admin/index.tsx:29-33`) 는 현재 placeholder text 만. 실 데이터 조회 UI 로 교체 (편집은 v0.47 후보).
 
-**하지 않는 것**:
-- 이번 슬라이스에서 프론트엔드 UI (v0.46 후보).
-- 부서 (departments) · 학생 명단 — 최소 스키마 (grades + classes) 만.
-- 다중 연도 동시 편집 · 히스토리 — 단일 연도 upsert 만.
+**하지 않는 것**: 편집 form (v0.47). 연도 선택기 (드롭다운·과거 연도 목록) — 이번은 현재 연도 (`new Date().getFullYear()`) 기본. 다이얼로그. 새 라우트.
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/shared/src/basicData.ts` — `BasicDataYear` 인터페이스 + validator
-- `packages/functions/src/callable/basicData/get.ts` — get callable
-- `packages/functions/src/callable/basicData/set.ts` — set callable (upsert + audit)
-- `packages/functions/tests/basicDataGet.test.ts` — 시나리오 4~5
-- `packages/functions/tests/basicDataSet.test.ts` — 시나리오 6~8
+- `packages/web/src/api/basicDataGet.ts` — fetch + useQuery hook
+- `packages/web/src/routes/admin/BasicDataPanel.tsx` — read-only 표시 컴포넌트
+- `packages/web/tests/basicDataGet.test.ts` — API 시나리오 2
+- `packages/web/tests/BasicDataPanel.test.tsx` — UI 시나리오 4
 
 **수정 대상**:
-- `packages/shared/src/index.ts` — `export * from './basicData.js';`
-- `packages/functions/src/index.ts` — `basicDataGet` · `basicDataSet` export
-- `firebase.json` — hosting rewrite 2 개 (`/api/basicDataGet`, `/api/basicDataSet`)
+- `packages/web/src/routes/admin/index.tsx` — 「기초값 관리」 placeholder 를 `<BasicDataPanel />` 로 교체
 
 **손대지 마라**:
-- `roleCapabilities.ts` — 이미 `basic_data.read`·`basic_data.write` 등록됨 (`packages/shared/src/capabilities.ts:17-18`).
-- 프론트엔드 (`packages/web/**`) — v0.46 후보.
-- 다른 callable · middleware · audit helpers.
+- 백엔드 · shared · middleware — 그대로.
+- basicData.set (v0.47 슬라이스).
+- 다른 라우트 · 컴포넌트.
 
 ### 세부 요구
 
-#### 1. `packages/shared/src/basicData.ts` — 스키마
+#### 1. `basicDataGet.ts` — fetch + hook
+
+기존 pattern (예: `packages/web/src/api/groupsList.ts`) 참고.
 
 ```ts
-export interface BasicDataGradeClass {
-  grade: number;         // 1, 2, 3, ...
-  classes: string[];     // ['A', 'B', 'C', ...]
-}
-
-export interface BasicDataYear {
-  year: number;                        // 예: 2026
-  grades: BasicDataGradeClass[];
-  updatedAt?: number;                  // ms since epoch (서버 timestamp)
-  updatedBy?: string;                  // actor email
-}
-
-export function isValidBasicDataYear(input: unknown): input is BasicDataYear {
-  if (!input || typeof input !== 'object') return false;
-  const obj = input as any;
-  if (typeof obj.year !== 'number' || !Number.isFinite(obj.year) || obj.year < 1900 || obj.year > 2200) {
-    return false;
-  }
-  if (!Array.isArray(obj.grades)) return false;
-  for (const g of obj.grades) {
-    if (!g || typeof g !== 'object') return false;
-    if (typeof g.grade !== 'number' || !Number.isFinite(g.grade)) return false;
-    if (!Array.isArray(g.classes)) return false;
-    if (!g.classes.every((c: unknown) => typeof c === 'string' && c.length > 0)) return false;
-  }
-  return true;
-}
-```
-
-`packages/shared/src/index.ts` 에 export 추가.
-
-#### 2. `basicData/get.ts` — Firestore 조회
-
-```ts
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import crypto from 'node:crypto';
-import { getFirestore } from 'firebase-admin/firestore';
-import type { Role } from '@school-app/shared';
+import { useQuery } from '@tanstack/react-query';
+import { auth } from '../lib/firebase';
+import { getGoogleAccessTokenFromSession } from '../lib/auth';
 import type { BasicDataYear } from '@school-app/shared';
-import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
-import { writeAudit } from '../../audit/writeAudit.js';
-
-export interface BasicDataGetRequest {
-  year: number;
-}
 
 export interface BasicDataGetResponse {
-  data: BasicDataYear | null;   // 없으면 null
+  data: BasicDataYear | null;
+}
+
+export async function callBasicDataGet(year: number): Promise<BasicDataGetResponse> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('not_authenticated');
+  const idToken = await user.getIdToken();
+  const googleAccessToken = getGoogleAccessTokenFromSession() || '';
+
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'school-app-5a636';
+  const url = import.meta.env.DEV
+    ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/basicDataGet`
+    : `https://asia-northeast3-${projectId}.cloudfunctions.net/basicDataGet`;
+
+  const requestId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+      'X-Google-Access-Token': googleAccessToken,   // 사용 안 함, 관행 유지
+      'X-Request-Id': requestId,
+    },
+    body: JSON.stringify({ data: { year, _googleAccessToken: googleAccessToken } }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const message = body.error?.message ?? `http_${res.status}`;
+    const err = new Error(message) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+
+  const body = await res.json();
+  return (body.result ?? body) as BasicDataGetResponse;
+}
+
+export function useBasicDataGet(year: number, enabled = true) {
+  return useQuery<BasicDataGetResponse, Error>({
+    queryKey: ['basic_data', 'get', year],
+    queryFn: () => callBasicDataGet(year),
+    enabled,
+    staleTime: 60_000,
+    // 4xx 는 재시도 안 함 (denied audit 중복 방지).
+    retry: (failureCount, error) => {
+      const status = (error as Error & { status?: number }).status;
+      if (status !== undefined && status >= 400 && status < 500) return false;
+      return failureCount < 2;
+    },
+  });
 }
 ```
-
-**로직**:
-- authenticate → assertHasCap('basic_data.read')
-- `year` 파싱 (숫자, 1900~2200 범위)
-- Firestore: `db.collection('basic_data').doc(String(year)).get()`
-- 존재 → data 반환. 없음 → null.
-- audit: action `'basic_data.read'`, target `basic_data/{year}`, message `read basic_data for year ${year} (${exists ? 'exists' : 'not found'})`.
 
 **주의**:
-- denied audit (auth 실패 / cap 실패) 는 기존 다른 callable 패턴 (`packages/functions/src/callable/audit/list.ts:40-72`) 그대로 복사.
-- Google API 스코프 없음 → `assertHasScopes` 안 부름.
-- 반환 시 `updatedAt` 은 Firestore Timestamp → ms 변환.
+- `admin.directory.*` 스코프 헤더 (`X-Google-Scopes`) 없음 — 백엔드가 요구 안 함.
+- Google API 무관하지만 `X-Google-Access-Token` 헤더 관행 유지 (다른 callable 과 통일).
 
-#### 3. `basicData/set.ts` — Firestore upsert
+#### 2. `BasicDataPanel.tsx` — read-only 표시
 
-```ts
-export interface BasicDataSetRequest {
-  year: number;
-  grades: BasicDataGradeClass[];
-}
+```tsx
+import { useBasicDataGet } from '../../api/basicDataGet';
 
-export interface BasicDataSetResponse {
-  year: number;
-  updatedAt: number;
+export function BasicDataPanel() {
+  const currentYear = new Date().getFullYear();
+  const { data, isLoading, isError, error } = useBasicDataGet(currentYear);
+
+  return (
+    <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-h2 font-semibold text-fg-primary">기초값 관리</h2>
+          <p className="text-small text-fg-secondary mt-1">
+            연도별 학년·반 구조. 그룹·클래스룸 생성 시 참조됩니다.
+          </p>
+        </div>
+        <div className="text-small text-fg-secondary">
+          연도: <strong className="font-mono text-fg-primary">{currentYear}</strong>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="py-8 text-center text-small text-fg-secondary" data-testid="basic-data-loading">
+          불러오는 중...
+        </div>
+      )}
+
+      {isError && (
+        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="basic-data-error">
+          기초값을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
+        </div>
+      )}
+
+      {!isLoading && !isError && !data?.data && (
+        <div className="py-8 text-center text-small text-fg-secondary" data-testid="basic-data-empty">
+          {currentYear}년 기초값이 아직 설정되지 않았습니다.
+        </div>
+      )}
+
+      {data?.data && (
+        <div className="space-y-3" data-testid="basic-data-content">
+          {data.data.grades.map((g) => (
+            <div key={g.grade} className="flex items-baseline gap-4">
+              <div className="text-body font-semibold text-fg-primary w-16">
+                {g.grade}학년
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {g.classes.map((c) => (
+                  <span
+                    key={c}
+                    className="px-2 py-1 border border-border-subtle bg-canvas text-small font-mono text-fg-primary"
+                    data-testid={`basic-data-class-${g.grade}-${c}`}
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          {data.data.updatedAt && (
+            <p className="text-micro text-fg-muted pt-2 border-t border-border-subtle">
+              최근 수정: {new Date(data.data.updatedAt).toLocaleString('ko-KR')}
+              {data.data.updatedBy && <> · <span className="font-mono">{data.data.updatedBy}</span></>}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 ```
 
-**로직**:
-- authenticate → assertHasCap('basic_data.write')
-- `data` validate: `isValidBasicDataYear({ year, grades })` — invalid 이면 `HttpsError('invalid-argument', 'invalid_basic_data')`
-- Firestore: `db.collection('basic_data').doc(String(year)).set({ year, grades, updatedAt: FieldValue.serverTimestamp(), updatedBy: user.email }, { merge: false })`
-  - `merge: false` — 전체 덮어쓰기 (upsert)
-- 서버 timestamp 얻기 위해 다시 read 하거나 클라이언트가 신뢰: 이번은 `Date.now()` 를 응답 (Firestore serverTimestamp 는 실 저장 시각 반영 — 응답값과 미묘 차이 있을 수 있지만 이번 슬라이스 밖).
-- audit: action `'basic_data.write'`, target `basic_data/{year}`, message `set basic_data for year ${year} with ${grades.length} grades`.
+**주의**:
+- `updatedAt` 은 ms since epoch. 백엔드 `get` callable 이 이미 ms 변환 반환 (`packages/functions/src/callable/basicData/get.ts` 확인).
+- 편집 버튼 없음 (v0.47 후보).
 
-#### 4. `functions/src/index.ts` — export 추가
+#### 3. `admin/index.tsx` — placeholder 교체
 
-```ts
-export { basicDataGet } from './callable/basicData/get.js';
-export { basicDataSet } from './callable/basicData/set.js';
+기존:
+```tsx
+<section className="bg-elevated p-8 border border-border-subtle space-y-2">
+  <h2 className="text-h3 font-semibold text-fg-primary">기초값 관리</h2>
+  <p className="text-small text-fg-secondary">
+    기초값 관리 자리 (학년·반·부서 구조 정의 및 시트 동기화)
+  </p>
+</section>
 ```
 
-#### 5. `firebase.json` — hosting rewrite
-
-기존 `/api/auditLogList` 다음에 (rewrites 배열, `**` fallback 앞에):
-```json
-{
-  "source": "/api/basicDataGet",
-  "function": { "functionId": "basicDataGet", "region": "asia-northeast3" }
-},
-{
-  "source": "/api/basicDataSet",
-  "function": { "functionId": "basicDataSet", "region": "asia-northeast3" }
-}
+**변경**:
+```tsx
+<BasicDataPanel />
 ```
 
-#### 6. 테스트
+파일 상단에 import 추가:
+```tsx
+import { BasicDataPanel } from './BasicDataPanel';
+```
 
-**functions `basicDataGet.test.ts`** (4~5 시나리오):
-1. 미인증 → `unauthenticated`, denied audit
-2. 캡 부족 (teacher role) → `permission-denied`, denied audit
-3. year 유효하지 않음 (문자열 등) → `invalid-argument`, error audit
-4. 존재 문서 → data 반환, ok audit
-5. 존재 안 함 → data null, ok audit
+**주의**:
+- 「기초값 관리」 자리는 grid 안에 있음 (`grid-cols-1 md:grid-cols-2`) — 옆에 있는 「계정·그룹·챗·클래스룸 대시보드」 placeholder 는 그대로 유지 (별도 slice).
+- 새 BasicDataPanel 은 grid 셀 크기에 맞도록 자연 flow — 확장성 확인 후 grid 유지.
 
-**functions `basicDataSet.test.ts`** (6~8 시나리오):
-1. 미인증 → denied
-2. 캡 부족 (teacher) → denied
-3. year 없음/유효하지 않음 → invalid-argument
-4. grades 배열 형식 오류 → invalid-argument
-5. classes 안에 빈 문자열 → invalid-argument
-6. 정상 (신규 문서 생성) → response ok, Firestore 에 저장 확인, ok audit
-7. 정상 (기존 문서 덮어쓰기) → 이전 데이터 사라짐, 새 데이터 확인
-8. admin role 성공 (super_admin 아니어도 basic_data.write 있음) → ok
+#### 4. 테스트
 
-Firestore mock 패턴 은 기존 `auditLogList.test.ts` (`packages/functions/tests/auditLogList.test.ts`) 참고.
+**web `basicDataGet.test.ts`** (2 신규):
+1. 200 응답 (data null) → hook `data = { data: null }`.
+2. 200 응답 (data 존재) → `data.data = { year, grades: [...] }`.
+
+**web `BasicDataPanel.test.tsx`** (4 신규):
+1. 로딩 → `basic-data-loading` 렌더.
+2. 오류 → `basic-data-error` 렌더.
+3. data null → `basic-data-empty` 렌더 (「N년 기초값이 아직 설정되지 않았습니다」).
+4. data 존재 → `basic-data-content` 렌더 + 각 학년/반 badge (`basic-data-class-1-A` 등).
+
+기존 시나리오 회귀 유지.
 
 ### 완료 확인
 
 1. `pnpm install` 통과.
-2. `pnpm -r build` 통과 (`packages/functions/dist/callable/basicData/get.js` · `set.js` 생성).
+2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 501 + 신규 10~13 = 511~514 근처.
-5. `pnpm -r test:emu` — 이전 43 유지 (신규 emu 없음).
-6. dev 서버 확인 (수동):
-   - Firestore 에뮬레이터에서 `basic_data/2026` 문서 없음
-   - basicDataGet 호출 → null 반환
-   - basicDataSet 호출 → 문서 생성
-   - basicDataGet 재호출 → 방금 저장한 데이터 반환
-7. 프로덕션 번들 grep — 우리 emulator URL 0 건 (백엔드만이므로 web 번들 변경 없음).
+4. `pnpm -r test` — 이전 522 + 신규 6 = 528 근처.
+5. `pnpm -r test:emu` — 43 유지.
+6. dev 서버 확인:
+   - `/admin` 하단 grid 좌측에 「기초값 관리」 카드 (v0.46 신규)
+   - 데이터 없는 상태 → 「{연도}년 기초값이 아직 설정되지 않았습니다」
+7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **프론트엔드 UI** — v0.46 후보 (edit form + admin 페이지 통합).
-- **부서 · 학생 명단** — 최소 스키마 밖.
-- **연도 삭제** — 별도 slice (필요 시).
-- **다중 학교 지원** — 지금은 단일 도메인 (cam.hs.kr) 만.
+- **편집 UI** — v0.47 후보 (EditBasicDataDialog).
+- **연도 선택기** — 별도 slice (드롭다운 · 과거 연도 히스토리).
+- **부서** — 스키마 확장 slice.
 
 ### 커밋 규칙
 
 **2 커밋 분리**:
-1. `feat(shared,functions): basicData.get callable + BasicDataYear 스키마 + hosting rewrite`
-2. `feat(functions): basicData.set callable (upsert + audit) + hosting rewrite`
+1. `feat(web): basicDataGet API + useBasicDataGet hook`
+2. `feat(web): BasicDataPanel + admin 페이지 「기초값 관리」 placeholder 교체`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/basic-data-backend-v45`.
+**작업 브랜치** — `git push -u origin feat/basic-data-panel-v46`.
 
 ## 상태 보고 (필수)
 
