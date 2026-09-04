@@ -1,11 +1,19 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockUseBasicDataGet = vi.fn();
 
 vi.mock('../src/api/basicDataGet.js', () => ({
   useBasicDataGet: (year: number) => mockUseBasicDataGet(year),
+}));
+
+vi.mock('../src/api/basicDataSet.js', () => ({
+  useBasicDataSet: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
 }));
 
 import { BasicDataPanel } from '../src/routes/admin/BasicDataPanel.js';
@@ -109,5 +117,24 @@ describe('BasicDataPanel component', () => {
     expect(screen.queryByTestId('basic-data-loading')).toBeNull();
     expect(screen.queryByTestId('basic-data-error')).toBeNull();
     expect(screen.queryByTestId('basic-data-empty')).toBeNull();
+  });
+
+  it('scenario 5: renders edit button and opens EditBasicDataDialog when clicked', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const editBtn = screen.getByTestId('basic-data-edit-btn');
+    expect(editBtn).toBeDefined();
+
+    fireEvent.click(editBtn);
+
+    const currentYear = new Date().getFullYear();
+    expect(screen.getByText(`${currentYear}년 기초값 편집`)).toBeDefined();
   });
 });
