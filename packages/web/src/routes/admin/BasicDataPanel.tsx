@@ -3,11 +3,13 @@ import { useBasicDataGet } from '../../api/basicDataGet';
 import { Button } from '../../components/ui/button';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
 import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
+import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
 
 export function BasicDataPanel() {
   const currentYear = new Date().getFullYear();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
+  const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
   const { data, isLoading, isError, error } = useBasicDataGet(currentYear);
 
   return (
@@ -31,6 +33,19 @@ export function BasicDataPanel() {
             title={!data?.data ? '기초값 먼저 설정하세요' : '학년/반으로 그룹 자동 생성'}
           >
             그룹 자동 생성
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsAutoCreateDeptOpen(true)}
+            data-testid="basic-data-auto-create-dept-groups-btn"
+            disabled={!data?.data?.departments || data.data.departments.length === 0}
+            title={
+              !data?.data?.departments || data.data.departments.length === 0
+                ? '부서를 먼저 추가하세요'
+                : '부서로 그룹 자동 생성'
+            }
+          >
+            부서 그룹 자동 생성
           </Button>
           <Button
             variant="secondary"
@@ -111,6 +126,15 @@ export function BasicDataPanel() {
           onOpenChange={setIsAutoCreateOpen}
           year={currentYear}
           grades={data.data.grades}
+        />
+      )}
+
+      {data?.data?.departments && (
+        <AutoCreateDepartmentGroupsDialog
+          open={isAutoCreateDeptOpen}
+          onOpenChange={setIsAutoCreateDeptOpen}
+          year={currentYear}
+          departments={data.data.departments}
         />
       )}
 

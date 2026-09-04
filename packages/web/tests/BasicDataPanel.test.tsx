@@ -200,4 +200,41 @@ describe('BasicDataPanel component', () => {
     expect(mathDept).toBeDefined();
     expect(mathDept.textContent).toBe('수학과');
   });
+
+  it('scenario 8: auto create dept groups button is disabled when departments is absent, enabled when departments exist', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(<BasicDataPanel />);
+    const btnDisabled = screen.getByTestId('basic-data-auto-create-dept-groups-btn') as HTMLButtonElement;
+    expect(btnDisabled.disabled).toBe(true);
+
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          departments: ['국어과', '수학과'],
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    const btnEnabled = screen.getByTestId('basic-data-auto-create-dept-groups-btn') as HTMLButtonElement;
+    expect(btnEnabled.disabled).toBe(false);
+
+    fireEvent.click(btnEnabled);
+    expect(screen.getByRole('heading', { name: '부서 그룹 자동 생성' })).toBeDefined();
+  });
 });
+
