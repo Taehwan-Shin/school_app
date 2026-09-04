@@ -59,6 +59,7 @@ export function useBasicDataSet() {
     mutationFn: (data) => callBasicDataSet(data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['basic_data', 'get', variables.year] });
+      queryClient.invalidateQueries({ queryKey: ['basic_data', 'list_years'] });
     },
   });
 }

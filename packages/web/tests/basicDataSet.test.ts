@@ -114,6 +114,9 @@ describe('basicDataSet API & Hook', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: ['basic_data', 'get', 2026],
       });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ['basic_data', 'list_years'],
+      });
     });
   });
 
@@ -143,5 +146,47 @@ describe('basicDataSet API & Hook', () => {
     };
 
     await expect(result.current.mutateAsync(requestPayload)).rejects.toThrow('invalid_basic_data');
+  });
+
+  it('onSuccess invalidates both basic_data.get and basic_data.list_years queries', async () => {
+    const mockResponse: BasicDataSetResponse = {
+      year: 2027,
+      updatedAt: 1788480000000,
+    };
+
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        result: mockResponse,
+      }),
+    })) as any;
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useBasicDataSet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await result.current.mutateAsync({
+      year: 2027,
+      grades: [{ grade: 1, classes: ['1'] }],
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ['basic_data', 'get', 2027],
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ['basic_data', 'list_years'],
+      });
+    });
   });
 });
