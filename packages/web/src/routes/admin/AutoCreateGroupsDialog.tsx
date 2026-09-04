@@ -38,6 +38,18 @@ export function buildGroupDescription(year: number, grade: number, cls: string):
 }
 
 type Phase = 'confirm' | 'running' | 'done';
+type ResultKind = 'ok' | 'skipped' | 'failed';
+type Result = { email: string; kind: ResultKind; message?: string };
+
+export function isAlreadyExistsError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('already exists') ||
+    lower.includes('entityalreadyexists') ||
+    lower.includes('duplicate') ||
+    lower.includes('http_409')
+  );
+}
 
 export function AutoCreateGroupsDialog({
   open,
@@ -49,7 +61,7 @@ export function AutoCreateGroupsDialog({
   const queryClient = useContext(QueryClientContext);
   const [phase, setPhase] = useState<Phase>('confirm');
   const [progress, setProgress] = useState(0);
-  const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
+  const [results, setResults] = useState<Result[]>([]);
   const [confirmText, setConfirmText] = useState('');
 
   const targets = useMemo(
@@ -70,7 +82,7 @@ export function AutoCreateGroupsDialog({
     if (open) {
       setPhase('confirm');
       setProgress(0);
-      setFailures([]);
+      setResults([]);
       setConfirmText('');
     }
   }, [open]);
@@ -82,7 +94,7 @@ export function AutoCreateGroupsDialog({
 
   const handleConfirm = async () => {
     setPhase('running');
-    const localFailures: { email: string; message: string }[] = [];
+    const localResults: Result[] = [];
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
       try {
@@ -91,12 +103,18 @@ export function AutoCreateGroupsDialog({
           name: t.name,
           description: t.description,
         });
+        localResults.push({ email: t.email, kind: 'ok' });
       } catch (e) {
-        localFailures.push({ email: t.email, message: (e as Error).message });
+        const message = (e as Error).message;
+        if (isAlreadyExistsError(message)) {
+          localResults.push({ email: t.email, kind: 'skipped', message });
+        } else {
+          localResults.push({ email: t.email, kind: 'failed', message });
+        }
       }
       setProgress(i + 1);
     }
-    setFailures(localFailures);
+    setResults(localResults);
     setPhase('done');
     queryClient?.invalidateQueries({ queryKey: ['groups', 'list'] });
   };
@@ -190,33 +208,55 @@ export function AutoCreateGroupsDialog({
               <DialogDescription>그룹 자동 생성 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="auto-create-groups-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                완료:{' '}
-                <strong className="text-state-success font-mono">
-                  {targets.length - failures.length}
-                </strong>
-                개 성공
-                {failures.length > 0 && (
-                  <>
-                    {' '}
-                    ·{' '}
-                    <strong className="text-state-danger font-mono">
-                      {failures.length}
-                    </strong>
-                    개 실패
-                  </>
-                )}
-              </p>
-              {failures.length > 0 && (
+              {(() => {
+                const okCount = results.filter((r) => r.kind === 'ok').length;
+                const skippedCount = results.filter((r) => r.kind === 'skipped').length;
+                const failedCount = results.filter((r) => r.kind === 'failed').length;
+                return (
+                  <p className="text-body text-fg-primary">
+                    완료:{' '}
+                    <strong className="text-state-success font-mono">{okCount}</strong>개 성공
+                    {skippedCount > 0 && (
+                      <>
+                        {' '}
+                        · <strong className="text-state-warning font-mono">{skippedCount}</strong>개 이미 존재 (skip)
+                      </>
+                    )}
+                    {failedCount > 0 && (
+                      <>
+                        {' '}
+                        · <strong className="text-state-danger font-mono">{failedCount}</strong>개 실패
+                      </>
+                    )}
+                  </p>
+                );
+              })()}
+              {results.some((r) => r.kind === 'skipped') && (
+                <ul
+                  className="text-small text-state-warning space-y-1 max-h-40 overflow-y-auto"
+                  data-testid="auto-create-groups-skipped"
+                >
+                  {results
+                    .filter((r) => r.kind === 'skipped')
+                    .map((r) => (
+                      <li key={r.email}>
+                        <span className="font-mono">{r.email}</span>: 이미 존재
+                      </li>
+                    ))}
+                </ul>
+              )}
+              {results.some((r) => r.kind === 'failed') && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
                   data-testid="auto-create-groups-failures"
                 >
-                  {failures.map((f) => (
-                    <li key={f.email}>
-                      <span className="font-mono">{f.email}</span>: {f.message}
-                    </li>
-                  ))}
+                  {results
+                    .filter((r) => r.kind === 'failed')
+                    .map((r) => (
+                      <li key={r.email}>
+                        <span className="font-mono">{r.email}</span>: {r.message}
+                      </li>
+                    ))}
                 </ul>
               )}
               <DialogFooter>
