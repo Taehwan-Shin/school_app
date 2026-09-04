@@ -5,9 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockCallGroupsCreate = vi.fn();
+const mockCallGroupsMembersInsert = vi.fn();
 
 vi.mock('../src/api/groupsCreate.js', () => ({
   callGroupsCreate: (data: unknown) => mockCallGroupsCreate(data),
+}));
+
+vi.mock('../src/api/groupsMembersInsert.js', () => ({
+  callGroupsMembersInsert: (data: unknown) => mockCallGroupsMembersInsert(data),
 }));
 
 import { AutoCreateDepartmentGroupsDialog } from '../src/routes/admin/AutoCreateDepartmentGroupsDialog.js';
@@ -54,7 +59,7 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
     expect(confirmBtn.disabled).toBe(false);
   });
 
-  it('scenario 2: disables confirm button and marks invalid when slug is invalid', () => {
+  it('scenario 2: disables confirm button and marks invalid when slug or owner is invalid', () => {
     const departments = ['국어과', '수학과'];
     renderWithClient(
       <AutoCreateDepartmentGroupsDialog
@@ -69,9 +74,19 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
     fireEvent.change(slug0, { target: { value: 'Korean!' } });
 
     expect(screen.getByText('invalid')).toBeDefined();
-    expect(screen.getByText('일부 slug 이 유효하지 않습니다 (소문자·숫자·하이픈만).')).toBeDefined();
+    expect(screen.getByText('일부 slug 또는 부서장 이메일이 유효하지 않습니다.')).toBeDefined();
 
     const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+
+    // Reset slug
+    fireEvent.change(slug0, { target: { value: 'dept-1' } });
+    expect(confirmBtn.disabled).toBe(false);
+
+    // Enter invalid owner email
+    const owner0 = screen.getByTestId('auto-create-dept-owner-0') as HTMLInputElement;
+    fireEvent.change(owner0, { target: { value: 'not-an-email' } });
+    expect(screen.getByText('일부 slug 또는 부서장 이메일이 유효하지 않습니다.')).toBeDefined();
     expect(confirmBtn.disabled).toBe(true);
   });
 
@@ -157,5 +172,68 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('scenario 5: runs without owner - calls callGroupsCreate twice and does not call callGroupsMembersInsert', async () => {
+    const departments = ['국어과', '수학과'];
+    mockCallGroupsCreate.mockResolvedValue({ id: 'grp-1', email: 'dept-1@cam.hs.kr' });
+
+    renderWithClient(
+      <AutoCreateDepartmentGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        departments={departments}
+      />
+    );
+
+    const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-create-dept-groups-done')).toBeDefined();
+    });
+
+    expect(mockCallGroupsCreate).toHaveBeenCalledTimes(2);
+    expect(mockCallGroupsMembersInsert).not.toHaveBeenCalled();
+  });
+
+  it('scenario 6: runs with owner - calls callGroupsCreate and callGroupsMembersInsert with role OWNER', async () => {
+    const departments = ['국어과'];
+    mockCallGroupsCreate.mockResolvedValue({ id: 'grp-1', email: 'dept-1@cam.hs.kr' });
+    mockCallGroupsMembersInsert.mockResolvedValue({ success: true });
+
+    renderWithClient(
+      <AutoCreateDepartmentGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        departments={departments}
+      />
+    );
+
+    const ownerInput = screen.getByTestId('auto-create-dept-owner-0') as HTMLInputElement;
+    fireEvent.change(ownerInput, { target: { value: 'teacher@cam.hs.kr' } });
+
+    const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-create-dept-groups-done')).toBeDefined();
+    });
+
+    expect(mockCallGroupsCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallGroupsCreate).toHaveBeenCalledWith({
+      email: 'dept-1@cam.hs.kr',
+      name: '국어과',
+      description: '2026년 국어과 자동 생성',
+    });
+
+    expect(mockCallGroupsMembersInsert).toHaveBeenCalledTimes(1);
+    expect(mockCallGroupsMembersInsert).toHaveBeenCalledWith({
+      groupEmail: 'dept-1@cam.hs.kr',
+      memberEmail: 'teacher@cam.hs.kr',
+      role: 'OWNER',
+    });
   });
 });
