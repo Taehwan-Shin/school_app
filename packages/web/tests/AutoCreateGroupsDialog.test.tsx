@@ -102,7 +102,7 @@ describe('AutoCreateGroupsDialog component', () => {
     const grades = [{ grade: 1, classes: ['A', 'B'] }];
     mockCallGroupsCreate
       .mockResolvedValueOnce({ id: 'grp-1', email: 'class-1a@cam.hs.kr' })
-      .mockRejectedValueOnce(new Error('already exists'));
+      .mockRejectedValueOnce(new Error('network error'));
 
     renderWithClient(
       <AutoCreateGroupsDialog
@@ -130,6 +130,48 @@ describe('AutoCreateGroupsDialog component', () => {
 
     const failuresEl = screen.getByTestId('auto-create-groups-failures');
     expect(failuresEl.textContent).toContain('class-1b@cam.hs.kr');
-    expect(failuresEl.textContent).toContain('already exists');
+    expect(failuresEl.textContent).toContain('network error');
+    expect(screen.queryByTestId('auto-create-groups-skipped')).toBeNull();
+  });
+
+  it('scenario 4: separates already exists errors into skipped category in done phase', async () => {
+    const grades = [{ grade: 1, classes: ['A', 'B', 'C'] }];
+    mockCallGroupsCreate
+      .mockResolvedValueOnce({ id: 'grp-1', email: 'class-1a@cam.hs.kr' })
+      .mockRejectedValueOnce(new Error('Entity already exists'))
+      .mockRejectedValueOnce(new Error('network error'));
+
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+      />
+    );
+
+    const confirmInput = screen.getByTestId('auto-create-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '3' } });
+
+    const confirmBtn = screen.getByTestId('auto-create-groups-confirm-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-create-groups-done')).toBeDefined();
+    });
+
+    expect(mockCallGroupsCreate).toHaveBeenCalledTimes(3);
+    const doneText = screen.getByTestId('auto-create-groups-done').textContent;
+    expect(doneText).toContain('1개 성공');
+    expect(doneText).toContain('1개 이미 존재 (skip)');
+    expect(doneText).toContain('1개 실패');
+
+    const skippedEl = screen.getByTestId('auto-create-groups-skipped');
+    expect(skippedEl.textContent).toContain('class-1b@cam.hs.kr');
+    expect(skippedEl.textContent).toContain('이미 존재');
+
+    const failuresEl = screen.getByTestId('auto-create-groups-failures');
+    expect(failuresEl.textContent).toContain('class-1c@cam.hs.kr');
+    expect(failuresEl.textContent).toContain('network error');
   });
 });
