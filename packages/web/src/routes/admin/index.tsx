@@ -2,6 +2,7 @@ import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { KpiCardRow } from '../../components/dashboard/KpiCardRow';
 import { AccountsTable } from './AccountsTable';
+import { BasicDataPanel } from './BasicDataPanel';
 
 export function AdminPage() {
   const { role } = useAuth();
@@ -26,12 +27,7 @@ export function AdminPage() {
             </p>
           </section>
 
-          <section className="bg-elevated p-8 border border-border-subtle space-y-2">
-            <h2 className="text-h3 font-semibold text-fg-primary">기초값 관리</h2>
-            <p className="text-small text-fg-secondary">
-              기초값 관리 자리 (학년·반·부서 구조 정의 및 시트 동기화)
-            </p>
-          </section>
+          <BasicDataPanel />
         </div>
       </div>
     </AppShell>
