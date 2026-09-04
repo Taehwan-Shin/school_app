@@ -1,205 +1,279 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **basic_data 학생 명단 스키마 v0.56** — `rosters?: Record<gradeStr, Record<class, string[]>>` 필드 추가. 백엔드만 (프론트 UI 는 v0.57).
+> 지금 이 파일의 오더는 **rosters 편집 UI v0.57** — BasicDataPanel 에 「학생 명단 편집」 버튼 + 반별 학생 수 표시 + EditRostersDialog (반별 textarea).
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/basic-data-rosters-backend-v56`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/basic-data-rosters-ui-v57`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 1 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
 
 ## 기준 커밋
 
-**Base**: `c233f99` (listYears 캐시 무효화 v0.55)
+**Base**: `4ad8be7` (basic_data 학생 명단 스키마 v0.56)
 
-## 지금 할 것 — rosters 필드 (백엔드)
+## 지금 할 것 — rosters 편집 UI
 
 ### 왜
 
-basic_data 는 지금 학년/반 구조만. 「이 반에 누가 있는지」 는 별도 저장. 향후 자동 초대 (v0.58+ 후보) 를 위해 학생 명단 스키마 필요. **이번 슬라이스는 백엔드만** — 스키마 · validator · get/set 매핑 · 테스트. UI 는 v0.57.
+v0.56 로 백엔드 스키마 완비. admin 이 반별 학생 이메일 목록 관리할 UI 필요. EditBasicDataDialog 는 이미 grades+departments 로 크므로 별도 다이얼로그 `EditRostersDialog` 로 분리.
 
-**하지 않는 것**:
-- 프론트 UI (rosters 편집 form) — v0.57 후보.
-- 학생 자동 초대 (그룹 생성 시 rosters 자동 추가) — v0.58+ 후보.
-- 학생 이메일 검증 (도메인 · 형식) — 기본 non-empty string 만.
-- 학생 이동 (반 A → B) UI — 별도 slice.
+**하지 않는 것**: 학생 자동 초대 (그룹 생성 시). CSV import. 이메일 도메인 강제. 학생 개별 이동 (반 A → B) 별도 UX.
 
 ### 이 과제가 바꿀 경로
 
+**신규 파일**:
+- `packages/web/src/routes/admin/EditRostersDialog.tsx` — 반별 textarea + 저장
+- `packages/web/tests/EditRostersDialog.test.tsx` — 시나리오 5
+
 **수정 대상**:
-- `packages/shared/src/basicData.ts` — `rosters?` 필드 + validator 확장
-- `packages/shared/tests/basicData.test.ts` — 시나리오 3 (undefined · 유효 · 무효)
-- `packages/functions/src/callable/basicData/get.ts` — 읽을 때 rosters 매핑
-- `packages/functions/src/callable/basicData/set.ts` — 저장할 때 rosters 매핑
-- `packages/functions/tests/basicDataSet.test.ts` — 시나리오 2 (rosters 저장 · 무효 값 reject)
-- `packages/functions/tests/basicDataGet.test.ts` — 시나리오 1 (rosters 반환)
-- `packages/web/src/api/basicDataSet.ts` — request 타입에 `rosters?`
+- `packages/web/src/routes/admin/BasicDataPanel.tsx` — 「학생 명단 편집」 버튼 + 반 badge 아래 학생 수 표시
+- `packages/web/tests/BasicDataPanel.test.tsx` — 시나리오 2 (버튼 조건 · 학생 수 표시)
 
 **손대지 마라**:
-- BasicDataPanel · EditBasicDataDialog · AutoCreate* — 그대로 (UI 는 v0.57).
-- 다른 callable · 라우트.
+- 백엔드 · shared · Firestore.
+- EditBasicDataDialog · AutoCreate* — 그대로.
+- basicDataSet API — 그대로 (rosters 이미 request 타입에 있음).
 
 ### 세부 요구
 
-#### 1. 스키마 (`shared/src/basicData.ts`)
+#### 1. `EditRostersDialog.tsx` — 반별 textarea
 
+**Props**:
 ```ts
-export interface BasicDataYear {
+export interface EditRostersDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   year: number;
-  grades: BasicDataGradeClass[];
-  departments?: string[];
-  rosters?: Record<string, Record<string, string[]>>;   // rosters[gradeStr][class] = [studentEmail, ...]
-  updatedAt?: number;
-  updatedBy?: string;
+  initialData: BasicDataYear;   // 전체 (rosters 뿐 아니라 grades·departments 도 merge 위해)
 }
 ```
 
-**validator 확장** (기존 departments 검증 다음에):
+**state**:
 ```ts
-if (obj.rosters !== undefined) {
-  if (typeof obj.rosters !== 'object' || obj.rosters === null || Array.isArray(obj.rosters)) return false;
-  for (const gradeKey of Object.keys(obj.rosters)) {
-    // 학년 키는 숫자 문자열 ("1", "2", ...)
-    if (!/^\d+$/.test(gradeKey)) return false;
-    const gradeRoster = obj.rosters[gradeKey];
-    if (typeof gradeRoster !== 'object' || gradeRoster === null || Array.isArray(gradeRoster)) return false;
-    for (const classKey of Object.keys(gradeRoster)) {
-      // 반 키는 non-empty string
-      if (typeof classKey !== 'string' || classKey.length === 0) return false;
-      const students = gradeRoster[classKey];
-      if (!Array.isArray(students)) return false;
-      if (!students.every((s: unknown) => typeof s === 'string' && s.trim().length > 0)) return false;
+// key: `${grade}-${class}` → textarea 값 (newline-separated emails)
+const [rosterTexts, setRosterTexts] = useState<Record<string, string>>({});
+const [validationError, setValidationError] = useState<string | null>(null);
+const { mutateAsync: saveBasicData, isPending, error: mutationError } = useBasicDataSet();
+```
+
+**초기화 (open true 시)**:
+```ts
+useEffect(() => {
+  if (open) {
+    const texts: Record<string, string> = {};
+    for (const g of initialData.grades) {
+      for (const c of g.classes) {
+        const key = `${g.grade}-${c}`;
+        const students = initialData.rosters?.[String(g.grade)]?.[c] ?? [];
+        texts[key] = students.join('\n');
+      }
+    }
+    setRosterTexts(texts);
+    setValidationError(null);
+  }
+}, [open, initialData]);
+```
+
+**submit**:
+```ts
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();
+  setValidationError(null);
+
+  const rosters: Record<string, Record<string, string[]>> = {};
+  for (const g of initialData.grades) {
+    for (const c of g.classes) {
+      const key = `${g.grade}-${c}`;
+      const emails = (rosterTexts[key] ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      if (emails.length > 0) {
+        if (!rosters[String(g.grade)]) rosters[String(g.grade)] = {};
+        rosters[String(g.grade)][c] = emails;
+      }
     }
   }
-}
-```
 
-**주의**:
-- optional — undefined 허용 (기존 backward compat).
-- 빈 객체 (`{}`) 유효.
-- 학년 키는 반드시 숫자 문자열 (편의).
-- 학생 이메일 형식 검증 안 함 (도메인 강제는 별도 slice).
-
-#### 2. shared 테스트 (3 신규)
-
-1. rosters undefined → 유효 (backward compat).
-2. rosters = `{"1": {"A": ["s1@cam.hs.kr", "s2@cam.hs.kr"]}, "2": {"B": []}}` → 유효.
-3. rosters = `{"invalid_key": {}}` → 무효 (숫자 문자열 아님).
-4. (bonus) rosters 안 학생에 빈 문자열 → 무효.
-
-기존 회귀 유지.
-
-#### 3. `get.ts` — 읽을 때 매핑
-
-기존 (`packages/functions/src/callable/basicData/get.ts:110-116`):
-```ts
-const basicData: BasicDataYear = {
-  year: ...,
-  grades: ...,
-  ...(Array.isArray(docData?.departments) ? { departments: docData.departments } : {}),
-  ...(updatedAt !== undefined ? { updatedAt } : {}),
-  ...(typeof docData?.updatedBy === 'string' ? { updatedBy: docData.updatedBy } : {}),
+  try {
+    await saveBasicData({
+      year,
+      grades: initialData.grades,
+      ...(initialData.departments !== undefined ? { departments: initialData.departments } : {}),
+      rosters,
+    });
+    onOpenChange(false);
+  } catch {
+    // mutationError 아래 표시
+  }
 };
 ```
 
-확장 (departments 다음 줄):
-```ts
-...(docData?.rosters && typeof docData.rosters === 'object' && !Array.isArray(docData.rosters)
-  ? { rosters: docData.rosters }
-  : {}),
+**UI**:
+```tsx
+<DialogHeader>
+  <DialogTitle>{year}년 학생 명단 편집</DialogTitle>
+  <DialogDescription>
+    각 반의 학생 이메일을 한 줄에 하나씩 입력하세요. 빈 반은 저장 안 됨.
+  </DialogDescription>
+</DialogHeader>
+<div className="max-h-96 overflow-y-auto space-y-4">
+  {initialData.grades.map((g) => (
+    <div key={g.grade} className="space-y-2">
+      <div className="text-body font-semibold text-fg-primary">{g.grade}학년</div>
+      {g.classes.map((c) => {
+        const key = `${g.grade}-${c}`;
+        const count = (rosterTexts[key] ?? '')
+          .split('\n')
+          .filter((s) => s.trim().length > 0).length;
+        return (
+          <div key={key} className="ml-4">
+            <label className="text-small text-fg-primary">
+              {c}반 <span className="text-fg-muted">({count}명)</span>
+            </label>
+            <textarea
+              value={rosterTexts[key] ?? ''}
+              onChange={(e) => setRosterTexts({ ...rosterTexts, [key]: e.target.value })}
+              placeholder="student1@cam.hs.kr\nstudent2@cam.hs.kr"
+              data-testid={`edit-rosters-${g.grade}-${c}`}
+              rows={4}
+              className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body font-mono text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-1"
+            />
+          </div>
+        );
+      })}
+    </div>
+  ))}
+</div>
+{mutationError && (
+  <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="edit-rosters-error">
+    저장 실패: {mutationError.message}
+  </div>
+)}
+<DialogFooter>
+  <Button variant="secondary" onClick={() => onOpenChange(false)}>취소</Button>
+  <Button
+    onClick={handleSubmit}
+    disabled={isPending}
+    data-testid="edit-rosters-submit"
+  >
+    {isPending ? '저장 중...' : '저장'}
+  </Button>
+</DialogFooter>
 ```
 
 **주의**:
-- Firestore 저장 형식과 반환 형식 동일 (Record shape 유지).
-- 배열/null 방어.
+- rosters 는 grades·departments 와 병존 저장 (merge:false 이므로 전체 다시 넘김).
+- 빈 반은 rosters 에 미포함 (스토리지 절약).
+- 이메일 도메인 검증 안 함 (기본 non-empty).
 
-#### 4. `set.ts` — 저장할 때 매핑
+#### 2. `BasicDataPanel.tsx` — 「학생 명단 편집」 버튼 + 학생 수 표시
 
-기존 upsert (`packages/functions/src/callable/basicData/set.ts:86-97`):
-```ts
-await db
-  .collection('basic_data')
-  .doc(String(year))
-  .set(
-    {
-      year,
-      grades,
-      ...(basicData.departments !== undefined ? { departments: basicData.departments } : {}),
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: user.email,
-    },
-    { merge: false },
+**버튼**: 기존 「편집」 옆:
+```tsx
+<Button
+  variant="secondary"
+  onClick={() => setIsRostersEditOpen(true)}
+  data-testid="basic-data-rosters-edit-btn"
+  disabled={!data?.data || (data.data.grades ?? []).length === 0}
+  title={!data?.data ? '기초값 먼저 설정하세요' : '반별 학생 명단 편집'}
+>
+  학생 명단 편집
+</Button>
+```
+
+**state**: `const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);`
+
+**다이얼로그 렌더** (다른 다이얼로그 옆):
+```tsx
+{data?.data && (
+  <EditRostersDialog
+    open={isRostersEditOpen}
+    onOpenChange={setIsRostersEditOpen}
+    year={selectedYear}
+    initialData={data.data}
+  />
+)}
+```
+
+**학생 수 표시** — 기존 반 badge 아래에 (또는 badge 오른쪽에 작은 텍스트):
+```tsx
+{g.classes.map((c) => {
+  const rosterCount = data.data?.rosters?.[String(g.grade)]?.[c]?.length ?? 0;
+  return (
+    <span
+      key={c}
+      className="px-2 py-1 border border-border-subtle bg-canvas text-small font-mono text-fg-primary"
+      data-testid={`basic-data-class-${g.grade}-${c}`}
+    >
+      {c}
+      {rosterCount > 0 && (
+        <span className="ml-1 text-fg-muted text-micro">({rosterCount})</span>
+      )}
+    </span>
   );
-```
-
-*(현재 코드는 조금 다를 수 있음 — 실 파일에서 departments 매핑 부분 근처에 rosters 추가.)*
-
-확장:
-```ts
-...(basicData.rosters !== undefined ? { rosters: basicData.rosters } : {}),
+})}
 ```
 
 **주의**:
-- validator 가 이미 통과했으므로 rosters shape 안전.
-- undefined 는 저장 안 함 (backward compat — 기존 문서 편집 시 rosters 없어도 지워지지 않게).
-- `merge: false` 이므로 rosters 없으면 완전 삭제 — 실은 이게 의도? admin 이 명시적으로 rosters 없이 저장 = rosters 삭제. 이 시맨틱 유지.
+- 학생 수 0 이면 표시 안 함 (깔끔).
+- 기존 testid 유지 (`basic-data-class-{grade}-{class}`).
 
-#### 5. `basicDataSet.test.ts` (2 신규)
+#### 3. 테스트
 
-1. request 에 `rosters: {"1": {"A": ["s@cam.hs.kr"]}}` → Firestore.set 호출 인자에 rosters 포함 확인.
-2. `rosters: {"invalid_key": {}}` (숫자 문자열 아님) → invalid-argument, error audit.
+**web `EditRostersDialog.test.tsx`** (5 신규):
 
-#### 6. `basicDataGet.test.ts` (1 신규)
+1. `open=false` → 컨텐츠 렌더되지 않음.
+2. `open=true` + rosters=undefined → textarea 모두 빈 값.
+3. `open=true` + rosters 있음 → 해당 반 textarea 에 이메일 초기값 (newline-joined).
+4. textarea 편집 → 학생 수 카운트 실시간 갱신.
+5. 유효한 폼 제출 → `saveBasicData` 호출됨, request 에 rosters + grades + departments 포함.
 
-- Firestore mock 이 rosters 포함 문서 반환 → response `data.rosters` 로 그대로 전달됨.
+**web `BasicDataPanel.test.tsx`** (2 신규):
+1. data 없음 → `basic-data-rosters-edit-btn` disabled.
+2. rosters 존재 → 반 badge 에 `(N)` 학생 수 표시.
 
-#### 7. `basicDataSet.ts` — request 타입
-
-```ts
-export interface BasicDataSetRequest {
-  year: number;
-  grades: BasicDataGradeClass[];
-  departments?: string[];
-  rosters?: Record<string, Record<string, string[]>>;
-}
-```
-
-기존 fetch body 로 자동 전달됨 (spread `...data`).
+기존 회귀 유지.
 
 ### 완료 확인
 
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 568 + 신규 6~7 = 574~575 근처.
+4. `pnpm -r test` — 이전 578 + 신규 7 = 585 근처.
 5. `pnpm -r test:emu` — 43 유지.
-6. dev 서버 확인 (수동 · UI 는 v0.57):
-   - Firestore 에뮬레이터에서 rosters 필드 있는 문서 저장 후 조회 시 그대로 반환.
+6. dev 서버 확인:
+   - BasicDataPanel 「학생 명단 편집」 버튼 (기초값 있으면 enabled)
+   - 다이얼로그: 학년/반 별 textarea, 실시간 학생 수 카운트
+   - 저장 → 반 badge 에 학생 수 (N) 표시됨
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **UI 편집 폼** — v0.57 후보 (반별 학생 이메일 목록 편집).
-- **학생 자동 초대** — v0.58+ 후보.
-- **이메일 도메인 검증 (`@cam.hs.kr` 강제)** — 별도 slice, 지금은 non-empty string.
+- **학생 자동 초대** — 별도 slice (그룹 생성 시 rosters 참조).
+- **CSV import** — 별도 slice.
+- **이메일 도메인 강제** — 별도 slice.
+- **학생 이동 (반 A → B)** — 별도 slice.
 
 ### 커밋 규칙
 
-**1 커밋**:
-- `feat(shared,functions,web): basic_data 에 rosters 필드 추가 (백엔드 스키마)`
+**2 커밋 분리**:
+1. `feat(web): BasicDataPanel 「학생 명단 편집」 버튼 + 반 badge 학생 수 표시`
+2. `feat(web): EditRostersDialog (반별 textarea + rosters 저장)`
 
-conventional commit. `git add -A` 금지.
+각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/basic-data-rosters-backend-v56`.
+**작업 브랜치** — `git push -u origin feat/basic-data-rosters-ui-v57`.
 
 ## 상태 보고 (필수)
 
