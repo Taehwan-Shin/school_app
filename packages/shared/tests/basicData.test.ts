@@ -43,4 +43,55 @@ describe('isValidBasicDataYear', () => {
     expect(isValidBasicDataYear({ year: 2026, grades: [{ grade: 1, classes: [''] }] })).toBe(false);
     expect(isValidBasicDataYear({ year: 2026, grades: [{ grade: 1, classes: [123] }] })).toBe(false);
   });
+
+  it('returns true for a valid object with departments array', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: ['국어과', '수학과'],
+      }),
+    ).toBe(true);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: [],
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when departments contains empty, whitespace-only or non-string element', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: ['국어과', ''],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: ['국어과', '   '],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: ['국어과', 123 as any],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when departments is not an array', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: 'notArray' as any,
+      }),
+    ).toBe(false);
+  });
 });

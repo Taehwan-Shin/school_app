@@ -9,6 +9,7 @@ import { writeAudit } from '../../audit/writeAudit.js';
 export interface BasicDataSetRequest {
   year: number;
   grades: BasicDataGradeClass[];
+  departments?: string[];
 }
 
 export interface BasicDataSetResponse {
@@ -74,13 +75,14 @@ export const basicDataSet = onCall(
       const basicData = {
         year: data?.year,
         grades: data?.grades,
+        ...(data?.departments !== undefined ? { departments: data.departments } : {}),
       };
 
       if (!isValidBasicDataYear(basicData)) {
         throw new HttpsError('invalid-argument', 'invalid_basic_data');
       }
 
-      const { year, grades } = basicData;
+      const { year, grades, departments } = basicData;
 
       const db = getFirestore();
       await db
@@ -90,6 +92,7 @@ export const basicDataSet = onCall(
           {
             year,
             grades,
+            ...(departments !== undefined ? { departments } : {}),
             updatedAt: FieldValue.serverTimestamp(),
             updatedBy: user.email,
           },
