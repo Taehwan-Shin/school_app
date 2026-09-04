@@ -22,11 +22,12 @@ export interface AutoCreateGroupsDialogProps {
 
 const ALLOWED_DOMAIN = 'cam.hs.kr';
 
-export function buildGroupEmail(grade: number, cls: string): string {
+export function buildGroupEmail(grade: number, cls: string, prefix: string = 'class'): string {
   // 예: grade=1, cls='A' → 'class-1a@cam.hs.kr'
   //     grade=10, cls='B' → 'class-10b@cam.hs.kr'
   const clsSlug = cls.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return `class-${grade}${clsSlug}@${ALLOWED_DOMAIN}`;
+  const cleanPrefix = prefix.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  return `${cleanPrefix}-${grade}${clsSlug}@${ALLOWED_DOMAIN}`;
 }
 
 export function buildGroupName(grade: number, cls: string): string {
@@ -63,6 +64,7 @@ export function AutoCreateGroupsDialog({
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
   const [confirmText, setConfirmText] = useState('');
+  const [prefix, setPrefix] = useState('class');
 
   const targets = useMemo(
     () =>
@@ -70,12 +72,12 @@ export function AutoCreateGroupsDialog({
         (g.classes ?? []).map((c) => ({
           grade: g.grade,
           class: c,
-          email: buildGroupEmail(g.grade, c),
+          email: buildGroupEmail(g.grade, c, prefix),
           name: buildGroupName(g.grade, c),
           description: buildGroupDescription(year, g.grade, c),
         }))
       ),
-    [grades, year]
+    [grades, year, prefix]
   );
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export function AutoCreateGroupsDialog({
       setProgress(0);
       setResults([]);
       setConfirmText('');
+      setPrefix('class');
     }
   }, [open]);
 
@@ -130,6 +133,26 @@ export function AutoCreateGroupsDialog({
                 {year}년도 학년·반 구조로 {targets.length}개 반 그룹을 자동 생성합니다.
               </DialogDescription>
             </DialogHeader>
+            <div className="space-y-1">
+              <label className="text-small text-fg-primary">
+                이메일 접두사 (기본 <code className="font-mono">class</code>):
+              </label>
+              <input
+                type="text"
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value)}
+                placeholder="class"
+                data-testid="auto-create-groups-prefix-input"
+                className={
+                  /^[a-z0-9-]+$/.test(prefix)
+                    ? 'w-40 border border-border-subtle bg-canvas px-3 py-2 text-body font-mono text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong'
+                    : 'w-40 border border-state-danger bg-canvas px-3 py-2 text-body font-mono text-fg-primary focus:outline-none'
+                }
+              />
+              <p className="text-micro text-fg-muted">
+                소문자·숫자·하이픈만. 예: <code className="font-mono">homeroom</code>, <code className="font-mono">2026</code>
+              </p>
+            </div>
             <div
               className="max-h-48 overflow-y-auto border border-border-subtle"
               data-testid="auto-create-groups-targets"
@@ -169,7 +192,11 @@ export function AutoCreateGroupsDialog({
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={confirmText.trim() !== String(targets.length) || targets.length === 0}
+                disabled={
+                  confirmText.trim() !== String(targets.length) ||
+                  targets.length === 0 ||
+                  !/^[a-z0-9-]+$/.test(prefix)
+                }
                 data-testid="auto-create-groups-confirm-btn"
               >
                 생성 실행

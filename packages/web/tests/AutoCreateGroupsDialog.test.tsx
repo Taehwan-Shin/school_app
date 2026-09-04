@@ -174,4 +174,60 @@ describe('AutoCreateGroupsDialog component', () => {
     expect(failuresEl.textContent).toContain('class-1c@cam.hs.kr');
     expect(failuresEl.textContent).toContain('network error');
   });
+
+  it('scenario 5: renders prefix input with default value class and displays default email preview', () => {
+    const grades = [{ grade: 1, classes: ['A'] }];
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+      />
+    );
+
+    const prefixInput = screen.getByTestId('auto-create-groups-prefix-input') as HTMLInputElement;
+    expect(prefixInput.value).toBe('class');
+    expect(screen.getByText('class-1a@cam.hs.kr')).toBeDefined();
+  });
+
+  it('scenario 6: recalculates preview emails on prefix edit and enforces prefix validation on confirm button', () => {
+    const grades = [{ grade: 1, classes: ['A'] }];
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+      />
+    );
+
+    const prefixInput = screen.getByTestId('auto-create-groups-prefix-input') as HTMLInputElement;
+    const confirmInput = screen.getByTestId('auto-create-groups-confirm-input');
+    const confirmBtn = screen.getByTestId('auto-create-groups-confirm-btn') as HTMLButtonElement;
+
+    // Type matching count
+    fireEvent.change(confirmInput, { target: { value: '1' } });
+    expect(confirmBtn.disabled).toBe(false);
+
+    // Edit prefix to homeroom
+    fireEvent.change(prefixInput, { target: { value: 'homeroom' } });
+    expect(screen.getByText('homeroom-1a@cam.hs.kr')).toBeDefined();
+    expect(screen.queryByText('class-1a@cam.hs.kr')).toBeNull();
+    expect(confirmBtn.disabled).toBe(false);
+
+    // Invalid prefix: empty
+    fireEvent.change(prefixInput, { target: { value: '' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    // Invalid prefix: special characters
+    fireEvent.change(prefixInput, { target: { value: 'class!' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    // Valid prefix: 2026-students
+    fireEvent.change(prefixInput, { target: { value: '2026-students' } });
+    expect(screen.getByText('2026-students-1a@cam.hs.kr')).toBeDefined();
+    expect(confirmBtn.disabled).toBe(false);
+  });
 });
+
