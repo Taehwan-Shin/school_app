@@ -3,9 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockUseBasicDataGet = vi.fn();
+const mockUseBasicDataListYears = vi.fn();
 
 vi.mock('../src/api/basicDataGet.js', () => ({
   useBasicDataGet: (year: number) => mockUseBasicDataGet(year),
+}));
+
+vi.mock('../src/api/basicDataListYears.js', () => ({
+  useBasicDataListYears: () => mockUseBasicDataListYears(),
 }));
 
 vi.mock('../src/api/basicDataSet.js', () => ({
@@ -21,6 +26,12 @@ import { BasicDataPanel } from '../src/routes/admin/BasicDataPanel.js';
 describe('BasicDataPanel component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseBasicDataListYears.mockReturnValue({
+      data: { years: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
   });
 
   it('scenario 1: renders loading indicator when isLoading is true', () => {
@@ -269,6 +280,41 @@ describe('BasicDataPanel component', () => {
 
     expect(yearInput.value).toBe('2027');
     expect(mockUseBasicDataGet).toHaveBeenCalledWith(2027);
+  });
+
+  it('scenario 11: renders year select dropdown when savedYears has items and updates input on selection', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseBasicDataListYears.mockReturnValue({
+      data: { years: [2026, 2025] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const selectEl = screen.getByTestId('basic-data-year-select') as HTMLSelectElement;
+    expect(selectEl).toBeDefined();
+
+    const option2026 = screen.getByRole('option', { name: '2026' }) as HTMLOptionElement;
+    expect(option2026).toBeDefined();
+    expect(option2026.value).toBe('2026');
+
+    const option2025 = screen.getByRole('option', { name: '2025' }) as HTMLOptionElement;
+    expect(option2025).toBeDefined();
+    expect(option2025.value).toBe('2025');
+
+    // Selecting 2025 updates year input and refetches basicDataGet with 2025
+    fireEvent.change(selectEl, { target: { value: '2025' } });
+
+    const yearInput = screen.getByTestId('basic-data-year-input') as HTMLInputElement;
+    expect(yearInput.value).toBe('2025');
+    expect(mockUseBasicDataGet).toHaveBeenCalledWith(2025);
   });
 });
 

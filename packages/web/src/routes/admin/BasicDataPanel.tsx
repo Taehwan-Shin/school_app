@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useBasicDataGet } from '../../api/basicDataGet';
+import { useBasicDataListYears } from '../../api/basicDataListYears';
 import { Button } from '../../components/ui/button';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
 import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
@@ -21,6 +22,8 @@ export function BasicDataPanel() {
   }, [yearInput]);
 
   const { data, isLoading, isError, error } = useBasicDataGet(selectedYear);
+  const { data: yearsData } = useBasicDataListYears();
+  const savedYears = yearsData?.years ?? [];
 
   return (
     <section className="bg-elevated p-8 border border-border-subtle space-y-4">
@@ -34,6 +37,22 @@ export function BasicDataPanel() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-small text-fg-secondary" htmlFor="basic-data-year-input">연도:</label>
+            {savedYears.length > 0 && (
+              <select
+                value={savedYears.includes(selectedYear) ? String(selectedYear) : ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) setYearInput(v);
+                }}
+                data-testid="basic-data-year-select"
+                className="border border-border-subtle bg-canvas px-2 py-1 text-body font-mono text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+              >
+                <option value="">-- 저장된 연도 --</option>
+                {savedYears.map((y) => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            )}
             <input
               id="basic-data-year-input"
               type="number"
