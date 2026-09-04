@@ -76,6 +76,10 @@
         "function": { "functionId": "basicDataSet", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/basicDataListYears",
+        "function": { "functionId": "basicDataListYears", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
