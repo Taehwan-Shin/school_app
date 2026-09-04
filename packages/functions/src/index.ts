@@ -22,3 +22,4 @@ export { groupsMembersUpdate } from './callable/groups/members/update.js';
 export { usersResetPassword } from './callable/users/resetPassword.js';
 export { basicDataGet } from './callable/basicData/get.js';
 export { basicDataSet } from './callable/basicData/set.js';
+export { basicDataListYears } from './callable/basicData/listYears.js';
