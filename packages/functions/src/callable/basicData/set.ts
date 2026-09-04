@@ -10,6 +10,7 @@ export interface BasicDataSetRequest {
   year: number;
   grades: BasicDataGradeClass[];
   departments?: string[];
+  rosters?: Record<string, Record<string, string[]>>;
 }
 
 export interface BasicDataSetResponse {
@@ -76,13 +77,14 @@ export const basicDataSet = onCall(
         year: data?.year,
         grades: data?.grades,
         ...(data?.departments !== undefined ? { departments: data.departments } : {}),
+        ...(data?.rosters !== undefined ? { rosters: data.rosters } : {}),
       };
 
       if (!isValidBasicDataYear(basicData)) {
         throw new HttpsError('invalid-argument', 'invalid_basic_data');
       }
 
-      const { year, grades, departments } = basicData;
+      const { year, grades, departments, rosters } = basicData;
 
       const db = getFirestore();
       await db
@@ -93,6 +95,7 @@ export const basicDataSet = onCall(
             year,
             grades,
             ...(departments !== undefined ? { departments } : {}),
+            ...(rosters !== undefined ? { rosters } : {}),
             updatedAt: FieldValue.serverTimestamp(),
             updatedBy: user.email,
           },

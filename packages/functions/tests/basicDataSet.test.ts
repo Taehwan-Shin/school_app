@@ -222,6 +222,33 @@ describe('basicDataSet callable unit tests', () => {
     });
   });
 
+  it('rejects request when rosters contains invalid grade key with invalid-argument error', async () => {
+    const req = createRequest({
+      data: {
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1'] }],
+        rosters: {
+          invalid_key: {},
+        },
+      },
+    });
+
+    await expect(basicDataSet.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_basic_data',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'basic_data.write',
+      target: 'basic_data/2026',
+      request_id: 'req-basic-set-123',
+      result: 'error',
+      message: 'invalid_basic_data',
+    });
+  });
+
   it('successfully creates new basic data document with departments in Firestore and writes ok audit', async () => {
     const grades = [{ grade: 1, classes: ['1', '2'] }];
     const departments = ['국어과', '수학과'];
@@ -245,6 +272,51 @@ describe('basicDataSet callable unit tests', () => {
         year: 2026,
         grades,
         departments,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: 'super@cam.hs.kr',
+      },
+      { merge: false },
+    );
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'basic_data.write',
+      target: 'basic_data/2026',
+      request_id: 'req-basic-set-123',
+      result: 'ok',
+      message: 'set basic_data for year 2026 with 1 grades',
+    });
+  });
+
+  it('successfully creates new basic data document with rosters in Firestore and writes ok audit', async () => {
+    const grades = [{ grade: 1, classes: ['1', '2'] }];
+    const rosters = {
+      '1': {
+        '1': ['s1@cam.hs.kr', 's2@cam.hs.kr'],
+        '2': [],
+      },
+    };
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        year: 2026,
+        grades,
+        rosters,
+      },
+    });
+
+    const res = await basicDataSet.run(req);
+    expect(res.year).toBe(2026);
+
+    expect(mockCollection).toHaveBeenCalledWith('basic_data');
+    expect(mockDoc).toHaveBeenCalledWith('2026');
+    expect(mockSet).toHaveBeenCalledWith(
+      {
+        year: 2026,
+        grades,
+        rosters,
         updatedAt: FieldValue.serverTimestamp(),
         updatedBy: 'super@cam.hs.kr',
       },
