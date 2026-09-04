@@ -68,6 +68,14 @@
         "function": { "functionId": "groupsMembersUpdate", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/basicDataGet",
+        "function": { "functionId": "basicDataGet", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/basicDataSet",
+        "function": { "functionId": "basicDataSet", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

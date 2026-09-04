@@ -20,3 +20,5 @@ export { groupsMembersInsert } from './callable/groups/members/insert.js';
 export { groupsMembersDelete } from './callable/groups/members/delete.js';
 export { groupsMembersUpdate } from './callable/groups/members/update.js';
 export { usersResetPassword } from './callable/users/resetPassword.js';
+export { basicDataGet } from './callable/basicData/get.js';
+export { basicDataSet } from './callable/basicData/set.js';
