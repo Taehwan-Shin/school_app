@@ -137,4 +137,36 @@ describe('BasicDataPanel component', () => {
     const currentYear = new Date().getFullYear();
     expect(screen.getByText(`${currentYear}년 기초값 편집`)).toBeDefined();
   });
+
+  it('scenario 6: auto create groups button is disabled when data is null, enabled when data and grades exist', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(<BasicDataPanel />);
+    const btnDisabled = screen.getByTestId('basic-data-auto-create-groups-btn') as HTMLButtonElement;
+    expect(btnDisabled.disabled).toBe(true);
+
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    const btnEnabled = screen.getByTestId('basic-data-auto-create-groups-btn') as HTMLButtonElement;
+    expect(btnEnabled.disabled).toBe(false);
+  });
 });

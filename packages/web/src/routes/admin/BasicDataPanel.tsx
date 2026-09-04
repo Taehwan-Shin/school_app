@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { Button } from '../../components/ui/button';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
+import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 
 export function BasicDataPanel() {
   const currentYear = new Date().getFullYear();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const { data, isLoading, isError, error } = useBasicDataGet(currentYear);
 
   return (
@@ -21,6 +23,15 @@ export function BasicDataPanel() {
           <div className="text-small text-fg-secondary">
             연도: <strong className="font-mono text-fg-primary">{currentYear}</strong>
           </div>
+          <Button
+            variant="secondary"
+            onClick={() => setIsAutoCreateOpen(true)}
+            data-testid="basic-data-auto-create-groups-btn"
+            disabled={!data?.data || (data.data.grades ?? []).length === 0}
+            title={!data?.data ? '기초값 먼저 설정하세요' : '학년/반으로 그룹 자동 생성'}
+          >
+            그룹 자동 생성
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setIsEditOpen(true)}
@@ -76,6 +87,15 @@ export function BasicDataPanel() {
             </p>
           )}
         </div>
+      )}
+
+      {data?.data && (
+        <AutoCreateGroupsDialog
+          open={isAutoCreateOpen}
+          onOpenChange={setIsAutoCreateOpen}
+          year={currentYear}
+          grades={data.data.grades}
+        />
       )}
 
       <EditBasicDataDialog
