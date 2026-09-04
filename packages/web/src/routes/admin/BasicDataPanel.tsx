@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { Button } from '../../components/ui/button';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
@@ -6,11 +6,21 @@ import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
 
 export function BasicDataPanel() {
-  const currentYear = new Date().getFullYear();
+  const thisYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(thisYear);
+  const [yearInput, setYearInput] = useState(String(thisYear));
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
-  const { data, isLoading, isError, error } = useBasicDataGet(currentYear);
+
+  useEffect(() => {
+    const parsed = Number.parseInt(yearInput, 10);
+    if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200) {
+      setSelectedYear(parsed);
+    }
+  }, [yearInput]);
+
+  const { data, isLoading, isError, error } = useBasicDataGet(selectedYear);
 
   return (
     <section className="bg-elevated p-8 border border-border-subtle space-y-4">
@@ -22,8 +32,18 @@ export function BasicDataPanel() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-small text-fg-secondary">
-            연도: <strong className="font-mono text-fg-primary">{currentYear}</strong>
+          <div className="flex items-center gap-2">
+            <label className="text-small text-fg-secondary" htmlFor="basic-data-year-input">연도:</label>
+            <input
+              id="basic-data-year-input"
+              type="number"
+              min={1900}
+              max={2200}
+              value={yearInput}
+              onChange={(e) => setYearInput(e.target.value)}
+              data-testid="basic-data-year-input"
+              className="w-20 border border-border-subtle bg-canvas px-2 py-1 text-body font-mono text-fg-primary text-center focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+            />
           </div>
           <Button
             variant="secondary"
@@ -71,7 +91,7 @@ export function BasicDataPanel() {
 
       {!isLoading && !isError && !data?.data && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="basic-data-empty">
-          {currentYear}년 기초값이 아직 설정되지 않았습니다.
+          {selectedYear}년 기초값이 아직 설정되지 않았습니다.
         </div>
       )}
 
@@ -124,7 +144,7 @@ export function BasicDataPanel() {
         <AutoCreateGroupsDialog
           open={isAutoCreateOpen}
           onOpenChange={setIsAutoCreateOpen}
-          year={currentYear}
+          year={selectedYear}
           grades={data.data.grades}
         />
       )}
@@ -133,7 +153,7 @@ export function BasicDataPanel() {
         <AutoCreateDepartmentGroupsDialog
           open={isAutoCreateDeptOpen}
           onOpenChange={setIsAutoCreateDeptOpen}
-          year={currentYear}
+          year={selectedYear}
           departments={data.data.departments}
         />
       )}
@@ -141,7 +161,7 @@ export function BasicDataPanel() {
       <EditBasicDataDialog
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
-        year={currentYear}
+        year={selectedYear}
         initialData={data?.data ?? null}
       />
     </section>

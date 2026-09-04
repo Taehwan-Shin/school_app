@@ -236,5 +236,39 @@ describe('BasicDataPanel component', () => {
     fireEvent.click(btnEnabled);
     expect(screen.getByRole('heading', { name: '부서 그룹 자동 생성' })).toBeDefined();
   });
+
+  it('scenario 9: renders current year in year input by default', () => {
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const yearInput = screen.getByTestId('basic-data-year-input') as HTMLInputElement;
+    expect(yearInput).toBeDefined();
+    expect(yearInput.value).toBe(String(currentYear));
+    expect(mockUseBasicDataGet).toHaveBeenCalledWith(currentYear);
+  });
+
+  it('scenario 10: updates selectedYear and refetches when year input changes to valid year', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const yearInput = screen.getByTestId('basic-data-year-input') as HTMLInputElement;
+    fireEvent.change(yearInput, { target: { value: '2027' } });
+
+    expect(yearInput.value).toBe('2027');
+    expect(mockUseBasicDataGet).toHaveBeenCalledWith(2027);
+  });
 });
 
