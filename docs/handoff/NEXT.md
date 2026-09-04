@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **AutoCreateGroups + 학생 초대 통합 v0.59** — AutoCreateGroupsDialog 에 「생성 후 학생 자동 초대」 checkbox 추가. 반 그룹 생성 후 rosters 학생 자동 initialize.
+> 지금 이 파일의 오더는 **부서 그룹 + 부서장 지정 v0.60** — AutoCreateDepartmentGroupsDialog 에 부서별 「부서장 이메일 (OWNER)」 optional input 추가.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/auto-create-with-invite-v59`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/dept-groups-owner-v60`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,212 +19,204 @@
 
 ## 기준 커밋
 
-**Base**: `1f6fa7a` (학생 자동 초대 v0.58)
+**Base**: `7526851` (AutoCreateGroups + 초대 통합 v0.59)
 
-## 지금 할 것 — AutoCreateGroups 에 초대 병합
+## 지금 할 것 — 부서장 (OWNER) 지정
 
 ### 왜
 
-v0.48 로 그룹 자동 생성, v0.58 로 학생 자동 초대. 두 개 별도 → 사용자는 두 다이얼로그 순차 실행. 통합 시 원클릭. 기존 별도 「학생 자동 초대」 다이얼로그 는 유지 (기존 그룹 대상 재초대 등 용도).
+v0.51 로 부서 그룹 자동 생성 완비. 각 부서 그룹 생성 후 부서장 (교사) 을 OWNER 로 지정하는 일 반복. 그룹 생성 다이얼로그 안에서 부서별 owner 이메일 optional 입력 → 생성 성공 시 자동 OWNER 지정.
 
 **하지 않는 것**:
-- AutoInviteStudentsDialog 제거 (별도 사용 케이스 유지).
-- 부서 그룹 통합 — 학생만.
-- 스키마 저장 (checkbox 상태 persist) — 별도 slice.
+- 스키마 저장 (departments 를 {name, slug, owner} 객체로) — 별도 slice.
+- 여러 owner (co-chair 등) — 이번은 optional single owner.
+- 부서장 자동 추천 (직급 기반) — 별도 slice.
+- 부서장 role 변경 (OWNER → MANAGER) — 이번은 OWNER 로만.
 
 ### 이 과제가 바꿀 경로
 
 **수정 대상**:
-- `packages/web/src/routes/admin/AutoCreateGroupsDialog.tsx` — `rosters?` prop 추가 + 「생성 후 학생 자동 초대」 checkbox + 확장 iteration
-- `packages/web/tests/AutoCreateGroupsDialog.test.tsx` — 시나리오 2 (checkbox 미체크 · 체크 시 iteration 확장)
-- `packages/web/src/routes/admin/BasicDataPanel.tsx` — AutoCreateGroupsDialog 에 rosters 전달
+- `packages/web/src/routes/admin/AutoCreateDepartmentGroupsDialog.tsx` — 부서별 owner input + iteration 확장
+- `packages/web/tests/AutoCreateDepartmentGroupsDialog.test.tsx` — 시나리오 2 (owner 없음 · 있음)
 
 **손대지 마라**:
-- 백엔드 · shared · Firestore.
-- AutoInviteStudentsDialog · EditRostersDialog — 그대로.
-- callGroupsCreate · callGroupsMembersInsert — 그대로.
+- 백엔드 · shared · basic_data 스키마.
+- 다른 다이얼로그 · BasicDataPanel.
+- callGroupsCreate · callGroupsMembersInsert.
 
 ### 세부 요구
 
-#### 1. `AutoCreateGroupsDialog.tsx` — props 확장
+#### 1. state · preview 확장
 
-기존:
+기존 slugs state 옆에:
 ```ts
-export interface AutoCreateGroupsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  year: number;
-  grades: BasicDataGradeClass[];
-  onDone?: () => void;
-}
+const [owners, setOwners] = useState<string[]>([]);   // department index 와 동기화, 빈 문자열 허용
 ```
 
-확장:
+**open 초기화**:
 ```ts
-export interface AutoCreateGroupsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  year: number;
-  grades: BasicDataGradeClass[];
-  rosters?: Record<string, Record<string, string[]>>;   // 신규 (optional, backward compat)
-  onDone?: () => void;
-}
-```
-
-#### 2. 신규 state · checkbox
-
-```ts
-const [inviteStudents, setInviteStudents] = useState(false);
-
-// open 초기화 시 리셋
 useEffect(() => {
   if (open) {
-    // 기존 초기화 + 
-    setInviteStudents(false);
+    // 기존 초기화 +
+    setOwners(departments.map(() => ''));   // 기본 빈 문자열
   }
-}, [open]);
+}, [open, departments]);
+```
+
+**preview 확장** — 각 department 에 `owner?: string` (trim 후 빈 문자열이 아니면):
+```ts
+const preview = departments.map((dept, i) => {
+  const slug = (slugs[i] ?? '').trim().toLowerCase();
+  const validSlug = SLUG_REGEX.test(slug);
+  const ownerRaw = (owners[i] ?? '').trim();
+  const validOwner = ownerRaw === '' || /^[^\s@]+@cam\.hs\.kr$/i.test(ownerRaw);
+  return {
+    deptName: dept,
+    slug,
+    email: validSlug ? buildDeptGroupEmail(slug) : '',
+    validSlug,
+    owner: ownerRaw === '' ? undefined : ownerRaw,
+    validOwner,
+  };
+});
+
+const allValid = preview.every((p) => p.validSlug && p.validOwner);
+const noDuplicates = new Set(preview.map((p) => p.slug)).size === preview.length;
+const canConfirm = allValid && noDuplicates && preview.length > 0;
 ```
 
 **주의**:
-- 기본값 false (opt-in) — 실수 방지.
-- rosters undefined 또는 빈 객체 → checkbox disabled.
+- owner 는 optional (빈 문자열 유효).
+- owner 도메인 강제 (`@cam.hs.kr`) — 실 사용 시 owner 는 반드시 도메인 계정.
+- validation 실패 시 confirm disabled + 문구.
 
-#### 3. 확장 iteration
+#### 2. iteration 확장
 
-기존 `handleConfirm` 은 targets (반 그룹) 반복. `inviteStudents === true` 시 각 그룹 성공 후 학생 iteration.
-
+기존 `handleConfirm` (그룹 생성만):
 ```ts
-const handleConfirm = async () => {
-  setPhase('running');
-  const localResults: Result[] = [];
-  // 총 오퍼레이션 = 그룹 수 + (checked 시 학생 수)
-  const totalGroups = targets.length;
-  const totalStudents = inviteStudents
-    ? targets.reduce((sum, t) => sum + (rosters?.[String(t.grade)]?.[t.class]?.length ?? 0), 0)
-    : 0;
-  const totalOps = totalGroups + totalStudents;
-  let opProgress = 0;
+for (let i = 0; i < preview.length; i++) {
+  const p = preview[i];
+  try {
+    await callGroupsCreate({ email: p.email, name: buildDeptGroupName(p.deptName), description: buildDeptGroupDescription(year, p.deptName) });
+    localResults.push({ deptName: p.deptName, email: p.email, kind: 'ok' });
+  } catch (e) { ... }
+  setProgress(i + 1);
+}
+```
 
-  for (let i = 0; i < targets.length; i++) {
-    const t = targets[i];
-    let groupOk = false;
+확장 (owner 있으면 추가로 insert 호출):
+```ts
+const isAlreadyMemberError = (message: string): boolean => {
+  const lower = message.toLowerCase();
+  return lower.includes('already') || lower.includes('duplicate') || lower.includes('member exists') || lower.includes('http_409');
+};
+
+for (let i = 0; i < preview.length; i++) {
+  const p = preview[i];
+  let groupOk = false;
+  try {
+    await callGroupsCreate({
+      email: p.email,
+      name: buildDeptGroupName(p.deptName),
+      description: buildDeptGroupDescription(year, p.deptName),
+    });
+    localResults.push({ deptName: p.deptName, email: p.email, kind: 'ok' });
+    groupOk = true;
+  } catch (e) {
+    const message = (e as Error).message;
+    const kind = isAlreadyExistsError(message) ? 'skipped' : 'failed';
+    localResults.push({ deptName: p.deptName, email: p.email, kind, message });
+    groupOk = kind === 'skipped';   // 이미 존재하는 그룹에도 owner 초대 시도
+  }
+  setProgress((i + 1) * (p.owner ? 2 : 1));   // ← 대신 별도 counter 사용 권장
+
+  // owner 지정 시도
+  if (p.owner && groupOk) {
     try {
-      await callGroupsCreate({
-        email: t.email,
-        name: t.name,
-        description: t.description,
+      await callGroupsMembersInsert({
+        groupEmail: p.email,
+        memberEmail: p.owner,
+        role: 'OWNER',
       });
-      localResults.push({ email: t.email, kind: 'ok' });
-      groupOk = true;
+      localResults.push({ deptName: `${p.deptName} → owner`, email: p.owner, kind: 'ok' });
     } catch (e) {
       const message = (e as Error).message;
-      const kind = isAlreadyExistsError(message) ? 'skipped' : 'failed';
-      localResults.push({ email: t.email, kind, message });
-      groupOk = kind === 'skipped';  // 이미 있는 그룹에도 학생 초대는 시도
-    }
-    opProgress++;
-    setProgress(opProgress);
-
-    // 학생 초대 (checkbox 체크 시 · 그룹 생성 성공 or 이미 존재 시만)
-    if (inviteStudents && groupOk) {
-      const students = rosters?.[String(t.grade)]?.[t.class] ?? [];
-      for (const memberEmail of students) {
-        try {
-          await callGroupsMembersInsert({
-            groupEmail: t.email,
-            memberEmail,
-            role: 'MEMBER',
-          });
-          localResults.push({ email: `${t.email} → ${memberEmail}`, kind: 'ok' });
-        } catch (e) {
-          const message = (e as Error).message;
-          const kind = isAlreadyMemberError(message) ? 'skipped' : 'failed';
-          localResults.push({ email: `${t.email} → ${memberEmail}`, kind, message });
-        }
-        opProgress++;
-        setProgress(opProgress);
-      }
+      const kind = isAlreadyMemberError(message) ? 'skipped' : 'failed';
+      localResults.push({ deptName: `${p.deptName} → owner`, email: p.owner, kind, message });
     }
   }
-
-  setResults(localResults);
-  setPhase('done');
-  queryClient?.invalidateQueries({ queryKey: ['groups', 'list'] });
-  if (inviteStudents) {
-    queryClient?.invalidateQueries({ queryKey: ['groups', 'members'] });
-  }
-};
+}
 ```
 
 **주의**:
-- 반복 progress = 그룹 + 학생 총합.
-- 그룹 생성 실패 (skipped 아님) → 학생 초대 시도 안 함 (그룹 없음).
-- `isAlreadyMemberError` 는 인라인 헬퍼 새로 추가 (AutoInviteStudentsDialog 와 동일 정의 · 복사, 추상화 금지).
-- results 의 email 은 「그룹 → 학생」 결합 문자열로 학생 결과와 그룹 결과를 시각적으로 구분.
+- `setProgress` 을 별도 counter 로 관리하는 게 명확 (아래 UI 참고).
+- results 의 `deptName` 은 owner iteration 시 「부서명 → owner」 표기 (UX 명료).
+- import `callGroupsMembersInsert` 추가.
 
-**totalOps 표기**: running phase 의 총합 텍스트 (`progress / total`) 는 targets.length 대신 `totalOps`.
-
-기존:
-```tsx
-<div className="text-body text-fg-primary">
-  진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-  <strong className="font-mono">{targets.length}</strong>
-</div>
+**총 오퍼레이션 계산**:
+```ts
+const totalOps = preview.reduce((sum, p) => sum + 1 + (p.owner ? 1 : 0), 0);
 ```
 
-변경:
+running phase 진행 표시는 이 total 사용.
+
+#### 3. UI — owner input
+
+preview 테이블 확장 (기존: 부서 · Slug · 이메일 → 추가 부서장):
 ```tsx
-const totalOpsDisplay = totalGroups + totalStudents;
-<div className="text-body text-fg-primary">
-  진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-  <strong className="font-mono">{totalOpsDisplay}</strong>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>부서</th>
+      <th>Slug</th>
+      <th>이메일</th>
+      <th>부서장 (선택)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {departments.map((dept, i) => (
+      <tr key={`${dept}-${i}`}>
+        <td>{dept}</td>
+        <td>
+          <input value={slugs[i] ?? ''} onChange={...} data-testid={`auto-create-dept-slug-${i}`} />
+        </td>
+        <td>{preview[i].validSlug ? preview[i].email : <span className="text-state-danger">invalid</span>}</td>
+        <td>
+          <input
+            type="email"
+            value={owners[i] ?? ''}
+            onChange={(e) => {
+              const next = [...owners];
+              next[i] = e.target.value;
+              setOwners(next);
+            }}
+            placeholder="teacher@cam.hs.kr"
+            data-testid={`auto-create-dept-owner-${i}`}
+            className={
+              preview[i].validOwner
+                ? 'w-48 border border-border-subtle bg-canvas px-2 py-1 text-small font-mono text-fg-primary focus:outline-none focus:border-border-strong'
+                : 'w-48 border border-state-danger bg-canvas px-2 py-1 text-small font-mono text-fg-primary focus:outline-none'
+            }
+          />
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
 ```
 
-`totalOpsDisplay` 는 useMemo 또는 render 시점 계산. state 로 running 진입 시 스냅샷 고정 권장 (checkbox 나중에 바꿔도 진행 중 변수 안 바뀌게).
-
-#### 4. UI — checkbox
-
-기존 prefix input 아래에:
+**검증 문구**:
 ```tsx
-<div>
-  <label className="flex items-center gap-2 text-body text-fg-primary">
-    <input
-      type="checkbox"
-      checked={inviteStudents}
-      disabled={!rosters || Object.keys(rosters).length === 0}
-      onChange={(e) => setInviteStudents(e.target.checked)}
-      data-testid="auto-create-groups-invite-students"
-    />
-    생성 후 학생 자동 초대 (rosters 기준)
-  </label>
-  <p className="text-micro text-fg-muted mt-1 ml-6">
-    {!rosters || Object.keys(rosters).length === 0
-      ? '학생 명단이 없으면 사용 불가'
-      : '각 반 그룹 생성/이미 존재 시 rosters 학생을 자동 초대'}
-  </p>
-</div>
+{!allValid && (
+  <p className="text-small text-state-danger">일부 slug 또는 부서장 이메일이 유효하지 않습니다.</p>
+)}
 ```
 
-#### 5. `BasicDataPanel.tsx` — rosters 전달
+#### 4. 테스트
 
-AutoCreateGroupsDialog 렌더:
-```tsx
-<AutoCreateGroupsDialog
-  open={isAutoCreateOpen}
-  onOpenChange={setIsAutoCreateOpen}
-  year={selectedYear}
-  grades={data.data.grades}
-  rosters={data.data.rosters}   // 신규
-/>
-```
-
-#### 6. 테스트
-
-**web `AutoCreateGroupsDialog.test.tsx`** (2 신규):
-
-1. **checkbox 미체크 (기본)** — rosters 있어도 학생 iteration 안 됨. 기존 시나리오 회귀 그대로 통과.
-2. **checkbox 체크** — grades = 1 반, rosters = 학생 2 명 → 그룹 생성 1 회 + 학생 insert 2 회 총 3 오퍼레이션.
+**web `AutoCreateDepartmentGroupsDialog.test.tsx`** (2 신규):
+1. **owner 없이 실행**: departments=['국어과','수학과'], owners = ['', ''] → callGroupsCreate 2 회만 호출, callGroupsMembersInsert 안 호출.
+2. **owner 있이 실행**: departments=['국어과'], owner=['teacher@cam.hs.kr'] → 그룹 생성 후 callGroupsMembersInsert(role='OWNER') 호출됨.
 
 기존 시나리오 회귀 유지.
 
@@ -233,29 +225,28 @@ AutoCreateGroupsDialog 렌더:
 1. `pnpm install` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 590 + 신규 2 = 592 근처.
+4. `pnpm -r test` — 이전 592 + 신규 2 = 594 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - AutoCreateGroups 다이얼로그에 checkbox 표시
-   - rosters 없으면 disabled + 안내 문구
-   - 체크 → 실행 → 진행 바 (그룹 + 학생 합계)
-   - 완료 후 결과 요약
+   - 부서 그룹 자동 생성 다이얼로그에 「부서장 (선택)」 컬럼
+   - 부서장 이메일 입력 시 validation (`@cam.hs.kr`)
+   - 실행 → 그룹 + owner iteration
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **AutoInviteStudentsDialog 제거** — 유지 (별도 사용 케이스 있음).
-- **checkbox 상태 persist** — 별도 slice.
-- **부서 그룹 + 부서장 자동 초대** — 별도 slice.
+- **owner 여러 명** — 별도 slice (`co-chair` 등).
+- **owner 스키마 저장** — 별도 slice.
+- **자동 추천 (직급 기반)** — 별도 slice.
 
 ### 커밋 규칙
 
 **1 커밋**:
-- `feat(web): AutoCreateGroupsDialog 에 「생성 후 학생 자동 초대」 checkbox 추가`
+- `feat(web): AutoCreateDepartmentGroupsDialog 에 부서장 (OWNER) 지정 필드 추가`
 
 conventional commit. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/auto-create-with-invite-v59`.
+**작업 브랜치** — `git push -u origin feat/dept-groups-owner-v60`.
 
 ## 상태 보고 (필수)
 
