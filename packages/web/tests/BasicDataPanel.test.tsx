@@ -381,5 +381,78 @@ describe('BasicDataPanel component', () => {
     expect(badgeB).toBeDefined();
     expect(badgeB.textContent).toBe('B');
   });
+
+  it('scenario 14: auto invite students button is disabled when rosters is absent or empty, enabled when rosters exist', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(<BasicDataPanel />);
+    const btnDisabled = screen.getByTestId('basic-data-auto-invite-students-btn') as HTMLButtonElement;
+    expect(btnDisabled.disabled).toBe(true);
+
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    expect((screen.getByTestId('basic-data-auto-invite-students-btn') as HTMLButtonElement).disabled).toBe(true);
+
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          rosters: {},
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    expect((screen.getByTestId('basic-data-auto-invite-students-btn') as HTMLButtonElement).disabled).toBe(true);
+
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          rosters: {
+            '1': { A: ['student1@cam.hs.kr'] },
+          },
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    const btnEnabled = screen.getByTestId('basic-data-auto-invite-students-btn') as HTMLButtonElement;
+    expect(btnEnabled.disabled).toBe(false);
+
+    fireEvent.click(btnEnabled);
+    expect(screen.getByRole('heading', { name: '학생 자동 초대' })).toBeDefined();
+  });
 });
 
