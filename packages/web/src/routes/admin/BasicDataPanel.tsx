@@ -197,6 +197,7 @@ export function BasicDataPanel() {
           onOpenChange={setIsAutoCreateOpen}
           year={selectedYear}
           grades={data.data.grades}
+          rosters={data.data.rosters}
         />
       )}
 

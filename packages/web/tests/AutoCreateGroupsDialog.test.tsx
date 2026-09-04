@@ -5,9 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockCallGroupsCreate = vi.fn();
+const mockCallGroupsMembersInsert = vi.fn();
 
 vi.mock('../src/api/groupsCreate.js', () => ({
   callGroupsCreate: (data: unknown) => mockCallGroupsCreate(data),
+}));
+
+vi.mock('../src/api/groupsMembersInsert.js', () => ({
+  callGroupsMembersInsert: (data: unknown) => mockCallGroupsMembersInsert(data),
 }));
 
 import { AutoCreateGroupsDialog } from '../src/routes/admin/AutoCreateGroupsDialog.js';
@@ -228,6 +233,99 @@ describe('AutoCreateGroupsDialog component', () => {
     fireEvent.change(prefixInput, { target: { value: '2026-students' } });
     expect(screen.getByText('2026-students-1a@cam.hs.kr')).toBeDefined();
     expect(confirmBtn.disabled).toBe(false);
+  });
+
+  it('scenario 7: with rosters provided, checkbox defaults to unchecked and only creates groups on confirm', async () => {
+    const grades = [{ grade: 1, classes: ['A'] }];
+    const rosters = { '1': { A: ['student1@cam.hs.kr', 'student2@cam.hs.kr'] } };
+    mockCallGroupsCreate.mockResolvedValue({ id: 'grp-1', email: 'class-1a@cam.hs.kr' });
+
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+        rosters={rosters}
+      />
+    );
+
+    const checkbox = screen.getByTestId('auto-create-groups-invite-students') as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(checkbox.disabled).toBe(false);
+
+    const confirmInput = screen.getByTestId('auto-create-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '1' } });
+
+    const confirmBtn = screen.getByTestId('auto-create-groups-confirm-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-create-groups-done')).toBeDefined();
+    });
+
+    expect(mockCallGroupsCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallGroupsMembersInsert).not.toHaveBeenCalled();
+    const doneText = screen.getByTestId('auto-create-groups-done').textContent;
+    expect(doneText).toContain('1개 성공');
+  });
+
+  it('scenario 8: when checkbox is checked, iterates groupsCreate then groupsMembersInsert for total ops', async () => {
+    const grades = [{ grade: 1, classes: ['A'] }];
+    const rosters = { '1': { A: ['student1@cam.hs.kr', 'student2@cam.hs.kr'] } };
+    mockCallGroupsCreate.mockResolvedValue({ id: 'grp-1', email: 'class-1a@cam.hs.kr' });
+    mockCallGroupsMembersInsert.mockResolvedValue({
+      groupEmail: 'class-1a@cam.hs.kr',
+      memberEmail: 'student1@cam.hs.kr',
+      role: 'MEMBER',
+    });
+
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+        rosters={rosters}
+      />
+    );
+
+    const checkbox = screen.getByTestId('auto-create-groups-invite-students') as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    const confirmInput = screen.getByTestId('auto-create-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '1' } });
+
+    const confirmBtn = screen.getByTestId('auto-create-groups-confirm-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-create-groups-done')).toBeDefined();
+    });
+
+    expect(mockCallGroupsCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallGroupsCreate).toHaveBeenCalledWith({
+      email: 'class-1a@cam.hs.kr',
+      name: '1학년 A반',
+      description: '2026년 1학년 A반 자동 생성',
+    });
+
+    expect(mockCallGroupsMembersInsert).toHaveBeenCalledTimes(2);
+    expect(mockCallGroupsMembersInsert).toHaveBeenNthCalledWith(1, {
+      groupEmail: 'class-1a@cam.hs.kr',
+      memberEmail: 'student1@cam.hs.kr',
+      role: 'MEMBER',
+    });
+    expect(mockCallGroupsMembersInsert).toHaveBeenNthCalledWith(2, {
+      groupEmail: 'class-1a@cam.hs.kr',
+      memberEmail: 'student2@cam.hs.kr',
+      role: 'MEMBER',
+    });
+
+    const doneText = screen.getByTestId('auto-create-groups-done').textContent;
+    expect(doneText).toContain('3개 성공');
   });
 });
 
