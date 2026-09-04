@@ -80,6 +80,22 @@ export function BasicDataPanel() {
               </div>
             </div>
           ))}
+          {data.data.departments && data.data.departments.length > 0 && (
+            <div className="pt-4 border-t border-border-subtle" data-testid="basic-data-departments">
+              <div className="text-micro uppercase tracking-wide text-fg-secondary mb-2">부서</div>
+              <div className="flex flex-wrap gap-2">
+                {data.data.departments.map((d) => (
+                  <span
+                    key={d}
+                    className="px-2 py-1 border border-border-subtle bg-canvas text-small text-fg-primary"
+                    data-testid={`basic-data-department-${d}`}
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {data.data.updatedAt && (
             <p className="text-micro text-fg-muted pt-2 border-t border-border-subtle">
               최근 수정: {new Date(data.data.updatedAt).toLocaleString('ko-KR')}

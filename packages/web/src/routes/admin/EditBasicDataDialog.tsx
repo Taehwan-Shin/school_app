@@ -30,6 +30,7 @@ export function EditBasicDataDialog({
   initialData,
 }: EditBasicDataDialogProps) {
   const [rows, setRows] = useState<GradeRow[]>([]);
+  const [departmentsText, setDepartmentsText] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const { mutateAsync: saveBasicData, isPending, error: mutationError } = useBasicDataSet();
 
@@ -45,6 +46,7 @@ export function EditBasicDataDialog({
       } else {
         setRows([{ grade: '1', classesText: '' }]);
       }
+      setDepartmentsText((initialData?.departments ?? []).join(', '));
       setValidationError(null);
     }
   }, [open, initialData]);
@@ -90,8 +92,20 @@ export function EditBasicDataDialog({
       return;
     }
 
+    const departmentsInput = departmentsText.trim();
+    const departments: string[] | undefined = departmentsInput
+      ? departmentsInput
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      : undefined;
+
     try {
-      await saveBasicData({ year, grades });
+      await saveBasicData({
+        year,
+        grades,
+        ...(departments !== undefined ? { departments } : {}),
+      });
       onOpenChange(false);
     } catch {
       // mutationError 는 아래 표시
@@ -188,6 +202,19 @@ export function EditBasicDataDialog({
                 + 학년 추가
               </Button>
             </div>
+          </div>
+
+          <div>
+            <label className="text-small text-fg-primary">부서 (선택 · 쉼표 구분)</label>
+            <input
+              type="text"
+              value={departmentsText}
+              onChange={(e) => setDepartmentsText(e.target.value)}
+              placeholder="국어과, 수학과, 영어과"
+              data-testid="edit-basic-data-departments"
+              className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
+            />
+            <p className="text-micro text-fg-muted mt-1">비워두면 부서 없음.</p>
           </div>
 
           <DialogFooter>

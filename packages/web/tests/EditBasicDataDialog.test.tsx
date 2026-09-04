@@ -141,4 +141,60 @@ describe('EditBasicDataDialog component', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
+
+  it('scenario 6: initializes departments input with comma-separated list when initialData contains departments', () => {
+    const dataWithDepartments: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      departments: ['국어과', '수학과'],
+    };
+
+    render(
+      <EditBasicDataDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        initialData={dataWithDepartments}
+      />,
+    );
+
+    const deptsInput = screen.getByTestId('edit-basic-data-departments') as HTMLInputElement;
+    expect(deptsInput.value).toBe('국어과, 수학과');
+  });
+
+  it('scenario 7: submitting form with departments calls mutation including departments array', async () => {
+    mockMutateAsync.mockResolvedValueOnce({
+      year: 2026,
+      updatedAt: 1788480000000,
+    });
+    const onOpenChange = vi.fn();
+
+    render(
+      <EditBasicDataDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        year={2026}
+        initialData={null}
+      />,
+    );
+
+    const gradeInput = screen.getByTestId('edit-basic-data-grade-0');
+    const classesInput = screen.getByTestId('edit-basic-data-classes-0');
+    const deptsInput = screen.getByTestId('edit-basic-data-departments');
+
+    fireEvent.change(gradeInput, { target: { value: '1' } });
+    fireEvent.change(classesInput, { target: { value: '1, 2, 3' } });
+    fireEvent.change(deptsInput, { target: { value: '국어과, 수학과, 영어과' } });
+
+    fireEvent.click(screen.getByTestId('edit-basic-data-submit'));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1', '2', '3'] }],
+        departments: ['국어과', '수학과', '영어과'],
+      });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
 });

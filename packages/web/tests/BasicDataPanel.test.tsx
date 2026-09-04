@@ -169,4 +169,35 @@ describe('BasicDataPanel component', () => {
     const btnEnabled = screen.getByTestId('basic-data-auto-create-groups-btn') as HTMLButtonElement;
     expect(btnEnabled.disabled).toBe(false);
   });
+
+  it('scenario 7: renders departments section and badges when departments exist', () => {
+    const currentYear = new Date().getFullYear();
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: currentYear,
+          grades: [{ grade: 1, classes: ['A'] }],
+          departments: ['국어과', '수학과'],
+          updatedAt: 1788480000000,
+          updatedBy: 'admin@cam.hs.kr',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const deptsEl = screen.getByTestId('basic-data-departments');
+    expect(deptsEl).toBeDefined();
+
+    const koreanDept = screen.getByTestId('basic-data-department-국어과');
+    expect(koreanDept).toBeDefined();
+    expect(koreanDept.textContent).toBe('국어과');
+
+    const mathDept = screen.getByTestId('basic-data-department-수학과');
+    expect(mathDept).toBeDefined();
+    expect(mathDept.textContent).toBe('수학과');
+  });
 });

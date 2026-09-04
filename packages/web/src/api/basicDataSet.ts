@@ -6,6 +6,7 @@ import type { BasicDataGradeClass } from '@school-app/shared';
 export interface BasicDataSetRequest {
   year: number;
   grades: BasicDataGradeClass[];
+  departments?: string[];
 }
 
 export interface BasicDataSetResponse {
