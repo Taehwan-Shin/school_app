@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { useBasicDataGet } from '../../api/basicDataGet';
+import { Button } from '../../components/ui/button';
+import { EditBasicDataDialog } from './EditBasicDataDialog';
 
 export function BasicDataPanel() {
   const currentYear = new Date().getFullYear();
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { data, isLoading, isError, error } = useBasicDataGet(currentYear);
 
   return (
@@ -13,8 +17,17 @@ export function BasicDataPanel() {
             연도별 학년·반 구조. 그룹·클래스룸 생성 시 참조됩니다.
           </p>
         </div>
-        <div className="text-small text-fg-secondary">
-          연도: <strong className="font-mono text-fg-primary">{currentYear}</strong>
+        <div className="flex items-center gap-4">
+          <div className="text-small text-fg-secondary">
+            연도: <strong className="font-mono text-fg-primary">{currentYear}</strong>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => setIsEditOpen(true)}
+            data-testid="basic-data-edit-btn"
+          >
+            편집
+          </Button>
         </div>
       </div>
 
@@ -64,6 +77,13 @@ export function BasicDataPanel() {
           )}
         </div>
       )}
+
+      <EditBasicDataDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        year={currentYear}
+        initialData={data?.data ?? null}
+      />
     </section>
   );
 }
