@@ -197,6 +197,71 @@ describe('basicDataSet callable unit tests', () => {
     });
   });
 
+  it('rejects request when departments contains invalid elements with invalid-argument error', async () => {
+    const reqInvalidDept = createRequest({
+      data: {
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1'] }],
+        departments: ['국어과', ''],
+      },
+    });
+
+    await expect(basicDataSet.run(reqInvalidDept)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_basic_data',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'basic_data.write',
+      target: 'basic_data/2026',
+      request_id: 'req-basic-set-123',
+      result: 'error',
+      message: 'invalid_basic_data',
+    });
+  });
+
+  it('successfully creates new basic data document with departments in Firestore and writes ok audit', async () => {
+    const grades = [{ grade: 1, classes: ['1', '2'] }];
+    const departments = ['국어과', '수학과'];
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        year: 2026,
+        grades,
+        departments,
+      },
+    });
+
+    const res = await basicDataSet.run(req);
+    expect(res.year).toBe(2026);
+
+    expect(mockCollection).toHaveBeenCalledWith('basic_data');
+    expect(mockDoc).toHaveBeenCalledWith('2026');
+    expect(mockSet).toHaveBeenCalledWith(
+      {
+        year: 2026,
+        grades,
+        departments,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: 'super@cam.hs.kr',
+      },
+      { merge: false },
+    );
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'basic_data.write',
+      target: 'basic_data/2026',
+      request_id: 'req-basic-set-123',
+      result: 'ok',
+      message: 'set basic_data for year 2026 with 1 grades',
+    });
+  });
+
   it('successfully creates new basic data document in Firestore and writes ok audit', async () => {
     const beforeTime = Date.now();
     const grades = [
