@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
 import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
+import { EditRostersDialog } from './EditRostersDialog';
 
 export function BasicDataPanel() {
   const thisYear = new Date().getFullYear();
@@ -13,7 +14,7 @@ export function BasicDataPanel() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
-  const [, setIsRostersEditOpen] = useState(false);
+  const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);
 
   useEffect(() => {
     const parsed = Number.parseInt(yearInput, 10);
@@ -190,6 +191,15 @@ export function BasicDataPanel() {
           onOpenChange={setIsAutoCreateDeptOpen}
           year={selectedYear}
           departments={data.data.departments}
+        />
+      )}
+
+      {data?.data && (
+        <EditRostersDialog
+          open={isRostersEditOpen}
+          onOpenChange={setIsRostersEditOpen}
+          year={selectedYear}
+          initialData={data.data}
         />
       )}
 
