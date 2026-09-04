@@ -6,6 +6,7 @@ import { EditBasicDataDialog } from './EditBasicDataDialog';
 import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
 import { EditRostersDialog } from './EditRostersDialog';
+import { AutoInviteStudentsDialog } from './AutoInviteStudentsDialog';
 
 export function BasicDataPanel() {
   const thisYear = new Date().getFullYear();
@@ -15,6 +16,7 @@ export function BasicDataPanel() {
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
   const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);
+  const [isAutoInviteOpen, setIsAutoInviteOpen] = useState(false);
 
   useEffect(() => {
     const parsed = Number.parseInt(yearInput, 10);
@@ -96,6 +98,19 @@ export function BasicDataPanel() {
             title={!data?.data ? '기초값 먼저 설정하세요' : '반별 학생 명단 편집'}
           >
             학생 명단 편집
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsAutoInviteOpen(true)}
+            data-testid="basic-data-auto-invite-students-btn"
+            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+            title={
+              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                ? '학생 명단을 먼저 등록하세요'
+                : 'rosters 학생을 반 그룹에 자동 초대'
+            }
+          >
+            학생 자동 초대
           </Button>
           <Button
             variant="secondary"
@@ -200,6 +215,15 @@ export function BasicDataPanel() {
           onOpenChange={setIsRostersEditOpen}
           year={selectedYear}
           initialData={data.data}
+        />
+      )}
+
+      {data?.data && (
+        <AutoInviteStudentsDialog
+          open={isAutoInviteOpen}
+          onOpenChange={setIsAutoInviteOpen}
+          year={selectedYear}
+          data={data.data}
         />
       )}
 
