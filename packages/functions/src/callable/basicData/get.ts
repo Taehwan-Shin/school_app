@@ -111,6 +111,9 @@ export const basicDataGet = onCall(
         year: typeof docData?.year === 'number' ? docData.year : year,
         grades: Array.isArray(docData?.grades) ? docData.grades : [],
         ...(Array.isArray(docData?.departments) ? { departments: docData.departments } : {}),
+        ...(docData?.rosters && typeof docData.rosters === 'object' && !Array.isArray(docData.rosters)
+          ? { rosters: docData.rosters }
+          : {}),
         ...(updatedAt !== undefined ? { updatedAt } : {}),
         ...(typeof docData?.updatedBy === 'string' ? { updatedBy: docData.updatedBy } : {}),
       };

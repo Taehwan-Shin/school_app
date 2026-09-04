@@ -7,6 +7,7 @@ export interface BasicDataSetRequest {
   year: number;
   grades: BasicDataGradeClass[];
   departments?: string[];
+  rosters?: Record<string, Record<string, string[]>>;
 }
 
 export interface BasicDataSetResponse {

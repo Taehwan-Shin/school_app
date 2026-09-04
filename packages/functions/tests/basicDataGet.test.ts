@@ -194,6 +194,45 @@ describe('basicDataGet callable unit tests', () => {
     });
   });
 
+  it('returns document data with rosters when rosters exists in Firestore', async () => {
+    const rosters = {
+      '1': {
+        '1': ['s1@cam.hs.kr', 's2@cam.hs.kr'],
+        '2': [],
+      },
+    };
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1', '2'] }],
+        rosters,
+        updatedAt: Timestamp.fromMillis(1700000000000),
+        updatedBy: 'super@cam.hs.kr',
+      }),
+    });
+
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { year: 2026 },
+    });
+
+    const response = await basicDataGet.run(req);
+
+    expect(mockCollection).toHaveBeenCalledWith('basic_data');
+    expect(mockDoc).toHaveBeenCalledWith('2026');
+    expect(response).toEqual({
+      data: {
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1', '2'] }],
+        rosters,
+        updatedAt: 1700000000000,
+        updatedBy: 'super@cam.hs.kr',
+      },
+    });
+  });
+
   it('returns data null and writes ok audit when document does not exist in Firestore', async () => {
     mockGet.mockResolvedValueOnce({
       exists: false,
