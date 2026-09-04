@@ -11,12 +11,14 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { callGroupsCreate } from '../../api/groupsCreate';
+import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoCreateGroupsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   year: number;
   grades: BasicDataGradeClass[];
+  rosters?: Record<string, Record<string, string[]>>;
   onDone?: () => void;
 }
 
@@ -52,11 +54,22 @@ export function isAlreadyExistsError(message: string): boolean {
   );
 }
 
+export function isAlreadyMemberError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('already') ||
+    lower.includes('duplicate') ||
+    lower.includes('member exists') ||
+    lower.includes('http_409')
+  );
+}
+
 export function AutoCreateGroupsDialog({
   open,
   onOpenChange,
   year,
   grades,
+  rosters,
   onDone,
 }: AutoCreateGroupsDialogProps) {
   const queryClient = useContext(QueryClientContext);
@@ -65,6 +78,7 @@ export function AutoCreateGroupsDialog({
   const [results, setResults] = useState<Result[]>([]);
   const [confirmText, setConfirmText] = useState('');
   const [prefix, setPrefix] = useState('class');
+  const [inviteStudents, setInviteStudents] = useState(false);
 
   const targets = useMemo(
     () =>
@@ -80,6 +94,12 @@ export function AutoCreateGroupsDialog({
     [grades, year, prefix]
   );
 
+  const totalStudents = useMemo(() => {
+    if (!inviteStudents || !rosters) return 0;
+    return targets.reduce((sum, t) => sum + (rosters[String(t.grade)]?.[t.class]?.length ?? 0), 0);
+  }, [inviteStudents, rosters, targets]);
+  const totalOpsDisplay = targets.length + totalStudents;
+
   useEffect(() => {
     if (open) {
       setPhase('confirm');
@@ -87,6 +107,7 @@ export function AutoCreateGroupsDialog({
       setResults([]);
       setConfirmText('');
       setPrefix('class');
+      setInviteStudents(false);
     }
   }, [open]);
 
@@ -98,8 +119,11 @@ export function AutoCreateGroupsDialog({
   const handleConfirm = async () => {
     setPhase('running');
     const localResults: Result[] = [];
+    let opProgress = 0;
+
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
+      let groupOk = false;
       try {
         await callGroupsCreate({
           email: t.email,
@@ -107,19 +131,44 @@ export function AutoCreateGroupsDialog({
           description: t.description,
         });
         localResults.push({ email: t.email, kind: 'ok' });
+        groupOk = true;
       } catch (e) {
         const message = (e as Error).message;
-        if (isAlreadyExistsError(message)) {
-          localResults.push({ email: t.email, kind: 'skipped', message });
-        } else {
-          localResults.push({ email: t.email, kind: 'failed', message });
+        const kind = isAlreadyExistsError(message) ? 'skipped' : 'failed';
+        localResults.push({ email: t.email, kind, message });
+        groupOk = kind === 'skipped'; // 이미 있는 그룹에도 학생 초대는 시도
+      }
+      opProgress++;
+      setProgress(opProgress);
+
+      // 학생 초대 (checkbox 체크 시 · 그룹 생성 성공 or 이미 존재 시만)
+      if (inviteStudents && groupOk) {
+        const students = rosters?.[String(t.grade)]?.[t.class] ?? [];
+        for (const memberEmail of students) {
+          try {
+            await callGroupsMembersInsert({
+              groupEmail: t.email,
+              memberEmail,
+              role: 'MEMBER',
+            });
+            localResults.push({ email: `${t.email} → ${memberEmail}`, kind: 'ok' });
+          } catch (e) {
+            const message = (e as Error).message;
+            const kind = isAlreadyMemberError(message) ? 'skipped' : 'failed';
+            localResults.push({ email: `${t.email} → ${memberEmail}`, kind, message });
+          }
+          opProgress++;
+          setProgress(opProgress);
         }
       }
-      setProgress(i + 1);
     }
+
     setResults(localResults);
     setPhase('done');
     queryClient?.invalidateQueries({ queryKey: ['groups', 'list'] });
+    if (inviteStudents) {
+      queryClient?.invalidateQueries({ queryKey: ['groups', 'members'] });
+    }
   };
 
   return (
@@ -151,6 +200,23 @@ export function AutoCreateGroupsDialog({
               />
               <p className="text-micro text-fg-muted">
                 소문자·숫자·하이픈만. 예: <code className="font-mono">homeroom</code>, <code className="font-mono">2026</code>
+              </p>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-body text-fg-primary">
+                <input
+                  type="checkbox"
+                  checked={inviteStudents}
+                  disabled={!rosters || Object.keys(rosters).length === 0}
+                  onChange={(e) => setInviteStudents(e.target.checked)}
+                  data-testid="auto-create-groups-invite-students"
+                />
+                생성 후 학생 자동 초대 (rosters 기준)
+              </label>
+              <p className="text-micro text-fg-muted mt-1 ml-6">
+                {!rosters || Object.keys(rosters).length === 0
+                  ? '학생 명단이 없으면 사용 불가'
+                  : '각 반 그룹 생성/이미 존재 시 rosters 학생을 자동 초대'}
               </p>
             </div>
             <div
@@ -214,13 +280,13 @@ export function AutoCreateGroupsDialog({
             <div className="py-8 text-center space-y-3" data-testid="auto-create-groups-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{targets.length}</strong>
+                <strong className="font-mono">{totalOpsDisplay}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${targets.length > 0 ? (progress / targets.length) * 100 : 0}%`,
+                    width: `${totalOpsDisplay > 0 ? (progress / totalOpsDisplay) * 100 : 0}%`,
                   }}
                 />
               </div>
