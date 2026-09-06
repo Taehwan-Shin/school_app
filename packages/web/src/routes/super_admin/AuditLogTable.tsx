@@ -122,7 +122,7 @@ export function AuditLogTable() {
       const dd = String(d.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}` === raw;
     };
-    if (check(1)) return 1;
+    if (check(0)) return 0;
     if (check(7)) return 7;
     if (check(30)) return 30;
     return null;
@@ -229,7 +229,7 @@ export function AuditLogTable() {
         <div className="flex items-center gap-2" role="group" aria-label="날짜 프리셋">
           <span className="text-small text-fg-secondary mr-1">프리셋:</span>
           {[
-            { key: 1 as const, label: '지난 24시간' },
+            { key: 0 as const, label: '오늘' },
             { key: 7 as const, label: '지난 7일' },
             { key: 30 as const, label: '지난 30일' },
             { key: 'all' as const, label: '전체' },

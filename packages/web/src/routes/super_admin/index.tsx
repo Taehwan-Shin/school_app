@@ -11,7 +11,19 @@ export function SuperAdminPage() {
   const navigate = useNavigate();
   const users = useUsersList();
   const groups = useGroupsList();
-  const audit = useAuditLogList(50); // 최근 50 개만 KPI 계산용
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartMs = todayStart.getTime();
+  const yyyy = todayStart.getFullYear();
+  const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+  const dd = String(todayStart.getDate()).padStart(2, '0');
+  const todayIso = `${yyyy}-${mm}-${dd}`;
+
+  // 오늘 이벤트 KPI 는 정확한 count 를 위해 별도 useAuditLogList
+  const todayAudit = useAuditLogList(500, { atMin: todayStartMs });
+  const todayCount = todayAudit.entries.length;
+  // 미리보기용 최근 5 개는 기존 audit.entries.slice(0, 5) 유지 (별도 hook)
+  const audit = useAuditLogList(50);
 
   // 최근 24 시간 감사 이벤트 수
   const now = Date.now();
@@ -19,13 +31,6 @@ export function SuperAdminPage() {
   const recentEvents = audit.entries.filter((e) => e.at >= dayAgo);
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const yyyy = todayStart.getFullYear();
-  const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
-  const dd = String(todayStart.getDate()).padStart(2, '0');
-  const todayIso = `${yyyy}-${mm}-${dd}`;
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -54,9 +59,9 @@ export function SuperAdminPage() {
             onClick={() => navigate('/admin?filter=suspended')}
           />
           <KpiCard
-            label="최근 24시간 이벤트"
-            value={recentEvents.length}
-            loading={audit.loading}
+            label="오늘 이벤트"
+            value={todayCount}
+            loading={todayAudit.loading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
