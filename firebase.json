@@ -100,6 +100,10 @@
         "function": { "functionId": "chatDelete", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/chatMembersList",
+        "function": { "functionId": "chatMembersList", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
