@@ -32,6 +32,12 @@ export interface ClassroomClient {
       studentId?: string;
       courseStates?: string[];
     }) => Promise<{ data: ClassroomCoursesListResponse }>;
+    patch: (params: {
+      id: string;
+      updateMask: string;
+      requestBody: Partial<Pick<ClassroomCourse, 'courseState' | 'name' | 'section'>>;
+    }) => Promise<{ data: ClassroomCourse }>;
+    delete: (params: { id: string }) => Promise<{ data: {} }>;
   };
 }
 

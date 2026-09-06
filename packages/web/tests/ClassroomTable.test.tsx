@@ -1,11 +1,27 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockUseClassroomList = vi.fn();
 
 vi.mock('../src/api/classroomList', () => ({
   useClassroomList: () => mockUseClassroomList(),
+}));
+
+vi.mock('../src/api/classroomPatch', () => ({
+  useClassroomPatch: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/classroomDelete', () => ({
+  useClassroomDelete: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
 }));
 
 import { ClassroomTable, translateCourseState } from '../src/routes/admin/ClassroomTable';
@@ -115,6 +131,58 @@ describe('ClassroomTable component', () => {
 
     const link3 = screen.getByTestId('classroom-link-c-103');
     expect(link3.getAttribute('href')).toBe('https://classroom.google.com/c/c-103');
+
+    // 관리 컬럼 및 버튼 검증
+    expect(screen.getByText('관리')).toBeDefined();
+
+    // ACTIVE: 아카이브 버튼 있음
+    const archiveBtn1 = screen.getByTestId('classroom-archive-btn-c-101');
+    expect(archiveBtn1.textContent).toBe('아카이브');
+
+    // ARCHIVED: 복구 버튼 있음
+    const archiveBtn2 = screen.getByTestId('classroom-archive-btn-c-102');
+    expect(archiveBtn2.textContent).toBe('복구');
+
+    // PROVISIONED: 아카이브/복구 버튼 없음
+    expect(screen.queryByTestId('classroom-archive-btn-c-103')).toBeNull();
+
+    // 모든 행에 삭제 버튼 있음
+    expect(screen.getByTestId('classroom-delete-btn-c-101')).toBeDefined();
+    expect(screen.getByTestId('classroom-delete-btn-c-102')).toBeDefined();
+    expect(screen.getByTestId('classroom-delete-btn-c-103')).toBeDefined();
+  });
+
+  it('scenario 5: opens ArchiveClassroomDialog and DeleteClassroomDialog on button clicks', () => {
+    const mockCourses = [
+      {
+        id: 'c-101',
+        name: '1학년 1반 수학',
+        section: '1학기',
+        courseState: 'ACTIVE',
+      },
+    ];
+
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: mockCourses },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+
+    // 아카이브 버튼 클릭 시 다이얼로그 표시
+    const archiveBtn = screen.getByTestId('classroom-archive-btn-c-101');
+    fireEvent.click(archiveBtn);
+    expect(screen.getByText('코스 아카이브 확인')).toBeDefined();
+
+    // 취소 클릭으로 닫기
+    fireEvent.click(screen.getByText('취소'));
+
+    // 삭제 버튼 클릭 시 다이얼로그 표시
+    const deleteBtn = screen.getByTestId('classroom-delete-btn-c-101');
+    fireEvent.click(deleteBtn);
+    expect(screen.getByText('클래스룸 코스 삭제 확인')).toBeDefined();
   });
 
   it('translates course states correctly', () => {
