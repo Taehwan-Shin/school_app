@@ -1,11 +1,19 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockUseChatList = vi.fn();
 
 vi.mock('../src/api/chatList', () => ({
   useChatList: () => mockUseChatList(),
+}));
+
+vi.mock('../src/api/chatCreate', () => ({
+  useCreateChatSpace: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
 }));
 
 import { ChatSpacesTable } from '../src/routes/admin/ChatSpacesTable';
@@ -87,5 +95,28 @@ describe('ChatSpacesTable component', () => {
     expect(screen.getByText('GROUP_CHAT')).toBeDefined();
     expect(screen.getByText('spaces/AAAA')).toBeDefined();
     expect(screen.getByText('spaces/BBBB')).toBeDefined();
+  });
+
+  it('scenario 5: renders "+ 챗방 추가" button and opens CreateChatSpaceDialog on click', () => {
+    mockUseChatList.mockReturnValue({
+      data: { spaces: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ChatSpacesTable />);
+
+    const createBtn = screen.getByTestId('chat-create-btn');
+    expect(createBtn).toBeDefined();
+    expect(createBtn.textContent).toContain('+ 챗방 추가');
+
+    expect(screen.queryByText('새 챗방 생성')).toBeNull();
+
+    fireEvent.click(createBtn);
+
+    expect(screen.getByText('새 챗방 생성')).toBeDefined();
+    expect(screen.getByTestId('create-chat-name-input')).toBeDefined();
+    expect(screen.getByTestId('create-chat-submit')).toBeDefined();
   });
 });
