@@ -16,6 +16,7 @@ import {
   DeleteClassroomDialog,
   type DeleteClassroomTarget,
 } from './DeleteClassroomDialog';
+import { CourseMembersDialog } from './CourseMembersDialog';
 
 export function translateCourseState(s?: string): string {
   switch (s) {
@@ -30,6 +31,7 @@ export function translateCourseState(s?: string): string {
 
 export function ClassroomTable() {
   const { data, isLoading, isError, error } = useClassroomList();
+  const [membersTarget, setMembersTarget] = useState<{ id: string; name?: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
 
@@ -93,6 +95,14 @@ export function ClassroomTable() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setMembersTarget({ id: c.id, name: c.name })}
+                      data-testid={`classroom-members-btn-${c.id}`}
+                      className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
+                    >
+                      멤버
+                    </button>
                     {(c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED') && (
                       <button
                         type="button"
@@ -118,6 +128,12 @@ export function ClassroomTable() {
           </Table>
         </div>
       )}
+      <CourseMembersDialog
+        open={!!membersTarget}
+        onOpenChange={(o) => !o && setMembersTarget(null)}
+        courseId={membersTarget?.id ?? null}
+        courseName={membersTarget?.name}
+      />
       <ArchiveClassroomDialog
         open={!!archiveTarget}
         onOpenChange={(o) => !o && setArchiveTarget(null)}

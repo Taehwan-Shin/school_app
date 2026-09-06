@@ -24,6 +24,24 @@ vi.mock('../src/api/classroomDelete', () => ({
   }),
 }));
 
+vi.mock('../src/api/classroomTeachersList', () => ({
+  useClassroomTeachersList: () => ({
+    data: { teachers: [] },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/classroomStudentsList', () => ({
+  useClassroomStudentsList: () => ({
+    data: { students: [] },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
 import { ClassroomTable, translateCourseState } from '../src/routes/admin/ClassroomTable';
 
 describe('ClassroomTable component', () => {
@@ -146,13 +164,18 @@ describe('ClassroomTable component', () => {
     // PROVISIONED: 아카이브/복구 버튼 없음
     expect(screen.queryByTestId('classroom-archive-btn-c-103')).toBeNull();
 
+    // 모든 행에 멤버 버튼 있음
+    expect(screen.getByTestId('classroom-members-btn-c-101')).toBeDefined();
+    expect(screen.getByTestId('classroom-members-btn-c-102')).toBeDefined();
+    expect(screen.getByTestId('classroom-members-btn-c-103')).toBeDefined();
+
     // 모든 행에 삭제 버튼 있음
     expect(screen.getByTestId('classroom-delete-btn-c-101')).toBeDefined();
     expect(screen.getByTestId('classroom-delete-btn-c-102')).toBeDefined();
     expect(screen.getByTestId('classroom-delete-btn-c-103')).toBeDefined();
   });
 
-  it('scenario 5: opens ArchiveClassroomDialog and DeleteClassroomDialog on button clicks', () => {
+  it('scenario 5: opens CourseMembersDialog, ArchiveClassroomDialog and DeleteClassroomDialog on button clicks', () => {
     const mockCourses = [
       {
         id: 'c-101',
@@ -170,6 +193,15 @@ describe('ClassroomTable component', () => {
     });
 
     render(<ClassroomTable />);
+
+    // 멤버 버튼 클릭 시 CourseMembersDialog 표시
+    const membersBtn = screen.getByTestId('classroom-members-btn-c-101');
+    fireEvent.click(membersBtn);
+    expect(screen.getByText('1학년 1반 수학 멤버')).toBeDefined();
+
+    // 닫기 클릭
+    const closeBtns = screen.getAllByRole('button', { name: '닫기' });
+    fireEvent.click(closeBtns[0]);
 
     // 아카이브 버튼 클릭 시 다이얼로그 표시
     const archiveBtn = screen.getByTestId('classroom-archive-btn-c-101');

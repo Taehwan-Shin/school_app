@@ -116,6 +116,14 @@
         "function": { "functionId": "classroomDelete", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/classroomTeachersList",
+        "function": { "functionId": "classroomTeachersList", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/classroomStudentsList",
+        "function": { "functionId": "classroomStudentsList", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

@@ -18,8 +18,40 @@ export interface ClassroomCourse {
   guardiansEnabled?: boolean;
 }
 
+export interface ClassroomTeacher {
+  courseId: string;
+  userId: string;
+  profile?: {
+    id?: string;
+    name?: { fullName?: string; givenName?: string; familyName?: string };
+    emailAddress?: string;
+    photoUrl?: string;
+  };
+}
+
+export interface ClassroomStudent {
+  courseId: string;
+  userId: string;
+  profile?: {
+    id?: string;
+    name?: { fullName?: string; givenName?: string; familyName?: string };
+    emailAddress?: string;
+    photoUrl?: string;
+  };
+}
+
 export interface ClassroomCoursesListResponse {
   courses?: ClassroomCourse[];
+  nextPageToken?: string;
+}
+
+export interface ClassroomTeachersListResponse {
+  teachers?: ClassroomTeacher[];
+  nextPageToken?: string;
+}
+
+export interface ClassroomStudentsListResponse {
+  students?: ClassroomStudent[];
   nextPageToken?: string;
 }
 
@@ -38,6 +70,20 @@ export interface ClassroomClient {
       requestBody: Partial<Pick<ClassroomCourse, 'courseState' | 'name' | 'section'>>;
     }) => Promise<{ data: ClassroomCourse }>;
     delete: (params: { id: string }) => Promise<{ data: {} }>;
+    teachers: {
+      list: (params: {
+        courseId: string;
+        pageSize?: number;
+        pageToken?: string;
+      }) => Promise<{ data: ClassroomTeachersListResponse }>;
+    };
+    students: {
+      list: (params: {
+        courseId: string;
+        pageSize?: number;
+        pageToken?: string;
+      }) => Promise<{ data: ClassroomStudentsListResponse }>;
+    };
   };
 }
 
