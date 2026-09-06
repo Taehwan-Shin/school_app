@@ -533,5 +533,47 @@ describe('BasicDataPanel component', () => {
       clickSpy.mockRestore();
     }
   });
+
+  it('scenario 16: renders basic-data-summary with correct counts of grades, classes, students, departments', () => {
+    const currentYear = new Date().getFullYear();
+    const testBasicData = {
+      year: currentYear,
+      grades: [
+        { grade: 1, classes: ['A', 'B', 'C'] },
+        { grade: 2, classes: ['1', '2'] },
+      ],
+      departments: ['교무부', '연구부', '학생부'],
+      rosters: {
+        '1': {
+          A: ['s1@cam.hs.kr', 's2@cam.hs.kr', 's3@cam.hs.kr'],
+          B: ['s4@cam.hs.kr', 's5@cam.hs.kr'],
+        },
+        '2': {
+          '1': ['s6@cam.hs.kr'],
+          '2': ['s7@cam.hs.kr', 's8@cam.hs.kr'],
+        },
+      },
+      updatedAt: 1788480000000,
+      updatedBy: 'admin@cam.hs.kr',
+    };
+
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: testBasicData,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<BasicDataPanel />);
+
+    const summaryEl = screen.getByTestId('basic-data-summary');
+    expect(summaryEl).toBeDefined();
+    expect(summaryEl.textContent).toContain('학년: 2');
+    expect(summaryEl.textContent).toContain('반: 5');
+    expect(summaryEl.textContent).toContain('학생: 8');
+    expect(summaryEl.textContent).toContain('부서: 3');
+  });
 });
 

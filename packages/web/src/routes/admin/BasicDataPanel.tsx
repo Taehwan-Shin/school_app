@@ -52,7 +52,7 @@ export function BasicDataPanel() {
             연도별 학년·반 구조. 그룹·클래스룸 생성 시 참조됩니다.
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
           <div className="flex items-center gap-2">
             <label className="text-small text-fg-secondary" htmlFor="basic-data-year-input">연도:</label>
             {savedYears.length > 0 && (
@@ -202,6 +202,31 @@ export function BasicDataPanel() {
                     {d}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+          {data.data && (
+            <div className="pt-2 border-t border-border-subtle" data-testid="basic-data-summary">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-small text-fg-secondary">
+                <div>
+                  학년: <strong className="font-mono text-fg-primary">{data.data.grades.length}</strong>
+                </div>
+                <div>
+                  반: <strong className="font-mono text-fg-primary">
+                    {data.data.grades.reduce((sum, g) => sum + g.classes.length, 0)}
+                  </strong>
+                </div>
+                <div>
+                  학생: <strong className="font-mono text-fg-primary">
+                    {Object.values(data.data.rosters ?? {}).reduce(
+                      (sum, grade) => sum + Object.values(grade).reduce((s, arr) => s + arr.length, 0),
+                      0
+                    )}
+                  </strong>
+                </div>
+                <div>
+                  부서: <strong className="font-mono text-fg-primary">{data.data.departments?.length ?? 0}</strong>
+                </div>
               </div>
             </div>
           )}
