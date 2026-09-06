@@ -58,6 +58,22 @@ vi.mock('../src/api/classroomTeachersDelete', () => ({
   }),
 }));
 
+vi.mock('../src/api/classroomStudentsAdd', () => ({
+  useClassroomStudentsAdd: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
+vi.mock('../src/api/classroomStudentsDelete', () => ({
+  useClassroomStudentsDelete: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { ClassroomTable, translateCourseState } from '../src/routes/admin/ClassroomTable';
 
 describe('ClassroomTable component', () => {

@@ -26,6 +26,8 @@ import {
 } from '../../api/classroomStudentsList';
 import { useClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { useClassroomTeachersDelete } from '../../api/classroomTeachersDelete';
+import { useClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
+import { useClassroomStudentsDelete } from '../../api/classroomStudentsDelete';
 
 export interface CourseMembersDialogProps {
   open: boolean;
@@ -42,25 +44,30 @@ export function CourseMembersDialog({
 }: CourseMembersDialogProps) {
   const [tab, setTab] = useState<'teachers' | 'students'>('teachers');
   const [addEmail, setAddEmail] = useState('');
-  const addMutation = useClassroomTeachersAdd();
-  const deleteMutation = useClassroomTeachersDelete();
+  const addTeacherMutation = useClassroomTeachersAdd();
+  const deleteTeacherMutation = useClassroomTeachersDelete();
+  const addStudentMutation = useClassroomStudentsAdd();
+  const deleteStudentMutation = useClassroomStudentsDelete();
 
-  const handleAddTeacher = async () => {
+  const currentAdd = tab === 'teachers' ? addTeacherMutation : addStudentMutation;
+  const currentDelete = tab === 'teachers' ? deleteTeacherMutation : deleteStudentMutation;
+
+  const handleAdd = async () => {
     if (!courseId || !addEmail.trim()) return;
     try {
-      await addMutation.mutateAsync({ courseId, userId: addEmail.trim() });
+      await currentAdd.mutateAsync({ courseId, userId: addEmail.trim() });
       setAddEmail('');
     } catch {
-      // 에러는 addMutation.error 로 렌더
+      // 에러는 currentAdd.error 로 렌더
     }
   };
 
-  const handleDeleteTeacher = async (userId: string) => {
+  const handleDelete = async (userId: string) => {
     if (!courseId) return;
     try {
-      await deleteMutation.mutateAsync({ courseId, userId });
+      await currentDelete.mutateAsync({ courseId, userId });
     } catch {
-      // 에러는 deleteMutation.error 로 렌더 (삭제는 alert 대신 hook error 사용)
+      // 에러는 currentDelete.error 로 렌더 (삭제는 alert 대신 hook error 사용)
     }
   };
 
@@ -114,7 +121,7 @@ export function CourseMembersDialog({
           </button>
         </div>
 
-        {tab === 'teachers' && courseId && (
+        {courseId && (
           <div className="flex items-end gap-2 mb-4" data-testid="course-members-add-form">
             <div className="flex-1">
               <label className="text-small text-fg-secondary mb-1 block">이메일 추가</label>
@@ -128,22 +135,22 @@ export function CourseMembersDialog({
               />
             </div>
             <Button
-              onClick={handleAddTeacher}
-              disabled={!addEmail.trim() || addMutation.isPending}
+              onClick={handleAdd}
+              disabled={!addEmail.trim() || currentAdd.isPending}
               data-testid="course-members-add-btn"
             >
-              {addMutation.isPending ? '추가 중...' : '추가'}
+              {currentAdd.isPending ? '추가 중...' : '추가'}
             </Button>
           </div>
         )}
-        {addMutation.error && (
+        {currentAdd.error && (
           <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-add-error">
-            추가 실패: {addMutation.error.message}
+            추가 실패: {currentAdd.error.message}
           </div>
         )}
-        {deleteMutation.error && (
+        {currentDelete.error && (
           <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-delete-error">
-            삭제 실패: {deleteMutation.error.message}
+            삭제 실패: {currentDelete.error.message}
           </div>
         )}
 
@@ -205,19 +212,15 @@ export function CourseMembersDialog({
                         {m.userId}
                       </TableCell>
                       <TableCell className="text-right">
-                        {tab === 'teachers' ? (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTeacher(m.userId)}
-                            disabled={deleteMutation.isPending && deleteMutation.variables?.userId === m.userId}
-                            data-testid={`course-member-delete-btn-${m.userId}`}
-                            className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
-                          >
-                            삭제
-                          </button>
-                        ) : (
-                          <span className="text-fg-muted text-small">-</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(m.userId)}
+                          disabled={currentDelete.isPending && currentDelete.variables?.userId === m.userId}
+                          data-testid={`course-member-delete-btn-${m.userId}`}
+                          className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                        >
+                          삭제
+                        </button>
                       </TableCell>
                     </TableRow>
                   ))

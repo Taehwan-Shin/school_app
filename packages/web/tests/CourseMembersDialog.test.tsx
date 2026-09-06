@@ -27,6 +27,19 @@ vi.mock('../src/api/classroomTeachersDelete', () => ({
   useClassroomTeachersDelete: () => mockUseClassroomTeachersDelete(),
 }));
 
+const mockMutateAsyncStudentAdd = vi.fn();
+const mockUseClassroomStudentsAdd = vi.fn();
+const mockMutateAsyncStudentDelete = vi.fn();
+const mockUseClassroomStudentsDelete = vi.fn();
+
+vi.mock('../src/api/classroomStudentsAdd', () => ({
+  useClassroomStudentsAdd: () => mockUseClassroomStudentsAdd(),
+}));
+
+vi.mock('../src/api/classroomStudentsDelete', () => ({
+  useClassroomStudentsDelete: () => mockUseClassroomStudentsDelete(),
+}));
+
 import { CourseMembersDialog } from '../src/routes/admin/CourseMembersDialog';
 
 describe('CourseMembersDialog component', () => {
@@ -39,6 +52,16 @@ describe('CourseMembersDialog component', () => {
     });
     mockUseClassroomTeachersDelete.mockReturnValue({
       mutateAsync: mockMutateAsyncDelete,
+      isPending: false,
+      error: null,
+    });
+    mockUseClassroomStudentsAdd.mockReturnValue({
+      mutateAsync: mockMutateAsyncStudentAdd,
+      isPending: false,
+      error: null,
+    });
+    mockUseClassroomStudentsDelete.mockReturnValue({
+      mutateAsync: mockMutateAsyncStudentDelete,
       isPending: false,
       error: null,
     });
@@ -382,8 +405,8 @@ describe('CourseMembersDialog component', () => {
     });
   });
 
-  // 시나리오 10: 학생 탭 -> 「추가」 폼 미렌더
-  it('scenario 10: does not render add form on students tab and renders "-" in manage column', () => {
+  // 시나리오 10: 학생 탭 -> 「추가」 폼 렌더 및 삭제 버튼 렌더
+  it('scenario 10: renders add form and delete button on students tab', () => {
     mockUseClassroomTeachersList.mockReturnValue({
       data: { teachers: [] },
       isLoading: false,
@@ -416,14 +439,106 @@ describe('CourseMembersDialog component', () => {
     const studentTabBtn = screen.getByTestId('course-members-tab-students');
     fireEvent.click(studentTabBtn);
 
-    expect(screen.queryByTestId('course-members-add-form')).toBeNull();
+    expect(screen.getByTestId('course-members-add-form')).toBeDefined();
+    expect(screen.getByTestId('course-members-add-email')).toBeDefined();
+    expect(screen.getByTestId('course-members-add-btn')).toBeDefined();
     expect(screen.getByTestId('course-member-row-s-101')).toBeDefined();
-    expect(screen.queryByTestId('course-member-delete-btn-s-101')).toBeNull();
-    expect(screen.getByText('-')).toBeDefined();
+    expect(screen.getByTestId('course-member-delete-btn-s-101')).toBeDefined();
   });
 
-  // 시나리오 11: 교사 행 「삭제」 버튼 -> callClassroomTeachersDelete 호출
-  it('scenario 11: calls delete mutation when delete button is clicked on teacher row', async () => {
+  // 시나리오 11: 학생 탭에서 이메일 입력 후 「추가」 클릭 -> callClassroomStudentsAdd 호출
+  it('scenario 11: calls student add mutation on add button click in students tab', async () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockMutateAsyncStudentAdd.mockResolvedValueOnce({
+      student: { courseId: 'c-101', userId: 'newstudent@cam.hs.kr' },
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const studentTabBtn = screen.getByTestId('course-members-tab-students');
+    fireEvent.click(studentTabBtn);
+
+    const input = screen.getByTestId('course-members-add-email');
+    fireEvent.change(input, { target: { value: '  newstudent@cam.hs.kr  ' } });
+
+    const button = screen.getByTestId('course-members-add-btn');
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    expect(mockMutateAsyncStudentAdd).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'newstudent@cam.hs.kr',
+    });
+    expect(mockMutateAsyncAdd).not.toHaveBeenCalled();
+  });
+
+  // 시나리오 12: 학생 행 「삭제」 버튼 -> callClassroomStudentsDelete 호출
+  it('scenario 12: calls student delete mutation when delete button is clicked on student row', async () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: {
+        students: [
+          {
+            courseId: 'c-101',
+            userId: 'student-1',
+            profile: { name: { fullName: '박학생' } },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockMutateAsyncStudentDelete.mockResolvedValueOnce({ ok: true });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const studentTabBtn = screen.getByTestId('course-members-tab-students');
+    fireEvent.click(studentTabBtn);
+
+    const deleteBtn = screen.getByTestId('course-member-delete-btn-student-1');
+    await act(async () => {
+      fireEvent.click(deleteBtn);
+    });
+
+    expect(mockMutateAsyncStudentDelete).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'student-1',
+    });
+    expect(mockMutateAsyncDelete).not.toHaveBeenCalled();
+  });
+
+  // 시나리오 13: 교사 행 「삭제」 버튼 -> callClassroomTeachersDelete 호출
+  it('scenario 13: calls teacher delete mutation when delete button is clicked on teacher row', async () => {
     mockUseClassroomTeachersList.mockReturnValue({
       data: {
         teachers: [
@@ -463,10 +578,11 @@ describe('CourseMembersDialog component', () => {
       courseId: 'c-101',
       userId: 'teacher-1',
     });
+    expect(mockMutateAsyncStudentDelete).not.toHaveBeenCalled();
   });
 
-  // 시나리오 12: mutation error 렌더링
-  it('scenario 12: renders error message when add or delete mutation has error', () => {
+  // 시나리오 14: mutation error 렌더링
+  it('scenario 14: renders error message when add or delete mutation has error on respective tab', () => {
     mockUseClassroomTeachersList.mockReturnValue({
       data: { teachers: [] },
       isLoading: false,
@@ -489,6 +605,16 @@ describe('CourseMembersDialog component', () => {
       isPending: false,
       error: new Error('Cannot remove course owner'),
     });
+    mockUseClassroomStudentsAdd.mockReturnValue({
+      mutateAsync: mockMutateAsyncStudentAdd,
+      isPending: false,
+      error: new Error('User is already a student'),
+    });
+    mockUseClassroomStudentsDelete.mockReturnValue({
+      mutateAsync: mockMutateAsyncStudentDelete,
+      isPending: false,
+      error: new Error('Cannot remove student'),
+    });
 
     render(
       <CourseMembersDialog
@@ -498,10 +624,57 @@ describe('CourseMembersDialog component', () => {
       />,
     );
 
+    // 교사 탭에서는 교사 에러 표시
     expect(screen.getByTestId('course-members-add-error')).toBeDefined();
     expect(screen.getByText('추가 실패: User is already a teacher')).toBeDefined();
-
     expect(screen.getByTestId('course-members-delete-error')).toBeDefined();
     expect(screen.getByText('삭제 실패: Cannot remove course owner')).toBeDefined();
+
+    // 학생 탭 클릭 -> 학생 에러 표시
+    const studentTabBtn = screen.getByTestId('course-members-tab-students');
+    fireEvent.click(studentTabBtn);
+
+    expect(screen.getByTestId('course-members-add-error')).toBeDefined();
+    expect(screen.getByText('추가 실패: User is already a student')).toBeDefined();
+    expect(screen.getByTestId('course-members-delete-error')).toBeDefined();
+    expect(screen.getByText('삭제 실패: Cannot remove student')).toBeDefined();
+  });
+
+  // 시나리오 15: mutations 별개 격리 확인
+  it('scenario 15: keeps teacher and student mutations isolated', async () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [{ courseId: 'c-101', userId: 't-1' }] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [{ courseId: 'c-101', userId: 's-1' }] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockMutateAsyncAdd.mockResolvedValueOnce({ teacher: { courseId: 'c-101', userId: 't-2' } });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    // 교사 탭에서 추가
+    const input = screen.getByTestId('course-members-add-email');
+    fireEvent.change(input, { target: { value: 'teacher2@cam.hs.kr' } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('course-members-add-btn'));
+    });
+
+    expect(mockMutateAsyncAdd).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'teacher2@cam.hs.kr',
+    });
+    expect(mockMutateAsyncStudentAdd).not.toHaveBeenCalled();
   });
 });
