@@ -76,6 +76,11 @@ describe('AppShell', () => {
     const groupItem = screen.getByText('그룹');
     expect(groupItem.tagName).toBe('A');
     expect(groupItem.getAttribute('href')).toBe('/admin/groups');
+
+    // 챗방 항목은 active link (<a>) 로 렌더되어야 한다 (/super_admin/chat).
+    const chatItem = screen.getByText('챗방');
+    expect(chatItem.tagName).toBe('A');
+    expect(chatItem.getAttribute('href')).toBe('/super_admin/chat');
   });
 
   it('renders admin navigation items correctly', () => {
@@ -104,6 +109,10 @@ describe('AppShell', () => {
     expect(groupItem.tagName).toBe('A');
     expect(groupItem.getAttribute('href')).toBe('/admin/groups');
 
+    const chatItem = screen.getByText('챗방');
+    expect(chatItem.tagName).toBe('A');
+    expect(chatItem.getAttribute('href')).toBe('/admin/chat');
+
     expect(screen.queryByText('감사 로그')).toBeNull();
     expect(screen.queryByText('시스템 설정')).toBeNull();
   });
@@ -124,10 +133,6 @@ describe('AppShell', () => {
       </MemoryRouter>,
     );
 
-    const chatItem = screen.getByText('챗방');
-    expect(chatItem.tagName).toBe('SPAN');
-    expect(chatItem.getAttribute('aria-disabled')).toBe('true');
-
     const classroomItem = screen.getByText('클래스룸');
     expect(classroomItem.tagName).toBe('SPAN');
     expect(classroomItem.getAttribute('aria-disabled')).toBe('true');
@@ -137,6 +142,10 @@ describe('AppShell', () => {
 
     const groupItem = screen.getByText('그룹');
     expect(groupItem.tagName).toBe('A');
+
+    const chatItem = screen.getByText('챗방');
+    expect(chatItem.tagName).toBe('A');
+    expect(chatItem.getAttribute('href')).toBe('/admin/chat');
   });
 
   it('renders teacher navigation items correctly', () => {
