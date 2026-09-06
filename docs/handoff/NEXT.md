@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **classroom teachers add/delete v0.85** — courses.teachers.create + delete callable + CourseMembersDialog 편집 UI (교사 탭에서 이메일 추가 · 각 행 삭제).
+> 지금 이 파일의 오더는 **classroom students add/delete v0.86** — courses.students.create + delete callable + CourseMembersDialog 학생 탭 편집 UI. v0.85 teacher CRUD 패턴을 학생 탭으로 확장.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-teachers-crud-v85`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-students-crud-v86`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,295 +19,163 @@
 
 ## 기준 커밋
 
-**Base**: `1afd4f6` (classroom rosters v0.84 merge)
+**Base**: `09ccb9b` (classroom teachers CRUD v0.85 merge)
 
-## 지금 할 것 — classroom teachers add + delete
+## 지금 할 것 — classroom students add + delete
 
 ### 왜
 
-v0.84 로 rosters 조회 완비. 이제 교사 편집:
-- **추가**: `courses.teachers.create` — Classroom API 는 `userId` 필드에 이메일 그대로 받아줌 (도메인 admin 계정 · classroom.rosters scope 조합).
-- **삭제**: `courses.teachers.delete`
+v0.85 로 교사 편집 완비. 이제 학생 편집 (같은 패턴 · endpoint 만 다름):
+- **추가**: `courses.students.create({ courseId, requestBody: { userId } })`
+- **삭제**: `courses.students.delete({ courseId, userId })`
 
-Chat 과 달리 Directory API email→userId 리졸버 불필요 (Classroom API 자체가 email 수용).
+Classroom API 는 학생 add 도 `userId` 필드에 email 그대로 수용 · Directory 리졸버 여전히 불필요.
 
 **하지 않는 것**:
-- students 편집 — v0.86 별도 (teacher CRUD 안정화 후).
-- transfer_owner — v0.87+ 별도.
-- 자동 배정 (basic_data rosters) — v0.88+ 별도.
-- Chat members.add — v0.89+ (Directory helper 필요).
+- transfer_owner (v0.87+ 별도)
+- 자동 배정 (basic_data rosters → classroom students) — v0.88+ 별도
+- Chat members.add — v0.89+ (Directory 리졸버 필요)
 
 ### 이 과제가 바꿀 경로
 
-**신규 파일**:
-- `packages/functions/src/callable/classroom/teachersAdd.ts` — 신규 callable
-- `packages/functions/src/callable/classroom/teachersDelete.ts` — 신규 callable
-- `packages/functions/tests/classroomTeachersAdd.test.ts` (시나리오 7)
-- `packages/functions/tests/classroomTeachersDelete.test.ts` (시나리오 7)
-- `packages/web/src/api/classroomTeachersAdd.ts` (useMutation)
-- `packages/web/src/api/classroomTeachersDelete.ts` (useMutation)
-- `packages/web/tests/classroomTeachersAdd.test.ts` (시나리오 2)
-- `packages/web/tests/classroomTeachersDelete.test.ts` (시나리오 2)
+**신규 파일** (v0.85 teacher 파일들의 학생 버전):
+- `packages/functions/src/callable/classroom/studentsAdd.ts`
+- `packages/functions/src/callable/classroom/studentsDelete.ts`
+- `packages/functions/tests/classroomStudentsAdd.test.ts` (시나리오 7)
+- `packages/functions/tests/classroomStudentsDelete.test.ts` (시나리오 7)
+- `packages/web/src/api/classroomStudentsAdd.ts` (useMutation)
+- `packages/web/src/api/classroomStudentsDelete.ts` (useMutation)
+- `packages/web/tests/classroomStudentsAdd.test.ts` (시나리오 2)
+- `packages/web/tests/classroomStudentsDelete.test.ts` (시나리오 2)
 
 **수정 대상**:
-- `packages/functions/src/google/classroomClient.ts` — teachers.create · teachers.delete 인터페이스
+- `packages/functions/src/google/classroomClient.ts` — students.create + delete 인터페이스
 - `packages/functions/src/index.ts` — export 2건
-- `firebase.json` — rewrites 2건 (`/api/classroomTeachersAdd` · `/api/classroomTeachersDelete`)
-- `packages/web/src/routes/admin/CourseMembersDialog.tsx` — 교사 탭에 이메일 입력 · 「추가」 버튼 + 각 행 「삭제」 버튼
-- `packages/web/tests/CourseMembersDialog.test.tsx` — 편집 시나리오 추가 (3~4개)
+- `firebase.json` — rewrites 2건
+- `packages/web/src/routes/admin/CourseMembersDialog.tsx` — 학생 탭에 이메일 추가 폼 + 각 행 「삭제」 (현재는 `-` 만 렌더)
+- `packages/web/tests/CourseMembersDialog.test.tsx` — 학생 편집 시나리오 3~4 추가
 
 **손대지 마라**:
-- classroom.list · patch · delete · teachersList · studentsList 그대로.
-- students 편집 관련 UI 는 이번 슬라이스 미포함 (v0.86 별도).
+- teachersAdd · teachersDelete · teachersList · studentsList · patch · delete · list 그대로.
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. `classroomClient.ts` — teachers.create · teachers.delete
+#### 1~4 (functions) — teachersAdd/Delete 파일을 그대로 복사·바꿔치기
+
+**바꿀 것**:
+- 클래스명 · export 명: `classroomTeachersAdd` → `classroomStudentsAdd` 등.
+- endpoint: `courses.teachers.create` → `courses.students.create` · `courses.teachers.delete` → `courses.students.delete`.
+- audit action: `classroom.teachers.add` → `classroom.students.add` · `classroom.teachers.delete` → `classroom.students.delete`.
+- audit target 경로: `courses/{id}/teachers/{userId}` → `courses/{id}/students/{userId}`.
+- response type: `ClassroomTeacher` → `ClassroomStudent`.
+- **Cap 는 동일** (`classroom.write`) · Scope 도 동일 (`classroom.rosters`).
+- 정규식·validation·mapUpstreamError·error 매핑 모두 동일.
+
+**중요**: teachersAdd/Delete 를 「그대로 참조」 하지 말고 「그대로 복제 후 명칭 변경」. helper 추상화 시도 금지 (지금 단계 · 두 도메인 밖에 없음 · 추후 patterns.md 로 통합 여부 재검토).
+
+#### 5. classroomClient.ts
 
 ```ts
-courses: {
-  ...,
-  teachers: {
-    list: ..., // 기존
-    create: (params: {
-      courseId: string;
-      requestBody: { userId: string };  // email or userId
-    }) => Promise<{ data: ClassroomTeacher }>;
-    delete: (params: { courseId: string; userId: string }) => Promise<{ data: {} }>;
-  };
+students: {
+  list: ..., // 기존
+  create: (params: {
+    courseId: string;
+    requestBody: { userId: string };
+  }) => Promise<{ data: ClassroomStudent }>;
+  delete: (params: { courseId: string; userId: string }) => Promise<{ data: {} }>;
 };
 ```
 
-#### 2. `classroom/teachersAdd.ts` — 교사 추가
+#### 6. hooks (web)
 
-Cap `classroom.write` · Scope `classroom.rosters`.
+teachersAdd/Delete hook 그대로 복사 · queryKey `['classroom', 'students', courseId]` invalidate.
 
+#### 7. `CourseMembersDialog.tsx` — 학생 편집
+
+**현재 학생 탭**:
+- 표 (이름 · 이메일 · userId) + 관리 컬럼 `-`.
+
+**변경**:
+
+`tab === 'students'` 일 때도 add form + 관리 컬럼 「삭제」 표시. 즉 학생/교사 두 탭에서 동일한 편집 UI 노출.
+
+**함수**:
 ```ts
-export interface ClassroomTeachersAddRequest {
-  courseId: string;
-  userId: string;   // email (권장) 또는 userId
-}
+const addTeacherMutation = useClassroomTeachersAdd();
+const deleteTeacherMutation = useClassroomTeachersDelete();
+const addStudentMutation = useClassroomStudentsAdd();
+const deleteStudentMutation = useClassroomStudentsDelete();
 
-export interface ClassroomTeachersAddResponse {
-  teacher: ClassroomTeacher;
-}
+const currentAdd = tab === 'teachers' ? addTeacherMutation : addStudentMutation;
+const currentDelete = tab === 'teachers' ? deleteTeacherMutation : deleteStudentMutation;
 
-const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/classroom.rosters',
-] as const;
-
-const COURSE_ID_RE = /^[A-Za-z0-9_-]+$/;
-const USER_ID_RE = /^[A-Za-z0-9._@+\-]+$/;   // email 또는 numeric id 허용
-
-// 인증 → Cap classroom.write → Scope → 형식 검증 (courseId · userId 둘 다) →
-//   courses.teachers.create({ courseId, requestBody: { userId } }) →
-//   audit `classroom.write` · action 'classroom.teachers.add' · target `courses/{courseId}/teachers/{userId}` · message=`userId=${userId}`
-```
-
-#### 3. `classroom/teachersDelete.ts` — 교사 삭제
-
-Cap `classroom.write` · Scope `classroom.rosters`.
-
-```ts
-export interface ClassroomTeachersDeleteRequest {
-  courseId: string;
-  userId: string;   // 서버 응답의 userId 그대로 (email 아니라 numeric id 인 경우도 있음)
-}
-
-// 형식: courseId · userId 정규식 (같은 USER_ID_RE 재사용)
-// classroom.courses.teachers.delete({ courseId, userId }) →
-//   audit action 'classroom.teachers.delete' · target `courses/${courseId}/teachers/${userId}`
-```
-
-**주의**:
-- Google 은 마지막 owner (=coursework primary teacher) 삭제 거절 → 409 또는 400. `mapUpstreamError` 로 그대로 던져 UI 에서 표시.
-- self-delete (본인 = 유일 owner) 도 마찬가지로 API 거절.
-
-#### 4. functions/index.ts + firebase.json
-
-```ts
-export { classroomTeachersAdd } from './callable/classroom/teachersAdd.js';
-export { classroomTeachersDelete } from './callable/classroom/teachersDelete.js';
-```
-
-`firebase.json` rewrites 2건 추가.
-
-#### 5. 테스트
-
-**functions `classroomTeachersAdd.test.ts`** (7 시나리오):
-1. 미인증 → denied.
-2. 캡 `classroom.write` 부족 → denied.
-3. 스코프 `classroom.rosters` 부족 → denied.
-4. courseId 형식 오류 → invalid-argument.
-5. userId 형식 오류 (빈 문자열 · 공백 포함) → invalid-argument.
-6. 정상 (mock teachers.create) → response.teacher.userId · audit action 'classroom.teachers.add'.
-7. upstream 409 (이미 존재 등) → HttpsError · audit error · message 유지.
-
-**functions `classroomTeachersDelete.test.ts`** (7 시나리오):
-1~5 동일 패턴.
-6. 정상 (mock delete) → audit action 'classroom.teachers.delete'.
-7. upstream 400 (마지막 owner) → HttpsError · audit error.
-
-#### 6. `classroomTeachersAdd.ts` · `classroomTeachersDelete.ts` — hooks
-
-useMutation · invalidateQueries `['classroom', 'teachers', courseId]` (성공 시 rosters 자동 새로고침).
-
-```ts
-export function useClassroomTeachersAdd() {
-  const qc = useQueryClient();
-  return useMutation<ClassroomTeachersAddResponse, Error, ClassroomTeachersAddRequest>({
-    mutationFn: callClassroomTeachersAdd,
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: ['classroom', 'teachers', variables.courseId] });
-    },
-  });
-}
-
-export function useClassroomTeachersDelete() {
-  const qc = useQueryClient();
-  return useMutation<ClassroomTeachersDeleteResponse, Error, ClassroomTeachersDeleteRequest>({
-    mutationFn: callClassroomTeachersDelete,
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: ['classroom', 'teachers', variables.courseId] });
-    },
-  });
-}
-```
-
-#### 7. `CourseMembersDialog.tsx` — 편집 UI (교사 탭)
-
-**현재 구조**: 탭 (교사/학생) → 표 (이름 · 이메일 · userId).
-
-**추가**:
-
-교사 탭 아래 (표 위) 추가 폼:
-```tsx
-{tab === 'teachers' && courseId && (
-  <div className="flex items-end gap-2" data-testid="course-members-add-form">
-    <div className="flex-1">
-      <label className="text-small text-fg-secondary mb-1 block">이메일 추가</label>
-      <input
-        type="email"
-        value={addEmail}
-        onChange={(e) => setAddEmail(e.target.value)}
-        placeholder="user@cam.hs.kr"
-        data-testid="course-members-add-email"
-        className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
-      />
-    </div>
-    <Button
-      onClick={handleAddTeacher}
-      disabled={!addEmail.trim() || addMutation.isPending}
-      data-testid="course-members-add-btn"
-    >
-      {addMutation.isPending ? '추가 중...' : '추가'}
-    </Button>
-  </div>
-)}
-{addMutation.error && (
-  <div className="border border-state-danger p-2 text-small text-state-danger" data-testid="course-members-add-error">
-    추가 실패: {addMutation.error.message}
-  </div>
-)}
-```
-
-각 교사 행 (표 안, 이름/이메일/userId 오른쪽 4번째 컬럼):
-```tsx
-<TableHead className="text-right">관리</TableHead>
-...
-<TableCell className="text-right">
-  {tab === 'teachers' ? (
-    <button
-      type="button"
-      onClick={() => handleDeleteTeacher(m.userId)}
-      disabled={deleteMutation.isPending && deleteMutation.variables?.userId === m.userId}
-      data-testid={`course-member-delete-btn-${m.userId}`}
-      className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
-    >
-      삭제
-    </button>
-  ) : (
-    <span className="text-fg-muted text-small">-</span>
-  )}
-</TableCell>
-```
-
-**state 추가**:
-```ts
-const [addEmail, setAddEmail] = useState('');
-const addMutation = useClassroomTeachersAdd();
-const deleteMutation = useClassroomTeachersDelete();
-```
-
-**handlers**:
-```ts
-const handleAddTeacher = async () => {
+const handleAdd = async () => {
   if (!courseId || !addEmail.trim()) return;
   try {
-    await addMutation.mutateAsync({ courseId, userId: addEmail.trim() });
+    await currentAdd.mutateAsync({ courseId, userId: addEmail.trim() });
     setAddEmail('');
-  } catch {
-    // 에러는 addMutation.error 로 렌더
-  }
+  } catch { /* error rendered from mutation */ }
 };
 
-const handleDeleteTeacher = async (userId: string) => {
+const handleDelete = async (userId: string) => {
   if (!courseId) return;
   try {
-    await deleteMutation.mutateAsync({ courseId, userId });
-  } catch {
-    // 에러는 deleteMutation.error 로 렌더 (삭제는 alert 대신 hook error 사용)
-  }
+    await currentDelete.mutateAsync({ courseId, userId });
+  } catch { /* error rendered from mutation */ }
 };
 ```
 
+**add form / delete button 은 두 탭 모두 렌더**. 조건 `tab === 'teachers'` 검사 제거.
+
+**testid**:
+- add: `course-members-add-btn` (동일) · `course-members-add-email` (동일)
+- 삭제: `course-member-delete-btn-${userId}` (동일)
+
 **주의**:
-- 학생 탭에서는 편집 UI 렌더 안 함 (v0.86 별도).
-- 「관리」 컬럼은 두 탭 모두 존재하되, 학생 탭에서는 「-」 만.
-- 삭제는 확인 문구 없음 (교사 편집은 되돌리기 쉬움 · classroom UI 관행).
+- 학생 자동 배정 (basic_data rosters 사용) 은 별도 슬라이스. 이번엔 수동 이메일 추가만.
 
 #### 8. 테스트
 
-**web `classroomTeachersAdd.test.ts`** (2 신규): 200 → data.teacher · 400 → throws.
-**web `classroomTeachersDelete.test.ts`** (2 신규): 200 → ok · 404 → throws.
+**functions**: teachersAdd/Delete 테스트 (7 시나리오씩) 복제. 시나리오 6 assertion 은 audit action `classroom.students.add` · `classroom.students.delete` 확인.
 
-**web `CourseMembersDialog.test.tsx`** (3~4 신규 · 기존 확장):
-1. 교사 탭 → 「추가」 버튼 존재 · 이메일 입력.
-2. 이메일 입력 후 「추가」 클릭 → callClassroomTeachersAdd 호출 (courseId, userId=email).
-3. 학생 탭 → 「추가」 폼 미렌더.
-4. 교사 행 「삭제」 버튼 → callClassroomTeachersDelete 호출 · rosters invalidate.
+**web `classroomStudentsAdd.test.ts` · `classroomStudentsDelete.test.ts`** (2 + 2): 위 hooks 200/error 시나리오.
+
+**web `CourseMembersDialog.test.tsx`** (3~4 신규):
+1. 학생 탭 → 「추가」 폼 렌더.
+2. 학생 탭에서 이메일 입력 후 「추가」 → callClassroomStudentsAdd 호출.
+3. 학생 행 「삭제」 → callClassroomStudentsDelete 호출.
+4. mutations 별개 · teacher tab 삭제가 student 데이터 invalidate 하지 않음 (query key 별개).
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 791 + 신규 20~22 = 811~813 근처.
+4. `pnpm -r test` — 이전 816 + 신규 20~22 = 836~838 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/classrooms` 코스 「멤버」 → 교사 탭에서 이메일 추가 · 각 교사 삭제 동작
+   - `/admin/classrooms` 코스 「멤버」 → 학생 탭에서 이메일 추가 · 각 학생 삭제 동작
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 Google Classroom add/delete** — 실 계정 · 실 코스 · 실 교사 필요.
-- **students 편집** — v0.86 별도.
+- **실 Classroom student add/delete** — 실 계정 필요.
 - **transfer_owner** — v0.87+ 별도.
-- **자동 배정** — v0.88+ (basic_data 활용).
-- **Chat members.add** — v0.89+ (Directory 리졸버 필요).
+- **자동 배정 (basic_data 활용)** — v0.88+ 별도.
+- **Chat members.add** — v0.89+ 별도 (Directory 리졸버 필요).
 
 ### 커밋 규칙
 
 **4 커밋 분리**:
-1. `feat(functions): classroom.teachers.add callable + client.teachers.create + firebase rewrite`
-2. `feat(functions): classroom.teachers.delete callable + client.teachers.delete + firebase rewrite`
-3. `feat(web): classroomTeachersAdd/Delete API + mutation hooks`
-4. `feat(web): CourseMembersDialog 교사 편집 UI (이메일 추가 · 행별 삭제)`
+1. `feat(functions): classroom.students.add callable + client.students.create + firebase rewrite`
+2. `feat(functions): classroom.students.delete callable + client.students.delete + firebase rewrite`
+3. `feat(web): classroomStudentsAdd/Delete API + mutation hooks`
+4. `feat(web): CourseMembersDialog 학생 편집 UI (동일 컴포넌트 · tab 별 mutation 스위치)`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/classroom-teachers-crud-v85`.
+**작업 브랜치** — `git push -u origin feat/classroom-students-crud-v86`.
 
 ## 상태 보고 (필수)
 
