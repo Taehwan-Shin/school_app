@@ -16,6 +16,7 @@ vi.mock('react-router-dom', async () => {
 const mockUseUsersList = vi.fn();
 const mockUseGroupsList = vi.fn();
 const mockUseAuditLogList = vi.fn();
+const mockUseAuditLogCount = vi.fn();
 
 vi.mock('../src/lib/auth', () => ({
   useAuth: () => ({
@@ -46,6 +47,10 @@ vi.mock('../src/api/auditLogList', () => ({
   useAuditLogList: (...args: any[]) => mockUseAuditLogList(...args),
 }));
 
+vi.mock('../src/api/auditLogCount', () => ({
+  useAuditLogCount: (...args: any[]) => mockUseAuditLogCount(...args),
+}));
+
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin']) {
   return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 }
@@ -53,6 +58,11 @@ function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/
 describe('SuperAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 0 },
+      isLoading: false,
+      error: null,
+    });
   });
 
   it('scenario 1: renders KPI row with cards including "오늘 이벤트" with count fetch', () => {
@@ -115,6 +125,11 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 8 },
+      isLoading: false,
+      error: null,
+    });
     mockUseAuditLogList.mockReturnValue({
       entries: mockTodayEntries,
       loading: false,
@@ -135,8 +150,10 @@ describe('SuperAdminPage', () => {
     expect(groupCard.textContent).toContain('3');
     expect(eventCard.textContent).toContain('8');
 
+    expect(mockUseAuditLogCount).toHaveBeenCalledTimes(1);
+    expect(mockUseAuditLogCount).toHaveBeenCalledWith({ atMin: expect.any(Number) });
     expect(mockUseAuditLogList).toHaveBeenCalledTimes(1);
-    expect(mockUseAuditLogList).toHaveBeenCalledWith(500, { atMin: expect.any(Number) });
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(5, { atMin: expect.any(Number) });
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -211,6 +228,11 @@ describe('SuperAdminPage', () => {
     mockUseGroupsList.mockReturnValue({
       data: { groups: [] },
       isLoading: false,
+    });
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 6 },
+      isLoading: false,
+      error: null,
     });
     mockUseAuditLogList.mockReturnValue({
       entries: mockEntries,
@@ -306,6 +328,11 @@ describe('SuperAdminPage', () => {
     });
     mockUseGroupsList.mockReturnValue({
       data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 1 },
       isLoading: false,
       error: null,
     });
@@ -421,5 +448,46 @@ describe('SuperAdminPage', () => {
 
     fireEvent.click(screen.getByTestId('kpi-card-오늘 이벤트'));
     expect(navigateMock).toHaveBeenCalledWith(`/super_admin/audit?atMin=${todayIso}`);
+  });
+
+  it('scenario 10: accurately displays event count > 500 from useAuditLogCount and 5 entries from useAuditLogList', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 750 },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: Array.from({ length: 5 }, (_, i) => ({
+        id: `prev-${i}`,
+        actor: `actor${i}@cam.hs.kr`,
+        role: 'admin' as const,
+        action: 'users.create',
+        target: 'target',
+        request_id: `req-${i}`,
+        result: 'ok' as const,
+        at: Date.now() - i * 1000,
+      })),
+      loading: false,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    const eventCard = screen.getByTestId('kpi-card-오늘 이벤트');
+    expect(eventCard.textContent).toContain('750');
+    expect(screen.getByText('오늘 750건의 이벤트가 기록되었습니다.')).toBeDefined();
+
+    const recentList = screen.getByTestId('super-admin-recent-events');
+    expect(recentList.children.length).toBe(5);
   });
 });

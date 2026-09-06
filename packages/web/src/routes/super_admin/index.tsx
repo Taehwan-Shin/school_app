@@ -4,6 +4,7 @@ import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogList } from '../../api/auditLogList';
+import { useAuditLogCount } from '../../api/auditLogCount';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -19,9 +20,11 @@ export function SuperAdminPage() {
   const dd = String(todayStart.getDate()).padStart(2, '0');
   const todayIso = `${yyyy}-${mm}-${dd}`;
 
-  // 단일 hook: 오늘 이벤트 전체 (최대 500)
-  const todayAudit = useAuditLogList(500, { atMin: todayStartMs });
-  const todayCount = todayAudit.entries.length;
+  const todayCountQuery = useAuditLogCount({ atMin: todayStartMs });
+  const todayCount = todayCountQuery.data?.count ?? 0;
+
+  // preview 는 최근 5개 → list hook (limit 5) 유지
+  const todayAudit = useAuditLogList(5, { atMin: todayStartMs });
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
@@ -54,7 +57,7 @@ export function SuperAdminPage() {
           <KpiCard
             label="오늘 이벤트"
             value={todayCount}
-            loading={todayAudit.loading}
+            loading={todayCountQuery.isLoading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
