@@ -5,6 +5,8 @@ const mockGet = vi.fn();
 const mockLimit = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
+const mockCountGet = vi.fn();
+const mockCount = vi.fn(() => ({ get: mockCountGet }));
 const mockCollection = vi.fn();
 const mockDb = { collection: mockCollection };
 
@@ -16,7 +18,7 @@ vi.mock('firebase-admin/firestore', async (importOriginal) => {
   };
 });
 
-import { readAuditEntries } from '../src/audit/readAudit.js';
+import { readAuditEntries, countAuditEntries } from '../src/audit/readAudit.js';
 
 describe('readAuditEntries unit tests', () => {
   beforeEach(() => {
@@ -27,6 +29,8 @@ describe('readAuditEntries unit tests', () => {
     queryMock.where = mockWhere.mockReturnValue(queryMock);
     queryMock.limit = mockLimit.mockReturnValue(queryMock);
     queryMock.get = mockGet;
+    queryMock.count = mockCount.mockReturnValue({ get: mockCountGet });
+    mockCountGet.mockResolvedValue({ data: () => ({ count: 0 }) });
 
     mockCollection.mockReturnValue(queryMock);
   });
@@ -233,6 +237,53 @@ describe('readAuditEntries unit tests', () => {
     expect(mockWhere).toHaveBeenCalledWith('actor', '==', 'super@cam.hs.kr');
     expect(mockWhere).toHaveBeenCalledTimes(3);
     expect(mockLimit).toHaveBeenCalledWith(50);
+  });
+
+  describe('countAuditEntries', () => {
+    it('counts with filterActor only', async () => {
+      mockCountGet.mockResolvedValueOnce({
+        data: () => ({ count: 7 }),
+      });
+
+      const count = await countAuditEntries({ filterActor: 'admin@cam.hs.kr' });
+
+      expect(mockCollection).toHaveBeenCalledWith('audit_log');
+      expect(mockWhere).toHaveBeenCalledWith('actor', '==', 'admin@cam.hs.kr');
+      expect(mockWhere).toHaveBeenCalledTimes(1);
+      expect(mockCount).toHaveBeenCalled();
+      expect(count).toBe(7);
+    });
+
+    it('counts with atMin and filterResult combined', async () => {
+      mockCountGet.mockResolvedValueOnce({
+        data: () => ({ count: 3 }),
+      });
+
+      const count = await countAuditEntries({
+        atMin: 1700000000000,
+        filterResult: 'error',
+      });
+
+      expect(mockCollection).toHaveBeenCalledWith('audit_log');
+      expect(mockWhere).toHaveBeenCalledWith('at', '>=', expect.any(Timestamp));
+      expect(mockWhere).toHaveBeenCalledWith('result', '==', 'error');
+      expect(mockWhere).toHaveBeenCalledTimes(2);
+      expect(mockCount).toHaveBeenCalled();
+      expect(count).toBe(3);
+    });
+
+    it('counts empty collection returning 0', async () => {
+      mockCountGet.mockResolvedValueOnce({
+        data: () => ({ count: 0 }),
+      });
+
+      const count = await countAuditEntries({});
+
+      expect(mockCollection).toHaveBeenCalledWith('audit_log');
+      expect(mockWhere).not.toHaveBeenCalled();
+      expect(mockCount).toHaveBeenCalled();
+      expect(count).toBe(0);
+    });
   });
 });
 

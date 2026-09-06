@@ -1,9 +1,9 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
+import { countAuditEntries } from '../../audit/readAudit.js';
 
 export interface AuditLogCountRequest {
   atMin?: number;
@@ -89,17 +89,13 @@ export const auditLogCount = onCall(
           ? data.filterResult
           : undefined;
 
-      const db = getFirestore();
-      // eslint-disable-next-line no-restricted-syntax
-      let query: FirebaseFirestore.Query = db.collection('audit_log');
-      if (atMin !== undefined) query = query.where('at', '>=', Timestamp.fromMillis(atMin));
-      if (atMax !== undefined) query = query.where('at', '<=', Timestamp.fromMillis(atMax));
-      if (filterActor) query = query.where('actor', '==', filterActor);
-      if (filterTarget) query = query.where('target', '==', filterTarget);
-      if (filterResult) query = query.where('result', '==', filterResult);
-
-      const snap = await query.count().get();
-      const count = snap.data().count;
+      const count = await countAuditEntries({
+        atMin,
+        atMax,
+        filterActor,
+        filterTarget,
+        filterResult,
+      });
 
       const filters = [];
       if (filterActor) filters.push(`actor=${filterActor}`);
