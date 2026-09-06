@@ -82,3 +82,27 @@ export async function readAuditEntries(
 
   return { entries, nextCursor };
 }
+
+export interface CountAuditEntriesOptions {
+  atMin?: number;
+  atMax?: number;
+  filterActor?: string;
+  filterTarget?: string;
+  filterResult?: 'ok' | 'error' | 'denied';
+}
+
+export async function countAuditEntries(options: CountAuditEntriesOptions): Promise<number> {
+  const db = getFirestore();
+  const { atMin, atMax, filterActor, filterTarget, filterResult } = options;
+
+  let query: FirebaseFirestore.Query = db.collection('audit_log');
+  if (atMin !== undefined) query = query.where('at', '>=', Timestamp.fromMillis(atMin));
+  if (atMax !== undefined) query = query.where('at', '<=', Timestamp.fromMillis(atMax));
+  if (filterActor) query = query.where('actor', '==', filterActor);
+  if (filterTarget) query = query.where('target', '==', filterTarget);
+  if (filterResult) query = query.where('result', '==', filterResult);
+
+  const snap = await query.count().get();
+  return snap.data().count;
+}
+
