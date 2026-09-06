@@ -17,6 +17,27 @@ const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/chat.memberships',
 ] as const;
 
+const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
+
+function mapUpstreamError(err: unknown): HttpsError {
+  if (err instanceof HttpsError) return err;
+  // gaxios has err.response.status; also err.code sometimes numeric
+  const status: number | undefined =
+    (err as any)?.response?.status ??
+    (typeof (err as any)?.code === 'number' ? (err as any).code : undefined);
+  const msg = (err as Error).message ?? 'unknown';
+  if (status === 401 || status === 403) {
+    return new HttpsError('permission-denied', `google_upstream_denied: ${msg}`);
+  }
+  if (status === 404) {
+    return new HttpsError('not-found', `google_upstream_not_found: ${msg}`);
+  }
+  if (status === 429 || (typeof status === 'number' && status >= 500 && status < 600)) {
+    return new HttpsError('unavailable', `google_upstream_unavailable: ${msg}`);
+  }
+  return new HttpsError('unknown', msg);
+}
+
 function readHeader(request: any, key: string): string | undefined {
   const raw =
     request.rawRequest?.headers?.[key] ?? request.rawRequest?.headers?.[key.toLowerCase()];
@@ -73,7 +94,7 @@ export const chatMembersList = onCall(
       if (
         !data?.spaceName ||
         typeof data.spaceName !== 'string' ||
-        !data.spaceName.trim().startsWith('spaces/')
+        !SPACE_NAME_RE.test(data.spaceName.trim())
       ) {
         throw new HttpsError('invalid-argument', 'invalid_space_name');
       }
@@ -104,9 +125,9 @@ export const chatMembersList = onCall(
 
       return { members: results };
     } catch (err) {
+      const mapped = mapUpstreamError(err);
       const isDenied =
-        err instanceof HttpsError &&
-        (err.code === 'permission-denied' || err.code === 'failed-precondition');
+        mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';
 
       await writeAudit({
         actor: user.email,
@@ -115,13 +136,10 @@ export const chatMembersList = onCall(
         target: targetName,
         request_id: requestId,
         result: isDenied ? 'denied' : 'error',
-        message: (err as Error).message,
+        message: mapped.message,
       });
 
-      if (err instanceof HttpsError) {
-        throw err;
-      }
-      throw new HttpsError('unknown', (err as Error).message);
+      throw mapped;
     }
   },
 );
