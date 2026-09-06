@@ -37,4 +37,5 @@ export { classroomStudentsList } from './callable/classroom/studentsList.js';
 export { classroomTeachersAdd } from './callable/classroom/teachersAdd.js';
 export { classroomTeachersDelete } from './callable/classroom/teachersDelete.js';
 export { classroomStudentsAdd } from './callable/classroom/studentsAdd.js';
+export { classroomStudentsDelete } from './callable/classroom/studentsDelete.js';
 

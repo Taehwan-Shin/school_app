@@ -92,6 +92,7 @@ export interface ClassroomClient {
         courseId: string;
         requestBody: { userId: string };
       }) => Promise<{ data: ClassroomStudent }>;
+      delete: (params: { courseId: string; userId: string }) => Promise<{ data: {} }>;
     };
   };
 }
