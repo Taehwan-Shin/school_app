@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useClassroomList } from '../../api/classroomList';
 import {
   Table,
@@ -7,6 +8,14 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+import {
+  ArchiveClassroomDialog,
+  type ArchiveClassroomTarget,
+} from './ArchiveClassroomDialog';
+import {
+  DeleteClassroomDialog,
+  type DeleteClassroomTarget,
+} from './DeleteClassroomDialog';
 
 export function translateCourseState(s?: string): string {
   switch (s) {
@@ -21,6 +30,8 @@ export function translateCourseState(s?: string): string {
 
 export function ClassroomTable() {
   const { data, isLoading, isError, error } = useClassroomList();
+  const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
 
   return (
     <div className="space-y-4">
@@ -54,6 +65,7 @@ export function ClassroomTable() {
                 <TableHead>상태</TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead className="text-right">링크</TableHead>
+                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,12 +92,42 @@ export function ClassroomTable() {
                       <span className="text-small text-fg-muted">-</span>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {(c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED') && (
+                      <button
+                        type="button"
+                        onClick={() => setArchiveTarget({ id: c.id, name: c.name, currentState: c.courseState || '' })}
+                        data-testid={`classroom-archive-btn-${c.id}`}
+                        className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
+                      >
+                        {c.courseState === 'ACTIVE' ? '아카이브' : '복구'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
+                      data-testid={`classroom-delete-btn-${c.id}`}
+                      className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                    >
+                      삭제
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+      <ArchiveClassroomDialog
+        open={!!archiveTarget}
+        onOpenChange={(o) => !o && setArchiveTarget(null)}
+        target={archiveTarget}
+      />
+      <DeleteClassroomDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        target={deleteTarget}
+      />
     </div>
   );
 }
