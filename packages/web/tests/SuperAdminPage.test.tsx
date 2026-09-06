@@ -15,8 +15,7 @@ vi.mock('react-router-dom', async () => {
 
 const mockUseUsersList = vi.fn();
 const mockUseGroupsList = vi.fn();
-const mockUseAuditLogList = vi.fn();
-const mockUseAuditLogCount = vi.fn();
+const mockUseAuditLogSummary = vi.fn();
 
 vi.mock('../src/lib/auth', () => ({
   useAuth: () => ({
@@ -43,12 +42,8 @@ vi.mock('../src/api/groupsList', () => ({
   useGroupsList: () => mockUseGroupsList(),
 }));
 
-vi.mock('../src/api/auditLogList', () => ({
-  useAuditLogList: (...args: any[]) => mockUseAuditLogList(...args),
-}));
-
-vi.mock('../src/api/auditLogCount', () => ({
-  useAuditLogCount: (...args: any[]) => mockUseAuditLogCount(...args),
+vi.mock('../src/api/auditLogSummary', () => ({
+  useAuditLogSummary: (...args: any[]) => mockUseAuditLogSummary(...args),
 }));
 
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin']) {
@@ -58,9 +53,10 @@ function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/
 describe('SuperAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 0 },
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 0, entries: [], countedAt: Date.now() },
       isLoading: false,
+      isError: false,
       error: null,
     });
   });
@@ -125,14 +121,10 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 8 },
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 8, entries: mockTodayEntries, countedAt: now },
       isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: mockTodayEntries,
-      loading: false,
+      isError: false,
       error: null,
     });
 
@@ -150,10 +142,8 @@ describe('SuperAdminPage', () => {
     expect(groupCard.textContent).toContain('3');
     expect(eventCard.textContent).toContain('8');
 
-    expect(mockUseAuditLogCount).toHaveBeenCalledTimes(1);
-    expect(mockUseAuditLogCount).toHaveBeenCalledWith({ atMin: expect.any(Number) });
-    expect(mockUseAuditLogList).toHaveBeenCalledTimes(1);
-    expect(mockUseAuditLogList).toHaveBeenCalledWith(5, { atMin: expect.any(Number) });
+    expect(mockUseAuditLogSummary).toHaveBeenCalledTimes(1);
+    expect(mockUseAuditLogSummary).toHaveBeenCalledWith({ atMin: expect.any(Number) });
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -229,14 +219,11 @@ describe('SuperAdminPage', () => {
       data: { groups: [] },
       isLoading: false,
     });
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 6 },
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 6, entries: mockEntries, countedAt: now },
       isLoading: false,
+      isError: false,
       error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: mockEntries,
-      loading: false,
     });
 
     renderWithRouter(<SuperAdminPage />);
@@ -265,9 +252,11 @@ describe('SuperAdminPage', () => {
       data: { groups: [] },
       isLoading: false,
     });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 0, entries: [], countedAt: Date.now() },
+      isLoading: false,
+      isError: false,
+      error: null,
     });
 
     renderWithRouter(<SuperAdminPage />);
@@ -291,11 +280,6 @@ describe('SuperAdminPage', () => {
     mockUseGroupsList.mockReturnValue({
       data: { groups: [] },
       isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
       error: null,
     });
 
@@ -331,14 +315,10 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 1 },
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 1, entries: mockEntries, countedAt: now },
       isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: mockEntries,
-      loading: false,
+      isError: false,
       error: null,
     });
 
@@ -362,11 +342,6 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
-      error: null,
-    });
 
     renderWithRouter(<SuperAdminPage />);
 
@@ -383,11 +358,6 @@ describe('SuperAdminPage', () => {
     mockUseGroupsList.mockReturnValue({
       data: { groups: [] },
       isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
       error: null,
     });
 
@@ -408,11 +378,6 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
-      error: null,
-    });
 
     renderWithRouter(<SuperAdminPage />);
 
@@ -431,11 +396,6 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
-      error: null,
-    });
 
     renderWithRouter(<SuperAdminPage />);
 
@@ -450,7 +410,7 @@ describe('SuperAdminPage', () => {
     expect(navigateMock).toHaveBeenCalledWith(`/super_admin/audit?atMin=${todayIso}`);
   });
 
-  it('scenario 10: accurately displays event count > 500 from useAuditLogCount and 5 entries from useAuditLogList', () => {
+  it('scenario 10: accurately displays event count > 500 and 5 entries from useAuditLogSummary', () => {
     mockUseUsersList.mockReturnValue({
       data: { users: [] },
       isLoading: false,
@@ -461,23 +421,23 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 750 },
+    mockUseAuditLogSummary.mockReturnValue({
+      data: {
+        count: 750,
+        entries: Array.from({ length: 5 }, (_, i) => ({
+          id: `prev-${i}`,
+          actor: `actor${i}@cam.hs.kr`,
+          role: 'admin' as const,
+          action: 'users.create',
+          target: 'target',
+          request_id: `req-${i}`,
+          result: 'ok' as const,
+          at: Date.now() - i * 1000,
+        })),
+        countedAt: Date.now(),
+      },
       isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: Array.from({ length: 5 }, (_, i) => ({
-        id: `prev-${i}`,
-        actor: `actor${i}@cam.hs.kr`,
-        role: 'admin' as const,
-        action: 'users.create',
-        target: 'target',
-        request_id: `req-${i}`,
-        result: 'ok' as const,
-        at: Date.now() - i * 1000,
-      })),
-      loading: false,
+      isError: false,
       error: null,
     });
 
@@ -502,21 +462,17 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogCount.mockReturnValue({
-      data: { count: 5 },
-      isLoading: false,
-      error: null,
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: true,
+    mockUseAuditLogSummary.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
       error: null,
     });
 
     renderWithRouter(<SuperAdminPage />);
 
     expect(screen.getByTestId('super-admin-preview-loading')).toBeDefined();
-    expect(screen.getByText('미리보기 불러오는 중...')).toBeDefined();
+    expect(screen.getByText('불러오는 중...')).toBeDefined();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
     expect(screen.queryByTestId('super-admin-preview-error')).toBeNull();
   });
@@ -532,15 +488,10 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogCount.mockReturnValue({
+    mockUseAuditLogSummary.mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
-      error: new Error('Failed to fetch count'),
-    });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
       error: new Error('Network error loading audit logs'),
     });
 
@@ -548,7 +499,7 @@ describe('SuperAdminPage', () => {
 
     expect(screen.getByTestId('super-admin-preview-error')).toBeDefined();
     expect(
-      screen.getByText('미리보기를 불러오지 못했습니다: Network error loading audit logs'),
+      screen.getByText('감사 로그를 불러오지 못했습니다: Network error loading audit logs'),
     ).toBeDefined();
     expect(screen.queryByTestId('super-admin-preview-loading')).toBeNull();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
