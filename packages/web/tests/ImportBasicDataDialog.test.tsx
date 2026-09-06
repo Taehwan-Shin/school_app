@@ -185,4 +185,60 @@ describe('ImportBasicDataDialog component', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalled();
   });
+
+  it('scenario 5: blocks onOpenChange when in saving phase', async () => {
+    let resolveSave!: (val: unknown) => void;
+    const savePromise = new Promise((resolve) => {
+      resolveSave = resolve;
+    });
+    mockMutateAsync.mockReturnValueOnce(savePromise);
+
+    const validData = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      departments: ['국어과'],
+      rosters: {
+        '1': {
+          A: ['student@cam.hs.kr'],
+        },
+      },
+    };
+
+    const file = new File([JSON.stringify(validData)], 'valid.json', {
+      type: 'application/json',
+    });
+
+    const onOpenChange = vi.fn();
+
+    render(
+      <ImportBasicDataDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        currentYear={2026}
+      />,
+    );
+
+    const input = screen.getByTestId('import-basic-data-file-input');
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('import-basic-data-save-btn')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId('import-basic-data-save-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText('저장 중...')).toBeDefined();
+    });
+
+    // Attempt to close via Escape key press
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    // Clean up pending save promise
+    resolveSave({ year: 2026, updatedAt: Date.now() });
+    await waitFor(() => {
+      expect(screen.getByTestId('import-basic-data-done')).toBeDefined();
+    });
+  });
 });
