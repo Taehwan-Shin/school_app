@@ -84,7 +84,7 @@ describe('Auth & Session Helpers', () => {
 
       await signInWithGoogle();
 
-      expect(addScopeMock).toHaveBeenCalledTimes(7);
+      expect(addScopeMock).toHaveBeenCalledTimes(11);
       expect(addScopeMock).toHaveBeenNthCalledWith(1, 'https://www.googleapis.com/auth/admin.directory.user.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(2, 'https://www.googleapis.com/auth/admin.directory.user');
       expect(addScopeMock).toHaveBeenNthCalledWith(3, 'https://www.googleapis.com/auth/admin.directory.group.readonly');
@@ -92,6 +92,10 @@ describe('Auth & Session Helpers', () => {
       expect(addScopeMock).toHaveBeenNthCalledWith(5, 'https://www.googleapis.com/auth/admin.directory.group.member.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(6, 'https://www.googleapis.com/auth/admin.directory.group.member');
       expect(addScopeMock).toHaveBeenNthCalledWith(7, 'https://www.googleapis.com/auth/admin.directory.user.security');
+      expect(addScopeMock).toHaveBeenNthCalledWith(8, 'https://www.googleapis.com/auth/chat.spaces');
+      expect(addScopeMock).toHaveBeenNthCalledWith(9, 'https://www.googleapis.com/auth/chat.memberships');
+      expect(addScopeMock).toHaveBeenNthCalledWith(10, 'https://www.googleapis.com/auth/classroom.courses');
+      expect(addScopeMock).toHaveBeenNthCalledWith(11, 'https://www.googleapis.com/auth/classroom.rosters');
       expect(setCustomParametersMock).toHaveBeenCalledWith({
         hd: 'cam.hs.kr',
         prompt: 'select_account',

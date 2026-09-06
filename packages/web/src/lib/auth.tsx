@@ -39,6 +39,10 @@ export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.group.member.readonly',
   'https://www.googleapis.com/auth/admin.directory.group.member',
   'https://www.googleapis.com/auth/admin.directory.user.security',
+  'https://www.googleapis.com/auth/chat.spaces',
+  'https://www.googleapis.com/auth/chat.memberships',
+  'https://www.googleapis.com/auth/classroom.courses',
+  'https://www.googleapis.com/auth/classroom.rosters',
 ] as const;
 
 export async function signInWithGoogle() {
