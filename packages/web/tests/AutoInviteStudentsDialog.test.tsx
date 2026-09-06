@@ -268,4 +268,38 @@ describe('AutoInviteStudentsDialog component', () => {
     fireEvent.change(confirmInput, { target: { value: '3' } });
     expect(confirmBtn.disabled).toBe(false);
   });
+
+  it('scenario 6: detects ambiguous group email mapping for conflicting class slugs, renders error UI and disables confirm button', () => {
+    const data: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A', 'A!'] }],
+      rosters: {
+        '1': {
+          A: ['student1@cam.hs.kr'],
+          'A!': ['student2@cam.hs.kr'],
+        },
+      },
+    };
+
+    renderWithClient(
+      <AutoInviteStudentsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        data={data}
+      />
+    );
+
+    const errorEl = screen.getByTestId('auto-invite-students-ambiguous-error');
+    expect(errorEl).toBeDefined();
+    expect(errorEl.textContent).toContain('다음 그룹 이메일에 여러 반이 매핑됩니다');
+    expect(errorEl.textContent).toContain('class-1a@cam.hs.kr');
+
+    const confirmInput = screen.getByTestId('auto-invite-students-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+
+    const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+  });
 });
+

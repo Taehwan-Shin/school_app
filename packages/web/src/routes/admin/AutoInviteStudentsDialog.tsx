@@ -75,6 +75,25 @@ export function AutoInviteStudentsDialog({
     return out;
   }, [data, prefix]);
 
+  const emailToClass = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const t of targets) {
+      const key = `${t.grade}-${t.class}`;
+      if (!map.has(t.groupEmail)) map.set(t.groupEmail, new Set());
+      map.get(t.groupEmail)!.add(key);
+    }
+    return map;
+  }, [targets]);
+
+  const ambiguousEmails = useMemo(
+    () =>
+      Array.from(emailToClass.entries())
+        .filter(([_, keys]) => keys.size > 1)
+        .map(([e]) => e),
+    [emailToClass]
+  );
+  const hasAmbiguity = ambiguousEmails.length > 0;
+
   useEffect(() => {
     if (open) {
       setPhase('confirm');
@@ -91,6 +110,7 @@ export function AutoInviteStudentsDialog({
   };
 
   const handleConfirm = async () => {
+    if (hasAmbiguity) return;
     setPhase('running');
     const localResults: Result[] = [];
     for (let i = 0; i < targets.length; i++) {
@@ -172,6 +192,15 @@ export function AutoInviteStudentsDialog({
                 </tbody>
               </table>
             </div>
+            {hasAmbiguity && (
+              <div
+                className="border border-state-danger p-4 text-small text-state-danger"
+                data-testid="auto-invite-students-ambiguous-error"
+              >
+                다음 그룹 이메일에 여러 반이 매핑됩니다 ({ambiguousEmails.length}건): {ambiguousEmails.slice(0, 3).join(', ')}
+                {ambiguousEmails.length > 3 && ` 외 ${ambiguousEmails.length - 3}`}. 반 이름을 구분되게 조정하세요.
+              </div>
+            )}
             <div>
               <label className="text-small text-fg-primary">
                 확인을 위해 대상 학생 수 (<strong>{targets.length}</strong>)를 입력하세요:
@@ -193,7 +222,8 @@ export function AutoInviteStudentsDialog({
                 disabled={
                   targets.length === 0 ||
                   !/^[a-z0-9-]+$/.test(prefix) ||
-                  confirmText.trim() !== String(targets.length)
+                  confirmText.trim() !== String(targets.length) ||
+                  hasAmbiguity
                 }
                 data-testid="auto-invite-students-confirm-btn"
               >

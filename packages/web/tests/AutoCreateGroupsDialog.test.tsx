@@ -327,5 +327,29 @@ describe('AutoCreateGroupsDialog component', () => {
     const doneText = screen.getByTestId('auto-create-groups-done').textContent;
     expect(doneText).toContain('3개 성공');
   });
+
+  it('scenario 9: detects duplicate group emails for conflicting class slugs, renders error UI and disables confirm button', () => {
+    const grades = [{ grade: 1, classes: ['A', 'A!'] }];
+    renderWithClient(
+      <AutoCreateGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        grades={grades}
+      />
+    );
+
+    const errorEl = screen.getByTestId('auto-create-groups-duplicate-error');
+    expect(errorEl).toBeDefined();
+    expect(errorEl.textContent).toContain('다음 이메일이 중복됩니다');
+    expect(errorEl.textContent).toContain('class-1a@cam.hs.kr');
+
+    const confirmInput = screen.getByTestId('auto-create-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+
+    const confirmBtn = screen.getByTestId('auto-create-groups-confirm-btn') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+  });
 });
+
 
