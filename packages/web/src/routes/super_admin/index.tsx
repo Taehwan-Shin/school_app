@@ -3,8 +3,7 @@ import { AppShell } from '../../components/shell/AppShell';
 import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
-import { useAuditLogList } from '../../api/auditLogList';
-import { useAuditLogCount } from '../../api/auditLogCount';
+import { useAuditLogSummary } from '../../api/auditLogSummary';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -20,11 +19,9 @@ export function SuperAdminPage() {
   const dd = String(todayStart.getDate()).padStart(2, '0');
   const todayIso = `${yyyy}-${mm}-${dd}`;
 
-  const todayCountQuery = useAuditLogCount({ atMin: todayStartMs });
-  const todayCount = todayCountQuery.data?.count ?? 0;
-
-  // preview 는 최근 5개 → list hook (limit 5) 유지
-  const todayAudit = useAuditLogList(5, { atMin: todayStartMs });
+  const summaryQuery = useAuditLogSummary({ atMin: todayStartMs });
+  const todayCount = summaryQuery.data?.count ?? 0;
+  const previewEntries = summaryQuery.data?.entries ?? [];
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
@@ -56,8 +53,8 @@ export function SuperAdminPage() {
           />
           <KpiCard
             label="오늘 이벤트"
-            value={todayCountQuery.isError ? '—' : todayCount}
-            loading={todayCountQuery.isLoading}
+            value={summaryQuery.isError ? '—' : todayCount}
+            loading={summaryQuery.isLoading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
@@ -82,19 +79,19 @@ export function SuperAdminPage() {
             </Link>
           </div>
           {/* 최근 5 개 이벤트만 미리보기 */}
-          {todayAudit.loading && (
+          {summaryQuery.isLoading && (
             <div className="py-4 text-center text-small text-fg-secondary" data-testid="super-admin-preview-loading">
-              미리보기 불러오는 중...
+              불러오는 중...
             </div>
           )}
-          {todayAudit.error && !todayAudit.loading && (
+          {summaryQuery.isError && (
             <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="super-admin-preview-error">
-              미리보기를 불러오지 못했습니다: {todayAudit.error.message}
+              감사 로그를 불러오지 못했습니다: {summaryQuery.error?.message}
             </div>
           )}
-          {!todayAudit.loading && !todayAudit.error && todayAudit.entries.length > 0 && (
+          {!summaryQuery.isLoading && !summaryQuery.isError && previewEntries.length > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
-              {todayAudit.entries.slice(0, 5).map((e) => (
+              {previewEntries.slice(0, 5).map((e) => (
                 <li key={e.id}>
                   <Link
                     to={`/super_admin/audit?actor=${encodeURIComponent(e.actor)}`}
