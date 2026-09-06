@@ -32,6 +32,8 @@ export function EditBasicDataDialog({
   const [rows, setRows] = useState<GradeRow[]>([]);
   const [departmentsText, setDepartmentsText] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [staleWarnings, setStaleWarnings] = useState<{ grade: string; class: string; count: number }[]>([]);
+  const [confirmedStaleReconcile, setConfirmedStaleReconcile] = useState(false);
   const { mutateAsync: saveBasicData, isPending, error: mutationError } = useBasicDataSet();
 
   useEffect(() => {
@@ -48,10 +50,14 @@ export function EditBasicDataDialog({
       }
       setDepartmentsText((initialData?.departments ?? []).join(', '));
       setValidationError(null);
+      setStaleWarnings([]);
+      setConfirmedStaleReconcile(false);
     }
   }, [open, initialData]);
 
   const handleAddRow = () => {
+    setStaleWarnings([]);
+    setConfirmedStaleReconcile(false);
     setRows((prev) => {
       const last = prev[prev.length - 1];
       const lastGrade = last ? Number.parseInt(last.grade.trim(), 10) : 0;
@@ -62,6 +68,8 @@ export function EditBasicDataDialog({
   };
 
   const handleRemoveRow = (index: number) => {
+    setStaleWarnings([]);
+    setConfirmedStaleReconcile(false);
     setRows((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -100,12 +108,49 @@ export function EditBasicDataDialog({
           .filter((s) => s.length > 0)
       : undefined;
 
+    const currentGradeClassMap = new Map<string, Set<string>>();
+    for (const g of grades) {
+      currentGradeClassMap.set(String(g.grade), new Set(g.classes));
+    }
+
+    const staleWarnings: { grade: string; class: string; count: number }[] = [];
+    if (initialData?.rosters) {
+      for (const gradeKey of Object.keys(initialData.rosters)) {
+        const validClasses = currentGradeClassMap.get(gradeKey);
+        for (const classKey of Object.keys(initialData.rosters[gradeKey])) {
+          const count = initialData.rosters[gradeKey][classKey].length;
+          if (!validClasses || !validClasses.has(classKey)) {
+            staleWarnings.push({ grade: gradeKey, class: classKey, count });
+          }
+        }
+      }
+    }
+
+    if (staleWarnings.length > 0 && !confirmedStaleReconcile) {
+      setStaleWarnings(staleWarnings);
+      return;
+    }
+
+    const reconciledRosters: Record<string, Record<string, string[]>> = {};
+    if (initialData?.rosters) {
+      for (const gradeKey of Object.keys(initialData.rosters)) {
+        const validClasses = currentGradeClassMap.get(gradeKey);
+        if (!validClasses) continue;
+        for (const classKey of Object.keys(initialData.rosters[gradeKey])) {
+          if (validClasses.has(classKey)) {
+            if (!reconciledRosters[gradeKey]) reconciledRosters[gradeKey] = {};
+            reconciledRosters[gradeKey][classKey] = initialData.rosters[gradeKey][classKey];
+          }
+        }
+      }
+    }
+
     try {
       await saveBasicData({
         year,
         grades,
         ...(departments !== undefined ? { departments } : {}),
-        ...(initialData?.rosters !== undefined ? { rosters: initialData.rosters } : {}),
+        ...(Object.keys(reconciledRosters).length > 0 ? { rosters: reconciledRosters } : {}),
       });
       onOpenChange(false);
     } catch {
@@ -124,6 +169,32 @@ export function EditBasicDataDialog({
             </DialogDescription>
           </DialogHeader>
 
+          {staleWarnings.length > 0 && (
+            <div
+              className="border border-state-warning p-4 space-y-2"
+              data-testid="edit-basic-data-stale-warning"
+            >
+              <div className="text-small text-state-warning">
+                이 저장으로 아래 반의 학생 명단 ({staleWarnings.reduce((s, w) => s + w.count, 0)}명) 이 함께 제거됩니다:
+              </div>
+              <ul className="text-small text-fg-secondary font-mono max-h-24 overflow-y-auto">
+                {staleWarnings.map((w) => (
+                  <li key={`${w.grade}-${w.class}`}>
+                    {w.grade}학년 {w.class}반: {w.count}명
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-center gap-2 text-small text-fg-primary">
+                <input
+                  type="checkbox"
+                  checked={confirmedStaleReconcile}
+                  onChange={(e) => setConfirmedStaleReconcile(e.target.checked)}
+                  data-testid="edit-basic-data-confirm-stale-reconcile"
+                />
+                위 학생 명단 제거를 확인합니다
+              </label>
+            </div>
+          )}
           {validationError && (
             <div
               className="border border-state-danger p-4 text-small text-state-danger"
@@ -153,6 +224,8 @@ export function EditBasicDataDialog({
                     type="number"
                     value={row.grade}
                     onChange={(e) => {
+                      setStaleWarnings([]);
+                      setConfirmedStaleReconcile(false);
                       const updated = [...rows];
                       updated[idx] = { ...updated[idx], grade: e.target.value };
                       setRows(updated);
@@ -171,6 +244,8 @@ export function EditBasicDataDialog({
                     placeholder="1, 2, 3 또는 A, B, C"
                     value={row.classesText}
                     onChange={(e) => {
+                      setStaleWarnings([]);
+                      setConfirmedStaleReconcile(false);
                       const updated = [...rows];
                       updated[idx] = { ...updated[idx], classesText: e.target.value };
                       setRows(updated);
@@ -230,7 +305,7 @@ export function EditBasicDataDialog({
             <Button
               type="submit"
               variant="default"
-              disabled={isPending}
+              disabled={isPending || (staleWarnings.length > 0 && !confirmedStaleReconcile)}
               data-testid="edit-basic-data-submit"
             >
               {isPending ? '저장 중...' : '저장'}
