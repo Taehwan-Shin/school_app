@@ -54,7 +54,7 @@ describe('SuperAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 0, entries: [], countedAt: Date.now() },
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
       isLoading: false,
       isError: false,
       error: null,
@@ -122,7 +122,7 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 8, entries: mockTodayEntries, countedAt: now },
+      data: { count: 8, entries: mockTodayEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -220,7 +220,7 @@ describe('SuperAdminPage', () => {
       isLoading: false,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 6, entries: mockEntries, countedAt: now },
+      data: { count: 6, entries: mockEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -253,7 +253,7 @@ describe('SuperAdminPage', () => {
       isLoading: false,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 0, entries: [], countedAt: Date.now() },
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
       isLoading: false,
       isError: false,
       error: null,
@@ -316,7 +316,7 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 1, entries: mockEntries, countedAt: now },
+      data: { count: 1, entries: mockEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -434,7 +434,8 @@ describe('SuperAdminPage', () => {
           result: 'ok' as const,
           at: Date.now() - i * 1000,
         })),
-        countedAt: Date.now(),
+        snapshotAt: Date.now(),
+        generatedAt: Date.now(),
       },
       isLoading: false,
       isError: false,
@@ -549,7 +550,7 @@ describe('SuperAdminPage', () => {
 
     // 3. success with 0 events
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 0, entries: [], countedAt: Date.now() },
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
       isLoading: false,
       isError: false,
       error: null,

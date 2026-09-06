@@ -54,7 +54,7 @@ describe('auditLogSummary API & Hook', () => {
     global.fetch = originalFetch;
   });
 
-  it('scenario 1: 200 response returns data.count, data.entries, and data.countedAt', async () => {
+  it('scenario 1: 200 response returns data.count, data.entries, data.snapshotAt, and data.generatedAt', async () => {
     let capturedUrl = '';
     let capturedInit: RequestInit | undefined;
 
@@ -82,7 +82,8 @@ describe('auditLogSummary API & Hook', () => {
           result: {
             count: 42,
             entries: mockEntries,
-            countedAt: 1700000050000,
+            snapshotAt: 1700000040000,
+            generatedAt: 1700000050000,
           },
         }),
       } as any;
@@ -98,7 +99,8 @@ describe('auditLogSummary API & Hook', () => {
     expect(result.current.data).toEqual({
       count: 42,
       entries: mockEntries,
-      countedAt: 1700000050000,
+      snapshotAt: 1700000040000,
+      generatedAt: 1700000050000,
     });
     expect(capturedUrl).toContain('/asia-northeast3/auditLogSummary');
     expect((capturedInit?.headers as any)['Authorization']).toBe('Bearer firebase-id-token-abc');

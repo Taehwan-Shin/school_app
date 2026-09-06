@@ -13,7 +13,8 @@ export interface AuditLogSummaryRequest {
 export interface AuditLogSummaryResponse {
   count: number;
   entries: AuditLogEntryRead[];
-  countedAt: number; // ms since epoch, snapshot boundary
+  snapshotAt: number; // query 상한 (effectiveAtMax)
+  generatedAt: number; // callable 실행 시각 (Date.now())
 }
 
 const PREVIEW_LIMIT = 5;
@@ -77,8 +78,9 @@ export const auditLogSummary = onCall(
           ? data.atMax
           : undefined;
 
-      const countedAt = Date.now();
-      const effectiveAtMax = clientAtMax !== undefined ? Math.min(clientAtMax, countedAt) : countedAt;
+      const generatedAt = Date.now();
+      const effectiveAtMax = clientAtMax !== undefined ? Math.min(clientAtMax, generatedAt) : generatedAt;
+      const snapshotAt = effectiveAtMax;
 
       const [count, listResult] = await Promise.all([
         countAuditEntries({ atMin, atMax: effectiveAtMax }),
@@ -92,13 +94,14 @@ export const auditLogSummary = onCall(
         target: 'dashboard:super_admin',
         request_id: requestId,
         result: 'ok',
-        message: `summarized ${count} entries [snapshot=${new Date(countedAt).toISOString()}]`,
+        message: `summarized ${count} entries [snapshot=${new Date(snapshotAt).toISOString()}, generated=${new Date(generatedAt).toISOString()}]`,
       });
 
       return {
         count,
         entries: listResult.entries,
-        countedAt,
+        snapshotAt,
+        generatedAt,
       };
     } catch (err) {
       await writeAudit({
