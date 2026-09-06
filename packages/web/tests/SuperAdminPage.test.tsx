@@ -490,4 +490,70 @@ describe('SuperAdminPage', () => {
     const recentList = screen.getByTestId('super-admin-recent-events');
     expect(recentList.children.length).toBe(5);
   });
+
+  it('scenario 11: renders preview loading indicator when todayAudit is loading', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogCount.mockReturnValue({
+      data: { count: 5 },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: true,
+      error: null,
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    expect(screen.getByTestId('super-admin-preview-loading')).toBeDefined();
+    expect(screen.getByText('미리보기 불러오는 중...')).toBeDefined();
+    expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
+    expect(screen.queryByTestId('super-admin-preview-error')).toBeNull();
+  });
+
+  it('scenario 12: renders preview error message when todayAudit encounters an error and displays dash for count error', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseAuditLogCount.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('Failed to fetch count'),
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: new Error('Network error loading audit logs'),
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    expect(screen.getByTestId('super-admin-preview-error')).toBeDefined();
+    expect(
+      screen.getByText('미리보기를 불러오지 못했습니다: Network error loading audit logs'),
+    ).toBeDefined();
+    expect(screen.queryByTestId('super-admin-preview-loading')).toBeNull();
+    expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
+
+    const eventCard = screen.getByTestId('kpi-card-오늘 이벤트');
+    expect(eventCard.textContent).toContain('—');
+  });
 });

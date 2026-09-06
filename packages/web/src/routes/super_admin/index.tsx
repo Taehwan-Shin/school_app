@@ -56,7 +56,7 @@ export function SuperAdminPage() {
           />
           <KpiCard
             label="오늘 이벤트"
-            value={todayCount}
+            value={todayCountQuery.isError ? '—' : todayCount}
             loading={todayCountQuery.isLoading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
@@ -82,7 +82,17 @@ export function SuperAdminPage() {
             </Link>
           </div>
           {/* 최근 5 개 이벤트만 미리보기 */}
-          {todayCount > 0 && (
+          {todayAudit.loading && (
+            <div className="py-4 text-center text-small text-fg-secondary" data-testid="super-admin-preview-loading">
+              미리보기 불러오는 중...
+            </div>
+          )}
+          {todayAudit.error && !todayAudit.loading && (
+            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="super-admin-preview-error">
+              미리보기를 불러오지 못했습니다: {todayAudit.error.message}
+            </div>
+          )}
+          {!todayAudit.loading && !todayAudit.error && todayAudit.entries.length > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
               {todayAudit.entries.slice(0, 5).map((e) => (
                 <li key={e.id}>
