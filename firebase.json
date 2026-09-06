@@ -128,6 +128,10 @@
         "function": { "functionId": "classroomTeachersAdd", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/classroomTeachersDelete",
+        "function": { "functionId": "classroomTeachersDelete", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

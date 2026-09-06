@@ -80,6 +80,7 @@ export interface ClassroomClient {
         courseId: string;
         requestBody: { userId: string };
       }) => Promise<{ data: ClassroomTeacher }>;
+      delete: (params: { courseId: string; userId: string }) => Promise<{ data: {} }>;
     };
     students: {
       list: (params: {
