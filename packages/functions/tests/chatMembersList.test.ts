@@ -319,4 +319,124 @@ describe('chatMembersList unit tests', () => {
       message: 'Google Chat API error: space not found',
     });
   });
+
+  // 시나리오 8: spaceName 형식 오류 - spaces/ (뒤에 이름 없음) -> invalid-argument
+  it('rejects spaceName with trailing slash only "spaces/" with invalid-argument', async () => {
+    const req = createRequest({
+      data: { spaceName: 'spaces/' },
+    });
+
+    await expect(chatMembersList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_space_name',
+    });
+
+    expect(mockChatSpacesMembersList).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'chat.read',
+        target: 'spaces/',
+        result: 'error',
+        message: 'invalid_space_name',
+      }),
+    );
+  });
+
+  // 시나리오 9: spaceName 형식 오류 - spaces/AAA/members/BBB (중첩 경로) -> invalid-argument
+  it('rejects spaceName with nested subpath "spaces/AAA/members/BBB" with invalid-argument', async () => {
+    const req = createRequest({
+      data: { spaceName: 'spaces/AAA/members/BBB' },
+    });
+
+    await expect(chatMembersList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_space_name',
+    });
+
+    expect(mockChatSpacesMembersList).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'chat.read',
+        target: 'spaces/AAA/members/BBB',
+        result: 'error',
+        message: 'invalid_space_name',
+      }),
+    );
+  });
+
+  // 시나리오 10: spaceName 형식 오류 - spaces/AA BB (공백 포함) -> invalid-argument
+  it('rejects spaceName containing spaces "spaces/AA BB" with invalid-argument', async () => {
+    const req = createRequest({
+      data: { spaceName: 'spaces/AA BB' },
+    });
+
+    await expect(chatMembersList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_space_name',
+    });
+
+    expect(mockChatSpacesMembersList).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'chat.read',
+        target: 'spaces/AA BB',
+        result: 'error',
+        message: 'invalid_space_name',
+      }),
+    );
+  });
+
+  // 시나리오 11: Google upstream 401 mock -> HttpsError code permission-denied · audit denied
+  it('maps Google upstream 401 error to permission-denied and writes denied audit log', async () => {
+    const err: any = new Error('invalid auth token');
+    err.response = { status: 401 };
+    mockChatSpacesMembersList.mockRejectedValueOnce(err);
+
+    const req = createRequest({ email: 'admin@cam.hs.kr', role: 'admin' });
+
+    await expect(chatMembersList.run(req)).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'google_upstream_denied: invalid auth token',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'admin@cam.hs.kr',
+      role: 'admin',
+      action: 'chat.read',
+      target: 'spaces/AAAA1234',
+      request_id: 'req-test-members-123',
+      result: 'denied',
+      message: 'google_upstream_denied: invalid auth token',
+    });
+  });
+
+  // 시나리오 12: Google upstream 429 mock -> HttpsError code unavailable · audit error
+  it('maps Google upstream 429 error to unavailable and writes error audit log', async () => {
+    const err: any = new Error('quota');
+    err.response = { status: 429 };
+    mockChatSpacesMembersList.mockRejectedValueOnce(err);
+
+    const req = createRequest({ email: 'admin@cam.hs.kr', role: 'admin' });
+
+    await expect(chatMembersList.run(req)).rejects.toMatchObject({
+      code: 'unavailable',
+      message: 'google_upstream_unavailable: quota',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'admin@cam.hs.kr',
+      role: 'admin',
+      action: 'chat.read',
+      target: 'spaces/AAAA1234',
+      request_id: 'req-test-members-123',
+      result: 'error',
+      message: 'google_upstream_unavailable: quota',
+    });
+  });
 });

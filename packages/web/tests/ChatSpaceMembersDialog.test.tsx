@@ -160,4 +160,32 @@ describe('ChatSpaceMembersDialog component', () => {
     expect(screen.getByTestId('chat-members-error')).toBeDefined();
     expect(screen.getByText('오류: permission-denied')).toBeDefined();
   });
+
+  // 시나리오 5: 큰 목록 렌더 시 스크롤 컨테이너 존재 확인
+  it('renders scroll container when members list is populated', async () => {
+    const many = Array.from({ length: 50 }, (_, i) => ({
+      name: `spaces/AAA/members/M${i}`,
+      member: { name: `users/${i}`, type: 'HUMAN' },
+      role: 'ROLE_MEMBER',
+      state: 'JOINED',
+    }));
+    mockUseChatMembersList.mockReturnValue({
+      data: { members: many },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <ChatSpaceMembersDialog
+        open={true}
+        spaceName="spaces/AAA"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    const container = await screen.findByTestId('chat-members-scroll-container');
+    expect(container.className).toMatch(/overflow-y-auto/);
+    expect(container.className).toMatch(/max-h-/);
+  });
 });
