@@ -66,7 +66,11 @@ export function SuperAdminPage() {
             <div>
               <h2 className="text-h2 font-semibold text-fg-primary">오늘 감사 이벤트</h2>
               <p className="text-small text-fg-secondary mt-1">
-                {todayCount > 0
+                {summaryQuery.isLoading
+                  ? '불러오는 중...'
+                  : summaryQuery.isError
+                  ? '오늘 이벤트를 불러오지 못했습니다.'
+                  : todayCount > 0
                   ? `오늘 ${todayCount}건의 이벤트가 기록되었습니다.`
                   : '오늘 이벤트가 없습니다.'}
               </p>

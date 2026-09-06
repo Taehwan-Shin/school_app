@@ -99,7 +99,7 @@ describe('auditLogSummary callable unit tests', () => {
     expect(mockReadAuditEntries).not.toHaveBeenCalled();
   });
 
-  it('3. returns count, entries and countedAt when no filter specified, and writes ok audit log', async () => {
+  it('3. returns count, entries, snapshotAt and generatedAt when no filter specified, and writes ok audit log', async () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
         id: 'log-1',
@@ -127,17 +127,20 @@ describe('auditLogSummary callable unit tests', () => {
 
     expect(result.count).toBe(42);
     expect(result.entries).toEqual(mockEntries);
-    expect(result.countedAt).toBeGreaterThanOrEqual(beforeTime);
-    expect(result.countedAt).toBeLessThanOrEqual(afterTime);
+    expect(result.snapshotAt).toBeGreaterThanOrEqual(beforeTime);
+    expect(result.snapshotAt).toBeLessThanOrEqual(afterTime);
+    expect(result.generatedAt).toBeGreaterThanOrEqual(beforeTime);
+    expect(result.generatedAt).toBeLessThanOrEqual(afterTime);
+    expect(result.snapshotAt).toBe(result.generatedAt);
 
     expect(mockCountAuditEntries).toHaveBeenCalledWith({
       atMin: undefined,
-      atMax: result.countedAt,
+      atMax: result.snapshotAt,
     });
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 5,
       atMin: undefined,
-      atMax: result.countedAt,
+      atMax: result.snapshotAt,
     });
 
     expect(mockWriteAudit).toHaveBeenCalledWith({
@@ -147,7 +150,7 @@ describe('auditLogSummary callable unit tests', () => {
       target: 'dashboard:super_admin',
       request_id: 'req-summary-123',
       result: 'ok',
-      message: `summarized 42 entries [snapshot=${new Date(result.countedAt).toISOString()}]`,
+      message: `summarized 42 entries [snapshot=${new Date(result.snapshotAt).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
     });
   });
 
@@ -169,12 +172,12 @@ describe('auditLogSummary callable unit tests', () => {
     expect(result.count).toBe(10);
     expect(mockCountAuditEntries).toHaveBeenCalledWith({
       atMin,
-      atMax: result.countedAt,
+      atMax: result.snapshotAt,
     });
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 5,
       atMin,
-      atMax: result.countedAt,
+      atMax: result.snapshotAt,
     });
   });
 
@@ -201,6 +204,8 @@ describe('auditLogSummary callable unit tests', () => {
       atMin: undefined,
       atMax: pastAtMax,
     });
+    expect(resultA.snapshotAt).toBe(pastAtMax);
+    expect(resultA.generatedAt).toBeGreaterThan(pastAtMax);
 
     mockCountAuditEntries.mockClear();
     mockReadAuditEntries.mockClear();
@@ -213,14 +218,15 @@ describe('auditLogSummary callable unit tests', () => {
     const resultB = await auditLogSummary.run(reqB);
     expect(mockCountAuditEntries).toHaveBeenCalledWith({
       atMin: undefined,
-      atMax: resultB.countedAt,
+      atMax: resultB.snapshotAt,
     });
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 5,
       atMin: undefined,
-      atMax: resultB.countedAt,
+      atMax: resultB.snapshotAt,
     });
-    expect(resultB.countedAt).toBeLessThan(futureAtMax);
+    expect(resultB.snapshotAt).toBe(resultB.generatedAt);
+    expect(resultB.snapshotAt).toBeLessThan(futureAtMax);
   });
 
   it('6. executes queries via Promise.all and writes ok audit log strictly after queries resolve', async () => {
@@ -272,5 +278,72 @@ describe('auditLogSummary callable unit tests', () => {
       result: 'error',
       message: 'DB read error',
     });
+  });
+
+  it('8. clamps client atMax in the future so that snapshotAt equals generatedAt', async () => {
+    mockCountAuditEntries.mockResolvedValueOnce(3);
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+
+    const futureAtMax = Date.now() + 5000000;
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { atMax: futureAtMax },
+    });
+
+    const result = await auditLogSummary.run(req);
+
+    expect(result.snapshotAt).toBe(result.generatedAt);
+    expect(result.snapshotAt).toBeLessThan(futureAtMax);
+    expect(mockCountAuditEntries).toHaveBeenCalledWith({
+      atMin: undefined,
+      atMax: result.snapshotAt,
+    });
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 5,
+      atMin: undefined,
+      atMax: result.snapshotAt,
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: `summarized 3 entries [snapshot=${new Date(result.snapshotAt).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
+      }),
+    );
+  });
+
+  it('9. preserves client atMax in the past so that snapshotAt equals clientAtMax and differs from generatedAt', async () => {
+    mockCountAuditEntries.mockResolvedValueOnce(2);
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+
+    const pastAtMax = Date.now() - 3600000;
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { atMax: pastAtMax },
+    });
+
+    const beforeTime = Date.now();
+    const result = await auditLogSummary.run(req);
+    const afterTime = Date.now();
+
+    expect(result.snapshotAt).toBe(pastAtMax);
+    expect(result.generatedAt).toBeGreaterThanOrEqual(beforeTime);
+    expect(result.generatedAt).toBeLessThanOrEqual(afterTime);
+    expect(result.snapshotAt).not.toBe(result.generatedAt);
+
+    expect(mockCountAuditEntries).toHaveBeenCalledWith({
+      atMin: undefined,
+      atMax: pastAtMax,
+    });
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 5,
+      atMin: undefined,
+      atMax: pastAtMax,
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: `summarized 2 entries [snapshot=${new Date(pastAtMax).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
+      }),
+    );
   });
 });

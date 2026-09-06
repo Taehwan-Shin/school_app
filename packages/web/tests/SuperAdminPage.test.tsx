@@ -54,7 +54,7 @@ describe('SuperAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 0, entries: [], countedAt: Date.now() },
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
       isLoading: false,
       isError: false,
       error: null,
@@ -122,7 +122,7 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 8, entries: mockTodayEntries, countedAt: now },
+      data: { count: 8, entries: mockTodayEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -220,7 +220,7 @@ describe('SuperAdminPage', () => {
       isLoading: false,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 6, entries: mockEntries, countedAt: now },
+      data: { count: 6, entries: mockEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -253,7 +253,7 @@ describe('SuperAdminPage', () => {
       isLoading: false,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 0, entries: [], countedAt: Date.now() },
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
       isLoading: false,
       isError: false,
       error: null,
@@ -316,7 +316,7 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockUseAuditLogSummary.mockReturnValue({
-      data: { count: 1, entries: mockEntries, countedAt: now },
+      data: { count: 1, entries: mockEntries, snapshotAt: now, generatedAt: now },
       isLoading: false,
       isError: false,
       error: null,
@@ -434,7 +434,8 @@ describe('SuperAdminPage', () => {
           result: 'ok' as const,
           at: Date.now() - i * 1000,
         })),
-        countedAt: Date.now(),
+        snapshotAt: Date.now(),
+        generatedAt: Date.now(),
       },
       isLoading: false,
       isError: false,
@@ -472,7 +473,8 @@ describe('SuperAdminPage', () => {
     renderWithRouter(<SuperAdminPage />);
 
     expect(screen.getByTestId('super-admin-preview-loading')).toBeDefined();
-    expect(screen.getByText('불러오는 중...')).toBeDefined();
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(2);
+    expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
     expect(screen.queryByTestId('super-admin-preview-error')).toBeNull();
   });
@@ -501,10 +503,61 @@ describe('SuperAdminPage', () => {
     expect(
       screen.getByText('감사 로그를 불러오지 못했습니다: Network error loading audit logs'),
     ).toBeDefined();
+    expect(screen.getByText('오늘 이벤트를 불러오지 못했습니다.')).toBeDefined();
+    expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
     expect(screen.queryByTestId('super-admin-preview-loading')).toBeNull();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
 
     const eventCard = screen.getByTestId('kpi-card-오늘 이벤트');
     expect(eventCard.textContent).toContain('—');
+  });
+
+  it('scenario 13: header description distinguishes loading, error, and empty success states without contradiction', () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      error: null,
+    });
+
+    // 1. loading
+    mockUseAuditLogSummary.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+    });
+    const { unmount: unmountLoading } = renderWithRouter(<SuperAdminPage />);
+    expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(2);
+    unmountLoading();
+
+    // 2. error
+    mockUseAuditLogSummary.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('Failed to load'),
+    });
+    const { unmount: unmountError } = renderWithRouter(<SuperAdminPage />);
+    expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
+    expect(screen.getByText('오늘 이벤트를 불러오지 못했습니다.')).toBeDefined();
+    unmountError();
+
+    // 3. success with 0 events
+    mockUseAuditLogSummary.mockReturnValue({
+      data: { count: 0, entries: [], snapshotAt: Date.now(), generatedAt: Date.now() },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderWithRouter(<SuperAdminPage />);
+    expect(screen.getByText('오늘 이벤트가 없습니다.')).toBeDefined();
+    expect(screen.queryByText('불러오는 중...')).toBeNull();
+    expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
   });
 });

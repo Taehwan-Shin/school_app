@@ -6,7 +6,8 @@ import type { AuditLogEntryRead } from './auditLogList';
 export interface AuditLogSummaryResponse {
   count: number;
   entries: AuditLogEntryRead[];
-  countedAt: number;
+  snapshotAt: number;
+  generatedAt: number;
 }
 
 export interface UseAuditLogSummaryOptions {
