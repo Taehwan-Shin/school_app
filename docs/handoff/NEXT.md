@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **Chat UI 프론트엔드 v0.77** — 「/admin/chat」 라우트 + ChatSpacesTable + useChatList hook + nav 활성화.
+> 지금 이 파일의 오더는 **chat.create v0.78** — 신규 callable + CreateChatSpaceDialog + ChatSpacesTable 「+ 챗방 추가」 버튼.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-ui-v77`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-create-v78`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,277 +19,299 @@
 
 ## 기준 커밋
 
-**Base**: `9404ce2` (chat.list callable v0.76)
+**Base**: `e455f5a` (Chat UI v0.77)
 
-## 지금 할 것 — Chat 목록 UI
+## 지금 할 것 — chat.create + Dialog
 
 ### 왜
 
-v0.76 로 backend chat.list callable 배포 · bliss00 재로그인 완료 (2026-09-06 09:51 KST). 이제 프론트 UI 로 admin 이 chat spaces 볼 수 있어야 함.
+v0.76·v0.77 로 chat list 완비. 이제 admin 이 새 챗방 (space) 생성할 수 있어야 함.
 
-**하지 않는 것**: chat.create · chat.delete · chat.assign (별도 slice v0.78~v0.80). classroom UI (v0.81~ 별도).
+**하지 않는 것**: chat.delete (v0.79). chat.assign (v0.80). GROUP_CHAT · DIRECT_MESSAGE 생성 (사용자 이니시에이티브, 이번은 SPACE 만). basic_data 자동 생성 (v0.80+).
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/web/src/api/chatList.ts` — fetch + useQuery hook
-- `packages/web/src/routes/admin/chat.tsx` — AdminChatPage (AppShell + ChatSpacesTable)
-- `packages/web/src/routes/admin/ChatSpacesTable.tsx` — 표 컴포넌트
-- `packages/web/tests/chatList.test.ts` — API 시나리오 2
-- `packages/web/tests/ChatSpacesTable.test.tsx` — UI 시나리오 4
+- `packages/functions/src/callable/chat/create.ts` — 신규 callable
+- `packages/functions/tests/chatCreate.test.ts` — 시나리오 5~6
+- `packages/web/src/api/chatCreate.ts` — fetch + useMutation
+- `packages/web/src/routes/admin/CreateChatSpaceDialog.tsx` — 이름 input Dialog
+- `packages/web/tests/chatCreate.test.ts` — 시나리오 2
+- `packages/web/tests/CreateChatSpaceDialog.test.tsx` — 시나리오 4
 
 **수정 대상**:
-- `packages/web/src/App.tsx` — 신규 라우트 (admin + super_admin 각각)
-- `packages/web/src/components/shell/nav-items.ts` — 「챗방」 disabled 제거 (admin + super_admin)
-- `packages/web/tests/RoleGuard.test.tsx` (있으면) — 새 라우트 회귀
+- `packages/functions/src/google/chatClient.ts` — `spaces.create` 인터페이스 추가
+- `packages/functions/src/index.ts` — export `chatCreate`
+- `firebase.json` — hosting rewrite `/api/chatCreate`
+- `packages/web/src/routes/admin/ChatSpacesTable.tsx` — 「+ 챗방 추가」 버튼 + Dialog state
 
 **손대지 마라**:
-- 백엔드 (chat.list callable 그대로).
-- 다른 도메인 · Firestore.
+- 다른 callable · basic_data · classroom.
+- chat.list 자체.
 
 ### 세부 요구
 
-#### 1. `chatList.ts` — API + hook
+#### 1. `chatClient.ts` — spaces.create 인터페이스
 
-`groupsList.ts` 패턴 참고:
+기존 `ChatClient` interface 확장:
 ```ts
-import { useQuery } from '@tanstack/react-query';
-import { auth } from '../lib/firebase';
-import { getGoogleAccessTokenFromSession } from '../lib/auth';
+export interface ChatClient {
+  spaces: {
+    list: (params?: { pageSize?: number; pageToken?: string; filter?: string }) => Promise<{ data: ChatSpacesListResponse }>;
+    create: (params: { requestBody: { displayName: string; spaceType: 'SPACE' } }) => Promise<{ data: ChatSpace }>;
+  };
+}
+```
 
-export interface ChatSpaceItem {
-  name: string;                // "spaces/AAAA"
-  displayName?: string;
-  spaceType?: string;          // 'SPACE' · 'GROUP_CHAT' · 'DIRECT_MESSAGE'
-  spaceHistoryState?: string;
-  externalUserAllowed?: boolean;
-  createTime?: string;
+**주의**: googleapis chat v1 은 `spaces.create` 지원 · 실행 시 사용자의 chat.spaces 스코프 필요.
+
+#### 2. `chat/create.ts` — callable
+
+기존 `chat/list.ts` 참고. 다른 점:
+- 입력: `{ displayName: string, spaceType?: 'SPACE' }`
+- 응답: `{ space: ChatSpace }`
+- Cap: `chat.write`
+- Scope: `chat.spaces`
+
+```ts
+export interface ChatCreateRequest {
+  displayName: string;
+  spaceType?: 'SPACE';   // 이번은 SPACE 만 (default)
 }
 
-export interface ChatListResponse {
-  spaces: ChatSpaceItem[];
+export interface ChatCreateResponse {
+  space: ChatSpace;
 }
 
-export async function callChatList(): Promise<ChatListResponse> {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not_authenticated');
-  const idToken = await user.getIdToken();
-  const googleAccessToken = getGoogleAccessTokenFromSession() || '';
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/chat.spaces',
+] as const;
 
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'school-app-5a636';
-  const url = import.meta.env.DEV
-    ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/chatList`
-    : `https://asia-northeast3-${projectId}.cloudfunctions.net/chatList`;
+// 인증 · Cap · Scope (chat/list.ts 패턴 · denied audit)
 
-  const requestId =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : Math.random().toString(36).substring(2);
+try {
+  const data = request.data as Partial<ChatCreateRequest> | undefined;
+  if (!data?.displayName || typeof data.displayName !== 'string' || data.displayName.trim().length === 0) {
+    throw new HttpsError('invalid-argument', 'display_name_required');
+  }
+  const displayName = data.displayName.trim();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-      'X-Google-Access-Token': googleAccessToken,
-      'X-Google-Scopes': 'https://www.googleapis.com/auth/chat.spaces',
-      'X-Request-Id': requestId,
+  const chat = getChatClient(user.googleAccessToken);
+  const res = await chat.spaces.create({
+    requestBody: {
+      displayName,
+      spaceType: 'SPACE',
     },
-    body: JSON.stringify({ data: { _googleAccessToken: googleAccessToken } }),
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const message = body.error?.message ?? `http_${res.status}`;
-    const err = new Error(message) as Error & { status?: number };
-    err.status = res.status;
-    throw err;
-  }
+  await writeAudit({
+    actor: user.email, role: user.role,
+    action: 'chat.write', target: res.data.name || '*',
+    request_id: requestId, result: 'ok',
+    message: `created chat space ${res.data.name} (${displayName})`,
+  });
 
-  const body = await res.json();
-  return (body.result ?? body) as ChatListResponse;
+  return { space: res.data };
+} catch (err) {
+  // error audit (target 은 displayName 사용 가능)
+  ...
+}
+```
+
+**주의**:
+- displayName trim 후 non-empty 검증.
+- audit target 은 실제 생성된 space name (예: `spaces/AAAA`) 사용 · 실패 시 requested displayName 사용.
+
+#### 3. functions/index.ts + firebase.json
+
+```ts
+export { chatCreate } from './callable/chat/create.js';
+```
+
+`firebase.json` rewrites 배열에 `/api/chatCreate` 추가.
+
+#### 4. 테스트
+
+**functions `chatCreate.test.ts`** (5~6 시나리오):
+1. 미인증 → denied audit.
+2. 캡 부족 (teacher) → denied audit.
+3. 스코프 부족 → denied audit.
+4. displayName 없음/빈 문자열 → invalid-argument · error audit.
+5. 정상 → mock chat.spaces.create 응답 반환 · ok audit (target=spaces/...).
+6. Google API 실패 → error audit.
+
+#### 5. `chatCreate.ts` — fetch + mutation hook
+
+`groupsCreate.ts` 참고:
+```ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+export interface ChatCreateRequest {
+  displayName: string;
 }
 
-export function useChatList(enabled = true) {
-  return useQuery<ChatListResponse, Error>({
-    queryKey: ['chat', 'list'],
-    queryFn: () => callChatList(),
-    enabled,
-    staleTime: 60_000,
-    retry: (failureCount, error) => {
-      const status = (error as Error & { status?: number }).status;
-      if (status !== undefined && status >= 400 && status < 500) return false;
-      return failureCount < 2;
+export interface ChatCreateResponse {
+  space: { name: string; displayName?: string; ... };
+}
+
+export async function callChatCreate(data: ChatCreateRequest): Promise<ChatCreateResponse> {
+  // fetch to /chatCreate 패턴 (chatList 참고)
+}
+
+export function useCreateChatSpace() {
+  const queryClient = useQueryClient();
+  return useMutation<ChatCreateResponse, Error, ChatCreateRequest>({
+    mutationFn: (data) => callChatCreate(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'list'] });
     },
   });
 }
 ```
 
-#### 2. `ChatSpacesTable.tsx` — 표 컴포넌트
+#### 6. `CreateChatSpaceDialog.tsx` — 이름 input Dialog
 
-`GroupsTable.tsx` (간단 버전) 참고. 검색·CSV 는 v0.78+ 후보. 이번은 기본 표:
+`CreateGroupDialog.tsx` 참고. 간단 구조:
 
 ```tsx
-import { useChatList } from '../../api/chatList';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '../../components/ui/table';
+export interface CreateChatSpaceDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
+export function CreateChatSpaceDialog({ open, onOpenChange }: CreateChatSpaceDialogProps) {
+  const [displayName, setDisplayName] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const { mutateAsync: createChat, isPending, error: mutationError } = useCreateChatSpace();
+
+  useEffect(() => {
+    if (open) {
+      setDisplayName('');
+      setValidationError(null);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
+    const trimmed = displayName.trim();
+    if (trimmed.length === 0) {
+      setValidationError('챗방 이름이 필요합니다.');
+      return;
+    }
+    try {
+      await createChat({ displayName: trimmed });
+      onOpenChange(false);
+    } catch { /* mutationError 표시 */ }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>새 챗방 생성</DialogTitle>
+            <DialogDescription>Google Chat 스페이스를 새로 만듭니다.</DialogDescription>
+          </DialogHeader>
+          <div>
+            <label>이름</label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="예: 2026년 1학년 A반"
+              data-testid="create-chat-name-input"
+              className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+              required
+            />
+          </div>
+          {validationError && (
+            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="create-chat-validation-error">
+              {validationError}
+            </div>
+          )}
+          {mutationError && (
+            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="create-chat-error">
+              생성 실패: {mutationError.message}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>취소</Button>
+            <Button type="submit" disabled={isPending} data-testid="create-chat-submit">
+              {isPending ? '생성 중...' : '생성'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+#### 7. `ChatSpacesTable.tsx` — 「+ 챗방 추가」 버튼
+
+기존 loading/error/empty/table 구조 유지 · 헤더 액션 로우 추가:
+```tsx
 export function ChatSpacesTable() {
   const { data, isLoading, isError, error } = useChatList();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   return (
     <div className="space-y-4">
-      {isLoading && (
-        <div className="py-8 text-center text-small text-fg-secondary" data-testid="chat-spaces-loading">
-          챗방 목록을 불러오는 중...
-        </div>
-      )}
-      {isError && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="chat-spaces-error">
-          챗방 목록을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
-      {!isLoading && !isError && (!data?.spaces || data.spaces.length === 0) && (
-        <div className="py-8 text-center text-small text-fg-secondary" data-testid="chat-spaces-empty">
-          속한 챗방이 없습니다.
-        </div>
-      )}
-      {data?.spaces && data.spaces.length > 0 && (
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>타입</TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>생성 시각</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.spaces.map((s) => (
-                <TableRow key={s.name} data-testid={`chat-space-row-${s.name}`}>
-                  <TableCell className="text-fg-primary">
-                    {s.displayName || <span className="text-fg-muted">(무제)</span>}
-                  </TableCell>
-                  <TableCell className="text-small text-fg-secondary">{s.spaceType || '-'}</TableCell>
-                  <TableCell className="font-mono text-small text-fg-secondary">{s.name}</TableCell>
-                  <TableCell className="font-mono text-small text-fg-secondary whitespace-nowrap">
-                    {s.createTime ? new Date(s.createTime).toLocaleString('ko-KR') : '-'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <div className="flex justify-between items-center">
+        <p className="text-small text-fg-secondary">
+          {data?.spaces ? `${data.spaces.length}개 챗방` : '챗방 목록'}
+        </p>
+        <Button onClick={() => setIsCreateOpen(true)} data-testid="chat-create-btn">
+          + 챗방 추가
+        </Button>
+      </div>
+      {/* 기존 loading/error/empty/table 그대로 */}
+      <CreateChatSpaceDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </div>
   );
 }
 ```
 
-**주의**:
-- Chat API 응답의 `name` 은 `spaces/AAAA` 형식 (path-like). 그대로 표시.
-- `spaceType` 은 SPACE · GROUP_CHAT · DIRECT_MESSAGE — 그대로 표시 (v0.78+ 에서 filter chip 등 추가 가능).
-- 「무제」 는 displayName 없는 DIRECT_MESSAGE 등.
+#### 8. 테스트
 
-#### 3. `chat.tsx` — AdminChatPage
+**web `chatCreate.test.ts`** (2 신규):
+1. 200 응답 → hook `data.space`.
+2. 400 응답 → hook throws.
 
-기존 `admin/index.tsx` 패턴:
-```tsx
-import { useAuth } from '../../lib/auth';
-import { AppShell } from '../../components/shell/AppShell';
-import { ChatSpacesTable } from './ChatSpacesTable';
-
-export function AdminChatPage() {
-  const { role } = useAuth();
-
-  return (
-    <AppShell role={role} pageTitle="챗방">
-      <div className="space-y-8">
-        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
-          <div>
-            <h2 className="text-h2 font-semibold text-fg-primary">Google Chat 스페이스</h2>
-            <p className="text-small text-fg-secondary mt-1">
-              내가 멤버로 속한 챗방 목록입니다. 생성·삭제·멤버 관리는 다음 슬라이스에서 추가됩니다.
-            </p>
-          </div>
-          <ChatSpacesTable />
-        </section>
-      </div>
-    </AppShell>
-  );
-}
-```
-
-#### 4. `App.tsx` — 라우트 추가
-
-admin + super_admin 각각 (nav-items 에 두 곳 등록되어 있음):
-```tsx
-<Route path="/admin/chat" element={<AdminChatPage />} />
-<Route path="/super_admin/chat" element={<AdminChatPage />} />
-```
-
-*(같은 컴포넌트 재사용 · role 은 useAuth 로 자동 감지.)*
-
-**import 추가**: `import { AdminChatPage } from './routes/admin/chat';`
-
-#### 5. `nav-items.ts` — 챗방 disabled 제거
-
-기존 (`packages/web/src/components/shell/nav-items.ts:19`, 27):
-```ts
-{ label: '챗방', to: '/super_admin/chat', disabled: true },
-// ...
-{ label: '챗방', to: '/admin/chat', disabled: true },
-```
-
-변경:
-```ts
-{ label: '챗방', to: '/super_admin/chat' },
-// ...
-{ label: '챗방', to: '/admin/chat' },
-```
-
-#### 6. 테스트
-
-**web `chatList.test.ts`** (2 신규):
-1. 200 응답 → hook `data.spaces`.
-2. 401 → hook throws.
-
-**web `ChatSpacesTable.test.tsx`** (4 신규):
-1. 로딩 → `chat-spaces-loading`.
-2. 오류 → `chat-spaces-error`.
-3. 빈 목록 → `chat-spaces-empty`.
-4. spaces 2 개 → 표 렌더 · 각 row testid `chat-space-row-{name}`.
+**web `CreateChatSpaceDialog.test.tsx`** (4 신규):
+1. `open=false` → 컨텐츠 렌더 안 됨.
+2. `open=true` → input 렌더 · 초기값 빈 문자열.
+3. 빈 이름 submit → validation error.
+4. 유효 이름 submit → mutation 호출 · 성공 시 `onOpenChange(false)`.
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 658 + 신규 6 = 664 근처.
+4. `pnpm -r test` — 이전 664 + 신규 11~13 = 675~677 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/chat` 접속 → 챗방 목록 (bliss00 님이 속한 것)
-   - 나비게이션 「챗방」 링크 활성화
+   - `/admin/chat` 「+ 챗방 추가」 버튼 → 다이얼로그 → 이름 입력 → 생성 → 표 자동 새로고침
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **spaceType 필터 chip** — v0.78+ 후보.
-- **검색·CSV export** — v0.78+ 후보.
-- **admin 스코프** (chat.admin.spaces) 승격 — 사용자가 admin 이지만 workspace 전체 chat 보려면 admin scope 필요. 이번은 사용자 스코프 로 자기 space 만.
+- **실 Google Chat API 응답** (실 chat.space 생성) — 사용자 확인 필요.
+- **spaceType SPACE 외** (GROUP_CHAT · DIRECT_MESSAGE) — 사용자 이니시에이티브 · 별도 slice.
+- **created space 이름 중복 등 오류** — Google API 응답 그대로 표시.
 
 ### 커밋 규칙
 
 **3 커밋 분리**:
-1. `feat(web): chatList API + useChatList hook`
-2. `feat(web): ChatSpacesTable 컴포넌트`
-3. `feat(web): /admin/chat + /super_admin/chat 라우트 + nav 활성화 + AdminChatPage`
+1. `feat(functions): chat.create callable + chatClient spaces.create + firebase rewrite`
+2. `feat(web): chatCreate API + useCreateChatSpace mutation hook`
+3. `feat(web): CreateChatSpaceDialog + ChatSpacesTable 「+ 챗방 추가」 버튼`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/chat-ui-v77`.
+**작업 브랜치** — `git push -u origin feat/chat-create-v78`.
 
 ## 상태 보고 (필수)
 
