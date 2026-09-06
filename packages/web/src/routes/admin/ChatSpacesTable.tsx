@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useChatList } from '../../api/chatList';
+import { Button } from '../../components/ui/button';
 import {
   Table,
   TableBody,
@@ -7,12 +9,22 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+import { CreateChatSpaceDialog } from './CreateChatSpaceDialog';
 
 export function ChatSpacesTable() {
   const { data, isLoading, isError, error } = useChatList();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-small text-fg-secondary">
+          {data?.spaces ? `${data.spaces.length}개 챗방` : '챗방 목록'}
+        </p>
+        <Button onClick={() => setIsCreateOpen(true)} data-testid="chat-create-btn">
+          + 챗방 추가
+        </Button>
+      </div>
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="chat-spaces-loading">
           챗방 목록을 불러오는 중...
@@ -56,6 +68,7 @@ export function ChatSpacesTable() {
           </Table>
         </div>
       )}
+      <CreateChatSpaceDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </div>
   );
 }
