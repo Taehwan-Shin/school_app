@@ -56,7 +56,7 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
     expect(screen.getByText('dept-2@cam.hs.kr')).toBeDefined();
 
     const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn') as HTMLButtonElement;
-    expect(confirmBtn.disabled).toBe(false);
+    expect(confirmBtn.disabled).toBe(true);
   });
 
   it('scenario 2: disables confirm button and marks invalid when slug or owner is invalid', () => {
@@ -69,6 +69,9 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
         departments={departments}
       />
     );
+
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input') as HTMLInputElement;
+    fireEvent.change(confirmInput, { target: { value: '2' } });
 
     const slug0 = screen.getByTestId('auto-create-dept-slug-0') as HTMLInputElement;
     fireEvent.change(slug0, { target: { value: 'Korean!' } });
@@ -101,6 +104,9 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
       />
     );
 
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input') as HTMLInputElement;
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+
     const slug1 = screen.getByTestId('auto-create-dept-slug-1') as HTMLInputElement;
     fireEvent.change(slug1, { target: { value: 'dept-1' } });
 
@@ -129,6 +135,9 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
         onDone={onDone}
       />
     );
+
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '3' } });
 
     const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn');
     fireEvent.click(confirmBtn);
@@ -187,6 +196,9 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
       />
     );
 
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+
     const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn');
     fireEvent.click(confirmBtn);
 
@@ -215,6 +227,9 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
     const ownerInput = screen.getByTestId('auto-create-dept-owner-0') as HTMLInputElement;
     fireEvent.change(ownerInput, { target: { value: 'teacher@cam.hs.kr' } });
 
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '1' } });
+
     const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn');
     fireEvent.click(confirmBtn);
 
@@ -235,5 +250,34 @@ describe('AutoCreateDepartmentGroupsDialog component', () => {
       memberEmail: 'teacher@cam.hs.kr',
       role: 'OWNER',
     });
+  });
+
+  it('scenario 7: requires typing exact department count to enable confirm button', () => {
+    const departments = ['국어과', '수학과'];
+    renderWithClient(
+      <AutoCreateDepartmentGroupsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        departments={departments}
+      />
+    );
+
+    const confirmBtn = screen.getByTestId('auto-create-dept-groups-confirm-btn') as HTMLButtonElement;
+    const confirmInput = screen.getByTestId('auto-create-dept-groups-confirm-input') as HTMLInputElement;
+
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: '1' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: ' 2 ' } });
+    expect(confirmBtn.disabled).toBe(false);
+
+    fireEvent.change(confirmInput, { target: { value: 'wrong' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+    expect(confirmBtn.disabled).toBe(false);
   });
 });
