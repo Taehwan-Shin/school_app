@@ -59,7 +59,7 @@ describe('AutoInviteStudentsDialog component', () => {
     expect(screen.getByText('student3@cam.hs.kr')).toBeDefined();
 
     const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn') as HTMLButtonElement;
-    expect(confirmBtn.disabled).toBe(false);
+    expect(confirmBtn.disabled).toBe(true);
   });
 
   it('scenario 2: recalculates preview emails on prefix edit and enforces prefix validation', () => {
@@ -83,7 +83,11 @@ describe('AutoInviteStudentsDialog component', () => {
     );
 
     const prefixInput = screen.getByTestId('auto-invite-students-prefix-input') as HTMLInputElement;
+    const confirmInput = screen.getByTestId('auto-invite-students-confirm-input') as HTMLInputElement;
     const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn') as HTMLButtonElement;
+
+    // Type matching count
+    fireEvent.change(confirmInput, { target: { value: '1' } });
 
     expect(prefixInput.value).toBe('class');
     expect(screen.getByText('class-1a@cam.hs.kr')).toBeDefined();
@@ -136,6 +140,9 @@ describe('AutoInviteStudentsDialog component', () => {
         onDone={onDone}
       />
     );
+
+    const confirmInput = screen.getByTestId('auto-invite-students-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '2' } });
 
     const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn');
     expect((confirmBtn as HTMLButtonElement).disabled).toBe(false);
@@ -199,6 +206,9 @@ describe('AutoInviteStudentsDialog component', () => {
       />
     );
 
+    const confirmInput = screen.getByTestId('auto-invite-students-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '3' } });
+
     const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn');
     fireEvent.click(confirmBtn);
 
@@ -219,5 +229,43 @@ describe('AutoInviteStudentsDialog component', () => {
     const failuresEl = screen.getByTestId('auto-invite-students-failures');
     expect(failuresEl.textContent).toContain('student3@cam.hs.kr');
     expect(failuresEl.textContent).toContain('network error');
+  });
+
+  it('scenario 5: requires typing exact target student count to enable confirm button', () => {
+    const data: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      rosters: {
+        '1': {
+          A: ['student1@cam.hs.kr', 'student2@cam.hs.kr', 'student3@cam.hs.kr'],
+        },
+      },
+    };
+
+    renderWithClient(
+      <AutoInviteStudentsDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        year={2026}
+        data={data}
+      />
+    );
+
+    const confirmBtn = screen.getByTestId('auto-invite-students-confirm-btn') as HTMLButtonElement;
+    const confirmInput = screen.getByTestId('auto-invite-students-confirm-input') as HTMLInputElement;
+
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: ' 3 ' } });
+    expect(confirmBtn.disabled).toBe(false);
+
+    fireEvent.change(confirmInput, { target: { value: 'wrong' } });
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(confirmInput, { target: { value: '3' } });
+    expect(confirmBtn.disabled).toBe(false);
   });
 });

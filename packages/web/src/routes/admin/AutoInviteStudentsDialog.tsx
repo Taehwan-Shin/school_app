@@ -57,6 +57,7 @@ export function AutoInviteStudentsDialog({
   const queryClient = useContext(QueryClientContext);
   const [phase, setPhase] = useState<Phase>('confirm');
   const [prefix, setPrefix] = useState('class');
+  const [confirmText, setConfirmText] = useState('');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
 
@@ -80,6 +81,7 @@ export function AutoInviteStudentsDialog({
       setProgress(0);
       setResults([]);
       setPrefix('class');
+      setConfirmText('');
     }
   }, [open]);
 
@@ -170,13 +172,29 @@ export function AutoInviteStudentsDialog({
                 </tbody>
               </table>
             </div>
+            <div>
+              <label className="text-small text-fg-primary">
+                확인을 위해 대상 학생 수 (<strong>{targets.length}</strong>)를 입력하세요:
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                data-testid="auto-invite-students-confirm-input"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
+              />
+            </div>
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={targets.length === 0 || !/^[a-z0-9-]+$/.test(prefix)}
+                disabled={
+                  targets.length === 0 ||
+                  !/^[a-z0-9-]+$/.test(prefix) ||
+                  confirmText.trim() !== String(targets.length)
+                }
                 data-testid="auto-invite-students-confirm-btn"
               >
                 초대 실행
