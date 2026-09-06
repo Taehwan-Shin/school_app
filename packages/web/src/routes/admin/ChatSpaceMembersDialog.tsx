@@ -48,34 +48,39 @@ export function ChatSpaceMembersDialog({
           <div data-testid="chat-members-error">오류: {error?.message}</div>
         )}
         {!showLoading && !isError && data && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>이름/식별자</TableHead>
-                <TableHead>타입</TableHead>
-                <TableHead>역할</TableHead>
-                <TableHead>상태</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.members.map((m) => (
-                <TableRow key={m.name} data-testid={`chat-member-row-${m.name}`}>
-                  <TableCell className="font-mono text-small text-fg-primary">
-                    {m.member?.displayName || m.member?.name || m.name}
-                  </TableCell>
-                  <TableCell className="text-small text-fg-secondary">
-                    {m.member?.type || '-'}
-                  </TableCell>
-                  <TableCell className="text-small text-fg-secondary">
-                    {m.role || '-'}
-                  </TableCell>
-                  <TableCell className="text-small text-fg-secondary">
-                    {m.state || '-'}
-                  </TableCell>
+          <div
+            className="max-h-96 overflow-y-auto border border-border-subtle"
+            data-testid="chat-members-scroll-container"
+          >
+            <Table>
+              <TableHeader className="sticky top-0 bg-canvas">
+                <TableRow>
+                  <TableHead>이름/식별자</TableHead>
+                  <TableHead>타입</TableHead>
+                  <TableHead>역할</TableHead>
+                  <TableHead>상태</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data.members.map((m) => (
+                  <TableRow key={m.name} data-testid={`chat-member-row-${m.name}`}>
+                    <TableCell className="font-mono text-small text-fg-primary">
+                      {m.member?.displayName || m.member?.name || m.name}
+                    </TableCell>
+                    <TableCell className="text-small text-fg-secondary">
+                      {m.member?.type || '-'}
+                    </TableCell>
+                    <TableCell className="text-small text-fg-secondary">
+                      {m.role || '-'}
+                    </TableCell>
+                    <TableCell className="text-small text-fg-secondary">
+                      {m.state || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
