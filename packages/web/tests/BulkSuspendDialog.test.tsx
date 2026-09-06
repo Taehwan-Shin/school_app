@@ -126,4 +126,35 @@ describe("BulkSuspendDialog component", () => {
     expect(failuresEl.textContent).toContain("user2@cam.hs.kr");
     expect(failuresEl.textContent).toContain("admin_cannot_edit_admin");
   });
+
+  it("calls onDone when dialog is closed via X button or Escape in done phase", async () => {
+    const emails = ["user1@cam.hs.kr"];
+    mockCallUsersUpdate.mockResolvedValue({ primaryEmail: "test", updatedFields: ["suspended"] });
+    const onDone = vi.fn();
+    const onOpenChange = vi.fn();
+
+    renderWithClient(
+      <BulkSuspendDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        emails={emails}
+        onDone={onDone}
+      />
+    );
+
+    const confirmInput = screen.getByTestId("bulk-suspend-confirm-input");
+    fireEvent.change(confirmInput, { target: { value: "1" } });
+    fireEvent.click(screen.getByTestId("bulk-suspend-confirm-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-suspend-done")).toBeDefined();
+    });
+
+    const closeBtn = screen.getByRole("button", { name: "닫기" });
+    fireEvent.click(closeBtn);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
 });
+

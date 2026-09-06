@@ -124,4 +124,38 @@ describe("BulkMoveOuDialog component", () => {
     expect(failuresEl.textContent).toContain("user2@cam.hs.kr");
     expect(failuresEl.textContent).toContain("org_unit_not_found");
   });
+
+  it("calls onDone when dialog is closed via X button or Escape in done phase", async () => {
+    const emails = ["user1@cam.hs.kr"];
+    mockCallUsersUpdate.mockResolvedValue({
+      primaryEmail: "test",
+      updatedFields: ["orgUnitPath"],
+    });
+    const onDone = vi.fn();
+    const onOpenChange = vi.fn();
+
+    renderWithClient(
+      <BulkMoveOuDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        emails={emails}
+        onDone={onDone}
+      />
+    );
+
+    const input = screen.getByTestId("bulk-move-ou-input");
+    fireEvent.change(input, { target: { value: "/students" } });
+    fireEvent.click(screen.getByTestId("bulk-move-ou-confirm-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-move-ou-done")).toBeDefined();
+    });
+
+    const closeBtn = screen.getByRole("button", { name: "닫기" });
+    fireEvent.click(closeBtn);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
 });
+

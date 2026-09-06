@@ -126,4 +126,35 @@ describe("BulkDeleteDialog component", () => {
     expect(failuresEl.textContent).toContain("user2@cam.hs.kr");
     expect(failuresEl.textContent).toContain("admin_cannot_delete_admin");
   });
+
+  it("calls onDone when dialog is closed via X button or Escape in done phase", async () => {
+    const emails = ["user1@cam.hs.kr"];
+    mockCallUsersDelete.mockResolvedValue({ primaryEmail: "test", deleted: true });
+    const onDone = vi.fn();
+    const onOpenChange = vi.fn();
+
+    renderWithClient(
+      <BulkDeleteDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        emails={emails}
+        onDone={onDone}
+      />
+    );
+
+    const confirmInput = screen.getByTestId("bulk-delete-confirm-input");
+    fireEvent.change(confirmInput, { target: { value: "삭제 1" } });
+    fireEvent.click(screen.getByTestId("bulk-delete-confirm-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-delete-done")).toBeDefined();
+    });
+
+    const closeBtn = screen.getByRole("button", { name: "닫기" });
+    fireEvent.click(closeBtn);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
 });
+

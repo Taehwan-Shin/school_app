@@ -45,6 +45,9 @@ export function BulkDeleteDialog({
 
   const handleOpenChange = (newOpen: boolean) => {
     if (phase === "running") return;
+    if (!newOpen && phase === "done") {
+      onDone?.();
+    }
     onOpenChange(newOpen);
   };
 
@@ -174,12 +177,7 @@ export function BulkDeleteDialog({
                 </ul>
               )}
               <DialogFooter>
-                <Button
-                  onClick={() => {
-                    onOpenChange(false);
-                    onDone?.();
-                  }}
-                >
+                <Button onClick={() => handleOpenChange(false)}>
                   확인
                 </Button>
               </DialogFooter>

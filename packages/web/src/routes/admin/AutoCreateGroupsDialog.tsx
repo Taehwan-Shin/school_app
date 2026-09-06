@@ -94,6 +94,20 @@ export function AutoCreateGroupsDialog({
     [grades, year, prefix]
   );
 
+  const emailCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of targets) {
+      counts[t.email] = (counts[t.email] ?? 0) + 1;
+    }
+    return counts;
+  }, [targets]);
+
+  const duplicateEmails = useMemo(
+    () => Object.entries(emailCounts).filter(([_, c]) => c > 1).map(([e]) => e),
+    [emailCounts]
+  );
+  const hasDuplicates = duplicateEmails.length > 0;
+
   const totalStudents = useMemo(() => {
     if (!inviteStudents || !rosters) return 0;
     return targets.reduce((sum, t) => sum + (rosters[String(t.grade)]?.[t.class]?.length ?? 0), 0);
@@ -117,6 +131,7 @@ export function AutoCreateGroupsDialog({
   };
 
   const handleConfirm = async () => {
+    if (hasDuplicates) return;
     setPhase('running');
     const localResults: Result[] = [];
     let opProgress = 0;
@@ -232,7 +247,7 @@ export function AutoCreateGroupsDialog({
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
                   {targets.map((t) => (
-                    <tr key={t.email}>
+                    <tr key={`${t.grade}-${t.class}`}>
                       <td className="py-2 px-3 font-mono text-fg-primary">{t.email}</td>
                       <td className="py-2 px-3 text-fg-secondary">{t.name}</td>
                     </tr>
@@ -240,6 +255,15 @@ export function AutoCreateGroupsDialog({
                 </tbody>
               </table>
             </div>
+            {hasDuplicates && (
+              <div
+                className="border border-state-danger p-4 text-small text-state-danger"
+                data-testid="auto-create-groups-duplicate-error"
+              >
+                다음 이메일이 중복됩니다 ({duplicateEmails.length}건): {duplicateEmails.slice(0, 3).join(', ')}
+                {duplicateEmails.length > 3 && ` 외 ${duplicateEmails.length - 3}`}. 반 이름을 구분되게 조정하세요.
+              </div>
+            )}
             <div>
               <label className="text-small text-fg-primary">
                 확인을 위해 대상 개수 (<strong>{targets.length}</strong>)를 입력하세요:
@@ -261,7 +285,8 @@ export function AutoCreateGroupsDialog({
                 disabled={
                   confirmText.trim() !== String(targets.length) ||
                   targets.length === 0 ||
-                  !/^[a-z0-9-]+$/.test(prefix)
+                  !/^[a-z0-9-]+$/.test(prefix) ||
+                  hasDuplicates
                 }
                 data-testid="auto-create-groups-confirm-btn"
               >
