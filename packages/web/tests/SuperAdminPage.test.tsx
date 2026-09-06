@@ -115,19 +115,10 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogList.mockImplementation((limit?: number, filters?: any) => {
-      if (limit === 500 && filters?.atMin !== undefined) {
-        return {
-          entries: mockTodayEntries,
-          loading: false,
-          error: null,
-        };
-      }
-      return {
-        entries: mockEntries,
-        loading: false,
-        error: null,
-      };
+    mockUseAuditLogList.mockReturnValue({
+      entries: mockTodayEntries,
+      loading: false,
+      error: null,
     });
 
     renderWithRouter(<SuperAdminPage />);
@@ -144,8 +135,8 @@ describe('SuperAdminPage', () => {
     expect(groupCard.textContent).toContain('3');
     expect(eventCard.textContent).toContain('8');
 
+    expect(mockUseAuditLogList).toHaveBeenCalledTimes(1);
     expect(mockUseAuditLogList).toHaveBeenCalledWith(500, { atMin: expect.any(Number) });
-    expect(mockUseAuditLogList).toHaveBeenCalledWith(50);
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -239,7 +230,7 @@ describe('SuperAdminPage', () => {
     expect(screen.getByText('users.suspend')).toBeDefined();
     expect(screen.queryByText('users.update')).toBeNull();
 
-    expect(screen.getByText('최근 24시간에 6건의 이벤트가 기록되었습니다.')).toBeDefined();
+    expect(screen.getByText('오늘 6건의 이벤트가 기록되었습니다.')).toBeDefined();
     expect(screen.getByText('감사 로그 전체 보기 →')).toBeDefined();
   });
 
@@ -259,7 +250,7 @@ describe('SuperAdminPage', () => {
 
     renderWithRouter(<SuperAdminPage />);
 
-    expect(screen.getByText('최근 24시간에 이벤트가 없습니다.')).toBeDefined();
+    expect(screen.getByText('오늘 이벤트가 없습니다.')).toBeDefined();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
   });
 

@@ -139,7 +139,7 @@ describe('auditLogList unit tests', () => {
     );
   });
 
-  it('clamps limit above MAX_LIMIT (999 -> 200)', async () => {
+  it('clamps limit above MAX_LIMIT (1000 -> 500)', async () => {
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: [],
       nextCursor: null,
@@ -148,12 +148,43 @@ describe('auditLogList unit tests', () => {
     const req = createRequest({
       email: 'super@cam.hs.kr',
       role: 'super_admin',
-      data: { limit: 999 },
+      data: { limit: 1000 },
     });
     await auditLogList.run(req);
 
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
-      limit: 200,
+      limit: 500,
+      before: undefined,
+    });
+  });
+
+  it('allows requesting up to MAX_LIMIT (500) entries and returns all entries', async () => {
+    const mock500Entries: AuditLogEntryRead[] = Array.from({ length: 500 }, (_, i) => ({
+      id: `doc-${i}`,
+      actor: 'admin@cam.hs.kr',
+      role: 'admin',
+      action: 'users.read',
+      target: '*',
+      request_id: `req-${i}`,
+      result: 'ok',
+      at: 1700000000000 + i,
+    }));
+
+    mockReadAuditEntries.mockResolvedValueOnce({
+      entries: mock500Entries,
+      nextCursor: 1700000000499,
+    });
+
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { limit: 500 },
+    });
+    const result = await auditLogList.run(req);
+
+    expect(result.entries).toHaveLength(500);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 500,
       before: undefined,
     });
   });

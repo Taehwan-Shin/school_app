@@ -20,7 +20,7 @@ export interface AuditLogListResponse {
   nextCursor: number | null;
 }
 
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 50;
 
 function readHeader(request: any, key: string): string | undefined {
