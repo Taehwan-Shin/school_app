@@ -146,4 +146,40 @@ describe("BulkRemoveMembersDialog component", () => {
     expect(failuresEl.textContent).toContain("user2@cam.hs.kr");
     expect(failuresEl.textContent).toContain("member_not_found");
   });
+
+  it("calls onDone when dialog is closed via X button or Escape in done phase", async () => {
+    const memberEmails = ["user1@cam.hs.kr"];
+    mockCallGroupsMembersDelete.mockResolvedValue({
+      groupEmail,
+      memberEmail: "user1@cam.hs.kr",
+      deleted: true,
+    });
+    const onDone = vi.fn();
+    const onOpenChange = vi.fn();
+
+    renderWithClient(
+      <BulkRemoveMembersDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        groupEmail={groupEmail}
+        memberEmails={memberEmails}
+        onDone={onDone}
+      />
+    );
+
+    const confirmInput = screen.getByTestId("bulk-remove-confirm-input");
+    fireEvent.change(confirmInput, { target: { value: "제거 1" } });
+    fireEvent.click(screen.getByTestId("bulk-remove-confirm-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-remove-done")).toBeDefined();
+    });
+
+    const closeBtn = screen.getByRole("button", { name: "닫기" });
+    fireEvent.click(closeBtn);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
 });
+
