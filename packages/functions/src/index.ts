@@ -11,6 +11,7 @@ export { usersCreate } from './callable/users/create.js';
 export { usersDelete } from './callable/users/delete.js';
 export { usersUpdate } from './callable/users/update.js';
 export { auditLogList } from './callable/audit/list.js';
+export { auditLogCount } from './callable/audit/count.js';
 export { groupsList } from './callable/groups/list.js';
 export { groupsCreate } from './callable/groups/create.js';
 export { groupsUpdate } from './callable/groups/update.js';
