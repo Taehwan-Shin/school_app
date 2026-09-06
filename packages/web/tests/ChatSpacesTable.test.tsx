@@ -16,6 +16,14 @@ vi.mock('../src/api/chatCreate', () => ({
   }),
 }));
 
+vi.mock('../src/api/chatDelete', () => ({
+  useDeleteChatSpace: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import { ChatSpacesTable } from '../src/routes/admin/ChatSpacesTable';
 
 describe('ChatSpacesTable component', () => {
@@ -118,5 +126,37 @@ describe('ChatSpacesTable component', () => {
     expect(screen.getByText('새 챗방 생성')).toBeDefined();
     expect(screen.getByTestId('create-chat-name-input')).toBeDefined();
     expect(screen.getByTestId('create-chat-submit')).toBeDefined();
+  });
+
+  it('scenario 6: renders delete button in management column and opens DeleteChatSpaceDialog on click', () => {
+    const mockSpaces = [
+      {
+        name: 'spaces/AAAA',
+        displayName: '1학년 교무실',
+        spaceType: 'SPACE',
+      },
+    ];
+
+    mockUseChatList.mockReturnValue({
+      data: { spaces: mockSpaces },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ChatSpacesTable />);
+
+    expect(screen.getByText('관리')).toBeDefined();
+    const deleteBtn = screen.getByTestId('chat-delete-btn-spaces/AAAA');
+    expect(deleteBtn).toBeDefined();
+    expect(deleteBtn.textContent).toBe('삭제');
+
+    expect(screen.queryByText('챗방 삭제 확인')).toBeNull();
+
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByText('챗방 삭제 확인')).toBeDefined();
+    expect(screen.getByTestId('delete-chat-confirm-input')).toBeDefined();
+    expect(screen.getByTestId('delete-chat-submit')).toBeDefined();
   });
 });
