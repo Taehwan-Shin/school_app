@@ -197,4 +197,42 @@ describe('EditBasicDataDialog component', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
+
+  it('scenario 8: preserves existing rosters from initialData in saveBasicData payload', async () => {
+    mockMutateAsync.mockResolvedValueOnce({
+      year: 2026,
+      updatedAt: 1788480000000,
+    });
+    const onOpenChange = vi.fn();
+    const dataWithRosters: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      rosters: {
+        '1': { A: ['s1@cam.hs.kr'] },
+      },
+    };
+
+    render(
+      <EditBasicDataDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        year={2026}
+        initialData={dataWithRosters}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('edit-basic-data-submit'));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A'] }],
+        rosters: {
+          '1': { A: ['s1@cam.hs.kr'] },
+        },
+      });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
 });
+

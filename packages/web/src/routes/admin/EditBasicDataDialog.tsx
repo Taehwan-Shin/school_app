@@ -105,6 +105,7 @@ export function EditBasicDataDialog({
         year,
         grades,
         ...(departments !== undefined ? { departments } : {}),
+        ...(initialData?.rosters !== undefined ? { rosters: initialData.rosters } : {}),
       });
       onOpenChange(false);
     } catch {
