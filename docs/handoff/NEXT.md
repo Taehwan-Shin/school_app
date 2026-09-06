@@ -1,310 +1,210 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **chat.members.list v0.80** — 신규 callable + ChatSpaceMembersDialog + ChatSpacesTable 「멤버」 버튼. 멤버 관리는 v0.81+ (email→userId 해결 필요).
+> 지금 이 파일의 오더는 **Codex hotfix v0.81** — spaceName 정규식 강화 + Google upstream 401/403 → HttpsError denied 매핑 + ChatSpaceMembersDialog 스크롤.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-members-list-v80`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin fix/chat-members-codex-v81`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 3 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
 
 ## 기준 커밋
 
-**Base**: `034af36` (chat.delete v0.79)
+**Base**: `7b6256a` (chat.members.list v0.80 merge)
 
-## 지금 할 것 — chat.members.list + 멤버 보기 Dialog
+## 지금 할 것 — Codex P1 + P2 hotfix
 
 ### 왜
 
-v0.77·v0.78·v0.79 로 chat list · create · delete 완비. 이제 각 space 안 멤버 확인 필요. Chat API `spaces.members.list` 활용.
+v0.80 (chat.members.list) 자동 감사에서 Codex 가 2 건 실패 지적.
 
-**하지 않는 것**: chat.members.add · delete (v0.81+ · Chat API 는 member.name 이 `users/{USER_ID}` 형식 요구 → Directory API 로 email→id 해결 slice 별도 필요). basic_data 자동 배정 (v0.82+).
+**P1** (functions):
+- `membersList.ts:73` — `spaceName.startsWith('spaces/')` 만 검사 → `spaces/`, `spaces/AAA/members/BBB` 등 허용됨.
+- `membersList.ts:107` — Google upstream 401/403 Gaxios 오류를 `HttpsError` 로 재-throw 하면 `code` 가 `unknown` 이 되어 catch 상단의 `isDenied` 분기가 못 잡음 → audit `result: error` 로 기록. 실제로는 `denied` 여야 함.
+
+**P2** (web):
+- `ChatSpaceMembersDialog.tsx:39` — 표에 max-height / overflow-y-auto 없음 → 큰 space 는 viewport 밖 행 · 닫기 버튼 접근 불가.
+
+**하지 않는 것**: Classroom slice (v0.82+). 다른 도메인.
 
 ### 이 과제가 바꿀 경로
 
-**신규 파일**:
-- `packages/functions/src/callable/chat/membersList.ts` — 신규 callable
-- `packages/functions/tests/chatMembersList.test.ts` — 시나리오 5~6
-- `packages/web/src/api/chatMembersList.ts` — fetch + useQuery hook
-- `packages/web/src/routes/admin/ChatSpaceMembersDialog.tsx` — 멤버 목록 다이얼로그
-- `packages/web/tests/chatMembersList.test.ts` — 시나리오 2
-- `packages/web/tests/ChatSpaceMembersDialog.test.tsx` — 시나리오 4
-
 **수정 대상**:
-- `packages/functions/src/google/chatClient.ts` — `spaces.members.list` 인터페이스 추가
-- `packages/functions/src/index.ts` — export `chatMembersList`
-- `firebase.json` — hosting rewrite `/api/chatMembersList`
-- `packages/web/src/routes/admin/ChatSpacesTable.tsx` — 관리 컬럼 「멤버」 버튼 추가
+- `packages/functions/src/callable/chat/membersList.ts` — spaceName 정규식 + upstream status 매핑
+- `packages/functions/tests/chatMembersList.test.ts` — 시나리오 추가: 잘못된 형식 3~4 종 · Google 401 upstream → denied
+- `packages/web/src/routes/admin/ChatSpaceMembersDialog.tsx` — 표 컨테이너 max-h + overflow-y-auto
+- `packages/web/tests/ChatSpaceMembersDialog.test.tsx` — 시나리오 추가: 큰 목록 스크롤 컨테이너 존재 확인
 
 **손대지 마라**:
-- chat.list · create · delete · CreateChatSpaceDialog · DeleteChatSpaceDialog — 그대로.
+- chatClient.ts 는 그대로 (인터페이스 안정).
+- 다른 chat callable 은 그대로 (list · create · delete 는 별도 range 검증 이미 있음 · 하지만 이번 슬라이스는 chat.members 만).
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. `chatClient.ts` — spaces.members.list 인터페이스
+#### 1. `membersList.ts` — spaceName 정규식 + upstream status 매핑
 
+**정규식**:
 ```ts
-export interface ChatMember {
-  name: string;                // "spaces/AAAA/members/BBBBB"
-  member?: {
-    name: string;              // "users/USER_ID" · 또는 "groups/GROUP_ID"
-    type?: string;             // 'HUMAN' · 'BOT'
-    displayName?: string;
-  };
-  role?: string;               // 'ROLE_MEMBER' · 'ROLE_MANAGER'
-  state?: string;              // 'JOINED' · 'INVITED'
-  createTime?: string;
+const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
+// ...
+if (!data?.spaceName || typeof data.spaceName !== 'string' || !SPACE_NAME_RE.test(data.spaceName.trim())) {
+  throw new HttpsError('invalid-argument', 'invalid_space_name');
 }
-
-export interface ChatMembersListResponse {
-  memberships?: ChatMember[];
-  nextPageToken?: string;
-}
-
-// ChatClient 에 추가:
-spaces: {
-  ...,
-  members: {
-    list: (params: { parent: string; pageSize?: number; pageToken?: string }) => Promise<{ data: ChatMembersListResponse }>;
-  };
-};
 ```
 
-**주의**: googleapis chat v1 은 `spaces.members.list` 지원.
+허용: `spaces/AAAA` · `spaces/AA_BB-11`.
+거절: 빈 문자열 · `spaces/` · `spaces/AAA/members/BBB` · `foo` · trailing slash · 공백 포함.
 
-#### 2. `chat/membersList.ts` — callable
+**upstream status 매핑**:
+
+catch 안에서 err 이 Google Gaxios (has `.response.status`) 인 경우:
+- 401 · 403 → `HttpsError('permission-denied', 'google_upstream_denied: ' + message)` → audit `denied`
+- 404 → `HttpsError('not-found', 'google_upstream_not_found: ' + message)` → audit `error`
+- 429 · 5xx → `HttpsError('unavailable', 'google_upstream_unavailable: ' + message)` → audit `error`
+- 그 외 · non-Gaxios → 현재 로직 유지 (`HttpsError('unknown', message)`)
 
 ```ts
-export interface ChatMembersListRequest {
-  spaceName: string;           // "spaces/AAAA"
-}
-
-export interface ChatMembersListResponse {
-  members: ChatMember[];
-}
-
-const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/chat.memberships',
-] as const;
-
-// 인증 · Cap 'chat.read' · Scope · denied audit
-
-try {
-  const data = request.data as Partial<ChatMembersListRequest> | undefined;
-  if (!data?.spaceName || typeof data.spaceName !== 'string' || !data.spaceName.startsWith('spaces/')) {
-    throw new HttpsError('invalid-argument', 'invalid_space_name');
+function mapUpstreamError(err: unknown): HttpsError {
+  if (err instanceof HttpsError) return err;
+  // gaxios has err.response.status; also err.code sometimes numeric
+  const status: number | undefined =
+    (err as any)?.response?.status ??
+    (typeof (err as any)?.code === 'number' ? (err as any).code : undefined);
+  const msg = (err as Error).message ?? 'unknown';
+  if (status === 401 || status === 403) {
+    return new HttpsError('permission-denied', `google_upstream_denied: ${msg}`);
   }
-  const spaceName = data.spaceName.trim();
+  if (status === 404) {
+    return new HttpsError('not-found', `google_upstream_not_found: ${msg}`);
+  }
+  if (status === 429 || (typeof status === 'number' && status >= 500 && status < 600)) {
+    return new HttpsError('unavailable', `google_upstream_unavailable: ${msg}`);
+  }
+  return new HttpsError('unknown', msg);
+}
+```
 
-  const chat = getChatClient(user.googleAccessToken);
-  const results: ChatMember[] = [];
-  let pageToken: string | undefined;
-  do {
-    const res = await chat.spaces.members.list({ parent: spaceName, pageSize: 100, pageToken });
-    results.push(...(res.data.memberships ?? []));
-    pageToken = res.data.nextPageToken ?? undefined;
-  } while (pageToken);
-
+catch:
+```ts
+} catch (err) {
+  const mapped = mapUpstreamError(err);
+  const isDenied = mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';
   await writeAudit({
     actor: user.email, role: user.role,
-    action: 'chat.read', target: spaceName,
-    request_id: requestId, result: 'ok',
-    message: `listed ${results.length} members for space ${spaceName}`,
+    action: 'chat.read', target: targetName,
+    request_id: requestId,
+    result: isDenied ? 'denied' : 'error',
+    message: mapped.message,
   });
-
-  return { members: results };
-} catch (err) {
-  // error audit
-  ...
+  throw mapped;
 }
+```
+
+**주의**: 기존 `invalid-argument` (regex 실패) 는 이미 HttpsError 라 mapUpstreamError 첫 줄에서 그대로 throw · audit `error` 로 기록 (invalid input 이라 denied 아님).
+
+#### 2. `chatMembersList.test.ts` — 시나리오 확장
+
+이미 있는 6개 유지. 추가 3~4개:
+
+7. spaceName 형식 오류 - `spaces/` (뒤에 이름 없음) → invalid-argument.
+8. spaceName 형식 오류 - `spaces/AAA/members/BBB` (중첩 경로) → invalid-argument.
+9. spaceName 형식 오류 - `spaces/AA BB` (공백 포함) → invalid-argument.
+10. Google upstream 401 mock → HttpsError code `permission-denied` · audit `denied`.
+11. Google upstream 429 mock → HttpsError code `unavailable` · audit `error`.
+
+**mock 방법**:
+```ts
+const err: any = new Error('quota');
+err.response = { status: 429 };
+mockChatMembersList.mockRejectedValueOnce(err);
+```
+
+#### 3. `ChatSpaceMembersDialog.tsx` — 스크롤 컨테이너
+
+현재 구조:
+```tsx
+{!showLoading && !isError && data && (
+  <Table>...
+  </Table>
+)}
+```
+
+수정 후:
+```tsx
+{!showLoading && !isError && data && (
+  <div className="max-h-96 overflow-y-auto border border-border-subtle" data-testid="chat-members-scroll-container">
+    <Table>
+      <TableHeader className="sticky top-0 bg-canvas">
+        ...
+      </TableHeader>
+      <TableBody>...</TableBody>
+    </Table>
+  </div>
+)}
 ```
 
 **주의**:
-- Cap `chat.read` (list callable 과 동일).
-- Scope `chat.memberships` (chat.spaces 아님 · 멤버 전용 스코프).
-- pagination 순회.
+- `max-h-96` (24rem · 384px) — 대략 8~10 행. 대화 UI 관례.
+- `sticky top-0` header — 스크롤 중에도 컬럼 라벨 유지.
+- Dialog 자체는 `max-w-2xl` 유지 (가로 그대로).
 
-#### 3. functions/index.ts + firebase.json
+#### 4. `ChatSpaceMembersDialog.test.tsx` — 시나리오 추가
 
-```ts
-export { chatMembersList } from './callable/chat/membersList.js';
-```
+이미 있는 4개 유지. 추가 1개:
 
-`firebase.json` rewrites 배열에 `/api/chatMembersList` 추가.
+5. `open=true` + spaceName 있음 + members 50건 mock → `chat-members-scroll-container` testid 존재 확인.
 
-#### 4. 테스트
-
-**functions `chatMembersList.test.ts`** (5~6 시나리오):
-1. 미인증 → denied audit.
-2. 캡 부족 → denied audit.
-3. 스코프 부족 (chat.memberships) → denied audit.
-4. spaceName 형식 오류 → invalid-argument · error audit.
-5. 정상 (mock chat.spaces.members.list) → response.members.length 정확.
-6. pagination 2 페이지 → 모두 반환.
-
-#### 5. `chatMembersList.ts` — hook
-
-```ts
-export interface UseChatMembersListOptions {
-  spaceName: string;
-}
-
-export function useChatMembersList(spaceName: string | null, enabled = true) {
-  return useQuery<ChatMembersListResponse, Error>({
-    queryKey: ['chat', 'members', spaceName],
-    queryFn: () => callChatMembersList({ spaceName: spaceName! }),
-    enabled: enabled && !!spaceName,
-    staleTime: 60_000,
-    retry: (failureCount, error) => {
-      const status = (error as Error & { status?: number }).status;
-      if (status !== undefined && status >= 400 && status < 500) return false;
-      return failureCount < 2;
-    },
-  });
-}
-```
-
-#### 6. `ChatSpaceMembersDialog.tsx` — 멤버 다이얼로그
-
-`Dialog` 사용, 표 형태로 멤버 나열:
-
-**Props**:
-```ts
-export interface ChatSpaceMembersDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  spaceName: string | null;    // "spaces/AAAA"
-  displayName?: string;
-}
-```
-
-**구조**:
 ```tsx
-const { data, isLoading, isError, error } = useChatMembersList(spaceName, open);
-
-<Dialog open={open} onOpenChange={onOpenChange}>
-  <DialogContent className="max-w-2xl">
-    <DialogHeader>
-      <DialogTitle>{displayName || spaceName} 멤버</DialogTitle>
-      <DialogDescription>
-        <span className="font-mono">{spaceName}</span> 에 속한 멤버 목록.
-      </DialogDescription>
-    </DialogHeader>
-    {isLoading && <div data-testid="chat-members-loading">로딩 중...</div>}
-    {isError && <div data-testid="chat-members-error">오류: {error?.message}</div>}
-    {!isLoading && !isError && data && (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>이름/식별자</TableHead>
-            <TableHead>타입</TableHead>
-            <TableHead>역할</TableHead>
-            <TableHead>상태</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.members.map((m) => (
-            <TableRow key={m.name} data-testid={`chat-member-row-${m.name}`}>
-              <TableCell className="font-mono text-small text-fg-primary">
-                {m.member?.displayName || m.member?.name || m.name}
-              </TableCell>
-              <TableCell className="text-small text-fg-secondary">{m.member?.type || '-'}</TableCell>
-              <TableCell className="text-small text-fg-secondary">{m.role || '-'}</TableCell>
-              <TableCell className="text-small text-fg-secondary">{m.state || '-'}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    )}
-    <DialogFooter>
-      <Button variant="secondary" onClick={() => onOpenChange(false)}>닫기</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+it('renders scroll container when members list is populated', async () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({
+    name: `spaces/AAA/members/M${i}`,
+    member: { name: `users/${i}`, type: 'HUMAN' },
+    role: 'ROLE_MEMBER',
+    state: 'JOINED',
+  }));
+  vi.mocked(callChatMembersList).mockResolvedValueOnce({ members: many });
+  render(<ChatSpaceMembersDialog open spaceName="spaces/AAA" onOpenChange={vi.fn()} />, { wrapper });
+  const container = await screen.findByTestId('chat-members-scroll-container');
+  expect(container.className).toMatch(/overflow-y-auto/);
+  expect(container.className).toMatch(/max-h-/);
+});
 ```
-
-**주의**:
-- Chat API 는 사용자 이메일 안 반환 (privacy). `member.name` 은 `users/USER_ID` 형식 · displayName 은 있으면 표시.
-- 편집 액션 없음 (v0.81+ 별도).
-
-#### 7. `ChatSpacesTable.tsx` — 관리 컬럼 「멤버」 버튼
-
-기존 5 컬럼 (이름·타입·ID·생성 시각·관리 [삭제]) → 관리 컬럼 에 「멤버」 추가:
-```tsx
-<TableCell className="text-right">
-  <button
-    type="button"
-    onClick={() => setMembersTarget({ name: s.name, displayName: s.displayName })}
-    data-testid={`chat-members-btn-${s.name}`}
-    className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
-  >
-    멤버
-  </button>
-  <button ... 삭제 ...>삭제</button>
-</TableCell>
-```
-
-**state 추가**: `const [membersTarget, setMembersTarget] = useState<{name: string; displayName?: string} | null>(null);`
-
-**다이얼로그 렌더**:
-```tsx
-<ChatSpaceMembersDialog
-  open={!!membersTarget}
-  onOpenChange={(o) => !o && setMembersTarget(null)}
-  spaceName={membersTarget?.name ?? null}
-  displayName={membersTarget?.displayName}
-/>
-```
-
-#### 8. 테스트
-
-**web `chatMembersList.test.ts`** (2 신규):
-1. 200 응답 → hook `data.members`.
-2. 401 응답 → hook throws.
-
-**web `ChatSpaceMembersDialog.test.tsx`** (4 신규):
-1. `open=false` → 미렌더.
-2. `open=true` + spaceName null → 로딩 상태.
-3. `open=true` + spaceName 있음 → members mock 결과 렌더.
-4. 「닫기」 → `onOpenChange(false)`.
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 699 + 신규 11~13 = 710~712 근처.
+4. `pnpm -r test` — 이전 715 + 신규 5~6 = 720~721 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/chat` 각 행 「멤버」 버튼 → 다이얼로그 → 멤버 목록 표시
+   - `/admin/chat` → 챗방 「멤버」 → 큰 목록도 dialog 밖으로 넘치지 않음 (스크롤 발생).
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **member.name 을 email 로 변환** — Chat API 는 email 안 반환 · Directory API 로 users/{id}→email 조회 필요 · 별도 slice.
-- **멤버 add/remove** — v0.81+ (email→userId 해결 slice 필요).
-- **자동 배정 (basic_data 활용)** — v0.82+.
+- **실 Google Chat 401 오류** — 실 계정 · 실 API 필요.
+- **classroom slice** — v0.82 별도.
 
 ### 커밋 규칙
 
-**3 커밋 분리**:
-1. `feat(functions): chat.members.list callable + chatClient members.list + firebase rewrite`
-2. `feat(web): chatMembersList API + useChatMembersList hook`
-3. `feat(web): ChatSpaceMembersDialog + ChatSpacesTable 「멤버」 버튼`
+**2 커밋 분리**:
+1. `fix(functions): chat.members.list spaceName regex + upstream 401/403 → denied mapping`
+2. `fix(web): ChatSpaceMembersDialog scroll container (max-h-96 + sticky header)`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/chat-members-list-v80`.
+**작업 브랜치** — `git push -u origin fix/chat-members-codex-v81`.
 
 ## 상태 보고 (필수)
 
