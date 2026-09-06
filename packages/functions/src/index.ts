@@ -30,4 +30,5 @@ export { chatCreate } from './callable/chat/create.js';
 export { chatDelete } from './callable/chat/delete.js';
 export { chatMembersList } from './callable/chat/membersList.js';
 export { classroomList } from './callable/classroom/list.js';
+export { classroomPatch } from './callable/classroom/patch.js';
 
