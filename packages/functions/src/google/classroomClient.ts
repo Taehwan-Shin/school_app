@@ -88,6 +88,10 @@ export interface ClassroomClient {
         pageSize?: number;
         pageToken?: string;
       }) => Promise<{ data: ClassroomStudentsListResponse }>;
+      create: (params: {
+        courseId: string;
+        requestBody: { userId: string };
+      }) => Promise<{ data: ClassroomStudent }>;
     };
   };
 }
