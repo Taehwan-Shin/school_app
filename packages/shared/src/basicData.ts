@@ -43,21 +43,21 @@ export function isValidBasicDataYear(input: unknown): input is BasicDataYear {
     const classSet = new Set<string>();
     for (const c of g.classes) {
       if (typeof c !== 'string' || c.length === 0) return false;
-      const key = c.trim();
-      if (key.length === 0 || classSet.has(key)) return false;
-      classSet.add(key);
+      if (c !== c.trim()) return false;
+      if (classSet.has(c)) return false;
+      classSet.add(c);
     }
   }
   if (obj.departments !== undefined) {
     if (!Array.isArray(obj.departments)) return false;
-    if (!obj.departments.every((d: unknown) => typeof d === 'string' && d.trim().length > 0)) return false;
+    if (!obj.departments.every((d: unknown) => typeof d === 'string' && d.length > 0 && d === d.trim())) return false;
   }
   if (obj.rosters !== undefined) {
     if (typeof obj.rosters !== 'object' || obj.rosters === null || Array.isArray(obj.rosters)) return false;
     const validGradeKeys = new Set(obj.grades.map((g: any) => String(g.grade)));
     const gradeToClasses = new Map<string, Set<string>>();
     for (const g of obj.grades) {
-      gradeToClasses.set(String(g.grade), new Set(g.classes.map((c: string) => c.trim())));
+      gradeToClasses.set(String(g.grade), new Set(g.classes));
     }
     for (const gradeKey of Object.keys(obj.rosters)) {
       if (!/^\d+$/.test(gradeKey)) return false;

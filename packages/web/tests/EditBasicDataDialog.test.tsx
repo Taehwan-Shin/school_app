@@ -234,5 +234,91 @@ describe('EditBasicDataDialog component', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
+
+  it('scenario 9: detects stale roster on submit, displays warning, disables submit until confirmed, does not call saveBasicData', async () => {
+    const onOpenChange = vi.fn();
+    const dataWithStaleRosters: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      rosters: {
+        '1': {
+          A: ['s1@cam.hs.kr'],
+          X: ['s2@cam.hs.kr', 's3@cam.hs.kr'],
+        },
+        '2': {
+          B: ['s4@cam.hs.kr'],
+        },
+      },
+    };
+
+    render(
+      <EditBasicDataDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        year={2026}
+        initialData={dataWithStaleRosters}
+      />,
+    );
+
+    const submitBtn = screen.getByTestId('edit-basic-data-submit');
+    fireEvent.click(submitBtn);
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByTestId('edit-basic-data-stale-warning')).toBeDefined();
+    expect(screen.getByText(/3명/)).toBeDefined();
+    expect(screen.getByText(/1학년 X반: 2명/)).toBeDefined();
+    expect(screen.getByText(/2학년 B반: 1명/)).toBeDefined();
+    expect((submitBtn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('scenario 10: after confirming stale roster removal, submitting calls saveBasicData with reconciled rosters', async () => {
+    mockMutateAsync.mockResolvedValueOnce({
+      year: 2026,
+      updatedAt: 1788480000000,
+    });
+    const onOpenChange = vi.fn();
+    const dataWithStaleRosters: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['A'] }],
+      rosters: {
+        '1': {
+          A: ['s1@cam.hs.kr'],
+          X: ['s2@cam.hs.kr'],
+        },
+      },
+    };
+
+    render(
+      <EditBasicDataDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        year={2026}
+        initialData={dataWithStaleRosters}
+      />,
+    );
+
+    const submitBtn = screen.getByTestId('edit-basic-data-submit') as HTMLButtonElement;
+    fireEvent.click(submitBtn);
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    const confirmCheckbox = screen.getByTestId('edit-basic-data-confirm-stale-reconcile');
+    fireEvent.click(confirmCheckbox);
+
+    expect(submitBtn.disabled).toBe(false);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A'] }],
+        rosters: {
+          '1': {
+            A: ['s1@cam.hs.kr'],
+          },
+        },
+      });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
 });
 

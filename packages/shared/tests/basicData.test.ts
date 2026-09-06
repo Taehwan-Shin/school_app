@@ -309,5 +309,43 @@ describe('isValidBasicDataYear', () => {
       }),
     ).toBe(false);
   });
+
+  it('returns false when class name contains leading or trailing whitespace', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: [' A '] }],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A '] }],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: [' A'] }],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when department name contains leading or trailing whitespace', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: [' 국어과'],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [],
+        departments: ['국어과 '],
+      }),
+    ).toBe(false);
+  });
 });
 
