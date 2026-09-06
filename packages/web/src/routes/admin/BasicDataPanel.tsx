@@ -7,12 +7,14 @@ import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
 import { EditRostersDialog } from './EditRostersDialog';
 import { AutoInviteStudentsDialog } from './AutoInviteStudentsDialog';
+import { ImportBasicDataDialog } from './ImportBasicDataDialog';
 
 export function BasicDataPanel() {
   const thisYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(thisYear);
   const [yearInput, setYearInput] = useState(String(thisYear));
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isAutoCreateOpen, setIsAutoCreateOpen] = useState(false);
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
   const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);
@@ -134,6 +136,13 @@ export function BasicDataPanel() {
             title={!data?.data ? '데이터 없음' : `${selectedYear}년 기초값 JSON 다운로드`}
           >
             JSON 내보내기
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsImportOpen(true)}
+            data-testid="basic-data-json-import-btn"
+          >
+            JSON 불러오기
           </Button>
           <Button
             variant="secondary"
@@ -281,6 +290,12 @@ export function BasicDataPanel() {
         onOpenChange={setIsEditOpen}
         year={selectedYear}
         initialData={data?.data ?? null}
+      />
+
+      <ImportBasicDataDialog
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        currentYear={selectedYear}
       />
     </section>
   );
