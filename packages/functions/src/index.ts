@@ -28,4 +28,5 @@ export { basicDataListYears } from './callable/basicData/listYears.js';
 export { chatList } from './callable/chat/list.js';
 export { chatCreate } from './callable/chat/create.js';
 export { chatDelete } from './callable/chat/delete.js';
+export { chatMembersList } from './callable/chat/membersList.js';
 

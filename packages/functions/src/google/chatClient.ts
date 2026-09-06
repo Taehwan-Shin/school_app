@@ -14,11 +14,31 @@ export interface ChatSpacesListResponse {
   nextPageToken?: string;
 }
 
+export interface ChatMember {
+  name: string;
+  member?: {
+    name: string;
+    type?: string;
+    displayName?: string;
+  };
+  role?: string;
+  state?: string;
+  createTime?: string;
+}
+
+export interface ChatMembersListResponse {
+  memberships?: ChatMember[];
+  nextPageToken?: string;
+}
+
 export interface ChatClient {
   spaces: {
     list: (params?: { pageSize?: number; pageToken?: string; filter?: string }) => Promise<{ data: ChatSpacesListResponse }>;
     create: (params: { requestBody: { displayName: string; spaceType: 'SPACE' } }) => Promise<{ data: ChatSpace }>;
     delete: (params: { name: string }) => Promise<{ data: {} }>;
+    members: {
+      list: (params: { parent: string; pageSize?: number; pageToken?: string }) => Promise<{ data: ChatMembersListResponse }>;
+    };
   };
 }
 
