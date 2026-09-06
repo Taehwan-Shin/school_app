@@ -84,8 +84,13 @@ export function ImportBasicDataDialog({
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (phase === 'saving') return;
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className={phase === 'saving' ? '[&>button]:hidden space-y-4' : 'space-y-4'}>
         {phase === 'select' && (
           <>
