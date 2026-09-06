@@ -9,6 +9,7 @@ import { SuperAdminPage } from './routes/super_admin';
 import { AuditLogPage } from './routes/super_admin/audit';
 import { AdminPage } from './routes/admin';
 import { AdminChatPage } from './routes/admin/chat';
+import { AdminClassroomsPage } from './routes/admin/classrooms';
 import { GroupsPage } from './routes/admin/groups';
 import { GroupDetailPage } from './routes/admin/groupDetail';
 import { UserDetailPage } from './routes/admin/userDetail';
@@ -37,11 +38,13 @@ export function App() {
                 <Route path="/super_admin" element={<SuperAdminPage />} />
                 <Route path="/super_admin/audit" element={<AuditLogPage />} />
                 <Route path="/super_admin/chat" element={<AdminChatPage />} />
+                <Route path="/super_admin/classrooms" element={<AdminClassroomsPage />} />
               </Route>
 
               <Route element={<RoleGuard expectedRoles={['super_admin', 'admin']} />}>
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/chat" element={<AdminChatPage />} />
+                <Route path="/admin/classrooms" element={<AdminClassroomsPage />} />
                 <Route path="/admin/groups" element={<GroupsPage />} />
                 <Route path="/admin/groups/:email" element={<GroupDetailPage />} />
                 <Route path="/admin/users/:email" element={<UserDetailPage />} />

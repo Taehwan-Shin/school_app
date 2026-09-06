@@ -81,6 +81,11 @@ describe('AppShell', () => {
     const chatItem = screen.getByText('챗방');
     expect(chatItem.tagName).toBe('A');
     expect(chatItem.getAttribute('href')).toBe('/super_admin/chat');
+
+    // 클래스룸 항목은 active link (<a>) 로 렌더되어야 한다 (/super_admin/classrooms).
+    const classroomItem = screen.getByText('클래스룸');
+    expect(classroomItem.tagName).toBe('A');
+    expect(classroomItem.getAttribute('href')).toBe('/super_admin/classrooms');
   });
 
   it('renders admin navigation items correctly', () => {
@@ -113,39 +118,33 @@ describe('AppShell', () => {
     expect(chatItem.tagName).toBe('A');
     expect(chatItem.getAttribute('href')).toBe('/admin/chat');
 
+    const classroomItem = screen.getByText('클래스룸');
+    expect(classroomItem.tagName).toBe('A');
+    expect(classroomItem.getAttribute('href')).toBe('/admin/classrooms');
+
     expect(screen.queryByText('감사 로그')).toBeNull();
     expect(screen.queryByText('시스템 설정')).toBeNull();
   });
 
   // 미구현 라우트를 가리키던 항목은 클릭 불가 span 으로 렌더 (Link 로 두면 RootRedirect 로 튄다).
-  it('renders unimplemented admin items as disabled non-clickable spans (aria-disabled)', () => {
+  it('renders unimplemented items as disabled non-clickable spans (aria-disabled)', () => {
     mockUseAuth.mockReturnValue({
-      user: { email: 'admin@cam.hs.kr' },
-      role: 'admin',
+      user: { email: 'super@cam.hs.kr' },
+      role: 'super_admin',
       loading: false,
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin']}>
-        <AppShell role="admin" pageTitle="관리자">
+      <MemoryRouter initialEntries={['/super_admin']}>
+        <AppShell role="super_admin" pageTitle="슈퍼 관리자">
           <div>내용</div>
         </AppShell>
       </MemoryRouter>,
     );
 
-    const classroomItem = screen.getByText('클래스룸');
-    expect(classroomItem.tagName).toBe('SPAN');
-    expect(classroomItem.getAttribute('aria-disabled')).toBe('true');
-
-    const accountItem = screen.getByText('계정');
-    expect(accountItem.tagName).toBe('A');
-
-    const groupItem = screen.getByText('그룹');
-    expect(groupItem.tagName).toBe('A');
-
-    const chatItem = screen.getByText('챗방');
-    expect(chatItem.tagName).toBe('A');
-    expect(chatItem.getAttribute('href')).toBe('/admin/chat');
+    const settingsItem = screen.getByText('시스템 설정');
+    expect(settingsItem.tagName).toBe('SPAN');
+    expect(settingsItem.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('renders teacher navigation items correctly', () => {

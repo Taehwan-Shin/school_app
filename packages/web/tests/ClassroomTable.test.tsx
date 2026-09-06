@@ -1,0 +1,129 @@
+import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+const mockUseClassroomList = vi.fn();
+
+vi.mock('../src/api/classroomList', () => ({
+  useClassroomList: () => mockUseClassroomList(),
+}));
+
+import { ClassroomTable, translateCourseState } from '../src/routes/admin/ClassroomTable';
+
+describe('ClassroomTable component', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('scenario 1: renders loading indicator when isLoading is true', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+    expect(screen.getByTestId('classroom-list-loading')).toBeDefined();
+    expect(screen.getByText('클래스룸 코스 목록을 불러오는 중...')).toBeDefined();
+  });
+
+  it('scenario 2: renders error message when request fails', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('network_failure'),
+    });
+
+    render(<ClassroomTable />);
+    expect(screen.getByTestId('classroom-list-error')).toBeDefined();
+    expect(
+      screen.getByText('클래스룸 코스 목록을 불러오지 못했습니다: network_failure'),
+    ).toBeDefined();
+  });
+
+  it('scenario 3: renders empty message when courses list is empty', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+    expect(screen.getByTestId('classroom-list-empty')).toBeDefined();
+    expect(screen.getByText('표시할 클래스룸 코스가 없습니다.')).toBeDefined();
+  });
+
+  it('scenario 4: renders 3 course rows with state translations and links', () => {
+    const mockCourses = [
+      {
+        id: 'c-101',
+        name: '1학년 1반 수학',
+        section: '1학기',
+        courseState: 'ACTIVE',
+        alternateLink: 'https://classroom.google.com/c/c-101',
+      },
+      {
+        id: 'c-102',
+        name: '1학년 2반 영어',
+        section: '1학기',
+        courseState: 'ARCHIVED',
+        alternateLink: 'https://classroom.google.com/c/c-102',
+      },
+      {
+        id: 'c-103',
+        name: '2학년 1반 과학',
+        section: '2학기',
+        courseState: 'PROVISIONED',
+        alternateLink: 'https://classroom.google.com/c/c-103',
+      },
+    ];
+
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: mockCourses },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+
+    expect(screen.getByText('3개 코스')).toBeDefined();
+
+    expect(screen.getByTestId('classroom-row-c-101')).toBeDefined();
+    expect(screen.getByTestId('classroom-row-c-102')).toBeDefined();
+    expect(screen.getByTestId('classroom-row-c-103')).toBeDefined();
+
+    expect(screen.getByText('1학년 1반 수학')).toBeDefined();
+    expect(screen.getByText('1학년 2반 영어')).toBeDefined();
+    expect(screen.getByText('2학년 1반 과학')).toBeDefined();
+
+    // 상태 번역 검증
+    expect(screen.getByText('활성')).toBeDefined();
+    expect(screen.getByText('보관됨')).toBeDefined();
+    expect(screen.getByText('준비 중')).toBeDefined();
+
+    // 링크 검증
+    const link1 = screen.getByTestId('classroom-link-c-101');
+    expect(link1.getAttribute('href')).toBe('https://classroom.google.com/c/c-101');
+    expect(link1.getAttribute('target')).toBe('_blank');
+
+    const link2 = screen.getByTestId('classroom-link-c-102');
+    expect(link2.getAttribute('href')).toBe('https://classroom.google.com/c/c-102');
+
+    const link3 = screen.getByTestId('classroom-link-c-103');
+    expect(link3.getAttribute('href')).toBe('https://classroom.google.com/c/c-103');
+  });
+
+  it('translates course states correctly', () => {
+    expect(translateCourseState('ACTIVE')).toBe('활성');
+    expect(translateCourseState('ARCHIVED')).toBe('보관됨');
+    expect(translateCourseState('PROVISIONED')).toBe('준비 중');
+    expect(translateCourseState('DECLINED')).toBe('거절됨');
+    expect(translateCourseState('SUSPENDED')).toBe('일시중지');
+    expect(translateCourseState('UNKNOWN')).toBe('UNKNOWN');
+    expect(translateCourseState(undefined)).toBe('-');
+  });
+});
