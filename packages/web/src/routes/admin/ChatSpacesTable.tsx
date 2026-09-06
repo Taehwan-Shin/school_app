@@ -10,10 +10,12 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { CreateChatSpaceDialog } from './CreateChatSpaceDialog';
+import { DeleteChatSpaceDialog, type DeleteChatSpaceTarget } from './DeleteChatSpaceDialog';
 
 export function ChatSpacesTable() {
   const { data, isLoading, isError, error } = useChatList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteChatSpaceTarget | null>(null);
 
   return (
     <div className="space-y-4">
@@ -49,6 +51,7 @@ export function ChatSpacesTable() {
                 <TableHead>타입</TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>생성 시각</TableHead>
+                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -62,6 +65,16 @@ export function ChatSpacesTable() {
                   <TableCell className="font-mono text-small text-fg-secondary whitespace-nowrap">
                     {s.createTime ? new Date(s.createTime).toLocaleString('ko-KR') : '-'}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget({ name: s.name, displayName: s.displayName })}
+                      data-testid={`chat-delete-btn-${s.name}`}
+                      className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                    >
+                      삭제
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -69,6 +82,11 @@ export function ChatSpacesTable() {
         </div>
       )}
       <CreateChatSpaceDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <DeleteChatSpaceDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        space={deleteTarget}
+      />
     </div>
   );
 }
