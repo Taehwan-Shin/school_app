@@ -96,6 +96,10 @@
         "function": { "functionId": "chatCreate", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/chatDelete",
+        "function": { "functionId": "chatDelete", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
