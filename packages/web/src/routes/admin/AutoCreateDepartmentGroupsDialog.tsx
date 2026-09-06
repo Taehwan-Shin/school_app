@@ -74,6 +74,7 @@ export function AutoCreateDepartmentGroupsDialog({
   const [phase, setPhase] = useState<Phase>('confirm');
   const [slugs, setSlugs] = useState<string[]>([]); // departments 와 index 동기화
   const [owners, setOwners] = useState<string[]>([]); // department index 와 동기화, 빈 문자열 허용
+  const [confirmText, setConfirmText] = useState('');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
 
@@ -84,6 +85,7 @@ export function AutoCreateDepartmentGroupsDialog({
       setResults([]);
       setSlugs(departments.map((_, i) => defaultSlug(i)));
       setOwners(departments.map(() => ''));
+      setConfirmText('');
     }
   }, [open, departments]);
 
@@ -104,7 +106,11 @@ export function AutoCreateDepartmentGroupsDialog({
 
   const allValid = preview.every((p) => p.validSlug && p.validOwner);
   const noDuplicates = new Set(preview.map((p) => p.slug)).size === preview.length;
-  const canConfirm = allValid && noDuplicates && preview.length > 0;
+  const canConfirm =
+    allValid &&
+    noDuplicates &&
+    preview.length > 0 &&
+    confirmText.trim() === String(departments.length);
   const totalOps = preview.reduce((sum, p) => sum + 1 + (p.owner ? 1 : 0), 0);
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -240,13 +246,25 @@ export function AutoCreateDepartmentGroupsDialog({
             {!noDuplicates && (
               <p className="text-small text-state-danger">중복된 slug 이 있습니다.</p>
             )}
+            <div>
+              <label className="text-small text-fg-primary">
+                확인을 위해 대상 부서 수 (<strong>{departments.length}</strong>)를 입력하세요:
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                data-testid="auto-create-dept-groups-confirm-input"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
+              />
+            </div>
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={!canConfirm || departments.length === 0}
+                disabled={!canConfirm}
                 data-testid="auto-create-dept-groups-confirm-btn"
               >
                 생성 실행
