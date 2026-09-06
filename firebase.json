@@ -92,6 +92,10 @@
         "function": { "functionId": "chatList", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/chatCreate",
+        "function": { "functionId": "chatCreate", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

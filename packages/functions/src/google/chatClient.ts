@@ -17,6 +17,7 @@ export interface ChatSpacesListResponse {
 export interface ChatClient {
   spaces: {
     list: (params?: { pageSize?: number; pageToken?: string; filter?: string }) => Promise<{ data: ChatSpacesListResponse }>;
+    create: (params: { requestBody: { displayName: string; spaceType: 'SPACE' } }) => Promise<{ data: ChatSpace }>;
   };
 }
 
