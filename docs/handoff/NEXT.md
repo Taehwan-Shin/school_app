@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **Codex 감사 hotfix v0.68** — P2 슬러그 충돌 (AutoCreate·AutoInvite) + P4 bulk done phase close race (4 다이얼로그). 2 commits.
+> 지금 이 파일의 오더는 **Codex 감사 hotfix v0.69** — P3 validator 강화 + P5·P6 감사 24h rolling window (calendar-day 로 통일).
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin fix/codex-audit-p2-p4-v68`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin fix/codex-audit-p3-p5-p6-v69`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,200 +19,252 @@
 
 ## 기준 커밋
 
-**Base**: `57ea662` (CI lockfile fix) — v0.67 병합 후
+**Base**: `c8448d9` (Codex hotfix v0.68)
 
-## 지금 할 것 — P2 + P4 hotfix
+## 지금 할 것 — P3 + P5 + P6 hotfix
 
 ### 왜
 
-Codex 감사 (2026-09-06 basic_data + bulk 도메인) 실패 2건:
+Codex 감사 실패 잔여 3건:
 
-**P2 슬러그 충돌** (`packages/web/src/routes/admin/AutoCreateGroupsDialog.tsx:27` · `packages/web/src/routes/admin/AutoInviteStudentsDialog.tsx:25`):
-> 반 문자열을 영숫자 외 전부 제거한 뒤 생성 이메일의 유일성을 검증하지 않아 `A`/`A!`, 또는 서로 다른 한글 반 이름이 같은 그룹 주소로 충돌하며, 통합 초대는 서로 다른 반 학생을 같은 그룹에 넣을 수 있다.
+**P3 shared validator 부족** (`packages/shared/src/basicData.ts:27`):
+> validator 가 shape 만 확인해 0/음수 학년, 중복 학년·반, grades 에 없는 rosters 학년/반 을 허용
 
-**P4 bulk done close race** (`packages/web/src/routes/admin/BulkDeleteDialog.tsx:46` · BulkSuspendDialog · BulkMoveOuDialog · BulkRemoveMembersDialog):
-> done 단계에서 X/Escape/바깥 클릭으로 닫으면 `onOpenChange` 만 호출되고 line 180 의 `onDone` 은 「확인」 버튼에서만 실행되어 AccountsTable:566 의 선택 Set 이 남는다.
+**P5 super_admin 최근 24시간 이벤트 KPI 불일치** (`packages/web/src/routes/super_admin/index.tsx:14`):
+> 최근 50 로그만 client 에서 카운트 → 50 초과 시 과소 집계 · drill-down 은 오늘 00:00 atMin 사용 → KPI 숫자와 결과 범위 불일치
 
-**하지 않는 것**: shared validator 강화 (P3 는 v0.69). super_admin 24h KPI (P5·P6 는 v0.69). 공통 phase-dialog 헬퍼 추상화.
+**P6 AuditLogTable "지난 24시간" 프리셋 라벨 vs query 불일치** (`packages/web/src/routes/super_admin/AuditLogTable.tsx:94`):
+> 어제 00:00 atMin 을 넣어 실제 24~48h 범위 · 라벨과 query 의미 불일치
+
+**해결 방향**: URL 파라미터가 YYYY-MM-DD (date-string) 이라 정확한 rolling window 표현 불가. **calendar-day 시맨틱으로 통일** — 라벨을 실 query 에 맞춤:
+- "최근 24시간 이벤트" → "오늘 이벤트" (atMin = 오늘 00:00)
+- "지난 24시간" → "오늘" (atMin = 오늘 00:00)
+
+또한 P5 count 정확성을 위해 KPI 는 자체 useAuditLogList 호출 (limit 500, atMin=todayStart) 로 분리.
+
+**하지 않는 것**: 새 count callable (별도 slice). URL 파라미터 ms 확장 (별도 slice). 기존 데이터 마이그레이션 (validator 강화 후 admin 수동 fix).
 
 ### 이 과제가 바꿀 경로
 
-**Commit 1 (P4 bulk done close)**:
-- `packages/web/src/routes/admin/BulkSuspendDialog.tsx` — handleOpenChange 확장
-- `packages/web/src/routes/admin/BulkDeleteDialog.tsx` — 동일
-- `packages/web/src/routes/admin/BulkMoveOuDialog.tsx` — 동일
-- `packages/web/src/routes/admin/BulkRemoveMembersDialog.tsx` — 동일
-- 각 다이얼로그 테스트 파일 — 시나리오 1 (done 단계 X/Escape → onDone 호출됨)
+**Commit 1 (P3 validator 강화)**:
+- `packages/shared/src/basicData.ts` — validator: positive grade + unique grades + unique classes-per-grade + rosters keys in grades
+- `packages/shared/tests/basicData.test.ts` — 시나리오 4~5 (각 제약 위반)
+- `packages/functions/tests/basicDataSet.test.ts` — 시나리오 확장 (invalid case)
 
-**Commit 2 (P2 슬러그 충돌 감지)**:
-- `packages/web/src/routes/admin/AutoCreateGroupsDialog.tsx` — preview 에 중복 감지 · confirm 차단 + 오류 메시지
-- `packages/web/src/routes/admin/AutoInviteStudentsDialog.tsx` — 동일
-- 각 다이얼로그 테스트 파일 — 시나리오 1 (충돌 발생 시 confirm disabled)
+**Commit 2 (P5 · P6 calendar-day 통일)**:
+- `packages/web/src/routes/super_admin/index.tsx` — KPI 라벨 "오늘 이벤트" + 별도 useAuditLogList(500, atMin=todayStart)
+- `packages/web/src/routes/super_admin/AuditLogTable.tsx` — 프리셋 라벨 "지난 24시간" → "오늘", 정의도 today 00:00 로 통일
+- `packages/web/tests/SuperAdminPage.test.tsx` — 시나리오 라벨 조정 + count fetch 확인
+- `packages/web/tests/AuditLogTable.test.tsx` — 프리셋 라벨 조정 시나리오
 
 **손대지 마라**:
-- shared basicData.ts validator (v0.69 별도).
-- super_admin index.tsx · AuditLogTable.tsx preset (v0.69 별도).
-- 다른 다이얼로그 · 백엔드 · Firestore.
+- readAudit · audit/list callable (기존 그대로).
+- EditBasicDataDialog · AutoCreate 등 (v0.68 fix 유지).
+- 다른 라우트 · Firestore 인덱스.
 
 ### 세부 요구
 
-#### Commit 1: P4 bulk done close race
+#### Commit 1: shared validator 강화
 
-**대상 4 다이얼로그 · 공통 패턴** (각 파일 handleOpenChange 확장):
-
-기존 (`BulkSuspendDialog.tsx:44-47` 유사):
+기존 (`packages/shared/src/basicData.ts:13-35`):
 ```ts
-const handleOpenChange = (newOpen: boolean) => {
-  if (phase === 'running') return;
-  onOpenChange(newOpen);
-};
+export function isValidBasicDataYear(input: unknown): input is BasicDataYear {
+  if (!input || typeof input !== 'object') return false;
+  const obj = input as any;
+  if (typeof obj.year !== 'number' || ... obj.year < 1900 || obj.year > 2200) return false;
+  if (!Array.isArray(obj.grades)) return false;
+  for (const g of obj.grades) {
+    if (typeof g.grade !== 'number' || ...) return false;
+    if (!Array.isArray(g.classes)) return false;
+    if (!g.classes.every((c) => typeof c === 'string' && c.length > 0)) return false;
+  }
+  // departments · rosters 검증 있음
+  return true;
+}
 ```
 
-변경:
+**강화 규칙 추가** — grade 반복문 안:
 ```ts
-const handleOpenChange = (newOpen: boolean) => {
-  if (phase === 'running') return;
-  if (!newOpen && phase === 'done') {
-    onDone?.();
+// 학년 은 양의 정수
+if (g.grade <= 0) return false;
+// 반 이름 중복 금지 (한 학년 안)
+const classSet = new Set<string>();
+for (const c of g.classes) {
+  if (typeof c !== 'string' || c.length === 0) return false;
+  const key = c.trim();
+  if (classSet.has(key)) return false;
+  classSet.add(key);
+}
+```
+
+**학년 중복 금지** — 반복문 밖:
+```ts
+const gradeSet = new Set<number>();
+for (const g of obj.grades) {
+  if (gradeSet.has(g.grade)) return false;
+  gradeSet.add(g.grade);
+}
+```
+
+*(위 두 for 문 통합 가능.)*
+
+**rosters keys grades 참조 일관성** — rosters 검증 확장:
+```ts
+if (obj.rosters !== undefined) {
+  // ... 기존 shape 검증 ...
+  const validGradeKeys = new Set(obj.grades.map((g: any) => String(g.grade)));
+  const gradeToClasses = new Map<string, Set<string>>();
+  for (const g of obj.grades) {
+    gradeToClasses.set(String(g.grade), new Set(g.classes.map((c: string) => c.trim())));
   }
-  onOpenChange(newOpen);
-};
+  for (const gradeKey of Object.keys(obj.rosters)) {
+    if (!validGradeKeys.has(gradeKey)) return false;   // 존재 안 하는 학년
+    const gradeRoster = obj.rosters[gradeKey];
+    const validClasses = gradeToClasses.get(gradeKey)!;
+    for (const classKey of Object.keys(gradeRoster)) {
+      if (!validClasses.has(classKey)) return false;   // 존재 안 하는 반
+    }
+  }
+}
 ```
 
 **주의**:
-- `onDone` prop 이 optional 인 다이얼로그 (BulkSuspendDialog · BulkDeleteDialog · BulkMoveOuDialog · BulkRemoveMembersDialog) 는 이미 존재.
-- done 단계 「확인」 버튼 로직 은 그대로 (이미 `onOpenChange(false); onDone?.();` 순서).
-- 이 wrapper 는 「확인」 버튼과 중복이 아님 — 「확인」 버튼은 `onOpenChange(false)` 를 직접 호출하는데, 그 값이 `handleOpenChange(false)` 로 들어와 done 검사 후 `onDone` 실행 → 그 후 최종 `onOpenChange(false)` — 결과적으로 onDone 두 번 호출될 수 있음!
-
-**중복 호출 방지** 필요. 두 옵션:
-- (A) 「확인」 버튼에서 `onDone?.()` 제거하고 `onOpenChange(false)` 만 호출 → wrapper 가 알아서 호출
-- (B) wrapper 에서 이미 done phase 였고 「확인」 버튼 아니라면 만 호출 (판정 어려움)
-
-**옵션 (A) 선택** — 각 다이얼로그의 done phase 「확인」 버튼 :
-
-기존:
-```tsx
-<Button
-  onClick={() => {
-    onOpenChange(false);
-    onDone?.();
-  }}
->
-```
-
-변경:
-```tsx
-<Button
-  onClick={() => onOpenChange(false)}
->
-```
-
-이제 「확인」 버튼도 handleOpenChange → wrapper → `if (!newOpen && phase === 'done') onDone?.()` 통해 onDone 호출됨. 일관성.
+- 기존 데이터 (validator 통과했던) 는 backward compat — 방금 강화된 규칙 위반 시 저장만 실패, read 는 여전히 가능 (get.ts 는 validator 안 씀).
+- EditBasicDataDialog 는 서버 응답 오류 표시 (기존 mutationError 경로).
 
 #### Commit 1 테스트
 
-각 4 다이얼로그 테스트 (BulkSuspend · BulkDelete · BulkMoveOu · BulkRemoveMembers) 에 1 시나리오씩 신규:
-- done phase 진입 → `handleOpenChange(false)` (Escape/X 시뮬레이션) → `onDone` mock 호출 확인.
+`packages/shared/tests/basicData.test.ts` 확장:
+1. grade = 0 → invalid.
+2. grade = -1 → invalid.
+3. 중복 grade → invalid.
+4. 반 이름 중복 (같은 학년 안) → invalid.
+5. rosters grade key 가 grades 에 없음 → invalid.
+6. rosters class key 가 해당 학년의 classes 에 없음 → invalid.
 
-기존 「확인」 버튼 클릭 시나리오도 여전히 통과 (같은 경로).
+`packages/functions/tests/basicDataSet.test.ts` — 위 규칙 위반 시나리오 1개 (백엔드 rejection 확인).
 
-#### Commit 2: P2 슬러그 충돌 감지
+기존 회귀 유지.
 
-**AutoCreateGroupsDialog** (`packages/web/src/routes/admin/AutoCreateGroupsDialog.tsx`):
+#### Commit 2: 감사 · 대시보드 calendar-day 통일
 
-`targets` useMemo 결과 후 중복 감지:
+**`super_admin/index.tsx`**:
+
+기존:
 ```ts
-const emailCounts = useMemo(() => {
-  const counts: Record<string, number> = {};
-  for (const t of targets) {
-    counts[t.email] = (counts[t.email] ?? 0) + 1;
-  }
-  return counts;
-}, [targets]);
-
-const duplicateEmails = useMemo(
-  () => Object.entries(emailCounts).filter(([_, c]) => c > 1).map(([e]) => e),
-  [emailCounts]
-);
-const hasDuplicates = duplicateEmails.length > 0;
+const audit = useAuditLogList(50);
+const dayAgo = now - 24 * 60 * 60 * 1000;
+const recentEvents = audit.entries.filter((e) => e.at >= dayAgo);
 ```
 
-**confirm 버튼 disabled 조건 확장**:
+변경:
+```ts
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
+const todayStartMs = todayStart.getTime();
+
+// 오늘 이벤트 KPI 는 정확한 count 를 위해 별도 useAuditLogList
+const todayAudit = useAuditLogList(500, { atMin: todayStartMs });
+const todayCount = todayAudit.entries.length;
+// 미리보기용 최근 5 개는 기존 audit.entries.slice(0, 5) 유지 (별도 hook)
+const audit = useAuditLogList(50);
+```
+
+**KPI 라벨 · nav 변경**:
 ```tsx
-disabled={
-  confirmText.trim() !== String(targets.length) ||
-  targets.length === 0 ||
-  !/^[a-z0-9-]+$/.test(prefix) ||
-  hasDuplicates
+<KpiCard
+  label="오늘 이벤트"
+  value={todayCount}
+  loading={todayAudit.loading}
+  href="nav"
+  onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
+/>
+```
+
+*(기존 KPI 4개 중 「최근 24시간 이벤트」 를 「오늘 이벤트」 로 · value·loading·onClick 변경.)*
+
+**`AuditLogTable.tsx`** — 프리셋 리스트 첫 항목 변경:
+```ts
+const presets = [
+  { key: 0 as const, label: '오늘' },      // ← 기존 { key: 1, label: '지난 24시간' } 대체
+  { key: 7 as const, label: '지난 7일' },
+  { key: 30 as const, label: '지난 30일' },
+  { key: 'all' as const, label: '전체' },
+];
+```
+
+`handlePreset` 도 key=0 이면 오늘 00:00 (즉 `setDate(getDate() - 0)` = today) 로:
+```ts
+if (days === null) {
+  next.delete('atMin');
+  next.delete('atMax');
+} else {
+  const d = new Date();
+  d.setDate(d.getDate() - days);   // days=0 → today, days=7 → 7 days ago, ...
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  next.set('atMin', `${yyyy}-${mm}-${dd}`);
+  next.delete('atMax');
 }
 ```
 
-**UI 오류 표시** (preview 아래):
-```tsx
-{hasDuplicates && (
-  <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="auto-create-groups-duplicate-error">
-    다음 이메일이 중복됩니다 ({duplicateEmails.length}건): {duplicateEmails.slice(0, 3).join(', ')}
-    {duplicateEmails.length > 3 && ` 외 ${duplicateEmails.length - 3}`}. 반 이름을 구분되게 조정하세요.
-  </div>
-)}
-```
-
-**AutoInviteStudentsDialog** (`packages/web/src/routes/admin/AutoInviteStudentsDialog.tsx`):
-
-`targets` 에서 groupEmail 이 중복될 경우, **서로 다른 (grade, class) 조합이 같은 그룹으로 매핑됨** 을 의미. 별도로 감지:
+`activePreset` 계산도 `check(days)` 로:
 ```ts
-const emailToClass = new Map<string, Set<string>>();
-for (const t of targets) {
-  const key = `${t.grade}-${t.class}`;
-  if (!emailToClass.has(t.groupEmail)) emailToClass.set(t.groupEmail, new Set());
-  emailToClass.get(t.groupEmail)!.add(key);
-}
-const ambiguousEmails = Array.from(emailToClass.entries())
-  .filter(([_, keys]) => keys.size > 1)
-  .map(([e]) => e);
-const hasAmbiguity = ambiguousEmails.length > 0;
+if (check(0)) return 0;
+if (check(7)) return 7;
+if (check(30)) return 30;
 ```
 
-**confirm disabled + UI 오류** — AutoCreate 와 동일 패턴. testid: `auto-invite-students-ambiguous-error`.
+**testid 유지**: `audit-log-preset-0` (기존 `audit-log-preset-1` 아니라 0). 기존 테스트 파일도 조정.
+
+**주의**:
+- 기존 URL 파라미터 `?atMin=YYYY-MM-DD` 그대로 (오늘 = 오늘 00:00 부터).
+- 「오늘」 클릭 = 오늘 00:00 부터 지금까지. KPI 「오늘 이벤트」 와 정확히 일치.
+- 「지난 7일」 = 7일 전 00:00 부터 오늘 23:59:59 (기존과 동일).
 
 #### Commit 2 테스트
 
-**AutoCreateGroupsDialog** 시나리오 1:
-- grades = `[{grade: 1, classes: ['A', 'A!']}]` → 두 반 email 모두 `class-1a@` → `auto-create-groups-duplicate-error` 렌더 + confirm disabled.
+`packages/web/tests/SuperAdminPage.test.tsx`:
+- KPI 라벨 「오늘 이벤트」 로 변경 반영.
+- useAuditLogList mock 2 개 (todayAudit + audit) — todayAudit 이 atMin 파라미터 받아 호출됨.
+- 4 KPI nav 시나리오 (v0.39) 는 「오늘 이벤트」 → `/super_admin/audit?atMin=YYYY-MM-DD` 오늘 iso.
 
-**AutoInviteStudentsDialog** 시나리오 1:
-- grades = `[{grade: 1, classes: ['A', 'A!']}]` + rosters 로 두 반 각 학생 1 명 → 같은 groupEmail 로 매핑 → `auto-invite-students-ambiguous-error` 렌더 + confirm disabled.
+`packages/web/tests/AuditLogTable.test.tsx`:
+- 「지난 24시간」 → 「오늘」 라벨 변경.
+- testid `audit-log-preset-1` → `audit-log-preset-0` 변경.
+- 프리셋 클릭 시 atMin 이 오늘 iso 로 설정 확인.
 
-기존 시나리오 회귀 유지.
+기존 회귀 유지 — 「지난 7일」, 「지난 30일」, 「전체」 는 그대로.
 
 ### 완료 확인
 
-1. `pnpm install --no-frozen-lockfile` 필요 없음 (v0.67 이후 lockfile 정상). `pnpm install --frozen-lockfile` 통과.
+1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 604 + 신규 6 = 610 근처.
+4. `pnpm -r test` — 이전 610 + 신규 6~8 = 616~618 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - 4 bulk 다이얼로그 done 단계 Escape → 선택 자동 해제
-   - AutoCreateGroups 반 이름 'A' + 'A!' → 중복 오류 표시 + 실행 차단
-   - AutoInviteStudents 동일
+   - super_admin 대시보드 「오늘 이벤트」 KPI (정확한 count)
+   - 클릭 → /super_admin/audit?atMin=오늘 이동 · 결과 개수 일치
+   - AuditLogTable 「오늘」 프리셋 클릭 → 같은 결과
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **shared validator 강화 (P3)** — v0.69 별도.
-- **super_admin 24h KPI · 감사 프리셋 (P5·P6)** — v0.69 별도.
-- **onDone 두 번 호출 되지 않도록 보장** — 「확인」 버튼 로직 변경 (options A) 로 wrapper 로 일원화.
+- **rolling 24h 정확도** — URL 은 date-string, 정확한 24h 단위는 URL 확장 필요 (별도 slice).
+- **기존 데이터 마이그레이션** — validator 강화 후 admin 이 수동 fix 필요.
+- **KPI 500 초과 count** — 별도 count callable (별도 slice).
 
 ### 커밋 규칙
 
 **2 커밋 분리**:
-1. `fix(web): 4 bulk 다이얼로그 done phase close 시 onDone 호출 (Codex 감사 · 선택 잔류)`
-2. `fix(web): AutoCreateGroups · AutoInviteStudents 반 이름 슬러그 충돌 감지 (Codex 감사)`
+1. `fix(shared,functions): basic_data validator 강화 (positive grade · unique · rosters 참조 · Codex 감사)`
+2. `fix(web): super_admin KPI · AuditLogTable 프리셋 calendar-day 통일 (Codex 감사)`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin fix/codex-audit-p2-p4-v68`.
+**작업 브랜치** — `git push -u origin fix/codex-audit-p3-p5-p6-v69`.
 
 ## 상태 보고 (필수)
 
