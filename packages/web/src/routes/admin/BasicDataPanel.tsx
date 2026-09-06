@@ -29,6 +29,20 @@ export function BasicDataPanel() {
   const { data: yearsData } = useBasicDataListYears();
   const savedYears = yearsData?.years ?? [];
 
+  const handleJsonExport = () => {
+    if (!data?.data) return;
+    const json = JSON.stringify(data.data, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `basic-data-${selectedYear}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="bg-elevated p-8 border border-border-subtle space-y-4">
       <div className="flex justify-between items-center">
@@ -111,6 +125,15 @@ export function BasicDataPanel() {
             }
           >
             학생 자동 초대
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleJsonExport}
+            data-testid="basic-data-json-export-btn"
+            disabled={!data?.data}
+            title={!data?.data ? '데이터 없음' : `${selectedYear}년 기초값 JSON 다운로드`}
+          >
+            JSON 내보내기
           </Button>
           <Button
             variant="secondary"

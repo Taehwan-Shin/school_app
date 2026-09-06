@@ -454,5 +454,84 @@ describe('BasicDataPanel component', () => {
     fireEvent.click(btnEnabled);
     expect(screen.getByRole('heading', { name: '학생 자동 초대' })).toBeDefined();
   });
+
+  it('scenario 15: json export button is disabled when data is null, enabled when data exists and downloads json on click', () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: { data: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(<BasicDataPanel />);
+    const btnDisabled = screen.getByTestId('basic-data-json-export-btn') as HTMLButtonElement;
+    expect(btnDisabled).toBeDefined();
+    expect(btnDisabled.disabled).toBe(true);
+
+    const currentYear = new Date().getFullYear();
+    const testBasicData = {
+      year: currentYear,
+      grades: [{ grade: 1, classes: ['A'] }],
+      departments: ['국어과'],
+      rosters: { '1': { A: ['student1@cam.hs.kr'] } },
+      updatedAt: 1788480000000,
+      updatedBy: 'admin@cam.hs.kr',
+    };
+
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: testBasicData,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    rerender(<BasicDataPanel />);
+    const btnEnabled = screen.getByTestId('basic-data-json-export-btn') as HTMLButtonElement;
+    expect(btnEnabled.disabled).toBe(false);
+
+    let createdBlob: Blob | null = null;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const mockCreateObjectURL = vi.fn((blob: Blob) => {
+      createdBlob = blob;
+      return 'blob:mock-json-url';
+    });
+    const mockRevokeObjectURL = vi.fn();
+    URL.createObjectURL = mockCreateObjectURL;
+    URL.revokeObjectURL = mockRevokeObjectURL;
+
+    let createdAnchor: HTMLAnchorElement | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      const el = originalCreateElement(tagName, options);
+      if (tagName === 'a') {
+        createdAnchor = el as HTMLAnchorElement;
+      }
+      return el;
+    }) as typeof document.createElement);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      fireEvent.click(btnEnabled);
+
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
+      expect(createdBlob).not.toBeNull();
+      expect(createdAnchor).not.toBeNull();
+      expect(createdAnchor?.download).toBe(`basic-data-${currentYear}.json`);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-json-url');
+
+      if (createdBlob) {
+        expect((createdBlob as Blob).type).toBe('application/json;charset=utf-8;');
+      }
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      createElementSpy.mockRestore();
+      clickSpy.mockRestore();
+    }
+  });
 });
 
