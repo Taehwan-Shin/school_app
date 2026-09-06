@@ -24,6 +24,8 @@ import {
   useClassroomStudentsList,
   type ClassroomStudent,
 } from '../../api/classroomStudentsList';
+import { useClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
+import { useClassroomTeachersDelete } from '../../api/classroomTeachersDelete';
 
 export interface CourseMembersDialogProps {
   open: boolean;
@@ -39,6 +41,28 @@ export function CourseMembersDialog({
   courseName,
 }: CourseMembersDialogProps) {
   const [tab, setTab] = useState<'teachers' | 'students'>('teachers');
+  const [addEmail, setAddEmail] = useState('');
+  const addMutation = useClassroomTeachersAdd();
+  const deleteMutation = useClassroomTeachersDelete();
+
+  const handleAddTeacher = async () => {
+    if (!courseId || !addEmail.trim()) return;
+    try {
+      await addMutation.mutateAsync({ courseId, userId: addEmail.trim() });
+      setAddEmail('');
+    } catch {
+      // 에러는 addMutation.error 로 렌더
+    }
+  };
+
+  const handleDeleteTeacher = async (userId: string) => {
+    if (!courseId) return;
+    try {
+      await deleteMutation.mutateAsync({ courseId, userId });
+    } catch {
+      // 에러는 deleteMutation.error 로 렌더 (삭제는 alert 대신 hook error 사용)
+    }
+  };
 
   const teachersQuery = useClassroomTeachersList(courseId, open);
   const studentsQuery = useClassroomStudentsList(courseId, open);
@@ -90,6 +114,39 @@ export function CourseMembersDialog({
           </button>
         </div>
 
+        {tab === 'teachers' && courseId && (
+          <div className="flex items-end gap-2 mb-4" data-testid="course-members-add-form">
+            <div className="flex-1">
+              <label className="text-small text-fg-secondary mb-1 block">이메일 추가</label>
+              <input
+                type="email"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="user@cam.hs.kr"
+                data-testid="course-members-add-email"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+              />
+            </div>
+            <Button
+              onClick={handleAddTeacher}
+              disabled={!addEmail.trim() || addMutation.isPending}
+              data-testid="course-members-add-btn"
+            >
+              {addMutation.isPending ? '추가 중...' : '추가'}
+            </Button>
+          </div>
+        )}
+        {addMutation.error && (
+          <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-add-error">
+            추가 실패: {addMutation.error.message}
+          </div>
+        )}
+        {deleteMutation.error && (
+          <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-delete-error">
+            삭제 실패: {deleteMutation.error.message}
+          </div>
+        )}
+
         {showLoading && (
           <div
             className="py-8 text-center text-small text-fg-secondary"
@@ -119,13 +176,14 @@ export function CourseMembersDialog({
                   <TableHead>이름</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>userId</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="text-center text-small text-fg-muted py-6"
                     >
                       {tab === 'teachers' ? '교사가 없습니다.' : '학생이 없습니다.'}
@@ -145,6 +203,21 @@ export function CourseMembersDialog({
                       </TableCell>
                       <TableCell className="font-mono text-small text-fg-secondary">
                         {m.userId}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {tab === 'teachers' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTeacher(m.userId)}
+                            disabled={deleteMutation.isPending && deleteMutation.variables?.userId === m.userId}
+                            data-testid={`course-member-delete-btn-${m.userId}`}
+                            className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                          >
+                            삭제
+                          </button>
+                        ) : (
+                          <span className="text-fg-muted text-small">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
