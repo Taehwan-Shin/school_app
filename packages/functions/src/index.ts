@@ -25,3 +25,4 @@ export { usersResetPassword } from './callable/users/resetPassword.js';
 export { basicDataGet } from './callable/basicData/get.js';
 export { basicDataSet } from './callable/basicData/set.js';
 export { basicDataListYears } from './callable/basicData/listYears.js';
+export { chatList } from './callable/chat/list.js';

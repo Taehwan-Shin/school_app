@@ -88,6 +88,10 @@
         "function": { "functionId": "basicDataListYears", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/chatList",
+        "function": { "functionId": "chatList", "region": "asia-northeast3" }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
