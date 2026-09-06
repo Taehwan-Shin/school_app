@@ -34,4 +34,6 @@ export { classroomPatch } from './callable/classroom/patch.js';
 export { classroomDelete } from './callable/classroom/delete.js';
 export { classroomTeachersList } from './callable/classroom/teachersList.js';
 export { classroomStudentsList } from './callable/classroom/studentsList.js';
+export { classroomTeachersAdd } from './callable/classroom/teachersAdd.js';
+export { classroomTeachersDelete } from './callable/classroom/teachersDelete.js';
 
