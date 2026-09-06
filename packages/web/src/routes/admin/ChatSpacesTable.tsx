@@ -11,11 +11,13 @@ import {
 } from '../../components/ui/table';
 import { CreateChatSpaceDialog } from './CreateChatSpaceDialog';
 import { DeleteChatSpaceDialog, type DeleteChatSpaceTarget } from './DeleteChatSpaceDialog';
+import { ChatSpaceMembersDialog } from './ChatSpaceMembersDialog';
 
 export function ChatSpacesTable() {
   const { data, isLoading, isError, error } = useChatList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteChatSpaceTarget | null>(null);
+  const [membersTarget, setMembersTarget] = useState<{ name: string; displayName?: string } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -68,6 +70,14 @@ export function ChatSpacesTable() {
                   <TableCell className="text-right">
                     <button
                       type="button"
+                      onClick={() => setMembersTarget({ name: s.name, displayName: s.displayName })}
+                      data-testid={`chat-members-btn-${s.name}`}
+                      className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
+                    >
+                      멤버
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setDeleteTarget({ name: s.name, displayName: s.displayName })}
                       data-testid={`chat-delete-btn-${s.name}`}
                       className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
@@ -86,6 +96,12 @@ export function ChatSpacesTable() {
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         space={deleteTarget}
+      />
+      <ChatSpaceMembersDialog
+        open={!!membersTarget}
+        onOpenChange={(o) => !o && setMembersTarget(null)}
+        spaceName={membersTarget?.name ?? null}
+        displayName={membersTarget?.displayName}
       />
     </div>
   );
