@@ -43,7 +43,7 @@ vi.mock('../src/api/groupsList', () => ({
 }));
 
 vi.mock('../src/api/auditLogList', () => ({
-  useAuditLogList: (limit?: number) => mockUseAuditLogList(limit),
+  useAuditLogList: (...args: any[]) => mockUseAuditLogList(...args),
 }));
 
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin']) {
@@ -55,7 +55,7 @@ describe('SuperAdminPage', () => {
     vi.clearAllMocks();
   });
 
-  it('scenario 1: renders KPI row with 3 cards (total users, total groups, recent 24h events)', () => {
+  it('scenario 1: renders KPI row with cards including "오늘 이벤트" with count fetch', () => {
     const mockUsers: UserItem[] = [
       { email: 'u1@cam.hs.kr', firstName: '일', lastName: '김', orgUnitPath: '/', isAdmin: false, isSuspended: false },
       { email: 'u2@cam.hs.kr', firstName: '이', lastName: '김', orgUnitPath: '/', isAdmin: false, isSuspended: false },
@@ -94,6 +94,17 @@ describe('SuperAdminPage', () => {
       })),
     ];
 
+    const mockTodayEntries: AuditLogEntryRead[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `today-${i}`,
+      actor: 'admin@cam.hs.kr',
+      role: 'admin' as const,
+      action: `action.today.${i}`,
+      target: 'target',
+      request_id: `req-today-${i}`,
+      result: 'ok' as const,
+      at: now - i * 1000,
+    }));
+
     mockUseUsersList.mockReturnValue({
       data: { users: mockUsers },
       isLoading: false,
@@ -104,17 +115,26 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAuditLogList.mockReturnValue({
-      entries: mockEntries,
-      loading: false,
-      error: null,
+    mockUseAuditLogList.mockImplementation((limit?: number, filters?: any) => {
+      if (limit === 500 && filters?.atMin !== undefined) {
+        return {
+          entries: mockTodayEntries,
+          loading: false,
+          error: null,
+        };
+      }
+      return {
+        entries: mockEntries,
+        loading: false,
+        error: null,
+      };
     });
 
     renderWithRouter(<SuperAdminPage />);
 
     const userCard = screen.getByTestId('kpi-card-총 사용자');
     const groupCard = screen.getByTestId('kpi-card-총 그룹');
-    const eventCard = screen.getByTestId('kpi-card-최근 24시간 이벤트');
+    const eventCard = screen.getByTestId('kpi-card-오늘 이벤트');
 
     expect(userCard).toBeDefined();
     expect(groupCard).toBeDefined();
@@ -122,7 +142,10 @@ describe('SuperAdminPage', () => {
 
     expect(userCard.textContent).toContain('5');
     expect(groupCard.textContent).toContain('3');
-    expect(eventCard.textContent).toContain('5');
+    expect(eventCard.textContent).toContain('8');
+
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(500, { atMin: expect.any(Number) });
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(50);
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -379,7 +402,7 @@ describe('SuperAdminPage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/admin?filter=suspended');
   });
 
-  it('scenario 9: clicking "최근 24시간 이벤트" KPI card navigates to /super_admin/audit?atMin=YYYY-MM-DD', () => {
+  it('scenario 9: clicking "오늘 이벤트" KPI card navigates to /super_admin/audit?atMin=YYYY-MM-DD', () => {
     mockUseUsersList.mockReturnValue({
       data: { users: [] },
       isLoading: false,
@@ -405,7 +428,7 @@ describe('SuperAdminPage', () => {
     const dd = String(todayStart.getDate()).padStart(2, '0');
     const todayIso = `${yyyy}-${mm}-${dd}`;
 
-    fireEvent.click(screen.getByTestId('kpi-card-최근 24시간 이벤트'));
+    fireEvent.click(screen.getByTestId('kpi-card-오늘 이벤트'));
     expect(navigateMock).toHaveBeenCalledWith(`/super_admin/audit?atMin=${todayIso}`);
   });
 });

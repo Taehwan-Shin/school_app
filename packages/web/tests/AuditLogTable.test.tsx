@@ -706,6 +706,34 @@ describe('AuditLogTable component', () => {
     expect(capturedSearch).toBe('');
   });
 
+  it('updates URL with atMin for today when "오늘" preset chip is clicked and clears atMax', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?atMax=2026-09-03']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>
+    );
+
+    const preset0Btn = screen.getByTestId('audit-log-preset-0');
+    expect(preset0Btn.textContent).toBe('오늘');
+    fireEvent.click(preset0Btn);
+
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const expectedDate = `${yyyy}-${mm}-${dd}`;
+
+    expect(capturedSearch).toBe(`?atMin=${expectedDate}`);
+  });
+
   it('updates URL with atMin when 7-day preset chip is clicked and clears atMax', () => {
     let capturedSearch = '';
     function LocationSpy() {
