@@ -1,14 +1,14 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **chat.delete v0.79** — 신규 callable + DeleteChatSpaceDialog + ChatSpacesTable 행별 「삭제」 버튼.
+> 지금 이 파일의 오더는 **chat.members.list v0.80** — 신규 callable + ChatSpaceMembersDialog + ChatSpacesTable 「멤버」 버튼. 멤버 관리는 v0.81+ (email→userId 해결 필요).
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-delete-v79`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-members-list-v80`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
@@ -19,85 +19,110 @@
 
 ## 기준 커밋
 
-**Base**: `ca9570f` (chat.create v0.78)
+**Base**: `034af36` (chat.delete v0.79)
 
-## 지금 할 것 — chat.delete + Dialog
+## 지금 할 것 — chat.members.list + 멤버 보기 Dialog
 
 ### 왜
 
-v0.78 로 chat.create 완비. admin 이 실수로 만든 챗방 · 폐기 챗방 정리 필요.
+v0.77·v0.78·v0.79 로 chat list · create · delete 완비. 이제 각 space 안 멤버 확인 필요. Chat API `spaces.members.list` 활용.
 
-**하지 않는 것**: chat.assign · basic_data 활용 (v0.80). 일괄 삭제 (별도 slice).
+**하지 않는 것**: chat.members.add · delete (v0.81+ · Chat API 는 member.name 이 `users/{USER_ID}` 형식 요구 → Directory API 로 email→id 해결 slice 별도 필요). basic_data 자동 배정 (v0.82+).
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/functions/src/callable/chat/delete.ts` — 신규 callable
-- `packages/functions/tests/chatDelete.test.ts` — 시나리오 5~6
-- `packages/web/src/api/chatDelete.ts` — fetch + useMutation
-- `packages/web/src/routes/admin/DeleteChatSpaceDialog.tsx` — 확인 다이얼로그
-- `packages/web/tests/chatDelete.test.ts` — 시나리오 2
-- `packages/web/tests/DeleteChatSpaceDialog.test.tsx` — 시나리오 4
+- `packages/functions/src/callable/chat/membersList.ts` — 신규 callable
+- `packages/functions/tests/chatMembersList.test.ts` — 시나리오 5~6
+- `packages/web/src/api/chatMembersList.ts` — fetch + useQuery hook
+- `packages/web/src/routes/admin/ChatSpaceMembersDialog.tsx` — 멤버 목록 다이얼로그
+- `packages/web/tests/chatMembersList.test.ts` — 시나리오 2
+- `packages/web/tests/ChatSpaceMembersDialog.test.tsx` — 시나리오 4
 
 **수정 대상**:
-- `packages/functions/src/google/chatClient.ts` — `spaces.delete` 인터페이스 추가
-- `packages/functions/src/index.ts` — export `chatDelete`
-- `firebase.json` — hosting rewrite `/api/chatDelete`
-- `packages/web/src/routes/admin/ChatSpacesTable.tsx` — 관리 컬럼 「삭제」 버튼
+- `packages/functions/src/google/chatClient.ts` — `spaces.members.list` 인터페이스 추가
+- `packages/functions/src/index.ts` — export `chatMembersList`
+- `firebase.json` — hosting rewrite `/api/chatMembersList`
+- `packages/web/src/routes/admin/ChatSpacesTable.tsx` — 관리 컬럼 「멤버」 버튼 추가
 
 **손대지 마라**:
-- chat.list · chat.create · CreateChatSpaceDialog — 그대로.
+- chat.list · create · delete · CreateChatSpaceDialog · DeleteChatSpaceDialog — 그대로.
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. `chatClient.ts` — spaces.delete 인터페이스
-
-기존 `ChatClient` 에 추가:
-```ts
-delete: (params: { name: string }) => Promise<{ data: {} }>;
-```
-
-**주의**: Chat API `spaces.delete` 는 space name (path) 사용 (예: `spaces/AAAA`).
-
-#### 2. `chat/delete.ts` — callable
-
-기존 `groups/delete.ts` 참고:
+#### 1. `chatClient.ts` — spaces.members.list 인터페이스
 
 ```ts
-export interface ChatDeleteRequest {
-  name: string;   // "spaces/AAAA"
+export interface ChatMember {
+  name: string;                // "spaces/AAAA/members/BBBBB"
+  member?: {
+    name: string;              // "users/USER_ID" · 또는 "groups/GROUP_ID"
+    type?: string;             // 'HUMAN' · 'BOT'
+    displayName?: string;
+  };
+  role?: string;               // 'ROLE_MEMBER' · 'ROLE_MANAGER'
+  state?: string;              // 'JOINED' · 'INVITED'
+  createTime?: string;
 }
 
-export interface ChatDeleteResponse {
-  deleted: true;
-  name: string;
+export interface ChatMembersListResponse {
+  memberships?: ChatMember[];
+  nextPageToken?: string;
+}
+
+// ChatClient 에 추가:
+spaces: {
+  ...,
+  members: {
+    list: (params: { parent: string; pageSize?: number; pageToken?: string }) => Promise<{ data: ChatMembersListResponse }>;
+  };
+};
+```
+
+**주의**: googleapis chat v1 은 `spaces.members.list` 지원.
+
+#### 2. `chat/membersList.ts` — callable
+
+```ts
+export interface ChatMembersListRequest {
+  spaceName: string;           // "spaces/AAAA"
+}
+
+export interface ChatMembersListResponse {
+  members: ChatMember[];
 }
 
 const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/chat.spaces',
+  'https://www.googleapis.com/auth/chat.memberships',
 ] as const;
 
-// 인증 · Cap 'chat.delete' · Scope · denied audit (chat/list.ts 패턴)
+// 인증 · Cap 'chat.read' · Scope · denied audit
 
 try {
-  const data = request.data as Partial<ChatDeleteRequest> | undefined;
-  if (!data?.name || typeof data.name !== 'string' || !data.name.startsWith('spaces/')) {
+  const data = request.data as Partial<ChatMembersListRequest> | undefined;
+  if (!data?.spaceName || typeof data.spaceName !== 'string' || !data.spaceName.startsWith('spaces/')) {
     throw new HttpsError('invalid-argument', 'invalid_space_name');
   }
-  const name = data.name.trim();
+  const spaceName = data.spaceName.trim();
 
   const chat = getChatClient(user.googleAccessToken);
-  await chat.spaces.delete({ name });
+  const results: ChatMember[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await chat.spaces.members.list({ parent: spaceName, pageSize: 100, pageToken });
+    results.push(...(res.data.memberships ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
 
   await writeAudit({
     actor: user.email, role: user.role,
-    action: 'chat.delete', target: name,
+    action: 'chat.read', target: spaceName,
     request_id: requestId, result: 'ok',
-    message: `deleted chat space ${name}`,
+    message: `listed ${results.length} members for space ${spaceName}`,
   });
 
-  return { deleted: true, name };
+  return { members: results };
 } catch (err) {
   // error audit
   ...
@@ -105,155 +130,181 @@ try {
 ```
 
 **주의**:
-- Cap `chat.delete` (chat.write 아님 · 삭제는 별도 cap).
-- audit target = space name.
-- 잘못된 name 형식 (spaces/ 로 시작 안 함) → invalid-argument.
+- Cap `chat.read` (list callable 과 동일).
+- Scope `chat.memberships` (chat.spaces 아님 · 멤버 전용 스코프).
+- pagination 순회.
 
 #### 3. functions/index.ts + firebase.json
 
 ```ts
-export { chatDelete } from './callable/chat/delete.js';
+export { chatMembersList } from './callable/chat/membersList.js';
 ```
 
-`firebase.json` rewrites 배열에 `/api/chatDelete` 추가.
+`firebase.json` rewrites 배열에 `/api/chatMembersList` 추가.
 
 #### 4. 테스트
 
-**functions `chatDelete.test.ts`** (5~6 시나리오):
+**functions `chatMembersList.test.ts`** (5~6 시나리오):
 1. 미인증 → denied audit.
 2. 캡 부족 → denied audit.
-3. 스코프 부족 → denied audit.
-4. name 없음/형식 오류 → invalid-argument · error audit.
-5. 정상 → mock chat.spaces.delete 호출 확인 · ok audit.
-6. Google API 실패 (예: not found) → error audit.
+3. 스코프 부족 (chat.memberships) → denied audit.
+4. spaceName 형식 오류 → invalid-argument · error audit.
+5. 정상 (mock chat.spaces.members.list) → response.members.length 정확.
+6. pagination 2 페이지 → 모두 반환.
 
-#### 5. `chatDelete.ts` — hook
+#### 5. `chatMembersList.ts` — hook
 
 ```ts
-export interface ChatDeleteRequest { name: string; }
-export interface ChatDeleteResponse { deleted: true; name: string; }
-
-export async function callChatDelete(data: ChatDeleteRequest): Promise<ChatDeleteResponse> {
-  // fetch to /chatDelete 패턴 (chatCreate 참고)
+export interface UseChatMembersListOptions {
+  spaceName: string;
 }
 
-export function useDeleteChatSpace() {
-  const queryClient = useQueryClient();
-  return useMutation<ChatDeleteResponse, Error, ChatDeleteRequest>({
-    mutationFn: (data) => callChatDelete(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', 'list'] });
+export function useChatMembersList(spaceName: string | null, enabled = true) {
+  return useQuery<ChatMembersListResponse, Error>({
+    queryKey: ['chat', 'members', spaceName],
+    queryFn: () => callChatMembersList({ spaceName: spaceName! }),
+    enabled: enabled && !!spaceName,
+    staleTime: 60_000,
+    retry: (failureCount, error) => {
+      const status = (error as Error & { status?: number }).status;
+      if (status !== undefined && status >= 400 && status < 500) return false;
+      return failureCount < 2;
     },
   });
 }
 ```
 
-#### 6. `DeleteChatSpaceDialog.tsx` — 확인 다이얼로그
+#### 6. `ChatSpaceMembersDialog.tsx` — 멤버 다이얼로그
 
-`DeleteGroupDialog.tsx` 패턴 참고:
+`Dialog` 사용, 표 형태로 멤버 나열:
 
 **Props**:
 ```ts
-export interface DeleteChatSpaceTarget {
-  name: string;                // "spaces/AAAA"
-  displayName?: string;
-}
-export interface DeleteChatSpaceDialogProps {
+export interface ChatSpaceMembersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  space: DeleteChatSpaceTarget | null;
+  spaceName: string | null;    // "spaces/AAAA"
+  displayName?: string;
 }
 ```
 
-**확인 방식**: 사용자가 displayName (있으면) 또는 name 을 정확히 타이핑해서 confirm.
-```ts
-const confirmPhrase = space?.displayName || space?.name || '';
-const [confirmText, setConfirmText] = useState('');
-const isConfirmed = space ? confirmText.trim() === confirmPhrase : false;
-```
-
-**submit**:
-```ts
-await callChatDelete({ name: space.name });
-// 성공 시 다이얼로그 닫기
-```
-
-**UI** (기존 DeleteGroupDialog 패턴):
-- Title: 「챗방 삭제 확인」 (state-danger)
-- Description: 「이 작업은 되돌릴 수 없습니다」
-- Info: 이름 · space name (font-mono)
-- 확인 입력: displayName 정확히 타이핑
-- 버튼: 취소 / 삭제 실행 (isConfirmed 시 enabled)
-
-data-testid: `delete-chat-confirm-input`, `delete-chat-submit`, `delete-chat-error`.
-
-#### 7. `ChatSpacesTable.tsx` — 관리 컬럼 「삭제」 버튼
-
-기존 4 컬럼 (이름 · 타입 · ID · 생성 시각) → 5 컬럼 (마지막 「관리」):
+**구조**:
 ```tsx
-<TableHead className="text-right">관리</TableHead>
-...
+const { data, isLoading, isError, error } = useChatMembersList(spaceName, open);
+
+<Dialog open={open} onOpenChange={onOpenChange}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>{displayName || spaceName} 멤버</DialogTitle>
+      <DialogDescription>
+        <span className="font-mono">{spaceName}</span> 에 속한 멤버 목록.
+      </DialogDescription>
+    </DialogHeader>
+    {isLoading && <div data-testid="chat-members-loading">로딩 중...</div>}
+    {isError && <div data-testid="chat-members-error">오류: {error?.message}</div>}
+    {!isLoading && !isError && data && (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>이름/식별자</TableHead>
+            <TableHead>타입</TableHead>
+            <TableHead>역할</TableHead>
+            <TableHead>상태</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.members.map((m) => (
+            <TableRow key={m.name} data-testid={`chat-member-row-${m.name}`}>
+              <TableCell className="font-mono text-small text-fg-primary">
+                {m.member?.displayName || m.member?.name || m.name}
+              </TableCell>
+              <TableCell className="text-small text-fg-secondary">{m.member?.type || '-'}</TableCell>
+              <TableCell className="text-small text-fg-secondary">{m.role || '-'}</TableCell>
+              <TableCell className="text-small text-fg-secondary">{m.state || '-'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )}
+    <DialogFooter>
+      <Button variant="secondary" onClick={() => onOpenChange(false)}>닫기</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+**주의**:
+- Chat API 는 사용자 이메일 안 반환 (privacy). `member.name` 은 `users/USER_ID` 형식 · displayName 은 있으면 표시.
+- 편집 액션 없음 (v0.81+ 별도).
+
+#### 7. `ChatSpacesTable.tsx` — 관리 컬럼 「멤버」 버튼
+
+기존 5 컬럼 (이름·타입·ID·생성 시각·관리 [삭제]) → 관리 컬럼 에 「멤버」 추가:
+```tsx
 <TableCell className="text-right">
   <button
     type="button"
-    onClick={() => setDeleteTarget({ name: s.name, displayName: s.displayName })}
-    data-testid={`chat-delete-btn-${s.name}`}
-    className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+    onClick={() => setMembersTarget({ name: s.name, displayName: s.displayName })}
+    data-testid={`chat-members-btn-${s.name}`}
+    className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
   >
-    삭제
+    멤버
   </button>
+  <button ... 삭제 ...>삭제</button>
 </TableCell>
 ```
 
-**state 추가**: `const [deleteTarget, setDeleteTarget] = useState<DeleteChatSpaceTarget | null>(null);`
+**state 추가**: `const [membersTarget, setMembersTarget] = useState<{name: string; displayName?: string} | null>(null);`
 
-**다이얼로그 렌더** (컴포넌트 맨 아래):
+**다이얼로그 렌더**:
 ```tsx
-<DeleteChatSpaceDialog
-  open={!!deleteTarget}
-  onOpenChange={(o) => !o && setDeleteTarget(null)}
-  space={deleteTarget}
+<ChatSpaceMembersDialog
+  open={!!membersTarget}
+  onOpenChange={(o) => !o && setMembersTarget(null)}
+  spaceName={membersTarget?.name ?? null}
+  displayName={membersTarget?.displayName}
 />
 ```
 
 #### 8. 테스트
 
-**web `chatDelete.test.ts`** (2 신규):
-1. 200 응답 → hook `data.deleted === true`.
-2. 404 응답 → hook throws.
+**web `chatMembersList.test.ts`** (2 신규):
+1. 200 응답 → hook `data.members`.
+2. 401 응답 → hook throws.
 
-**web `DeleteChatSpaceDialog.test.tsx`** (4 신규):
+**web `ChatSpaceMembersDialog.test.tsx`** (4 신규):
 1. `open=false` → 미렌더.
-2. `open=true` space 있음 → 정보 표시 · confirm 버튼 disabled (빈 입력).
-3. 정확히 타이핑 → confirm enabled.
-4. submit → mutation 호출 · 성공 시 `onOpenChange(false)`.
+2. `open=true` + spaceName null → 로딩 상태.
+3. `open=true` + spaceName 있음 → members mock 결과 렌더.
+4. 「닫기」 → `onOpenChange(false)`.
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 681 + 신규 11~13 = 692~694 근처.
+4. `pnpm -r test` — 이전 699 + 신규 11~13 = 710~712 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/chat` 각 행 「삭제」 버튼 → 다이얼로그 → 이름 확인 타이핑 → 삭제 → 표 자동 새로고침
+   - `/admin/chat` 각 행 「멤버」 버튼 → 다이얼로그 → 멤버 목록 표시
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 chat.space 삭제 (사용자 확인 필요)** — 프로덕션 검증.
-- **되돌리기** — Google Chat 은 삭제된 space 복구 불가 (Workspace admin 콘솔에서도).
+- **member.name 을 email 로 변환** — Chat API 는 email 안 반환 · Directory API 로 users/{id}→email 조회 필요 · 별도 slice.
+- **멤버 add/remove** — v0.81+ (email→userId 해결 slice 필요).
+- **자동 배정 (basic_data 활용)** — v0.82+.
 
 ### 커밋 규칙
 
 **3 커밋 분리**:
-1. `feat(functions): chat.delete callable + chatClient spaces.delete + firebase rewrite`
-2. `feat(web): chatDelete API + useDeleteChatSpace mutation hook`
-3. `feat(web): DeleteChatSpaceDialog + ChatSpacesTable 관리 컬럼 「삭제」 버튼`
+1. `feat(functions): chat.members.list callable + chatClient members.list + firebase rewrite`
+2. `feat(web): chatMembersList API + useChatMembersList hook`
+3. `feat(web): ChatSpaceMembersDialog + ChatSpacesTable 「멤버」 버튼`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/chat-delete-v79`.
+**작업 브랜치** — `git push -u origin feat/chat-members-list-v80`.
 
 ## 상태 보고 (필수)
 
