@@ -19,16 +19,9 @@ export function SuperAdminPage() {
   const dd = String(todayStart.getDate()).padStart(2, '0');
   const todayIso = `${yyyy}-${mm}-${dd}`;
 
-  // 오늘 이벤트 KPI 는 정확한 count 를 위해 별도 useAuditLogList
+  // 단일 hook: 오늘 이벤트 전체 (최대 500)
   const todayAudit = useAuditLogList(500, { atMin: todayStartMs });
   const todayCount = todayAudit.entries.length;
-  // 미리보기용 최근 5 개는 기존 audit.entries.slice(0, 5) 유지 (별도 hook)
-  const audit = useAuditLogList(50);
-
-  // 최근 24 시간 감사 이벤트 수
-  const now = Date.now();
-  const dayAgo = now - 24 * 60 * 60 * 1000;
-  const recentEvents = audit.entries.filter((e) => e.at >= dayAgo);
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
@@ -71,11 +64,11 @@ export function SuperAdminPage() {
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-h2 font-semibold text-fg-primary">최근 감사 이벤트</h2>
+              <h2 className="text-h2 font-semibold text-fg-primary">오늘 감사 이벤트</h2>
               <p className="text-small text-fg-secondary mt-1">
-                {recentEvents.length > 0
-                  ? `최근 24시간에 ${recentEvents.length}건의 이벤트가 기록되었습니다.`
-                  : '최근 24시간에 이벤트가 없습니다.'}
+                {todayCount > 0
+                  ? `오늘 ${todayCount}건의 이벤트가 기록되었습니다.`
+                  : '오늘 이벤트가 없습니다.'}
               </p>
             </div>
             <Link
@@ -86,9 +79,9 @@ export function SuperAdminPage() {
             </Link>
           </div>
           {/* 최근 5 개 이벤트만 미리보기 */}
-          {recentEvents.length > 0 && (
+          {todayCount > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
-              {recentEvents.slice(0, 5).map((e) => (
+              {todayAudit.entries.slice(0, 5).map((e) => (
                 <li key={e.id}>
                   <Link
                     to={`/super_admin/audit?actor=${encodeURIComponent(e.actor)}`}
