@@ -249,6 +249,47 @@ describe('basicDataSet callable unit tests', () => {
     });
   });
 
+  it('rejects request when validation rules are violated (duplicate class or non-existent roster class) with invalid-argument error', async () => {
+    const reqDuplicateClass = createRequest({
+      data: {
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1', '1'] }],
+      },
+    });
+
+    await expect(basicDataSet.run(reqDuplicateClass)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_basic_data',
+    });
+
+    const reqRosterClassMismatch = createRequest({
+      data: {
+        year: 2026,
+        grades: [{ grade: 1, classes: ['1'] }],
+        rosters: {
+          '1': {
+            '2': ['s1@cam.hs.kr'],
+          },
+        },
+      },
+    });
+
+    await expect(basicDataSet.run(reqRosterClassMismatch)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_basic_data',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'basic_data.write',
+      target: 'basic_data/2026',
+      request_id: 'req-basic-set-123',
+      result: 'error',
+      message: 'invalid_basic_data',
+    });
+  });
+
   it('successfully creates new basic data document with departments in Firestore and writes ok audit', async () => {
     const grades = [{ grade: 1, classes: ['1', '2'] }];
     const departments = ['국어과', '수학과'];

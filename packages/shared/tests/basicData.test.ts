@@ -243,5 +243,71 @@ describe('isValidBasicDataYear', () => {
       }),
     ).toBe(false);
   });
+
+  it('returns false when grade is 0 or negative', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 0, classes: ['A'] }],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: -1, classes: ['A'] }],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when grades contains duplicate grade numbers', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [
+          { grade: 1, classes: ['A'] },
+          { grade: 1, classes: ['B'] },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when classes in the same grade contains duplicates or duplicate trimmed names', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A', 'A'] }],
+      }),
+    ).toBe(false);
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A', ' A '] }],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when grade key in rosters does not exist in grades', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A'] }],
+        rosters: {
+          '2': { A: ['s1@cam.hs.kr'] },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when class key in rosters does not exist in the corresponding grade classes', () => {
+    expect(
+      isValidBasicDataYear({
+        year: 2026,
+        grades: [{ grade: 1, classes: ['A'] }],
+        rosters: {
+          '1': { B: ['s1@cam.hs.kr'] },
+        },
+      }),
+    ).toBe(false);
+  });
 });
 

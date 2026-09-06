@@ -25,13 +25,28 @@ export function isValidBasicDataYear(input: unknown): input is BasicDataYear {
     return false;
   }
   if (!Array.isArray(obj.grades)) return false;
+  const gradeSet = new Set<number>();
   for (const g of obj.grades) {
     if (!g || typeof g !== 'object') return false;
-    if (typeof g.grade !== 'number' || !Number.isFinite(g.grade) || !Number.isInteger(g.grade)) {
+    if (
+      typeof g.grade !== 'number' ||
+      !Number.isFinite(g.grade) ||
+      !Number.isInteger(g.grade) ||
+      g.grade <= 0
+    ) {
       return false;
     }
+    if (gradeSet.has(g.grade)) return false;
+    gradeSet.add(g.grade);
+
     if (!Array.isArray(g.classes)) return false;
-    if (!g.classes.every((c: unknown) => typeof c === 'string' && c.length > 0)) return false;
+    const classSet = new Set<string>();
+    for (const c of g.classes) {
+      if (typeof c !== 'string' || c.length === 0) return false;
+      const key = c.trim();
+      if (key.length === 0 || classSet.has(key)) return false;
+      classSet.add(key);
+    }
   }
   if (obj.departments !== undefined) {
     if (!Array.isArray(obj.departments)) return false;
@@ -39,12 +54,20 @@ export function isValidBasicDataYear(input: unknown): input is BasicDataYear {
   }
   if (obj.rosters !== undefined) {
     if (typeof obj.rosters !== 'object' || obj.rosters === null || Array.isArray(obj.rosters)) return false;
+    const validGradeKeys = new Set(obj.grades.map((g: any) => String(g.grade)));
+    const gradeToClasses = new Map<string, Set<string>>();
+    for (const g of obj.grades) {
+      gradeToClasses.set(String(g.grade), new Set(g.classes.map((c: string) => c.trim())));
+    }
     for (const gradeKey of Object.keys(obj.rosters)) {
       if (!/^\d+$/.test(gradeKey)) return false;
+      if (!validGradeKeys.has(gradeKey)) return false;
       const gradeRoster = obj.rosters[gradeKey];
       if (typeof gradeRoster !== 'object' || gradeRoster === null || Array.isArray(gradeRoster)) return false;
+      const validClasses = gradeToClasses.get(gradeKey)!;
       for (const classKey of Object.keys(gradeRoster)) {
         if (typeof classKey !== 'string' || classKey.length === 0) return false;
+        if (!validClasses.has(classKey)) return false;
         const students = gradeRoster[classKey];
         if (!Array.isArray(students)) return false;
         if (!students.every((s: unknown) => typeof s === 'string' && s.trim().length > 0)) return false;
