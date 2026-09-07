@@ -18,6 +18,7 @@ import {
 } from './DeleteClassroomDialog';
 import { CourseMembersDialog } from './CourseMembersDialog';
 import { CreateClassroomDialog } from './CreateClassroomDialog';
+import { CourseBulkCreateDialog } from './CourseBulkCreateDialog';
 import { Button } from '../../components/ui/button';
 
 export function translateCourseState(s?: string): string {
@@ -37,6 +38,7 @@ export function ClassroomTable() {
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -44,12 +46,21 @@ export function ClassroomTable() {
         <p className="text-small text-fg-secondary">
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
         </p>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          data-testid="classroom-create-btn"
-        >
-          + 코스 추가
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setIsBatchOpen(true)}
+            data-testid="classroom-batch-create-btn"
+          >
+            학년/반 일괄 생성
+          </Button>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            data-testid="classroom-create-btn"
+          >
+            + 코스 추가
+          </Button>
+        </div>
       </div>
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="classroom-list-loading">
@@ -156,6 +167,10 @@ export function ClassroomTable() {
       <CreateClassroomDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
+      />
+      <CourseBulkCreateDialog
+        open={isBatchOpen}
+        onOpenChange={setIsBatchOpen}
       />
     </div>
   );
