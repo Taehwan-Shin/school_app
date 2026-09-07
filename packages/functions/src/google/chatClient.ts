@@ -44,6 +44,7 @@ export interface ChatClient {
           member: { name: string; type: 'HUMAN' | 'BOT' };
         };
       }) => Promise<{ data: ChatMember }>;
+      delete: (params: { name: string }) => Promise<{ data: {} }>;
     };
   };
 }
