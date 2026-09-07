@@ -38,6 +38,13 @@ export interface ChatClient {
     delete: (params: { name: string }) => Promise<{ data: {} }>;
     members: {
       list: (params: { parent: string; pageSize?: number; pageToken?: string }) => Promise<{ data: ChatMembersListResponse }>;
+      create: (params: {
+        parent: string;
+        requestBody: {
+          member: { name: string; type: 'HUMAN' | 'BOT' };
+        };
+      }) => Promise<{ data: ChatMember }>;
+      delete: (params: { name: string }) => Promise<{ data: {} }>;
     };
   };
 }

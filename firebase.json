@@ -104,6 +104,14 @@
         "function": { "functionId": "chatMembersList", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/chatMembersAdd",
+        "function": { "functionId": "chatMembersAdd", "region": "asia-northeast3" }
+      },
+      {
+        "source": "/api/chatMembersDelete",
+        "function": { "functionId": "chatMembersDelete", "region": "asia-northeast3" }
+      },
+      {
         "source": "/api/classroomList",
         "function": { "functionId": "classroomList", "region": "asia-northeast3" }
       },
