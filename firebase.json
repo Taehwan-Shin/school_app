@@ -108,6 +108,10 @@
         "function": { "functionId": "classroomList", "region": "asia-northeast3" }
       },
       {
+        "source": "/api/classroomCreate",
+        "function": { "functionId": "classroomCreate", "region": "asia-northeast3" }
+      },
+      {
         "source": "/api/classroomPatch",
         "function": { "functionId": "classroomPatch", "region": "asia-northeast3" }
       },
