@@ -28,6 +28,7 @@ import { useClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { useClassroomTeachersDelete } from '../../api/classroomTeachersDelete';
 import { useClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 import { useClassroomStudentsDelete } from '../../api/classroomStudentsDelete';
+import { ClassroomBulkInviteDialog } from './ClassroomBulkInviteDialog';
 
 export interface CourseMembersDialogProps {
   open: boolean;
@@ -45,6 +46,7 @@ export function CourseMembersDialog({
   const [tab, setTab] = useState<'teachers' | 'students'>('teachers');
   const [addEmail, setAddEmail] = useState('');
   const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
   const addTeacherMutation = useClassroomTeachersAdd();
   const deleteTeacherMutation = useClassroomTeachersDelete();
   const addStudentMutation = useClassroomStudentsAdd();
@@ -69,6 +71,7 @@ export function CourseMembersDialog({
       setAddEmail('');
       setDeleteConfirmUserId(null);
       setTab('teachers');
+      setBulkInviteOpen(false);
       addTeacherMutation.reset?.();
       deleteTeacherMutation.reset?.();
       addStudentMutation.reset?.();
@@ -205,10 +208,23 @@ export function CourseMembersDialog({
         )}
 
         {!showLoading && !isError && currentQuery.data && (
-          <div
-            className="max-h-96 overflow-y-auto border border-border-subtle"
-            data-testid="course-members-scroll-container"
-          >
+          <>
+            {tab === 'students' && courseId && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setBulkInviteOpen(true)}
+                  disabled={anyPending}
+                  data-testid="course-members-bulk-invite-btn"
+                >
+                  학급 일괄 초대
+                </Button>
+              </div>
+            )}
+            <div
+              className="max-h-96 overflow-y-auto border border-border-subtle"
+              data-testid="course-members-scroll-container"
+            >
             <Table>
               <TableHeader className="sticky top-0 bg-canvas">
                 <TableRow>
@@ -283,6 +299,7 @@ export function CourseMembersDialog({
               </TableBody>
             </Table>
           </div>
+          </>
         )}
 
         <DialogFooter>
@@ -290,6 +307,15 @@ export function CourseMembersDialog({
             닫기
           </Button>
         </DialogFooter>
+
+        {courseId && (
+          <ClassroomBulkInviteDialog
+            open={bulkInviteOpen}
+            onOpenChange={setBulkInviteOpen}
+            courseId={courseId}
+            courseName={courseName}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
