@@ -40,6 +40,14 @@ vi.mock('../src/api/chatMembersAdd', () => ({
   }),
 }));
 
+const mockChatBulkInviteDialog = vi.fn();
+vi.mock('../src/routes/admin/ChatBulkInviteDialog', () => ({
+  ChatBulkInviteDialog: (props: any) => {
+    mockChatBulkInviteDialog(props);
+    return null;
+  },
+}));
+
 import { ChatSpaceMembersDialog } from '../src/routes/admin/ChatSpaceMembersDialog';
 
 describe('ChatSpaceMembersDialog component', () => {
@@ -339,5 +347,71 @@ describe('ChatSpaceMembersDialog component', () => {
         memberName: 'spaces/AAAA1234/members/user1',
       });
     });
+  });
+
+  // 시나리오 9: 「학급 일괄 초대」 버튼 렌더
+  it('scenario 9: renders "학급 일괄 초대" button next to "+ 멤버 추가"', () => {
+    mockUseChatMembersList.mockReturnValue({
+      data: { members: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <ChatSpaceMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        spaceName="spaces/AAAA1234"
+        displayName="2026년 1학년 A반"
+      />,
+    );
+
+    const bulkInviteBtn = screen.getByTestId('chat-members-bulk-invite-btn');
+    expect(bulkInviteBtn).toBeDefined();
+    expect(bulkInviteBtn.textContent).toContain('학급 일괄 초대');
+
+    const addBtn = screen.getByTestId('chat-members-add-btn');
+    expect(addBtn).toBeDefined();
+  });
+
+  // 시나리오 10: 「학급 일괄 초대」 클릭 시 bulkInviteOpen state 변경
+  it('scenario 10: opens ChatBulkInviteDialog when "학급 일괄 초대" button is clicked', () => {
+    mockUseChatMembersList.mockReturnValue({
+      data: { members: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <ChatSpaceMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        spaceName="spaces/AAAA1234"
+        displayName="2026년 1학년 A반"
+      />,
+    );
+
+    // Initial state: bulkInviteOpen = false
+    expect(mockChatBulkInviteDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: false,
+        spaceName: 'spaces/AAAA1234',
+        spaceDisplayName: '2026년 1학년 A반',
+      }),
+    );
+
+    const bulkInviteBtn = screen.getByTestId('chat-members-bulk-invite-btn');
+    fireEvent.click(bulkInviteBtn);
+
+    // After click: bulkInviteOpen = true
+    expect(mockChatBulkInviteDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        spaceName: 'spaces/AAAA1234',
+        spaceDisplayName: '2026년 1학년 A반',
+      }),
+    );
   });
 });
