@@ -1,255 +1,344 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **classroom batch create v0.91** — CourseBulkCreateDialog · basic_data year 선택 · 학년/반 다중 선택 · 순차 classroomCreate.
+> 지금 이 파일의 오더는 **chat members CRUD v0.92** — chat.members.add · delete callable · Directory API email→userId 리졸버 통합 · AddChatMemberDialog + ChatSpaceMembersDialog 행별 삭제. Chat 도메인 완결.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-batch-create-v91`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/chat-members-crud-v92`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 4 개.
 
 ## 기준 커밋
 
-**Base**: `ff6b5c0` (classroom.create v0.90 merge)
+**Base**: `77c9dc7` (classroom batch create v0.91 merge)
 
-## 지금 할 것 — Classroom 코스 batch create
+## 지금 할 것 — Chat members.add + delete
 
 ### 왜
 
-v0.90 로 코스 하나씩 create 완비. 신학기에 30~40개 반 있으면 하나씩 만들기 비현실. `basic_data` grades 활용해 batch create:
-- year 선택 → basic_data 로드 → 학년/반 다중 체크박스
-- 각 반마다 코스 이름 자동 생성 (pattern: `{year}학년도 {grade}학년 {class}반`)
-- 확인 후 순차 실행 · 이미 존재하는 이름은 skip
+v0.80 로 chat.members.list 완비. 이제 편집:
+- **추가**: Chat API `spaces.members.create` 는 `member.name` 이 `users/{USER_ID}` 형식 요구 (이메일 직접 안됨). Directory API `users.get({userKey: email})` 로 email → userId 리졸브 후 chat 호출.
+- **삭제**: `spaces.members.delete({name: 'spaces/AAAA/members/BBBBB'})` — member name 그대로 (조회 시 이미 있음).
 
-기존 `ClassroomBulkInviteDialog` (v0.88) 패턴 대부분 재사용. v0.89 F3 교훈: direct callable 사용 · auto-invalidate 우회 · 종료 시 1회만 invalidate.
+Classroom API 는 email 직접 수용 (v0.85 · v0.86) → Directory 리졸버 불필요했음. Chat 은 반드시 리졸버 필요.
+
+Directory client 는 이미 있음 (`packages/functions/src/google/directoryClient.ts:10` `users.get`). Scope `admin.directory.user.readonly` 는 login 에 이미 있음.
 
 **하지 않는 것**:
-- transfer_owner (v0.92+ 별도)
-- Chat members.add (v0.93+ · Directory 리졸버)
-- 코스↔반 자동 매칭 조회 (batch create 로 대체됨 · 이제 코스와 반 매칭은 이름 규약으로 판별 가능)
-- 이미 존재하는 코스 update (skip 만)
+- Chat bulk 초대 (basic_data 활용) — v0.93+ 별도.
+- 자동 배정 (chat.assign · classroom 코스와 동기화) — v0.94+ 별도.
+- transfer_owner (Chat 도메인 없음 · classroom v0.94+ 검토).
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx` — 다이얼로그 (phase select→preview→running→done)
-- `packages/web/tests/CourseBulkCreateDialog.test.tsx` (시나리오 5~7)
+- `packages/functions/src/callable/chat/membersAdd.ts` — email 입력 → Directory 리졸브 → chat.spaces.members.create
+- `packages/functions/src/callable/chat/membersDelete.ts` — member name (spaces/AAA/members/BBB) 그대로 chat.spaces.members.delete
+- `packages/functions/tests/chatMembersAdd.test.ts` (시나리오 7~8)
+- `packages/functions/tests/chatMembersDelete.test.ts` (시나리오 7)
+- `packages/web/src/api/chatMembersAdd.ts` — useMutation
+- `packages/web/src/api/chatMembersDelete.ts` — useMutation
+- `packages/web/src/routes/admin/AddChatMemberDialog.tsx` — 이메일 입력 · submit → 성공 시 close · error banner
+- `packages/web/tests/chatMembersAdd.test.ts` (시나리오 2)
+- `packages/web/tests/chatMembersDelete.test.ts` (시나리오 2)
+- `packages/web/tests/AddChatMemberDialog.test.tsx` (시나리오 4)
 
 **수정 대상**:
-- `packages/web/src/routes/admin/ClassroomTable.tsx` — 상단 「학년/반 일괄 생성」 버튼 (「+ 코스 추가」 옆)
+- `packages/functions/src/google/chatClient.ts` — spaces.members.create + delete 인터페이스
+- `packages/functions/src/index.ts` — export 2건
+- `firebase.json` — rewrites 2건
+- `packages/web/src/routes/admin/ChatSpaceMembersDialog.tsx` — 「+ 멤버 추가」 버튼 · 각 행 「삭제」 버튼 · v0.87 패턴 (session reset · 2-step 삭제 · pending lock)
 
 **손대지 마라**:
-- classroomCreate callable (그대로 재사용).
-- classroom.list · patch · delete · rosters · CRUD · bulk invite 그대로.
-- 다른 도메인.
+- chat.list · create · delete · members.list 그대로.
+- directoryClient 그대로 (users.get 재사용).
+- classroom · basic_data · groups · users · audit 그대로.
 
 ### 세부 요구
 
-#### 1. `CourseBulkCreateDialog.tsx`
+#### 1. `chatClient.ts` — members.create + delete 인터페이스
+
+```ts
+export interface ChatClient {
+  spaces: {
+    list: ...,
+    create: ...,
+    delete: ...,
+    members: {
+      list: ...,
+      create: (params: {
+        parent: string;                                // 'spaces/AAAA'
+        requestBody: {
+          member: { name: string; type: 'HUMAN' | 'BOT' };   // name = 'users/USER_ID'
+        };
+      }) => Promise<{ data: ChatMember }>;
+      delete: (params: { name: string }) => Promise<{ data: {} }>;   // name = 'spaces/AAAA/members/BBBBB'
+    };
+  };
+}
+```
+
+#### 2. `chat/membersAdd.ts` — Directory 리졸브 + create
+
+Cap `chat.write` · Scopes: `chat.memberships` + `admin.directory.user.readonly`.
+
+```ts
+export interface ChatMembersAddRequest {
+  spaceName: string;              // 'spaces/AAAA'
+  email: string;                  // 사용자 이메일
+}
+
+export interface ChatMembersAddResponse {
+  member: ChatMember;
+}
+
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/chat.memberships',
+  'https://www.googleapis.com/auth/admin.directory.user.readonly',
+] as const;
+
+const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
+const EMAIL_RE = /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+
+// 인증 → Cap chat.write → Scopes → spaceName · email 검증 →
+//   directory.users.get({ userKey: email }) → userId 획득 →
+//   chat.spaces.members.create({ parent: spaceName, requestBody: { member: { name: `users/${userId}`, type: 'HUMAN' } } }) →
+//   audit `chat.write` · action 'chat.members.add' · target=`${spaceName}/members/${userId}` · message=`email=${email}`
+```
+
+**주의**:
+- audit action `chat.members.add` (새 action).
+- Directory upstream 404 (email 없음) → `HttpsError not-found` · audit `error` message='directory_user_not_found'.
+- Chat upstream 409 (이미 멤버) → 그대로 통과 (mapUpstreamError · unknown or 자체 매핑).
+- 두 API 호출 사이 실패 시 partial state: userId 얻었지만 chat 실패 — audit `error` 로 기록.
+
+#### 3. `chat/membersDelete.ts` — 삭제
+
+Cap `chat.write` · Scope `chat.memberships`.
+
+```ts
+export interface ChatMembersDeleteRequest {
+  memberName: string;             // 'spaces/AAAA/members/BBBBB'
+}
+
+export interface ChatMembersDeleteResponse {
+  ok: true;
+}
+
+const MEMBER_NAME_RE = /^spaces\/[A-Za-z0-9_-]+\/members\/[A-Za-z0-9_-]+$/;
+
+// 형식 검증 후 chat.spaces.members.delete({ name: memberName }) →
+//   audit action 'chat.members.delete' · target=memberName
+```
+
+**주의**: memberName 은 이미 조회된 전체 경로 · 클라이언트에서 그대로 전달. Directory 리졸버 불필요.
+
+#### 4. functions/index.ts + firebase.json
+
+```ts
+export { chatMembersAdd } from './callable/chat/membersAdd.js';
+export { chatMembersDelete } from './callable/chat/membersDelete.js';
+```
+
+`firebase.json` rewrites 2건.
+
+#### 5. 테스트 (functions)
+
+**`chatMembersAdd.test.ts`** (8 시나리오):
+1. 미인증 → denied.
+2. 캡 `chat.write` 부족 → denied.
+3. 스코프 `chat.memberships` 부족 → denied.
+4. 스코프 `admin.directory.user.readonly` 부족 → denied.
+5. spaceName 형식 오류 → invalid-argument.
+6. email 형식 오류 → invalid-argument.
+7. 정상 (mock directory.get → mock chat.members.create) → response.member.name · audit action 'chat.members.add'.
+8. directory 404 → HttpsError not-found · audit error.
+
+**`chatMembersDelete.test.ts`** (7 시나리오):
+1~5 표준 (auth · cap · scope · format).
+6. 정상 → audit action 'chat.members.delete'.
+7. upstream 404 → HttpsError not-found.
+
+#### 6. `chatMembersAdd.ts` · `chatMembersDelete.ts` — hooks
+
+useMutation · invalidateQueries `['chat', 'members', spaceName]` (성공 시 자동 새로고침).
+
+#### 7. `AddChatMemberDialog.tsx`
 
 **Props**:
 ```ts
-export interface CourseBulkCreateDialogProps {
+export interface AddChatMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDone?: () => void;
+  spaceName: string;              // 'spaces/AAAA'
+  spaceDisplayName?: string;
+  onSuccess?: () => void;
 }
 ```
 
-**state**:
-```ts
-type Phase = 'select' | 'preview' | 'running' | 'done';
-type ResultKind = 'ok' | 'skipped' | 'failed';
+**동작**:
+- email input (필수 · email 형식)
+- Submit → mutateAsync → 성공 시 close + onSuccess?.().
+- Error 배너 (directory 404 등)
+- open 되면 form reset.
+- pending 중 close 차단.
 
-interface BatchCreateResult {
-  gradeClass: string;    // '2-3'
-  courseName: string;    // '2026학년도 2학년 3반'
-  kind: ResultKind;
-  courseId?: string;     // ok 시 응답 id
-  message?: string;
-}
+**data-testid**:
+- form: `add-chat-member-form`
+- email input: `add-chat-member-email`
+- submit: `add-chat-member-submit`
+- error: `add-chat-member-error`
 
-const thisYear = new Date().getFullYear();
-const [year, setYear] = useState(thisYear);
-const [yearInput, setYearInput] = useState(String(thisYear));
-const [selected, setSelected] = useState<Set<string>>(new Set());   // '2-3' 형식
-const [ownerId, setOwnerId] = useState('me');
-const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
-const [confirmText, setConfirmText] = useState('');
-const [phase, setPhase] = useState<Phase>('select');
-const [progress, setProgress] = useState(0);
-const [results, setResults] = useState<BatchCreateResult[]>([]);
-```
+#### 8. `ChatSpaceMembersDialog.tsx` — 편집 통합
 
-**Hooks**:
-- `useBasicDataGet(year, open)` — 학년/반 정보
-- QueryClientContext — 종료 시 invalidate
-- **`useClassroomCreate` 는 사용 안 함** (auto-invalidate 우회) · `callClassroomCreate` 직접 import
+**추가**:
 
-**isYearValid** (v0.89 F2 헬퍼 재사용 · 로컬 복제):
-```ts
-function isYearValid(val: string): boolean {
-  const trimmed = val.trim();
-  if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200;
-}
-```
-
-**handleYearChange** (v0.89 패턴):
-```ts
-const handleYearChange = (val: string) => {
-  setYearInput(val);
-  setSelected(new Set());
-  if (isYearValid(val)) {
-    setYear(Number.parseInt(val.trim(), 10));
-  }
-};
-```
-
-**Course name pattern**:
-```ts
-function courseName(year: number, grade: number, cls: string): string {
-  return `${year}학년도 ${grade}학년 ${cls}반`;
-}
-```
-
-**Phase: select**
-- year input (v0.89 F2 스타일).
-- basic_data 로드 후 각 학년 · 반을 checkbox 로 렌더.
-- 각 checkbox click → selected Set 토글 (key = `${grade}-${cls}`).
-- 「전체 선택」 · 「전체 해제」 액션 (해당 학년 내).
-- ownerId input (default `me`).
-- courseState select ([PROVISIONED, ACTIVE]).
-- 「미리보기」 버튼 (활성: 최소 1개 선택 + isYearValid).
-
-**Phase: preview**
-- 선택된 조합 리스트 (grade-class + 자동 생성 이름 pattern).
-- 총 코스 수 (예: 12개).
-- 확인 텍스트 input (코스 수 정확 타이핑).
-- 「생성 실행」 버튼 (활성: 확인 정확).
-
-**Phase: running**
-- 순차 `callClassroomCreate({ requestBody: { name, section, ownerId, courseState } })`.
-- section = `${grade}-${cls}` (예: '2-3').
-- 각 결과 array push (ok/skipped/failed).
-- upstream 409 (이미 존재) 은 skip 으로 분류 (`isAlreadyExistsError` 헬퍼):
-  ```ts
-  function isAlreadyExistsError(message: string): boolean {
-    const lower = message.toLowerCase();
-    return (
-      lower.includes('already') ||
-      lower.includes('duplicate') ||
-      lower.includes('exists') ||
-      lower.includes('409')
-    );
-  }
-  ```
-- 진행률 표시. close 차단.
-
-**Phase: done**
-- ok / skipped / failed 카운트.
-- skipped · failed 목록 (스크롤).
-- 「확인」 → onOpenChange(false) + queryClient.invalidateQueries(['classroom', 'list']) + onDone?.().
-
-**testid**:
-- year input: `bulk-create-year-input`
-- 학년 checkbox: `bulk-create-class-cb-${grade}-${cls}` (하위 checkbox 형식)
-- 「전체 선택」: `bulk-create-select-all-${grade}`
-- ownerId: `bulk-create-owner`
-- courseState: `bulk-create-state`
-- preview 진입: `bulk-create-preview-btn`
-- 미리보기 리스트: `bulk-create-preview`
-- 확인 입력: `bulk-create-confirm-input`
-- 실행: `bulk-create-execute-btn`
-- 진행: `bulk-create-running`
-- done: `bulk-create-done` · skipped: `bulk-create-skipped` · failed: `bulk-create-failures`
-
-#### 2. `ClassroomTable.tsx` — 「학년/반 일괄 생성」 버튼
-
-기존 「+ 코스 추가」 옆에 추가:
+1. dialog 상단 (테이블 위) 「+ 멤버 추가」 버튼:
 ```tsx
-<div className="flex items-center gap-2">
-  <Button
-    variant="secondary"
-    onClick={() => setIsBatchOpen(true)}
-    data-testid="classroom-batch-create-btn"
-  >
-    학년/반 일괄 생성
-  </Button>
-  <Button
-    onClick={() => setIsCreateOpen(true)}
-    data-testid="classroom-create-btn"
-  >
-    + 코스 추가
-  </Button>
-</div>
+{spaceName && !isLoading && !isError && (
+  <div className="flex justify-end mb-3">
+    <Button
+      variant="secondary"
+      onClick={() => setAddOpen(true)}
+      disabled={anyPending}
+      data-testid="chat-members-add-btn"
+    >
+      + 멤버 추가
+    </Button>
+  </div>
+)}
+```
+
+2. 각 행에 「삭제」 · v0.87 2-step 확인 패턴 (course-members-delete-btn 참고):
+```tsx
+<TableCell className="text-right">
+  {deleteConfirmName === m.name ? (
+    <div className="flex gap-2 justify-end">
+      <button
+        onClick={() => handleDelete(m.name)}
+        disabled={deleteMutation.isPending}
+        data-testid={`chat-member-confirm-delete-btn-${m.name}`}
+      >
+        {deleteMutation.isPending ? '삭제 중...' : '정말 삭제?'}
+      </button>
+      <button
+        onClick={() => setDeleteConfirmName(null)}
+        disabled={deleteMutation.isPending}
+        data-testid={`chat-member-cancel-delete-btn-${m.name}`}
+      >
+        취소
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setDeleteConfirmName(m.name)}
+      disabled={deleteMutation.isPending || anyPending}
+      data-testid={`chat-member-delete-btn-${m.name}`}
+    >
+      삭제
+    </button>
+  )}
+</TableCell>
 ```
 
 **state 추가**:
 ```ts
-const [isBatchOpen, setIsBatchOpen] = useState(false);
+const [addOpen, setAddOpen] = useState(false);
+const [deleteConfirmName, setDeleteConfirmName] = useState<string | null>(null);
+const deleteMutation = useChatMembersDelete();
+const anyPending = deleteMutation.isPending;
 ```
 
-**Dialog 렌더**:
+**useEffect** (session reset · v0.87 패턴):
+```ts
+useEffect(() => {
+  if (open && spaceName) {
+    setDeleteConfirmName(null);
+    deleteMutation.reset?.();
+  }
+}, [open, spaceName]);
+```
+
+**handlers**:
+```ts
+const handleDelete = async (memberName: string) => {
+  try {
+    await deleteMutation.mutateAsync({ memberName });
+    setDeleteConfirmName(null);
+  } catch { /* error banner */ }
+};
+```
+
+**표 헤더 관리 컬럼 추가** (기존 4 컬럼 → 5):
 ```tsx
-<CourseBulkCreateDialog
-  open={isBatchOpen}
-  onOpenChange={setIsBatchOpen}
-/>
+<TableHead className="text-right">관리</TableHead>
 ```
 
-#### 3. 테스트
+**AddChatMemberDialog nested**:
+```tsx
+{spaceName && (
+  <AddChatMemberDialog
+    open={addOpen}
+    onOpenChange={setAddOpen}
+    spaceName={spaceName}
+    spaceDisplayName={displayName}
+  />
+)}
+```
 
-**`CourseBulkCreateDialog.test.tsx`** (5~7 신규):
+#### 9. 테스트 (web)
+
+**`chatMembersAdd.test.ts`** (2 신규): 200 · 400.
+**`chatMembersDelete.test.ts`** (2 신규): 200 · 404.
+
+**`AddChatMemberDialog.test.tsx`** (4 신규):
 1. open=false → 미렌더.
-2. year invalid 입력 → selected 초기화 · preview 버튼 disabled.
-3. 학년/반 체크 후 preview 진입 → 코스 이름 pattern 렌더 · 총 수 표시.
-4. 확인 텍스트 오류 → 「생성 실행」 disabled.
-5. 「생성 실행」 클릭 → mock callClassroomCreate 순차 호출 (선택된 개수만큼).
-6. 이미 존재 오류 (409 · duplicate) → skipped 분류.
-7. 종료 시 queryClient.invalidateQueries 1회 호출 (mock spy).
+2. email 빈 문자열 → submit disabled.
+3. 정상 → callChatMembersAdd 호출.
+4. mutation error → error 배너 렌더.
 
-**`ClassroomTable.test.tsx`** (기존 확장 2 신규):
-1. 「학년/반 일괄 생성」 버튼 렌더.
-2. 클릭 시 isBatchOpen state 변경.
+**`ChatSpaceMembersDialog.test.tsx`** (기존 확장 3 신규):
+1. 「+ 멤버 추가」 버튼 렌더.
+2. 각 행 「삭제」 버튼 렌더 · 클릭 시 2-step 확인 나타남.
+3. 「정말 삭제?」 → callChatMembersDelete 호출.
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 904 + 신규 7~9 = 911~913 근처.
+4. `pnpm -r test` — 이전 919 + 신규 28~32 = 947~951 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/classrooms` 「학년/반 일괄 생성」 → year 선택 → 반 다중 선택 → preview → 실행 → 결과.
+   - `/admin/chat` 챗방 「멤버」 → 「+ 멤버 추가」 → 이메일 → 성공 → 목록 새로고침
+   - 각 멤버 「삭제」 → 「정말 삭제?」 → 실행 → 새로고침
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 Classroom batch create** — 실 계정 · rosters 필요.
-- **transfer_owner** — v0.92+ 별도.
-- **Chat members.add** — v0.93+ (Directory 리졸버).
-- **코스명 pattern 커스터마이즈** — 별도 판단 (settings 필요하면).
+- **실 Chat member add/delete** — 실 계정 · Google Chat 필요.
+- **자동 배정 · bulk 초대** — v0.93+ 별도.
 
 ### 커밋 규칙
 
-**2 커밋 분리**:
-1. `feat(web): CourseBulkCreateDialog (basic_data → classroom.create 순차 batch)`
-2. `feat(web): ClassroomTable 「학년/반 일괄 생성」 버튼 통합`
+**4 커밋 분리**:
+1. `feat(functions): chat.members.add callable (Directory 리졸버) + chatClient.members.create + firebase rewrite`
+2. `feat(functions): chat.members.delete callable + chatClient.members.delete + firebase rewrite`
+3. `feat(web): chatMembersAdd/Delete API + mutation hooks`
+4. `feat(web): AddChatMemberDialog + ChatSpaceMembersDialog 편집 UI (2-step 삭제)`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/classroom-batch-create-v91`.
+**작업 브랜치** — `git push -u origin feat/chat-members-crud-v92`.
 
 ## 상태 보고 (필수)
 
