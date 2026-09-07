@@ -1,205 +1,191 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **classroom.create v0.90** — courses.create callable + CreateClassroomDialog + ClassroomTable 「+ 코스 추가」 버튼. 신학기 workflow 열림 (수동 코스 하나씩 · batch 는 v0.91+).
+> 지금 이 파일의 오더는 **classroom batch create v0.91** — CourseBulkCreateDialog · basic_data year 선택 · 학년/반 다중 선택 · 순차 classroomCreate.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-create-v90`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-batch-create-v91`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 3 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
 
 ## 기준 커밋
 
-**Base**: `3df945b` (Codex hotfix v0.89 merge)
+**Base**: `ff6b5c0` (classroom.create v0.90 merge)
 
-## 지금 할 것 — classroom.create + Dialog + 「+ 코스 추가」 버튼
+## 지금 할 것 — Classroom 코스 batch create
 
 ### 왜
 
-v0.82~v0.89 로 classroom list · patch · delete · rosters · CRUD · bulk invite 완비. 하지만 **코스 create 없음** → admin 이 코스를 UI 에서 생성 못함 (지금은 classroom.google.com 에서 수동 생성 후 우리 앱에서 관리만 가능).
+v0.90 로 코스 하나씩 create 완비. 신학기에 30~40개 반 있으면 하나씩 만들기 비현실. `basic_data` grades 활용해 batch create:
+- year 선택 → basic_data 로드 → 학년/반 다중 체크박스
+- 각 반마다 코스 이름 자동 생성 (pattern: `{year}학년도 {grade}학년 {class}반`)
+- 확인 후 순차 실행 · 이미 존재하는 이름은 skip
 
-Chat 도메인의 v0.78 create 패턴 그대로 재사용. 신학기에 admin 이 한두 개 코스 만들어 보고 → 익숙해지면 batch 요청 (v0.91+).
+기존 `ClassroomBulkInviteDialog` (v0.88) 패턴 대부분 재사용. v0.89 F3 교훈: direct callable 사용 · auto-invalidate 우회 · 종료 시 1회만 invalidate.
 
 **하지 않는 것**:
-- batch create (learn 반 리스트 → 여러 코스) — v0.91 별도.
-- transfer_owner — v0.92+.
-- Chat members.add (Directory 리졸버 필요) — v0.93+.
+- transfer_owner (v0.92+ 별도)
+- Chat members.add (v0.93+ · Directory 리졸버)
+- 코스↔반 자동 매칭 조회 (batch create 로 대체됨 · 이제 코스와 반 매칭은 이름 규약으로 판별 가능)
+- 이미 존재하는 코스 update (skip 만)
 
 ### 이 과제가 바꿀 경로
 
 **신규 파일**:
-- `packages/functions/src/callable/classroom/create.ts` — 신규 callable
-- `packages/functions/tests/classroomCreate.test.ts` (시나리오 6~7)
-- `packages/web/src/api/classroomCreate.ts` — fetch + useMutation hook
-- `packages/web/src/routes/admin/CreateClassroomDialog.tsx` — 코스 생성 다이얼로그
-- `packages/web/tests/classroomCreate.test.ts` (시나리오 2)
-- `packages/web/tests/CreateClassroomDialog.test.tsx` (시나리오 4)
+- `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx` — 다이얼로그 (phase select→preview→running→done)
+- `packages/web/tests/CourseBulkCreateDialog.test.tsx` (시나리오 5~7)
 
 **수정 대상**:
-- `packages/functions/src/google/classroomClient.ts` — courses.create 인터페이스 추가
-- `packages/functions/src/index.ts` — export `classroomCreate`
-- `firebase.json` — hosting rewrite `/api/classroomCreate`
-- `packages/web/src/routes/admin/ClassroomTable.tsx` — 상단에 「+ 코스 추가」 버튼 추가
+- `packages/web/src/routes/admin/ClassroomTable.tsx` — 상단 「학년/반 일괄 생성」 버튼 (「+ 코스 추가」 옆)
 
 **손대지 마라**:
-- classroom.list · patch · delete · rosters · CRUD 그대로.
+- classroomCreate callable (그대로 재사용).
+- classroom.list · patch · delete · rosters · CRUD · bulk invite 그대로.
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. `classroomClient.ts` — courses.create 인터페이스
-
-```ts
-courses: {
-  list: ...,
-  patch: ...,
-  delete: ...,
-  create: (params: {
-    requestBody: {
-      name: string;                // 필수
-      section?: string;
-      description?: string;
-      room?: string;
-      ownerId: string;             // 'me' | email | userId
-      courseState?: string;        // 기본 'PROVISIONED' → active 되려면 patch 필요
-    };
-  }) => Promise<{ data: ClassroomCourse }>;
-  teachers: ...,
-  students: ...,
-};
-```
-
-#### 2. `classroom/create.ts` — callable
-
-Cap `classroom.write` · Scope `classroom.courses`.
-
-```ts
-export interface ClassroomCreateRequest {
-  name: string;                    // 필수 · 앞뒤 trim
-  section?: string;
-  description?: string;
-  room?: string;
-  ownerId?: string;                // 기본 'me'
-  courseState?: 'PROVISIONED' | 'ACTIVE';   // 기본 'PROVISIONED'
-}
-
-export interface ClassroomCreateResponse {
-  course: ClassroomCourse;
-}
-
-const REQUIRED_SCOPES = [
-  'https://www.googleapis.com/auth/classroom.courses',
-] as const;
-
-const NAME_RE = /^.{1,300}$/;                              // 1~300자 (Google 제한)
-const OWNER_ID_RE = /^(me|[A-Za-z0-9._@+\-]+)$/;
-
-// 인증 → Cap classroom.write → Scope classroom.courses →
-//   name 검증 (trim 후 비어있으면 invalid-argument) →
-//   ownerId 검증 (미제공 시 'me' · 형식 통과) →
-//   courseState 검증 (미제공 시 'PROVISIONED' · 'PROVISIONED' 또는 'ACTIVE' 만 허용) →
-//   courses.create({ requestBody: { name, section, description, room, ownerId, courseState } }) →
-//   audit `classroom.write` · action 'classroom.create' · target=`courses/${result.id}` · message=`name=${name}`
-```
-
-**주의**:
-- audit target 은 응답의 course.id 로 완성 (audit `ok` 시). 실패 시 target='*'.
-- 새 audit action `classroom.create` (기존 없음 · 하드코딩 없음 · UI filter 자동 반영).
-- `mapUpstreamError` 재사용.
-- upstream 400 (name 등 무효) → HttpsError invalid-argument (기존 매핑에 없음 · unknown 로 매핑됨) — 그대로 유지. 사용자에 API 오류 그대로 표시.
-
-#### 3. functions/index.ts + firebase.json
-
-```ts
-export { classroomCreate } from './callable/classroom/create.js';
-```
-
-`firebase.json` rewrites 에 `/api/classroomCreate` 추가.
-
-#### 4. 테스트 (functions)
-
-**`classroomCreate.test.ts`** (7 시나리오):
-1. 미인증 → denied.
-2. 캡 `classroom.write` 부족 → denied.
-3. 스코프 부족 → denied.
-4. name 형식 오류 (빈 문자열 · 301자 이상) → invalid-argument.
-5. ownerId 형식 오류 → invalid-argument.
-6. 정상 (mock create · 응답에 id=abc) → response.course.id === 'abc' · audit action 'classroom.create' · target 'courses/abc'.
-7. upstream 403 → HttpsError permission-denied · audit denied.
-
-#### 5. `classroomCreate.ts` — hook
-
-`classroomPatch.ts` 패턴 (useMutation).
-
-```ts
-export function useClassroomCreate() {
-  const qc = useQueryClient();
-  return useMutation<ClassroomCreateResponse, Error, ClassroomCreateRequest>({
-    mutationFn: callClassroomCreate,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['classroom', 'list'] });
-    },
-  });
-}
-```
-
-#### 6. `CreateClassroomDialog.tsx`
+#### 1. `CourseBulkCreateDialog.tsx`
 
 **Props**:
 ```ts
-export interface CreateClassroomDialogProps {
+export interface CourseBulkCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (course: ClassroomCourse) => void;
+  onDone?: () => void;
 }
 ```
 
-**구조**:
-- Dialog · form
-- Fields:
-  - 코스 이름 (name · 필수) — text input
-  - 섹션 (section · 선택) — text input
-  - 설명 (description · 선택) — textarea
-  - 강의실 (room · 선택) — text input
-  - 소유자 (ownerId) — text input · placeholder `me` · 기본값 `me`
-  - 상태 (courseState) — select [PROVISIONED, ACTIVE] · 기본 PROVISIONED
-- Submit button: 「생성」 · pending 중 「생성 중...」
-- Cancel button: 「취소」
-- Error 배너 (mutation.error 있으면 렌더)
+**state**:
+```ts
+type Phase = 'select' | 'preview' | 'running' | 'done';
+type ResultKind = 'ok' | 'skipped' | 'failed';
 
-**동작**:
-- Submit → mutateAsync → 성공 시 dialog close · onSuccess(course)
-- open 되면 form state reset.
-- pending 중 dialog close 차단.
+interface BatchCreateResult {
+  gradeClass: string;    // '2-3'
+  courseName: string;    // '2026학년도 2학년 3반'
+  kind: ResultKind;
+  courseId?: string;     // ok 시 응답 id
+  message?: string;
+}
 
-**data-testid**:
-- form: `create-classroom-form`
-- name input: `create-classroom-name`
-- section input: `create-classroom-section`
-- description input: `create-classroom-description`
-- room input: `create-classroom-room`
-- owner input: `create-classroom-owner`
-- state select: `create-classroom-state`
-- submit: `create-classroom-submit`
-- error: `create-classroom-error`
+const thisYear = new Date().getFullYear();
+const [year, setYear] = useState(thisYear);
+const [yearInput, setYearInput] = useState(String(thisYear));
+const [selected, setSelected] = useState<Set<string>>(new Set());   // '2-3' 형식
+const [ownerId, setOwnerId] = useState('me');
+const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
+const [confirmText, setConfirmText] = useState('');
+const [phase, setPhase] = useState<Phase>('select');
+const [progress, setProgress] = useState(0);
+const [results, setResults] = useState<BatchCreateResult[]>([]);
+```
 
-#### 7. `ClassroomTable.tsx` — 「+ 코스 추가」 버튼 추가
+**Hooks**:
+- `useBasicDataGet(year, open)` — 학년/반 정보
+- QueryClientContext — 종료 시 invalidate
+- **`useClassroomCreate` 는 사용 안 함** (auto-invalidate 우회) · `callClassroomCreate` 직접 import
 
-기존 표 위 · `<div className="flex justify-between items-center">` 안에 추가:
+**isYearValid** (v0.89 F2 헬퍼 재사용 · 로컬 복제):
+```ts
+function isYearValid(val: string): boolean {
+  const trimmed = val.trim();
+  if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200;
+}
+```
+
+**handleYearChange** (v0.89 패턴):
+```ts
+const handleYearChange = (val: string) => {
+  setYearInput(val);
+  setSelected(new Set());
+  if (isYearValid(val)) {
+    setYear(Number.parseInt(val.trim(), 10));
+  }
+};
+```
+
+**Course name pattern**:
+```ts
+function courseName(year: number, grade: number, cls: string): string {
+  return `${year}학년도 ${grade}학년 ${cls}반`;
+}
+```
+
+**Phase: select**
+- year input (v0.89 F2 스타일).
+- basic_data 로드 후 각 학년 · 반을 checkbox 로 렌더.
+- 각 checkbox click → selected Set 토글 (key = `${grade}-${cls}`).
+- 「전체 선택」 · 「전체 해제」 액션 (해당 학년 내).
+- ownerId input (default `me`).
+- courseState select ([PROVISIONED, ACTIVE]).
+- 「미리보기」 버튼 (활성: 최소 1개 선택 + isYearValid).
+
+**Phase: preview**
+- 선택된 조합 리스트 (grade-class + 자동 생성 이름 pattern).
+- 총 코스 수 (예: 12개).
+- 확인 텍스트 input (코스 수 정확 타이핑).
+- 「생성 실행」 버튼 (활성: 확인 정확).
+
+**Phase: running**
+- 순차 `callClassroomCreate({ requestBody: { name, section, ownerId, courseState } })`.
+- section = `${grade}-${cls}` (예: '2-3').
+- 각 결과 array push (ok/skipped/failed).
+- upstream 409 (이미 존재) 은 skip 으로 분류 (`isAlreadyExistsError` 헬퍼):
+  ```ts
+  function isAlreadyExistsError(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+      lower.includes('already') ||
+      lower.includes('duplicate') ||
+      lower.includes('exists') ||
+      lower.includes('409')
+    );
+  }
+  ```
+- 진행률 표시. close 차단.
+
+**Phase: done**
+- ok / skipped / failed 카운트.
+- skipped · failed 목록 (스크롤).
+- 「확인」 → onOpenChange(false) + queryClient.invalidateQueries(['classroom', 'list']) + onDone?.().
+
+**testid**:
+- year input: `bulk-create-year-input`
+- 학년 checkbox: `bulk-create-class-cb-${grade}-${cls}` (하위 checkbox 형식)
+- 「전체 선택」: `bulk-create-select-all-${grade}`
+- ownerId: `bulk-create-owner`
+- courseState: `bulk-create-state`
+- preview 진입: `bulk-create-preview-btn`
+- 미리보기 리스트: `bulk-create-preview`
+- 확인 입력: `bulk-create-confirm-input`
+- 실행: `bulk-create-execute-btn`
+- 진행: `bulk-create-running`
+- done: `bulk-create-done` · skipped: `bulk-create-skipped` · failed: `bulk-create-failures`
+
+#### 2. `ClassroomTable.tsx` — 「학년/반 일괄 생성」 버튼
+
+기존 「+ 코스 추가」 옆에 추가:
 ```tsx
-<div className="flex justify-between items-center">
-  <p className="text-small text-fg-secondary">
-    {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
-  </p>
+<div className="flex items-center gap-2">
+  <Button
+    variant="secondary"
+    onClick={() => setIsBatchOpen(true)}
+    data-testid="classroom-batch-create-btn"
+  >
+    학년/반 일괄 생성
+  </Button>
   <Button
     onClick={() => setIsCreateOpen(true)}
     data-testid="classroom-create-btn"
@@ -211,65 +197,59 @@ export interface CreateClassroomDialogProps {
 
 **state 추가**:
 ```ts
-const [isCreateOpen, setIsCreateOpen] = useState(false);
+const [isBatchOpen, setIsBatchOpen] = useState(false);
 ```
 
 **Dialog 렌더**:
 ```tsx
-<CreateClassroomDialog
-  open={isCreateOpen}
-  onOpenChange={setIsCreateOpen}
+<CourseBulkCreateDialog
+  open={isBatchOpen}
+  onOpenChange={setIsBatchOpen}
 />
 ```
 
-**주의**: 
-- 「p 코스 목록」 라인 왼쪽 · 「+ 코스 추가」 오른쪽.
-- 기존 관리 버튼들 · 표 · 다이얼로그 (Archive · Delete · Members) 모두 그대로.
+#### 3. 테스트
 
-#### 8. 테스트 (web)
-
-**`classroomCreate.test.ts`** (2 신규):
-1. 200 응답 → data.course · id 확인.
-2. 400 응답 (name 오류) → hook throws · status 400.
-
-**`CreateClassroomDialog.test.tsx`** (4 신규):
+**`CourseBulkCreateDialog.test.tsx`** (5~7 신규):
 1. open=false → 미렌더.
-2. name 빈 문자열 → submit 버튼 disabled.
-3. 정상 입력 후 submit → callClassroomCreate 호출 (name · ownerId 기본값) · 성공 시 dialog close.
-4. mutation error → error 배너 렌더.
+2. year invalid 입력 → selected 초기화 · preview 버튼 disabled.
+3. 학년/반 체크 후 preview 진입 → 코스 이름 pattern 렌더 · 총 수 표시.
+4. 확인 텍스트 오류 → 「생성 실행」 disabled.
+5. 「생성 실행」 클릭 → mock callClassroomCreate 순차 호출 (선택된 개수만큼).
+6. 이미 존재 오류 (409 · duplicate) → skipped 분류.
+7. 종료 시 queryClient.invalidateQueries 1회 호출 (mock spy).
 
-**`ClassroomTable.test.tsx`** (기존 확장 1~2건):
-- 「+ 코스 추가」 버튼 렌더 확인.
-- 클릭 시 CreateClassroomDialog open state 변경 (mock).
+**`ClassroomTable.test.tsx`** (기존 확장 2 신규):
+1. 「학년/반 일괄 생성」 버튼 렌더.
+2. 클릭 시 isBatchOpen state 변경.
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 862 + 신규 14~16 = 876~878 근처.
+4. `pnpm -r test` — 이전 904 + 신규 7~9 = 911~913 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/classrooms` 「+ 코스 추가」 → dialog → 이름 입력 → 생성 → 목록에 추가됨.
+   - `/admin/classrooms` 「학년/반 일괄 생성」 → year 선택 → 반 다중 선택 → preview → 실행 → 결과.
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 Google Classroom create** — 실 계정 · 실 domain 필요.
-- **batch create** — v0.91+ 별도.
+- **실 Classroom batch create** — 실 계정 · rosters 필요.
 - **transfer_owner** — v0.92+ 별도.
-- **PROVISIONED → ACTIVE 자동 전환 흐름** — 별도 UX 고려 필요 (v0.93+ 나 별도 판단).
+- **Chat members.add** — v0.93+ (Directory 리졸버).
+- **코스명 pattern 커스터마이즈** — 별도 판단 (settings 필요하면).
 
 ### 커밋 규칙
 
-**3 커밋 분리**:
-1. `feat(functions): classroom.create callable + classroomClient.create + firebase rewrite`
-2. `feat(web): classroomCreate API + useClassroomCreate mutation hook`
-3. `feat(web): CreateClassroomDialog + ClassroomTable 「+ 코스 추가」 버튼`
+**2 커밋 분리**:
+1. `feat(web): CourseBulkCreateDialog (basic_data → classroom.create 순차 batch)`
+2. `feat(web): ClassroomTable 「학년/반 일괄 생성」 버튼 통합`
 
 각 conventional commits. `git add -A` 금지.
 
-**작업 브랜치** — `git push -u origin feat/classroom-create-v90`.
+**작업 브랜치** — `git push -u origin feat/classroom-batch-create-v91`.
 
 ## 상태 보고 (필수)
 
