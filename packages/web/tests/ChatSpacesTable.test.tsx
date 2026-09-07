@@ -33,6 +33,24 @@ vi.mock('../src/api/chatMembersList', () => ({
   }),
 }));
 
+vi.mock('../src/api/chatMembersAdd', () => ({
+  useChatMembersAdd: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+    reset: vi.fn(),
+  }),
+}));
+
+vi.mock('../src/api/chatMembersDelete', () => ({
+  useChatMembersDelete: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+    reset: vi.fn(),
+  }),
+}));
+
 import { ChatSpacesTable } from '../src/routes/admin/ChatSpacesTable';
 
 describe('ChatSpacesTable component', () => {
