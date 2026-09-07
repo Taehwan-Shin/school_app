@@ -83,6 +83,15 @@ vi.mock('../src/api/classroomStudentsDelete', () => ({
   }),
 }));
 
+vi.mock('../src/api/basicDataGet', () => ({
+  useBasicDataGet: () => ({
+    data: { data: { year: 2026, grades: [], rosters: {} } },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
 import { ClassroomTable, translateCourseState } from '../src/routes/admin/ClassroomTable';
 
 describe('ClassroomTable component', () => {
@@ -285,6 +294,37 @@ describe('ClassroomTable component', () => {
     fireEvent.click(createBtn);
     expect(screen.getByTestId('create-classroom-form')).toBeDefined();
     expect(screen.getByText('새 클래스룸 코스 생성')).toBeDefined();
+  });
+
+  it('renders "학년/반 일괄 생성" button', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+    const batchBtn = screen.getByTestId('classroom-batch-create-btn');
+    expect(batchBtn).toBeDefined();
+    expect(batchBtn.textContent).toContain('학년/반 일괄 생성');
+  });
+
+  it('opens CourseBulkCreateDialog when "학년/반 일괄 생성" button is clicked', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+    const batchBtn = screen.getByTestId('classroom-batch-create-btn');
+    expect(screen.queryByTestId('bulk-create-year-input')).toBeNull();
+
+    fireEvent.click(batchBtn);
+    expect(screen.getByTestId('bulk-create-year-input')).toBeDefined();
+    expect(screen.getByText('학년/반 코스 일괄 생성')).toBeDefined();
   });
 });
 
