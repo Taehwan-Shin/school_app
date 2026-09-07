@@ -16,6 +16,15 @@ vi.mock('../src/api/classroomPatch', () => ({
   }),
 }));
 
+vi.mock('../src/api/classroomCreate', () => ({
+  useClassroomCreate: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+    reset: vi.fn(),
+  }),
+}));
+
 vi.mock('../src/api/classroomDelete', () => ({
   useClassroomDelete: () => ({
     mutateAsync: vi.fn(),
@@ -258,4 +267,24 @@ describe('ClassroomTable component', () => {
     expect(translateCourseState('UNKNOWN')).toBe('UNKNOWN');
     expect(translateCourseState(undefined)).toBe('-');
   });
+
+  it('renders "+ 코스 추가" button and opens CreateClassroomDialog when clicked', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<ClassroomTable />);
+    const createBtn = screen.getByTestId('classroom-create-btn');
+    expect(createBtn).toBeDefined();
+    expect(createBtn.textContent).toContain('코스 추가');
+
+    expect(screen.queryByTestId('create-classroom-form')).toBeNull();
+    fireEvent.click(createBtn);
+    expect(screen.getByTestId('create-classroom-form')).toBeDefined();
+    expect(screen.getByText('새 클래스룸 코스 생성')).toBeDefined();
+  });
 });
+

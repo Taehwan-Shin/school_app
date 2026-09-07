@@ -17,6 +17,8 @@ import {
   type DeleteClassroomTarget,
 } from './DeleteClassroomDialog';
 import { CourseMembersDialog } from './CourseMembersDialog';
+import { CreateClassroomDialog } from './CreateClassroomDialog';
+import { Button } from '../../components/ui/button';
 
 export function translateCourseState(s?: string): string {
   switch (s) {
@@ -34,6 +36,7 @@ export function ClassroomTable() {
   const [membersTarget, setMembersTarget] = useState<{ id: string; name?: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -41,6 +44,12 @@ export function ClassroomTable() {
         <p className="text-small text-fg-secondary">
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
         </p>
+        <Button
+          onClick={() => setIsCreateOpen(true)}
+          data-testid="classroom-create-btn"
+        >
+          + 코스 추가
+        </Button>
       </div>
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="classroom-list-loading">
@@ -143,6 +152,10 @@ export function ClassroomTable() {
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         target={deleteTarget}
+      />
+      <CreateClassroomDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
       />
     </div>
   );
