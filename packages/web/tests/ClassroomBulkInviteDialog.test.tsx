@@ -1,22 +1,24 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockUseBasicDataGet = vi.fn();
-const mockMutateAsyncStudentAdd = vi.fn();
-const mockUseClassroomStudentsAdd = vi.fn();
+const mockCallClassroomStudentsAdd = vi.fn();
 
 vi.mock('../src/api/basicDataGet', () => ({
   useBasicDataGet: (year: number, enabled: boolean) => mockUseBasicDataGet(year, enabled),
 }));
 
 vi.mock('../src/api/classroomStudentsAdd', () => ({
-  useClassroomStudentsAdd: () => mockUseClassroomStudentsAdd(),
+  callClassroomStudentsAdd: (args: any) => mockCallClassroomStudentsAdd(args),
+  useClassroomStudentsAdd: vi.fn(),
 }));
 
 import {
   ClassroomBulkInviteDialog,
   isAlreadyMemberError,
+  isYearValid,
 } from '../src/routes/admin/ClassroomBulkInviteDialog';
 
 describe('ClassroomBulkInviteDialog component', () => {
@@ -45,11 +47,7 @@ describe('ClassroomBulkInviteDialog component', () => {
       isError: false,
       error: null,
     });
-    mockUseClassroomStudentsAdd.mockReturnValue({
-      mutateAsync: mockMutateAsyncStudentAdd,
-      isPending: false,
-      error: null,
-    });
+    mockCallClassroomStudentsAdd.mockResolvedValue({ student: {} });
   });
 
   // helper test for isAlreadyMemberError
@@ -154,7 +152,7 @@ describe('ClassroomBulkInviteDialog component', () => {
 
   // 시나리오 5: 「초대 실행」 클릭 -> mock classroomStudentsAdd 순차 호출 · 완료 후 done phase · ok 카운트 정확
   it('scenario 5: calls add mutation sequentially and enters done phase on success', async () => {
-    mockMutateAsyncStudentAdd.mockResolvedValue({ student: {} });
+    mockCallClassroomStudentsAdd.mockResolvedValue({ student: {} });
 
     const onDone = vi.fn();
     render(
@@ -178,12 +176,12 @@ describe('ClassroomBulkInviteDialog component', () => {
       fireEvent.click(executeBtn);
     });
 
-    expect(mockMutateAsyncStudentAdd).toHaveBeenCalledTimes(2);
-    expect(mockMutateAsyncStudentAdd).toHaveBeenNthCalledWith(1, {
+    expect(mockCallClassroomStudentsAdd).toHaveBeenCalledTimes(2);
+    expect(mockCallClassroomStudentsAdd).toHaveBeenNthCalledWith(1, {
       courseId: 'c-101',
       userId: 's101@cam.hs.kr',
     });
-    expect(mockMutateAsyncStudentAdd).toHaveBeenNthCalledWith(2, {
+    expect(mockCallClassroomStudentsAdd).toHaveBeenNthCalledWith(2, {
       courseId: 'c-101',
       userId: 's102@cam.hs.kr',
     });
@@ -194,7 +192,7 @@ describe('ClassroomBulkInviteDialog component', () => {
 
   // 시나리오 6: 이미 멤버 오류 -> skipped 로 분류 · skipped 리스트 렌더
   it('scenario 6: classifies duplicate errors as skipped and renders skipped list', async () => {
-    mockMutateAsyncStudentAdd
+    mockCallClassroomStudentsAdd
       .mockResolvedValueOnce({ student: {} })
       .mockRejectedValueOnce(new Error('User is already a member of this course (http_409)'));
 
@@ -229,7 +227,7 @@ describe('ClassroomBulkInviteDialog component', () => {
 
   // 시나리오 7: 다른 오류 -> failed 로 분류 · failed 리스트 렌더
   it('scenario 7: classifies other errors as failed and renders failure list', async () => {
-    mockMutateAsyncStudentAdd
+    mockCallClassroomStudentsAdd
       .mockResolvedValueOnce({ student: {} })
       .mockRejectedValueOnce(new Error('Network error 500'));
 
@@ -265,7 +263,7 @@ describe('ClassroomBulkInviteDialog component', () => {
 
   // 시나리오 8: 완료 후 「확인」 클릭 -> onOpenChange(false) + onDone() 호출
   it('scenario 8: calls onOpenChange(false) and onDone when confirm button is clicked in done phase', async () => {
-    mockMutateAsyncStudentAdd.mockResolvedValue({ student: {} });
+    mockCallClassroomStudentsAdd.mockResolvedValue({ student: {} });
 
     const onOpenChange = vi.fn();
     const onDone = vi.fn();
@@ -295,5 +293,118 @@ describe('ClassroomBulkInviteDialog component', () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  // 시나리오 10: year invalid ("abc" · "1500" · "" · "2020.5") 입력 -> selectedGrade/Class null 로 리셋 · preview 버튼 disabled
+  it('scenario 10: resets class selection and disables preview button on invalid year inputs', () => {
+    expect(isYearValid('abc')).toBe(false);
+    expect(isYearValid('1500')).toBe(false);
+    expect(isYearValid('')).toBe(false);
+    expect(isYearValid('2020.5')).toBe(false);
+    expect(isYearValid('2201')).toBe(false);
+    expect(isYearValid('2026')).toBe(true);
+
+    render(
+      <ClassroomBulkInviteDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+        courseName="수학 101"
+      />,
+    );
+
+    const yearInput = screen.getByTestId('bulk-invite-year-input') as HTMLInputElement;
+    const previewBtn = screen.getByTestId('bulk-invite-preview-btn') as HTMLButtonElement;
+
+    // First select a class
+    fireEvent.click(screen.getByTestId('bulk-invite-class-btn-1-1'));
+    expect(screen.getByTestId('bulk-invite-preview')).toBeDefined();
+    expect(previewBtn.disabled).toBe(false);
+
+    // Test each invalid value
+    const invalidValues = ['abc', '1500', '', '2020.5'];
+    for (const invalidVal of invalidValues) {
+      fireEvent.change(yearInput, { target: { value: invalidVal } });
+
+      // selectedGrade/Class reset -> preview section hidden
+      expect(screen.queryByTestId('bulk-invite-preview')).toBeNull();
+      // preview button disabled
+      expect(previewBtn.disabled).toBe(true);
+    }
+  });
+
+  // 시나리오 11: year 유효 -> invalid -> 유효 시퀀스: 반 선택 초기화 확인
+  it('scenario 11: resets class selection in valid -> invalid -> valid year sequence', () => {
+    render(
+      <ClassroomBulkInviteDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+        courseName="수학 101"
+      />,
+    );
+
+    const yearInput = screen.getByTestId('bulk-invite-year-input') as HTMLInputElement;
+    const previewBtn = screen.getByTestId('bulk-invite-preview-btn') as HTMLButtonElement;
+
+    // 1. Initial valid state (2026): select class 1-1
+    fireEvent.click(screen.getByTestId('bulk-invite-class-btn-1-1'));
+    expect(screen.getByTestId('bulk-invite-preview')).toBeDefined();
+    expect(previewBtn.disabled).toBe(false);
+
+    // 2. Change to invalid year
+    fireEvent.change(yearInput, { target: { value: 'abc' } });
+    expect(screen.queryByTestId('bulk-invite-preview')).toBeNull();
+    expect(previewBtn.disabled).toBe(true);
+
+    // 3. Change back to valid year (2026)
+    fireEvent.change(yearInput, { target: { value: '2026' } });
+    // Class selection remains cleared
+    expect(screen.queryByTestId('bulk-invite-preview')).toBeNull();
+    expect(previewBtn.disabled).toBe(true);
+  });
+
+  // 시나리오 12: execute 시 매 학생 add 마다 queryClient.invalidateQueries 미호출 · 종료 후 1회만 호출 (mock spy)
+  it('scenario 12: does not call invalidateQueries during batch execute, calls it only once upon completion', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    let addCalls = 0;
+    mockCallClassroomStudentsAdd.mockImplementation(async () => {
+      addCalls++;
+      expect(invalidateSpy).not.toHaveBeenCalled();
+      return { student: {} };
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClassroomBulkInviteDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courseId="c-101"
+          courseName="수학 101"
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId('bulk-invite-class-btn-1-1'));
+    fireEvent.click(screen.getByTestId('bulk-invite-preview-btn'));
+
+    const confirmInput = screen.getByTestId('bulk-invite-confirm-input');
+    fireEvent.change(confirmInput, { target: { value: '2' } });
+
+    const executeBtn = screen.getByTestId('bulk-invite-execute-btn');
+    await act(async () => {
+      fireEvent.click(executeBtn);
+    });
+
+    expect(addCalls).toBe(2);
+    expect(mockCallClassroomStudentsAdd).toHaveBeenCalledTimes(2);
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['classroom', 'students', 'c-101'],
+    });
   });
 });
