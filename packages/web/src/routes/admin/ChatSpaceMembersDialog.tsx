@@ -19,6 +19,7 @@ import {
 import { useChatMembersList } from '../../api/chatMembersList';
 import { useChatMembersDelete } from '../../api/chatMembersDelete';
 import { AddChatMemberDialog } from './AddChatMemberDialog';
+import { ChatBulkInviteDialog } from './ChatBulkInviteDialog';
 
 export interface ChatSpaceMembersDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function ChatSpaceMembersDialog({
   displayName,
 }: ChatSpaceMembersDialogProps) {
   const [addOpen, setAddOpen] = useState(false);
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState<string | null>(null);
   const deleteMutation = useChatMembersDelete();
   const anyPending = deleteMutation.isPending;
@@ -84,7 +86,15 @@ export function ChatSpaceMembersDialog({
           )}
 
           {spaceName && !isLoading && !isError && (
-            <div className="flex justify-end mb-3">
+            <div className="flex justify-end gap-2 mb-3">
+              <Button
+                variant="secondary"
+                onClick={() => setBulkInviteOpen(true)}
+                disabled={anyPending}
+                data-testid="chat-members-bulk-invite-btn"
+              >
+                학급 일괄 초대
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setAddOpen(true)}
@@ -178,6 +188,14 @@ export function ChatSpaceMembersDialog({
         </DialogContent>
       </Dialog>
 
+      {spaceName && (
+        <ChatBulkInviteDialog
+          open={bulkInviteOpen}
+          onOpenChange={setBulkInviteOpen}
+          spaceName={spaceName}
+          spaceDisplayName={displayName}
+        />
+      )}
       {spaceName && (
         <AddChatMemberDialog
           open={addOpen}
