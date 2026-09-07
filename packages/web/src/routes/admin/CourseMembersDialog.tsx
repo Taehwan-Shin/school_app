@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ export function CourseMembersDialog({
 }: CourseMembersDialogProps) {
   const [tab, setTab] = useState<'teachers' | 'students'>('teachers');
   const [addEmail, setAddEmail] = useState('');
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
   const addTeacherMutation = useClassroomTeachersAdd();
   const deleteTeacherMutation = useClassroomTeachersDelete();
   const addStudentMutation = useClassroomStudentsAdd();
@@ -51,6 +52,33 @@ export function CourseMembersDialog({
 
   const currentAdd = tab === 'teachers' ? addTeacherMutation : addStudentMutation;
   const currentDelete = tab === 'teachers' ? deleteTeacherMutation : deleteStudentMutation;
+
+  const anyPending =
+    addTeacherMutation.isPending ||
+    deleteTeacherMutation.isPending ||
+    addStudentMutation.isPending ||
+    deleteStudentMutation.isPending;
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && anyPending) return;
+    onOpenChange(next);
+  };
+
+  useEffect(() => {
+    if (open && courseId) {
+      setAddEmail('');
+      setDeleteConfirmUserId(null);
+      setTab('teachers');
+      addTeacherMutation.reset?.();
+      deleteTeacherMutation.reset?.();
+      addStudentMutation.reset?.();
+      deleteStudentMutation.reset?.();
+    }
+  }, [open, courseId]);
+
+  useEffect(() => {
+    setDeleteConfirmUserId(null);
+  }, [tab]);
 
   const handleAdd = async () => {
     if (!courseId || !addEmail.trim()) return;
@@ -66,8 +94,9 @@ export function CourseMembersDialog({
     if (!courseId) return;
     try {
       await currentDelete.mutateAsync({ courseId, userId });
+      setDeleteConfirmUserId(null);
     } catch {
-      // 에러는 currentDelete.error 로 렌더 (삭제는 alert 대신 hook error 사용)
+      // 에러는 currentDelete.error 로 렌더 (state 는 유지 · 사용자가 취소하거나 재시도 결정)
     }
   };
 
@@ -85,7 +114,7 @@ export function CourseMembersDialog({
       : (studentsQuery.data?.students ?? []);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{courseName || courseId} 멤버</DialogTitle>
@@ -98,8 +127,9 @@ export function CourseMembersDialog({
           <button
             type="button"
             onClick={() => setTab('teachers')}
+            disabled={anyPending}
             data-testid="course-members-tab-teachers"
-            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors ${
+            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               tab === 'teachers'
                 ? 'border-fg-primary text-fg-primary'
                 : 'border-transparent text-fg-secondary hover:text-fg-primary'
@@ -110,8 +140,9 @@ export function CourseMembersDialog({
           <button
             type="button"
             onClick={() => setTab('students')}
+            disabled={anyPending}
             data-testid="course-members-tab-students"
-            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors ${
+            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               tab === 'students'
                 ? 'border-fg-primary text-fg-primary'
                 : 'border-transparent text-fg-secondary hover:text-fg-primary'
@@ -130,13 +161,14 @@ export function CourseMembersDialog({
                 value={addEmail}
                 onChange={(e) => setAddEmail(e.target.value)}
                 placeholder="user@cam.hs.kr"
+                disabled={anyPending}
                 data-testid="course-members-add-email"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
             <Button
               onClick={handleAdd}
-              disabled={!addEmail.trim() || currentAdd.isPending}
+              disabled={!addEmail.trim() || anyPending}
               data-testid="course-members-add-btn"
             >
               {currentAdd.isPending ? '추가 중...' : '추가'}
@@ -212,15 +244,38 @@ export function CourseMembersDialog({
                         {m.userId}
                       </TableCell>
                       <TableCell className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(m.userId)}
-                          disabled={currentDelete.isPending && currentDelete.variables?.userId === m.userId}
-                          data-testid={`course-member-delete-btn-${m.userId}`}
-                          className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
-                        >
-                          삭제
-                        </button>
+                        {deleteConfirmUserId === m.userId ? (
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(m.userId)}
+                              disabled={currentDelete.isPending}
+                              data-testid={`course-member-confirm-delete-btn-${m.userId}`}
+                              className="text-state-danger font-semibold underline text-small cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {currentDelete.isPending ? '삭제 중...' : '정말 삭제?'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmUserId(null)}
+                              disabled={currentDelete.isPending}
+                              data-testid={`course-member-cancel-delete-btn-${m.userId}`}
+                              className="text-fg-secondary underline text-small cursor-pointer disabled:opacity-40"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmUserId(m.userId)}
+                            disabled={currentDelete.isPending || anyPending}
+                            data-testid={`course-member-delete-btn-${m.userId}`}
+                            className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                          >
+                            삭제
+                          </button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -231,7 +286,7 @@ export function CourseMembersDialog({
         )}
 
         <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => handleOpenChange(false)}>
             닫기
           </Button>
         </DialogFooter>
