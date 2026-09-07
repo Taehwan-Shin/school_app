@@ -10,7 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { useBasicDataGet } from '../../api/basicDataGet';
-import { useClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
+import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 
 export interface ClassroomBulkInviteDialogProps {
   open: boolean;
@@ -28,6 +28,13 @@ export function isAlreadyMemberError(message: string): boolean {
     lower.includes('member exists') ||
     lower.includes('409')
   );
+}
+
+export function isYearValid(val: string): boolean {
+  const trimmed = val.trim();
+  if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200;
 }
 
 type Phase = 'select' | 'preview' | 'running' | 'done';
@@ -58,15 +65,15 @@ function ClassroomBulkInviteDialogContent({
   const [results, setResults] = useState<BulkInviteResult[]>([]);
 
   const basicDataQuery = useBasicDataGet(selectedYear, open);
-  const studentAddMutation = useClassroomStudentsAdd();
 
   const grades = basicDataQuery.data?.data?.grades ?? [];
   const rosters = basicDataQuery.data?.data?.rosters ?? {};
 
   const targets = useMemo(() => {
+    if (!isYearValid(yearInput)) return [];
     if (selectedGrade === null || selectedClass === null) return [];
     return rosters[String(selectedGrade)]?.[selectedClass] ?? [];
-  }, [rosters, selectedGrade, selectedClass]);
+  }, [rosters, selectedGrade, selectedClass, yearInput]);
 
   useEffect(() => {
     if (open) {
@@ -86,11 +93,10 @@ function ClassroomBulkInviteDialogContent({
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
-    const parsed = Number.parseInt(val, 10);
-    if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200) {
-      setSelectedYear(parsed);
-      setSelectedGrade(null);
-      setSelectedClass(null);
+    setSelectedGrade(null);
+    setSelectedClass(null);
+    if (isYearValid(val)) {
+      setSelectedYear(Number.parseInt(val.trim(), 10));
     }
   };
 
@@ -103,7 +109,7 @@ function ClassroomBulkInviteDialogContent({
     for (let i = 0; i < targets.length; i++) {
       const email = targets[i];
       try {
-        await studentAddMutation.mutateAsync({ courseId, userId: email });
+        await callClassroomStudentsAdd({ courseId, userId: email });
         localResults.push({ email, kind: 'ok' });
       } catch (err) {
         const message = (err as Error)?.message || 'unknown error';
@@ -228,7 +234,12 @@ function ClassroomBulkInviteDialogContent({
               </Button>
               <Button
                 data-testid="bulk-invite-preview-btn"
-                disabled={selectedGrade === null || selectedClass === null || targets.length === 0}
+                disabled={
+                  !isYearValid(yearInput) ||
+                  selectedGrade === null ||
+                  selectedClass === null ||
+                  targets.length === 0
+                }
                 onClick={() => setPhase('preview')}
               >
                 미리보기
