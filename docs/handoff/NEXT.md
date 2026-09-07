@@ -1,197 +1,199 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **classroom bulk invite v0.88** — CourseMembersDialog 학생 탭에 「학급 일괄 초대」 버튼 · basic_data grade+class 선택 → 학생 이메일 순차 초대 · skip on 이미 멤버.
+> 지금 이 파일의 오더는 **Codex hotfix v0.89** — ClassroomBulkInviteDialog 연도 입력 세션 leak (F2) + batch invite auto-invalidate 30~40회 재조회 (F3). F1 (server-side pre-check) 은 별도 판단 · 이번 슬라이스 제외 이유는 아래.
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-bulk-invite-v88`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin fix/bulk-invite-codex-v89`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 1 개.
 
 ## 기준 커밋
 
-**Base**: `1086fe1` (Codex hotfix v0.87 merge)
+**Base**: `53450c2` (classroom bulk invite v0.88 merge)
 
-## 지금 할 것 — Classroom 학급 일괄 초대
+## 지금 할 것 — Codex F2 + F3 hotfix
 
 ### 왜
 
-학교 실사용: 학기 시작 시 각 반 학생 30~40명을 코스 하나에 일일이 이메일 입력하는 건 비현실적. `basic_data` 에 이미 학년/반/학생 rosters 있음.
+Codex `2fc269e` (v0.86~v0.88 병합 감사) 결과 실패 3건.
 
-기존 Groups 도메인에 `AutoInviteStudentsDialog` 있음 (`packages/web/src/routes/admin/AutoInviteStudentsDialog.tsx`). 하지만 Groups 는 이메일 규칙 (`class-2c@cam.hs.kr`) 으로 반과 그룹 자동 매칭. Classroom 코스는 이메일 없음 · 자동 매칭 불가능.
+**F2** — `ClassroomBulkInviteDialog.tsx:87` — 연도 입력 세션 leak:
+- 사용자가 `handleYearChange` 에 유효하지 않은 값 (예: "abc", "300", "1899", "2201", "") 입력하면 `yearInput` 만 변경되고 `selectedYear` · `selectedGrade` · `selectedClass` · targets 유지됨.
+- UI 는 selectedYear (원래 유효 연도) 기반 grades 렌더 · 사용자는 연도 표시가 무효인데도 이전 반 선택 유지된 채 미리보기 진입 가능.
+- 결과: 표시된 연도와 실제 초대 명단 불일치 → 잘못된 학생 초대 위험.
 
-**해결**: 관리자가 코스 안에서 「학급 일괄 초대」 클릭 → basic_data 에서 학년+반 선택 → 해당 반 학생 이메일 미리보기 → 실행. 순차 초대 · 이미 멤버는 skip.
+**F3** — `ClassroomBulkInviteDialog.tsx:103` — batch 중 auto-invalidate:
+- `useClassroomStudentsAdd` hook 의 `onSuccess` 콜백이 학생 add 성공마다 `['classroom', 'students', courseId]` invalidate.
+- 30~40명 batch 시 매번 rosters 재조회 · 서버측 `classroom.read` audit 도 30~40회 발생.
+- line 118 에서 종료 후 다시 1회 invalidate → 불필요한 중복.
+- 결과: 배치 초대 성능 저하 · audit_log 노이즈 증가.
 
-**하지 않는 것**:
-- transfer_owner (v0.89+ 별도)
-- Chat members.add (v0.90+ · Directory 리졸버 필요)
-- 코스 → 반 자동 매칭 (naming convention 정해지면 별도 slice)
-- 교사 자동 배정 (당분간 수동)
+**F1** — `studentsAdd.ts:85` — server-side resource-scope 검증 (Teachers.list 기반 사전 확인):
+- Codex 의견: cap · scope 통과 후 곧바로 변경 API 호출 · 대상 코스 담당 교사 여부 미확인.
+- **헤드 판단 — 이번 슬라이스 제외**:
+  1. 현재 upstream 403 (권한 부족) 은 `mapUpstreamError` 로 정확히 `permission-denied` 매핑 → audit `denied` 기록 → 사용자에 오류 표시. 정확성 유지됨.
+  2. Pre-check 는 매 add/delete 마다 추가 API 호출 (Teachers.list) → 대량 초대 시 2× 비용 · 지연.
+  3. 실제 정책: `classroom.write` cap 은 admin · super_admin 만 (roleCapabilities.ts:8) · 이들의 OAuth 토큰은 domain-wide 권한 (admin.directory scopes 포함) · 사실상 모든 코스에 write 가능.
+  4. teacher 역할은 `classroom.write` 없음 → 애초에 인증 통과 못함.
+  → server pre-check 는 defense-in-depth 관점에서만 유효 · 실효 없음 · 비용 큼.
+
+  대신 F1 의 UX 우려 (실패해도 사용자 인지 어려움) 는 batch invite 시 client-side 한 번 담당 교사 목록 확인 · 현재 사용자가 담당 교사가 아니면 경고 배너로 안내 · 실행 자체는 허용. **하지만 이번 슬라이스 제외** — F2+F3 만 우선 처리 · client 경고는 별도 slice (v0.90+) 로 판단 (UX 우선순위 낮음 · 실 사용 후 확인 후 결정).
+
+**하지 않는 것**: F1 server pre-check · client warning · 다른 도메인.
 
 ### 이 과제가 바꿀 경로
 
-**신규 파일**:
-- `packages/web/src/routes/admin/ClassroomBulkInviteDialog.tsx` — 학년/반 선택 + preview + 실행 진행 다이얼로그
-- `packages/web/tests/ClassroomBulkInviteDialog.test.tsx` (시나리오 5~7)
-
 **수정 대상**:
-- `packages/web/src/routes/admin/CourseMembersDialog.tsx` — 학생 탭 하단에 「학급 일괄 초대」 버튼 추가 · 클릭 시 새 다이얼로그 open
+- `packages/web/src/routes/admin/ClassroomBulkInviteDialog.tsx`
+  - F2: `handleYearChange` 로직 재작성 (invalid 시 반 선택 리셋 + preview 진입 차단)
+  - F3: `useClassroomStudentsAdd` hook 대신 `callClassroomStudentsAdd` 직접 호출 (auto-invalidate 우회)
+- `packages/web/src/api/classroomStudentsAdd.ts` — 이미 export 되어 있으면 그대로. 없으면 named export 추가.
+- `packages/web/tests/ClassroomBulkInviteDialog.test.tsx` — 시나리오 2~3 추가 (year invalid · batch 중 invalidate 없음)
 
 **손대지 마라**:
-- classroom callable (list · patch · delete · rosters · CRUD) 그대로.
-- basic_data hook 그대로 (`useBasicDataGet`).
-- classroomStudentsAdd hook 재사용.
+- classroomStudentsAdd hook 자체 (다른 곳에서 auto-invalidate 필요).
+- studentsAdd callable (F1 반영 안 함).
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. `ClassroomBulkInviteDialog.tsx`
+#### 1. F2 — Year input strict validation
 
-**Props**:
+**현재**:
 ```ts
-export interface ClassroomBulkInviteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  courseId: string;         // 필수 (열릴 때 courseId 확정)
-  courseName?: string;
-  onDone?: () => void;
+const handleYearChange = (val: string) => {
+  setYearInput(val);
+  const parsed = Number.parseInt(val, 10);
+  if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200) {
+    setSelectedYear(parsed);
+    setSelectedGrade(null);
+    setSelectedClass(null);
+  }
+};
+```
+
+**수정**:
+```ts
+const isYearValid = (val: string): boolean => {
+  const trimmed = val.trim();
+  if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;   // 정수만 · 소수·기타 문자 거절
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200;
+};
+
+const handleYearChange = (val: string) => {
+  setYearInput(val);
+  setSelectedGrade(null);        // 모든 입력 변경 시 무조건 반 선택 초기화
+  setSelectedClass(null);
+  if (isYearValid(val)) {
+    setSelectedYear(Number.parseInt(val.trim(), 10));
+  }
+};
+```
+
+**추가 가드**:
+
+미리보기 진입 조건 (line 231 `disabled` 확장):
+```tsx
+disabled={
+  !isYearValid(yearInput) ||
+  selectedGrade === null ||
+  selectedClass === null ||
+  targets.length === 0
 }
 ```
 
-**Phase state**: `'select' | 'preview' | 'running' | 'done'`
-
-**Hooks**:
-- `useBasicDataGet(selectedYear)` — 학년 선택 UI 재사용 위해 year selector 도 필요 (현재 연도 기본)
-- `useClassroomStudentsAdd()` — 순차 호출용 (mutateAsync)
-
-**Phase: select**
-- 학년/반 선택 grid: basic_data 의 grades → 각 학년 → 각 반 · 클릭 시 selected.
-- 선택 시 rosters 학생 이메일 preview 표시.
-- 「미리보기」 버튼 (활성화: grade/class 선택 후) → phase='preview'.
-
-**Phase: preview**
-- 선택 반의 학생 이메일 목록 (rosters[grade][class]).
-- 학생 수 (예: 「32명」).
-- 확인 텍스트 input (학생 수 정확히 타이핑) — `AutoInviteStudentsDialog` 패턴 재사용.
-- 「초대 실행」 버튼 (활성화: 확인 정확) → phase='running'.
-
-**Phase: running**
-- 순차 `mutateAsync({ courseId, userId: email })` 반복.
-- 각 결과 로컬 array 에 push (ok | skipped | failed).
-- 진행률 (progress / total) + progress bar.
-- close 차단 (`if (phase === 'running') return`).
-- `isAlreadyMemberError` 헬퍼 (`AutoInviteStudentsDialog.tsx` 참고): message 안에 `already`, `duplicate`, `member exists`, `409` 있으면 skip 으로 분류.
-
-**Phase: done**
-- ok / skipped / failed 카운트.
-- skipped · failed 목록 (max 40 · overflow scroll).
-- 「확인」 → onOpenChange(false) + onDone?.().
-- 성공 시 부모 dialog 의 studentsQuery invalidate (queryClient.invalidateQueries(['classroom', 'students', courseId]))
-
-**testid**:
-- year select: `bulk-invite-year-input`
-- grade/class button: `bulk-invite-class-btn-${grade}-${class}`
-- preview: `bulk-invite-preview`
-- confirm input: `bulk-invite-confirm-input`
-- execute: `bulk-invite-execute-btn`
-- running progress: `bulk-invite-running`
-- done: `bulk-invite-done` · skipped 리스트: `bulk-invite-skipped` · failed: `bulk-invite-failures`
-
-#### 2. `CourseMembersDialog.tsx` — 「학급 일괄 초대」 버튼 추가
-
-**수정**:
-
-학생 탭 && data 로드 완료 상태에서, add form 하단에 (그리고 표 위에) 버튼 추가:
-
-```tsx
-{tab === 'students' && courseId && (
-  <div className="flex justify-end mb-2">
-    <Button
-      variant="secondary"
-      onClick={() => setBulkInviteOpen(true)}
-      disabled={anyPending}
-      data-testid="course-members-bulk-invite-btn"
-    >
-      학급 일괄 초대
-    </Button>
-  </div>
-)}
-```
-
-**state**:
+useMemo `targets` 도 방어적:
 ```ts
-const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+const targets = useMemo(() => {
+  if (!isYearValid(yearInput)) return [];
+  if (selectedGrade === null || selectedClass === null) return [];
+  return rosters[String(selectedGrade)]?.[selectedClass] ?? [];
+}, [rosters, selectedGrade, selectedClass, yearInput]);
 ```
 
-**Dialog render** (parent dialog 안 · Dialog nesting):
-```tsx
-{courseId && (
-  <ClassroomBulkInviteDialog
-    open={bulkInviteOpen}
-    onOpenChange={setBulkInviteOpen}
-    courseId={courseId}
-    courseName={courseName}
-  />
-)}
+#### 2. F3 — Batch bypass auto-invalidate
+
+**현재**: `studentAddMutation.mutateAsync({ courseId, userId: email })` 순차 호출 → 매 성공마다 hook 의 `onSuccess` 콜백이 `['classroom', 'students', courseId]` invalidate.
+
+**수정**: `import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd'` 직접 사용:
+
+```ts
+// import 추가:
+import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
+
+// studentAddMutation 삭제 (또는 다른 목적으로 사용 안 하면 완전 제거).
 ```
 
-**주의**:
-- 「학급 일괄 초대」 는 학생 탭에서만 (교사 탭은 렌더 안 함).
-- anyPending 중 disabled.
-- Dialog nested 는 shadcn dialog 로 지원 (별개 z-index).
+**루프 수정**:
+```ts
+for (let i = 0; i < targets.length; i++) {
+  const email = targets[i];
+  try {
+    await callClassroomStudentsAdd({ courseId, userId: email });
+    localResults.push({ email, kind: 'ok' });
+  } catch (err) {
+    const message = (err as Error)?.message || 'unknown error';
+    const kind = isAlreadyMemberError(message) ? 'skipped' : 'failed';
+    localResults.push({ email, kind, message });
+  }
+  setProgress(i + 1);
+}
 
-#### 3. 테스트
+setResults(localResults);
+setPhase('done');
+queryClient?.invalidateQueries({ queryKey: ['classroom', 'students', courseId] });   // 종료 시 1회 (기존 유지)
+```
 
-**`ClassroomBulkInviteDialog.test.tsx`** (5~7 신규):
-1. open=false → 미렌더.
-2. open=true + basic_data 로드 후 → phase select 상태 · 학년/반 버튼 렌더.
-3. 반 선택 → preview 학생 이메일 리스트 렌더.
-4. 확인 텍스트 오류 → 「초대 실행」 disabled.
-5. 「초대 실행」 클릭 → mock classroomStudentsAdd 순차 호출 · 완료 후 done phase · ok 카운트 정확.
-6. 이미 멤버 오류 → skipped 로 분류 · skipped 리스트 렌더.
-7. 다른 오류 → failed 로 분류 · failed 리스트 렌더.
+**주의**: `callClassroomStudentsAdd` 는 already exported (`packages/web/src/api/classroomStudentsAdd.ts`). Named export 확인만.
 
-**`CourseMembersDialog.test.tsx`** (2~3 신규):
-1. 학생 탭 · 로드 완료 → 「학급 일괄 초대」 버튼 렌더 (data-testid course-members-bulk-invite-btn).
-2. 교사 탭 → 렌더 안 함.
-3. 버튼 클릭 → bulkInviteOpen state 변경 (mock spy 로 검증).
+**side effect**: hook state (`isPending`) 로 「초대 실행 중」 표시하던 부분 없음 (이미 phase state 로 관리). 그대로 사용.
+
+#### 3. Test 시나리오 추가 (`ClassroomBulkInviteDialog.test.tsx`)
+
+기존 9 시나리오 유지. 신규 3 추가:
+
+10. year invalid ("abc" · "1500" · "" · "2020.5") 입력 → selectedGrade/Class null 로 리셋 · preview 버튼 disabled.
+11. year 유효 → invalid → 유효 시퀀스: 반 선택 초기화 확인.
+12. execute 시 매 학생 add 마다 queryClient.invalidateQueries 미호출 · 종료 후 1회만 호출 (mock spy).
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 847 + 신규 7~10 = 854~857 근처.
+4. `pnpm -r test` — 이전 859 + 신규 3 = 862 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/classrooms` 코스 「멤버」 → 학생 탭 → 「학급 일괄 초대」 → 학년/반 선택 → preview → 실행 → 결과.
+   - `/admin/classrooms` 코스 「멤버」 → 학생 탭 → 「학급 일괄 초대」 → 잘못된 연도 (예: "abc") 입력 → 반 선택 해제 확인.
+   - 30명 이상 학생 초대 시 network 탭에서 students list callable 이 1회만 호출됨 확인.
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 Classroom bulk invite** — 실 계정 · 실 rosters · 실 코스 필요.
-- **transfer_owner** — v0.89+ 별도.
-- **Chat bulk 초대** — v0.90+ (Directory 리졸버).
-- **코스 → 반 자동 매칭** — 별도 slice (naming convention 필요).
+- **실 Classroom bulk invite 최적화 효과** — 실 계정 필요.
+- **F1 server pre-check** — 헤드 판단상 defer.
+- **F1 client warning** — v0.90+ 별도 판단.
 
 ### 커밋 규칙
 
-**2 커밋 분리**:
-1. `feat(web): ClassroomBulkInviteDialog (basic_data → classroom.students 순차 초대)`
-2. `feat(web): CourseMembersDialog 「학급 일괄 초대」 버튼 통합`
+**1 커밋** (단일 파일 fix · 테스트만):
 
-각 conventional commits. `git add -A` 금지.
+`fix(web): ClassroomBulkInviteDialog year strict validation + bypass batch auto-invalidate (Codex v0.88 F2+F3)`
 
-**작업 브랜치** — `git push -u origin feat/classroom-bulk-invite-v88`.
+`git add -A` 금지.
+
+**작업 브랜치** — `git push -u origin fix/bulk-invite-codex-v89`.
 
 ## 상태 보고 (필수)
 
