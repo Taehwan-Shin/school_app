@@ -44,6 +44,14 @@ vi.mock('../src/api/classroomStudentsDelete', () => ({
   useClassroomStudentsDelete: () => mockUseClassroomStudentsDelete(),
 }));
 
+const mockClassroomBulkInviteDialog = vi.fn();
+vi.mock('../src/routes/admin/ClassroomBulkInviteDialog', () => ({
+  ClassroomBulkInviteDialog: (props: any) => {
+    mockClassroomBulkInviteDialog(props);
+    return null;
+  },
+}));
+
 import { CourseMembersDialog } from '../src/routes/admin/CourseMembersDialog';
 
 describe('CourseMembersDialog component', () => {
@@ -1023,5 +1031,107 @@ describe('CourseMembersDialog component', () => {
     expect(input.disabled).toBe(true);
     expect(addBtn.disabled).toBe(true);
     expect(deleteBtn.disabled).toBe(true);
+  });
+
+  // 시나리오 24: 학생 탭 · 로드 완료 -> 「학급 일괄 초대」 버튼 렌더 (data-testid course-members-bulk-invite-btn)
+  it('scenario 24: renders bulk invite button on students tab when data is loaded', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('course-members-tab-students'));
+
+    expect(screen.getByTestId('course-members-bulk-invite-btn')).toBeDefined();
+    expect(screen.getByText('학급 일괄 초대')).toBeDefined();
+  });
+
+  // 시나리오 25: 교사 탭 -> 「학급 일괄 초대」 버튼 미렌더
+  it('scenario 25: does not render bulk invite button on teachers tab', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    expect(screen.queryByTestId('course-members-bulk-invite-btn')).toBeNull();
+  });
+
+  // 시나리오 26: 버튼 클릭 -> bulkInviteOpen state 변경 (mock spy 로 검증)
+  it('scenario 26: clicking bulk invite button updates bulkInviteOpen state and passes open=true to ClassroomBulkInviteDialog', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+        courseName="1학년 1반 수학"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('course-members-tab-students'));
+
+    // 초기 상태: bulkInviteOpen = false
+    expect(mockClassroomBulkInviteDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: false,
+        courseId: 'c-101',
+        courseName: '1학년 1반 수학',
+      }),
+    );
+
+    // 버튼 클릭 -> open=true
+    fireEvent.click(screen.getByTestId('course-members-bulk-invite-btn'));
+
+    expect(mockClassroomBulkInviteDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        courseId: 'c-101',
+        courseName: '1학년 1반 수학',
+      }),
+    );
   });
 });
