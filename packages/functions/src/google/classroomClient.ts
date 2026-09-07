@@ -69,6 +69,16 @@ export interface ClassroomClient {
       updateMask: string;
       requestBody: Partial<Pick<ClassroomCourse, 'courseState' | 'name' | 'section'>>;
     }) => Promise<{ data: ClassroomCourse }>;
+    create: (params: {
+      requestBody: {
+        name: string;
+        section?: string;
+        description?: string;
+        room?: string;
+        ownerId: string;
+        courseState?: string;
+      };
+    }) => Promise<{ data: ClassroomCourse }>;
     delete: (params: { id: string }) => Promise<{ data: {} }>;
     teachers: {
       list: (params: {
