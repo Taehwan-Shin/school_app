@@ -1,199 +1,275 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **Codex hotfix v0.89** — ClassroomBulkInviteDialog 연도 입력 세션 leak (F2) + batch invite auto-invalidate 30~40회 재조회 (F3). F1 (server-side pre-check) 은 별도 판단 · 이번 슬라이스 제외 이유는 아래.
+> 지금 이 파일의 오더는 **classroom.create v0.90** — courses.create callable + CreateClassroomDialog + ClassroomTable 「+ 코스 추가」 버튼. 신학기 workflow 열림 (수동 코스 하나씩 · batch 는 v0.91+).
 
 ## 상설 규약
 
 `AGENTS.md` §3 그대로. 요약:
 - 기존 파일 재작성 금지, 요청받은 부분만
 - **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin fix/bulk-invite-codex-v89`
+- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/classroom-create-v90`
 - 지금 코드와 다르면 다르다고 보고
 - 「판정 불가」 허용
 - 근거는 `파일:줄번호`, 항목당 한 줄
 - **이모지 금지**
 - **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 1 개.
+**추가**: 완료 후 반드시 스레드 보고. 커밋 3 개.
 
 ## 기준 커밋
 
-**Base**: `53450c2` (classroom bulk invite v0.88 merge)
+**Base**: `3df945b` (Codex hotfix v0.89 merge)
 
-## 지금 할 것 — Codex F2 + F3 hotfix
+## 지금 할 것 — classroom.create + Dialog + 「+ 코스 추가」 버튼
 
 ### 왜
 
-Codex `2fc269e` (v0.86~v0.88 병합 감사) 결과 실패 3건.
+v0.82~v0.89 로 classroom list · patch · delete · rosters · CRUD · bulk invite 완비. 하지만 **코스 create 없음** → admin 이 코스를 UI 에서 생성 못함 (지금은 classroom.google.com 에서 수동 생성 후 우리 앱에서 관리만 가능).
 
-**F2** — `ClassroomBulkInviteDialog.tsx:87` — 연도 입력 세션 leak:
-- 사용자가 `handleYearChange` 에 유효하지 않은 값 (예: "abc", "300", "1899", "2201", "") 입력하면 `yearInput` 만 변경되고 `selectedYear` · `selectedGrade` · `selectedClass` · targets 유지됨.
-- UI 는 selectedYear (원래 유효 연도) 기반 grades 렌더 · 사용자는 연도 표시가 무효인데도 이전 반 선택 유지된 채 미리보기 진입 가능.
-- 결과: 표시된 연도와 실제 초대 명단 불일치 → 잘못된 학생 초대 위험.
+Chat 도메인의 v0.78 create 패턴 그대로 재사용. 신학기에 admin 이 한두 개 코스 만들어 보고 → 익숙해지면 batch 요청 (v0.91+).
 
-**F3** — `ClassroomBulkInviteDialog.tsx:103` — batch 중 auto-invalidate:
-- `useClassroomStudentsAdd` hook 의 `onSuccess` 콜백이 학생 add 성공마다 `['classroom', 'students', courseId]` invalidate.
-- 30~40명 batch 시 매번 rosters 재조회 · 서버측 `classroom.read` audit 도 30~40회 발생.
-- line 118 에서 종료 후 다시 1회 invalidate → 불필요한 중복.
-- 결과: 배치 초대 성능 저하 · audit_log 노이즈 증가.
-
-**F1** — `studentsAdd.ts:85` — server-side resource-scope 검증 (Teachers.list 기반 사전 확인):
-- Codex 의견: cap · scope 통과 후 곧바로 변경 API 호출 · 대상 코스 담당 교사 여부 미확인.
-- **헤드 판단 — 이번 슬라이스 제외**:
-  1. 현재 upstream 403 (권한 부족) 은 `mapUpstreamError` 로 정확히 `permission-denied` 매핑 → audit `denied` 기록 → 사용자에 오류 표시. 정확성 유지됨.
-  2. Pre-check 는 매 add/delete 마다 추가 API 호출 (Teachers.list) → 대량 초대 시 2× 비용 · 지연.
-  3. 실제 정책: `classroom.write` cap 은 admin · super_admin 만 (roleCapabilities.ts:8) · 이들의 OAuth 토큰은 domain-wide 권한 (admin.directory scopes 포함) · 사실상 모든 코스에 write 가능.
-  4. teacher 역할은 `classroom.write` 없음 → 애초에 인증 통과 못함.
-  → server pre-check 는 defense-in-depth 관점에서만 유효 · 실효 없음 · 비용 큼.
-
-  대신 F1 의 UX 우려 (실패해도 사용자 인지 어려움) 는 batch invite 시 client-side 한 번 담당 교사 목록 확인 · 현재 사용자가 담당 교사가 아니면 경고 배너로 안내 · 실행 자체는 허용. **하지만 이번 슬라이스 제외** — F2+F3 만 우선 처리 · client 경고는 별도 slice (v0.90+) 로 판단 (UX 우선순위 낮음 · 실 사용 후 확인 후 결정).
-
-**하지 않는 것**: F1 server pre-check · client warning · 다른 도메인.
+**하지 않는 것**:
+- batch create (learn 반 리스트 → 여러 코스) — v0.91 별도.
+- transfer_owner — v0.92+.
+- Chat members.add (Directory 리졸버 필요) — v0.93+.
 
 ### 이 과제가 바꿀 경로
 
+**신규 파일**:
+- `packages/functions/src/callable/classroom/create.ts` — 신규 callable
+- `packages/functions/tests/classroomCreate.test.ts` (시나리오 6~7)
+- `packages/web/src/api/classroomCreate.ts` — fetch + useMutation hook
+- `packages/web/src/routes/admin/CreateClassroomDialog.tsx` — 코스 생성 다이얼로그
+- `packages/web/tests/classroomCreate.test.ts` (시나리오 2)
+- `packages/web/tests/CreateClassroomDialog.test.tsx` (시나리오 4)
+
 **수정 대상**:
-- `packages/web/src/routes/admin/ClassroomBulkInviteDialog.tsx`
-  - F2: `handleYearChange` 로직 재작성 (invalid 시 반 선택 리셋 + preview 진입 차단)
-  - F3: `useClassroomStudentsAdd` hook 대신 `callClassroomStudentsAdd` 직접 호출 (auto-invalidate 우회)
-- `packages/web/src/api/classroomStudentsAdd.ts` — 이미 export 되어 있으면 그대로. 없으면 named export 추가.
-- `packages/web/tests/ClassroomBulkInviteDialog.test.tsx` — 시나리오 2~3 추가 (year invalid · batch 중 invalidate 없음)
+- `packages/functions/src/google/classroomClient.ts` — courses.create 인터페이스 추가
+- `packages/functions/src/index.ts` — export `classroomCreate`
+- `firebase.json` — hosting rewrite `/api/classroomCreate`
+- `packages/web/src/routes/admin/ClassroomTable.tsx` — 상단에 「+ 코스 추가」 버튼 추가
 
 **손대지 마라**:
-- classroomStudentsAdd hook 자체 (다른 곳에서 auto-invalidate 필요).
-- studentsAdd callable (F1 반영 안 함).
+- classroom.list · patch · delete · rosters · CRUD 그대로.
 - 다른 도메인.
 
 ### 세부 요구
 
-#### 1. F2 — Year input strict validation
+#### 1. `classroomClient.ts` — courses.create 인터페이스
 
-**현재**:
 ```ts
-const handleYearChange = (val: string) => {
-  setYearInput(val);
-  const parsed = Number.parseInt(val, 10);
-  if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200) {
-    setSelectedYear(parsed);
-    setSelectedGrade(null);
-    setSelectedClass(null);
-  }
+courses: {
+  list: ...,
+  patch: ...,
+  delete: ...,
+  create: (params: {
+    requestBody: {
+      name: string;                // 필수
+      section?: string;
+      description?: string;
+      room?: string;
+      ownerId: string;             // 'me' | email | userId
+      courseState?: string;        // 기본 'PROVISIONED' → active 되려면 patch 필요
+    };
+  }) => Promise<{ data: ClassroomCourse }>;
+  teachers: ...,
+  students: ...,
 };
 ```
 
-**수정**:
-```ts
-const isYearValid = (val: string): boolean => {
-  const trimmed = val.trim();
-  if (trimmed === '' || !/^\d+$/.test(trimmed)) return false;   // 정수만 · 소수·기타 문자 거절
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2200;
-};
+#### 2. `classroom/create.ts` — callable
 
-const handleYearChange = (val: string) => {
-  setYearInput(val);
-  setSelectedGrade(null);        // 모든 입력 변경 시 무조건 반 선택 초기화
-  setSelectedClass(null);
-  if (isYearValid(val)) {
-    setSelectedYear(Number.parseInt(val.trim(), 10));
-  }
-};
+Cap `classroom.write` · Scope `classroom.courses`.
+
+```ts
+export interface ClassroomCreateRequest {
+  name: string;                    // 필수 · 앞뒤 trim
+  section?: string;
+  description?: string;
+  room?: string;
+  ownerId?: string;                // 기본 'me'
+  courseState?: 'PROVISIONED' | 'ACTIVE';   // 기본 'PROVISIONED'
+}
+
+export interface ClassroomCreateResponse {
+  course: ClassroomCourse;
+}
+
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/classroom.courses',
+] as const;
+
+const NAME_RE = /^.{1,300}$/;                              // 1~300자 (Google 제한)
+const OWNER_ID_RE = /^(me|[A-Za-z0-9._@+\-]+)$/;
+
+// 인증 → Cap classroom.write → Scope classroom.courses →
+//   name 검증 (trim 후 비어있으면 invalid-argument) →
+//   ownerId 검증 (미제공 시 'me' · 형식 통과) →
+//   courseState 검증 (미제공 시 'PROVISIONED' · 'PROVISIONED' 또는 'ACTIVE' 만 허용) →
+//   courses.create({ requestBody: { name, section, description, room, ownerId, courseState } }) →
+//   audit `classroom.write` · action 'classroom.create' · target=`courses/${result.id}` · message=`name=${name}`
 ```
 
-**추가 가드**:
+**주의**:
+- audit target 은 응답의 course.id 로 완성 (audit `ok` 시). 실패 시 target='*'.
+- 새 audit action `classroom.create` (기존 없음 · 하드코딩 없음 · UI filter 자동 반영).
+- `mapUpstreamError` 재사용.
+- upstream 400 (name 등 무효) → HttpsError invalid-argument (기존 매핑에 없음 · unknown 로 매핑됨) — 그대로 유지. 사용자에 API 오류 그대로 표시.
 
-미리보기 진입 조건 (line 231 `disabled` 확장):
+#### 3. functions/index.ts + firebase.json
+
+```ts
+export { classroomCreate } from './callable/classroom/create.js';
+```
+
+`firebase.json` rewrites 에 `/api/classroomCreate` 추가.
+
+#### 4. 테스트 (functions)
+
+**`classroomCreate.test.ts`** (7 시나리오):
+1. 미인증 → denied.
+2. 캡 `classroom.write` 부족 → denied.
+3. 스코프 부족 → denied.
+4. name 형식 오류 (빈 문자열 · 301자 이상) → invalid-argument.
+5. ownerId 형식 오류 → invalid-argument.
+6. 정상 (mock create · 응답에 id=abc) → response.course.id === 'abc' · audit action 'classroom.create' · target 'courses/abc'.
+7. upstream 403 → HttpsError permission-denied · audit denied.
+
+#### 5. `classroomCreate.ts` — hook
+
+`classroomPatch.ts` 패턴 (useMutation).
+
+```ts
+export function useClassroomCreate() {
+  const qc = useQueryClient();
+  return useMutation<ClassroomCreateResponse, Error, ClassroomCreateRequest>({
+    mutationFn: callClassroomCreate,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['classroom', 'list'] });
+    },
+  });
+}
+```
+
+#### 6. `CreateClassroomDialog.tsx`
+
+**Props**:
+```ts
+export interface CreateClassroomDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: (course: ClassroomCourse) => void;
+}
+```
+
+**구조**:
+- Dialog · form
+- Fields:
+  - 코스 이름 (name · 필수) — text input
+  - 섹션 (section · 선택) — text input
+  - 설명 (description · 선택) — textarea
+  - 강의실 (room · 선택) — text input
+  - 소유자 (ownerId) — text input · placeholder `me` · 기본값 `me`
+  - 상태 (courseState) — select [PROVISIONED, ACTIVE] · 기본 PROVISIONED
+- Submit button: 「생성」 · pending 중 「생성 중...」
+- Cancel button: 「취소」
+- Error 배너 (mutation.error 있으면 렌더)
+
+**동작**:
+- Submit → mutateAsync → 성공 시 dialog close · onSuccess(course)
+- open 되면 form state reset.
+- pending 중 dialog close 차단.
+
+**data-testid**:
+- form: `create-classroom-form`
+- name input: `create-classroom-name`
+- section input: `create-classroom-section`
+- description input: `create-classroom-description`
+- room input: `create-classroom-room`
+- owner input: `create-classroom-owner`
+- state select: `create-classroom-state`
+- submit: `create-classroom-submit`
+- error: `create-classroom-error`
+
+#### 7. `ClassroomTable.tsx` — 「+ 코스 추가」 버튼 추가
+
+기존 표 위 · `<div className="flex justify-between items-center">` 안에 추가:
 ```tsx
-disabled={
-  !isYearValid(yearInput) ||
-  selectedGrade === null ||
-  selectedClass === null ||
-  targets.length === 0
-}
+<div className="flex justify-between items-center">
+  <p className="text-small text-fg-secondary">
+    {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
+  </p>
+  <Button
+    onClick={() => setIsCreateOpen(true)}
+    data-testid="classroom-create-btn"
+  >
+    + 코스 추가
+  </Button>
+</div>
 ```
 
-useMemo `targets` 도 방어적:
+**state 추가**:
 ```ts
-const targets = useMemo(() => {
-  if (!isYearValid(yearInput)) return [];
-  if (selectedGrade === null || selectedClass === null) return [];
-  return rosters[String(selectedGrade)]?.[selectedClass] ?? [];
-}, [rosters, selectedGrade, selectedClass, yearInput]);
+const [isCreateOpen, setIsCreateOpen] = useState(false);
 ```
 
-#### 2. F3 — Batch bypass auto-invalidate
-
-**현재**: `studentAddMutation.mutateAsync({ courseId, userId: email })` 순차 호출 → 매 성공마다 hook 의 `onSuccess` 콜백이 `['classroom', 'students', courseId]` invalidate.
-
-**수정**: `import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd'` 직접 사용:
-
-```ts
-// import 추가:
-import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
-
-// studentAddMutation 삭제 (또는 다른 목적으로 사용 안 하면 완전 제거).
+**Dialog 렌더**:
+```tsx
+<CreateClassroomDialog
+  open={isCreateOpen}
+  onOpenChange={setIsCreateOpen}
+/>
 ```
 
-**루프 수정**:
-```ts
-for (let i = 0; i < targets.length; i++) {
-  const email = targets[i];
-  try {
-    await callClassroomStudentsAdd({ courseId, userId: email });
-    localResults.push({ email, kind: 'ok' });
-  } catch (err) {
-    const message = (err as Error)?.message || 'unknown error';
-    const kind = isAlreadyMemberError(message) ? 'skipped' : 'failed';
-    localResults.push({ email, kind, message });
-  }
-  setProgress(i + 1);
-}
+**주의**: 
+- 「p 코스 목록」 라인 왼쪽 · 「+ 코스 추가」 오른쪽.
+- 기존 관리 버튼들 · 표 · 다이얼로그 (Archive · Delete · Members) 모두 그대로.
 
-setResults(localResults);
-setPhase('done');
-queryClient?.invalidateQueries({ queryKey: ['classroom', 'students', courseId] });   // 종료 시 1회 (기존 유지)
-```
+#### 8. 테스트 (web)
 
-**주의**: `callClassroomStudentsAdd` 는 already exported (`packages/web/src/api/classroomStudentsAdd.ts`). Named export 확인만.
+**`classroomCreate.test.ts`** (2 신규):
+1. 200 응답 → data.course · id 확인.
+2. 400 응답 (name 오류) → hook throws · status 400.
 
-**side effect**: hook state (`isPending`) 로 「초대 실행 중」 표시하던 부분 없음 (이미 phase state 로 관리). 그대로 사용.
+**`CreateClassroomDialog.test.tsx`** (4 신규):
+1. open=false → 미렌더.
+2. name 빈 문자열 → submit 버튼 disabled.
+3. 정상 입력 후 submit → callClassroomCreate 호출 (name · ownerId 기본값) · 성공 시 dialog close.
+4. mutation error → error 배너 렌더.
 
-#### 3. Test 시나리오 추가 (`ClassroomBulkInviteDialog.test.tsx`)
-
-기존 9 시나리오 유지. 신규 3 추가:
-
-10. year invalid ("abc" · "1500" · "" · "2020.5") 입력 → selectedGrade/Class null 로 리셋 · preview 버튼 disabled.
-11. year 유효 → invalid → 유효 시퀀스: 반 선택 초기화 확인.
-12. execute 시 매 학생 add 마다 queryClient.invalidateQueries 미호출 · 종료 후 1회만 호출 (mock spy).
+**`ClassroomTable.test.tsx`** (기존 확장 1~2건):
+- 「+ 코스 추가」 버튼 렌더 확인.
+- 클릭 시 CreateClassroomDialog open state 변경 (mock).
 
 ### 완료 확인
 
 1. `pnpm install --frozen-lockfile` 통과.
 2. `pnpm -r build` 통과.
 3. `pnpm -r lint` 통과.
-4. `pnpm -r test` — 이전 859 + 신규 3 = 862 근처.
+4. `pnpm -r test` — 이전 862 + 신규 14~16 = 876~878 근처.
 5. `pnpm -r test:emu` — 43 유지.
 6. dev 서버 확인:
-   - `/admin/classrooms` 코스 「멤버」 → 학생 탭 → 「학급 일괄 초대」 → 잘못된 연도 (예: "abc") 입력 → 반 선택 해제 확인.
-   - 30명 이상 학생 초대 시 network 탭에서 students list callable 이 1회만 호출됨 확인.
+   - `/admin/classrooms` 「+ 코스 추가」 → dialog → 이름 입력 → 생성 → 목록에 추가됨.
 7. 프로덕션 번들 grep — 우리 emulator URL 0 건.
 
 ### 판정 불가
 
-- **실 Classroom bulk invite 최적화 효과** — 실 계정 필요.
-- **F1 server pre-check** — 헤드 판단상 defer.
-- **F1 client warning** — v0.90+ 별도 판단.
+- **실 Google Classroom create** — 실 계정 · 실 domain 필요.
+- **batch create** — v0.91+ 별도.
+- **transfer_owner** — v0.92+ 별도.
+- **PROVISIONED → ACTIVE 자동 전환 흐름** — 별도 UX 고려 필요 (v0.93+ 나 별도 판단).
 
 ### 커밋 규칙
 
-**1 커밋** (단일 파일 fix · 테스트만):
+**3 커밋 분리**:
+1. `feat(functions): classroom.create callable + classroomClient.create + firebase rewrite`
+2. `feat(web): classroomCreate API + useClassroomCreate mutation hook`
+3. `feat(web): CreateClassroomDialog + ClassroomTable 「+ 코스 추가」 버튼`
 
-`fix(web): ClassroomBulkInviteDialog year strict validation + bypass batch auto-invalidate (Codex v0.88 F2+F3)`
+각 conventional commits. `git add -A` 금지.
 
-`git add -A` 금지.
-
-**작업 브랜치** — `git push -u origin fix/bulk-invite-codex-v89`.
+**작업 브랜치** — `git push -u origin feat/classroom-create-v90`.
 
 ## 상태 보고 (필수)
 
