@@ -5,8 +5,10 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 const mockUseClassroomTeachersList = vi.fn();
 const mockUseClassroomStudentsList = vi.fn();
 const mockMutateAsyncAdd = vi.fn();
+const mockResetAdd = vi.fn();
 const mockUseClassroomTeachersAdd = vi.fn();
 const mockMutateAsyncDelete = vi.fn();
+const mockResetDelete = vi.fn();
 const mockUseClassroomTeachersDelete = vi.fn();
 
 vi.mock('../src/api/classroomTeachersList', () => ({
@@ -28,8 +30,10 @@ vi.mock('../src/api/classroomTeachersDelete', () => ({
 }));
 
 const mockMutateAsyncStudentAdd = vi.fn();
+const mockResetStudentAdd = vi.fn();
 const mockUseClassroomStudentsAdd = vi.fn();
 const mockMutateAsyncStudentDelete = vi.fn();
+const mockResetStudentDelete = vi.fn();
 const mockUseClassroomStudentsDelete = vi.fn();
 
 vi.mock('../src/api/classroomStudentsAdd', () => ({
@@ -49,21 +53,25 @@ describe('CourseMembersDialog component', () => {
       mutateAsync: mockMutateAsyncAdd,
       isPending: false,
       error: null,
+      reset: mockResetAdd,
     });
     mockUseClassroomTeachersDelete.mockReturnValue({
       mutateAsync: mockMutateAsyncDelete,
       isPending: false,
       error: null,
+      reset: mockResetDelete,
     });
     mockUseClassroomStudentsAdd.mockReturnValue({
       mutateAsync: mockMutateAsyncStudentAdd,
       isPending: false,
       error: null,
+      reset: mockResetStudentAdd,
     });
     mockUseClassroomStudentsDelete.mockReturnValue({
       mutateAsync: mockMutateAsyncStudentDelete,
       isPending: false,
       error: null,
+      reset: mockResetStudentDelete,
     });
   });
 
@@ -526,8 +534,10 @@ describe('CourseMembersDialog component', () => {
     fireEvent.click(studentTabBtn);
 
     const deleteBtn = screen.getByTestId('course-member-delete-btn-student-1');
+    fireEvent.click(deleteBtn);
+    const confirmBtn = screen.getByTestId('course-member-confirm-delete-btn-student-1');
     await act(async () => {
-      fireEvent.click(deleteBtn);
+      fireEvent.click(confirmBtn);
     });
 
     expect(mockMutateAsyncStudentDelete).toHaveBeenCalledWith({
@@ -570,8 +580,10 @@ describe('CourseMembersDialog component', () => {
     );
 
     const deleteBtn = screen.getByTestId('course-member-delete-btn-teacher-1');
+    fireEvent.click(deleteBtn);
+    const confirmBtn = screen.getByTestId('course-member-confirm-delete-btn-teacher-1');
     await act(async () => {
-      fireEvent.click(deleteBtn);
+      fireEvent.click(confirmBtn);
     });
 
     expect(mockMutateAsyncDelete).toHaveBeenCalledWith({
@@ -676,5 +688,340 @@ describe('CourseMembersDialog component', () => {
       userId: 'teacher2@cam.hs.kr',
     });
     expect(mockMutateAsyncStudentAdd).not.toHaveBeenCalled();
+  });
+
+  // 시나리오 16: open=true → courseId 변경 → addEmail · mutation reset 확인
+  it('scenario 16: resets addEmail and calls mutation reset when courseId changes while open', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { rerender } = render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const input = screen.getByTestId('course-members-add-email') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'temp@cam.hs.kr' } });
+    expect(input.value).toBe('temp@cam.hs.kr');
+
+    // courseId 변경
+    rerender(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-102"
+      />,
+    );
+
+    expect((screen.getByTestId('course-members-add-email') as HTMLInputElement).value).toBe('');
+    expect(mockResetAdd).toHaveBeenCalled();
+    expect(mockResetDelete).toHaveBeenCalled();
+    expect(mockResetStudentAdd).toHaveBeenCalled();
+    expect(mockResetStudentDelete).toHaveBeenCalled();
+  });
+
+  // 시나리오 17: open=true → close 시도 (handleOpenChange(false)), mutation.isPending true 이면 미호출
+  it('scenario 17: blocks closing dialog when any mutation is pending', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: { teachers: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomTeachersDelete.mockReturnValue({
+      mutateAsync: mockMutateAsyncDelete,
+      isPending: true,
+      error: null,
+      reset: mockResetDelete,
+    });
+
+    const onOpenChange = vi.fn();
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        courseId="c-101"
+      />,
+    );
+
+    const closeBtns = screen.getAllByRole('button', { name: '닫기' });
+    fireEvent.click(closeBtns[0]);
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  // 시나리오 18: 각 행 「삭제」 클릭 → 확인 버튼 나타남 (원 「삭제」 버튼은 사라짐)
+  it('scenario 18: shows confirm and cancel buttons and hides original delete button on delete click', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [
+          {
+            courseId: 'c-101',
+            userId: 'teacher-1',
+            profile: { name: { fullName: '김교사' } },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const deleteBtn = screen.getByTestId('course-member-delete-btn-teacher-1');
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByTestId('course-member-confirm-delete-btn-teacher-1')).toBeDefined();
+    expect(screen.getByTestId('course-member-cancel-delete-btn-teacher-1')).toBeDefined();
+    expect(screen.queryByTestId('course-member-delete-btn-teacher-1')).toBeNull();
+  });
+
+  // 시나리오 19: 「취소」 클릭 → 확인 사라짐 · 원 「삭제」 복원
+  it('scenario 19: hides confirm buttons and restores delete button when cancel is clicked', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [
+          {
+            courseId: 'c-101',
+            userId: 'teacher-1',
+            profile: { name: { fullName: '김교사' } },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('course-member-delete-btn-teacher-1'));
+    expect(screen.getByTestId('course-member-cancel-delete-btn-teacher-1')).toBeDefined();
+
+    fireEvent.click(screen.getByTestId('course-member-cancel-delete-btn-teacher-1'));
+    expect(screen.queryByTestId('course-member-confirm-delete-btn-teacher-1')).toBeNull();
+    expect(screen.queryByTestId('course-member-cancel-delete-btn-teacher-1')).toBeNull();
+    expect(screen.getByTestId('course-member-delete-btn-teacher-1')).toBeDefined();
+  });
+
+  // 시나리오 20: 「정말 삭제?」 클릭 → callClassroomTeachers/StudentsDelete 호출 · 성공 시 confirm state 초기화
+  it('scenario 20: calls delete mutation on confirm click and resets confirm state on success', async () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [
+          {
+            courseId: 'c-101',
+            userId: 'teacher-1',
+            profile: { name: { fullName: '김교사' } },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockMutateAsyncDelete.mockResolvedValueOnce({ ok: true });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('course-member-delete-btn-teacher-1'));
+    const confirmBtn = screen.getByTestId('course-member-confirm-delete-btn-teacher-1');
+
+    await act(async () => {
+      fireEvent.click(confirmBtn);
+    });
+
+    expect(mockMutateAsyncDelete).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'teacher-1',
+    });
+    expect(screen.queryByTestId('course-member-confirm-delete-btn-teacher-1')).toBeNull();
+    expect(screen.getByTestId('course-member-delete-btn-teacher-1')).toBeDefined();
+  });
+
+  // 시나리오 21: tab 「학생」 클릭 시 teacher 탭의 confirm state 초기화
+  it('scenario 21: resets confirm state when tab switches to students and back to teachers', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [
+          {
+            courseId: 'c-101',
+            userId: 'teacher-1',
+            profile: { name: { fullName: '김교사' } },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('course-member-delete-btn-teacher-1'));
+    expect(screen.getByTestId('course-member-confirm-delete-btn-teacher-1')).toBeDefined();
+
+    // 학생 탭으로 전환
+    fireEvent.click(screen.getByTestId('course-members-tab-students'));
+
+    // 교사 탭으로 다시 복귀
+    fireEvent.click(screen.getByTestId('course-members-tab-teachers'));
+
+    // confirm state 가 초기화되어 원 「삭제」 버튼이 보임
+    expect(screen.queryByTestId('course-member-confirm-delete-btn-teacher-1')).toBeNull();
+    expect(screen.getByTestId('course-member-delete-btn-teacher-1')).toBeDefined();
+  });
+
+  // 시나리오 22: delete pending 중 다른 행 「삭제」 버튼 disabled
+  it('scenario 22: disables other row delete buttons while delete mutation is pending', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [
+          { courseId: 'c-101', userId: 't-1' },
+          { courseId: 'c-101', userId: 't-2' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomTeachersDelete.mockReturnValue({
+      mutateAsync: mockMutateAsyncDelete,
+      isPending: true,
+      error: null,
+      reset: mockResetDelete,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const btn1 = screen.getByTestId('course-member-delete-btn-t-1') as HTMLButtonElement;
+    const btn2 = screen.getByTestId('course-member-delete-btn-t-2') as HTMLButtonElement;
+
+    expect(btn1.disabled).toBe(true);
+    expect(btn2.disabled).toBe(true);
+  });
+
+  // 시나리오 23: add pending 중 tab 버튼 · add input · delete 버튼 모두 disabled
+  it('scenario 23: disables tab buttons, add input, add button, and delete buttons while add mutation is pending', () => {
+    mockUseClassroomTeachersList.mockReturnValue({
+      data: {
+        teachers: [{ courseId: 'c-101', userId: 't-1' }],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomStudentsList.mockReturnValue({
+      data: { students: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockUseClassroomTeachersAdd.mockReturnValue({
+      mutateAsync: mockMutateAsyncAdd,
+      isPending: true,
+      error: null,
+      reset: mockResetAdd,
+    });
+
+    render(
+      <CourseMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courseId="c-101"
+      />,
+    );
+
+    const teacherTab = screen.getByTestId('course-members-tab-teachers') as HTMLButtonElement;
+    const studentTab = screen.getByTestId('course-members-tab-students') as HTMLButtonElement;
+    const input = screen.getByTestId('course-members-add-email') as HTMLInputElement;
+    const addBtn = screen.getByTestId('course-members-add-btn') as HTMLButtonElement;
+    const deleteBtn = screen.getByTestId('course-member-delete-btn-t-1') as HTMLButtonElement;
+
+    expect(teacherTab.disabled).toBe(true);
+    expect(studentTab.disabled).toBe(true);
+    expect(input.disabled).toBe(true);
+    expect(addBtn.disabled).toBe(true);
+    expect(deleteBtn.disabled).toBe(true);
   });
 });
