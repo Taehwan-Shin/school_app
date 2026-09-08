@@ -6,6 +6,7 @@ import { writeAudit } from '../../audit/writeAudit.js';
 import { getClassroomClient, type ClassroomCourse } from '../../google/classroomClient.js';
 
 export interface ClassroomCreateRequest {
+  id?: string;
   name: string;
   section?: string;
   description?: string;
@@ -24,6 +25,7 @@ const REQUIRED_SCOPES = [
 
 const NAME_RE = /^.{1,300}$/;
 const OWNER_ID_RE = /^(me|[A-Za-z0-9._@+\-]+)$/;
+const ID_RE = /^d:[A-Za-z0-9._@:\-]{1,100}$/;
 
 function mapUpstreamError(err: unknown): HttpsError {
   if (err instanceof HttpsError) return err;
@@ -125,6 +127,7 @@ export const classroomCreate = onCall(
       }
 
       const requestBody: {
+        id?: string;
         name: string;
         section?: string;
         description?: string;
@@ -136,6 +139,17 @@ export const classroomCreate = onCall(
         ownerId,
         courseState,
       };
+
+      if (data?.id !== undefined) {
+        if (typeof data.id !== 'string') {
+          throw new HttpsError('invalid-argument', 'invalid_id');
+        }
+        const trimmed = data.id.trim();
+        if (!ID_RE.test(trimmed)) {
+          throw new HttpsError('invalid-argument', 'invalid_id');
+        }
+        requestBody.id = trimmed;
+      }
 
       if (typeof data.section === 'string' && data.section.trim()) {
         requestBody.section = data.section.trim();

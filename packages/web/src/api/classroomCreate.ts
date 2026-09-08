@@ -4,6 +4,7 @@ import { getGoogleAccessTokenFromSession } from '../lib/auth';
 import type { ClassroomCourse } from './classroomList';
 
 export interface ClassroomCreateRequest {
+  id?: string;
   name: string;
   section?: string;
   description?: string;

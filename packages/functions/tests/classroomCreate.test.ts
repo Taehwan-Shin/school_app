@@ -364,4 +364,88 @@ describe('classroomCreate unit tests', () => {
       requestBody: expect.objectContaining({ ownerId: 'teacher@cam.hs.kr' }),
     });
   });
+
+  // 시나리오 12: id valid pass -> requestBody.id 에 전달
+  it('allows valid domain-scoped alias id and passes it to requestBody', async () => {
+    mockCoursesCreate.mockResolvedValueOnce({
+      data: { id: 'c-401', name: '알리아스 코스' },
+    });
+
+    const req = createRequest({
+      role: 'admin',
+      data: { name: '알리아스 코스', id: 'd:2026-1-1' },
+    });
+    await classroomCreate.run(req);
+
+    expect(mockCoursesCreate).toHaveBeenCalledWith({
+      requestBody: expect.objectContaining({
+        id: 'd:2026-1-1',
+        name: '알리아스 코스',
+      }),
+    });
+  });
+
+  // 시나리오 13: id invalid prefix reject -> invalid-argument invalid_id
+  it('rejects id without d: prefix and throws invalid-argument invalid_id', async () => {
+    const req = createRequest({
+      role: 'admin',
+      data: { name: '무효 알리아스 코스', id: '2026-1-1' },
+    });
+
+    await expect(classroomCreate.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_id',
+    });
+
+    expect(mockCoursesCreate).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'classroom.create',
+        result: 'error',
+        message: 'invalid_id',
+      }),
+    );
+  });
+
+  // 시나리오 14: id non-string reject -> invalid-argument invalid_id
+  it('rejects non-string id and throws invalid-argument invalid_id', async () => {
+    const req = createRequest({
+      role: 'admin',
+      data: { name: '무효 타입 코스', id: 12345 },
+    });
+
+    await expect(classroomCreate.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_id',
+    });
+
+    expect(mockCoursesCreate).not.toHaveBeenCalled();
+  });
+
+  // 시나리오 15: id 중복 (upstream 409 ALREADY_EXISTS mapping)
+  it('maps upstream 409 ALREADY_EXISTS error to unknown and writes error audit log', async () => {
+    const upstreamError = new Error('@ProjectPermissionDenied The course alias already exists.');
+    (upstreamError as any).response = { status: 409 };
+    mockCoursesCreate.mockRejectedValueOnce(upstreamError);
+
+    const req = createRequest({
+      role: 'admin',
+      data: { name: '중복 코스', id: 'd:2026-1-1' },
+    });
+
+    await expect(classroomCreate.run(req)).rejects.toMatchObject({
+      code: 'unknown',
+      message: '@ProjectPermissionDenied The course alias already exists.',
+    });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'admin@cam.hs.kr',
+      role: 'admin',
+      action: 'classroom.create',
+      target: '*',
+      request_id: 'req-test-123',
+      result: 'error',
+      message: '@ProjectPermissionDenied The course alias already exists.',
+    });
+  });
 });
