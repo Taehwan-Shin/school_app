@@ -86,6 +86,7 @@ export interface ClassroomClient {
         pageSize?: number;
         pageToken?: string;
       }) => Promise<{ data: ClassroomTeachersListResponse }>;
+      get: (params: { courseId: string; userId: string }) => Promise<{ data: ClassroomTeacher }>;
       create: (params: {
         courseId: string;
         requestBody: { userId: string };

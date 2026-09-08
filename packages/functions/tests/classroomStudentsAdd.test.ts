@@ -7,10 +7,14 @@ vi.mock('../src/audit/writeAudit.js', () => ({
 }));
 
 const mockCoursesStudentsCreate = vi.fn();
+const mockCoursesTeachersGet = vi.fn();
 const mockGetClassroomClient = vi.fn(() => ({
   courses: {
     students: {
       create: mockCoursesStudentsCreate,
+    },
+    teachers: {
+      get: mockCoursesTeachersGet,
     },
   },
 }));
@@ -268,6 +272,68 @@ describe('classroomStudentsAdd unit tests', () => {
       request_id: 'req-test-123',
       result: 'error',
       message: 'The user is already a student of this course.',
+    });
+  });
+
+  // 시나리오 8: role=admin -> teachers.get 사전 검증 우회 (호출되지 않음)
+  it('does not pre-check teacher membership for admin role', async () => {
+    mockCoursesStudentsCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'student1@cam.hs.kr' },
+    });
+
+    const req = createRequest({ role: 'admin' });
+    await classroomStudentsAdd.run(req);
+
+    expect(mockCoursesTeachersGet).not.toHaveBeenCalled();
+    expect(mockCoursesStudentsCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // 시나리오 9: role=teacher · teachers.get 성공 -> 정상 add
+  it('proceeds with add when teacher is a member of the target course', async () => {
+    mockCoursesTeachersGet.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'teacher@cam.hs.kr' },
+    });
+    mockCoursesStudentsCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'student1@cam.hs.kr' },
+    });
+
+    const req = createRequest({ email: 'teacher@cam.hs.kr', role: 'teacher' });
+    await classroomStudentsAdd.run(req);
+
+    expect(mockCoursesTeachersGet).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'me',
+    });
+    expect(mockCoursesStudentsCreate).toHaveBeenCalledTimes(1);
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'teacher',
+        result: 'ok',
+      }),
+    );
+  });
+
+  // 시나리오 10: role=teacher · teachers.get 404 -> permission-denied 'teacher_not_in_course'
+  it('rejects teacher when not a member of the target course and writes denied audit', async () => {
+    const notFoundErr: any = new Error('Requested entity was not found.');
+    notFoundErr.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFoundErr);
+
+    const req = createRequest({ email: 'teacher@cam.hs.kr', role: 'teacher' });
+    await expect(classroomStudentsAdd.run(req)).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'teacher_not_in_course',
+    });
+
+    expect(mockCoursesStudentsCreate).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      action: 'classroom.students.add',
+      target: 'courses/c-101/students/student1@cam.hs.kr',
+      request_id: 'req-test-123',
+      result: 'denied',
+      message: 'teacher_not_in_course',
     });
   });
 });
