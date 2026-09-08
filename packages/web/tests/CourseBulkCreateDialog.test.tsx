@@ -589,14 +589,14 @@ describe('CourseBulkCreateDialog component', () => {
     );
   });
 
-  // 시나리오 16: list 조회 실패해도 fatal 이 아니라 create 는 그대로 진행 (fallback 은 서버 alias 충돌)
-  it('scenario 16: falls back to normal create when legacy list fetch fails', async () => {
+  // 시나리오 16: list 조회 실패는 fail-closed — create 호출하지 않고 결과 페이지에 legacy_list_failed 로 표기 (v0.96b F10 회귀 방지)
+  it('scenario 16: fails closed and skips creates when legacy list fetch fails', async () => {
     mockUseBasicDataGet.mockReturnValue({
       data: {
         data: {
           year: 2026,
-          grades: [{ grade: 1, classes: ['1'] }],
-          rosters: { '1': { '1': [] } },
+          grades: [{ grade: 1, classes: ['1', '2'] }],
+          rosters: { '1': { '1': [], '2': [] } },
         },
       },
       isLoading: false,
@@ -607,14 +607,18 @@ describe('CourseBulkCreateDialog component', () => {
 
     render(<CourseBulkCreateDialog open={true} onOpenChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-1'));
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-2'));
     fireEvent.click(screen.getByTestId('bulk-create-preview-btn'));
     fireEvent.change(screen.getByTestId('bulk-create-confirm-input'), {
-      target: { value: '1' },
+      target: { value: '2' },
     });
     await act(async () => {
       fireEvent.click(screen.getByTestId('bulk-create-execute-btn'));
     });
 
-    expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallClassroomList).toHaveBeenCalledTimes(1);
+    expect(mockCallClassroomCreate).not.toHaveBeenCalled();
+    const doneEl = screen.getByTestId('bulk-create-done');
+    expect(doneEl.textContent).toContain('legacy_list_failed');
   });
 });

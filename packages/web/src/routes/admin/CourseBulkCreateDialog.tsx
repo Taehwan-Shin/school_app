@@ -188,11 +188,22 @@ function CourseBulkCreateDialogContent({
       const list = await callClassroomList();
       for (const c of list.courses ?? []) {
         if (typeof c.name === 'string' && typeof c.section === 'string') {
-          legacyKeys.add(`${c.name}${c.section}`);
+          legacyKeys.add(JSON.stringify([c.name, c.section]));
         }
       }
-    } catch {
-      // list 실패는 fatal 이 아니라 legacy skip 만 포기 (Google alias 충돌은 서버 layer 가 잡음).
+    } catch (err) {
+      // list 조회 실패를 삼키면 legacy 사전 대조가 효과없어져 F8 의미가 사라진다 (v0.96b Codex F10). fail-closed 로 실행 중단 후 사용자에게 결과 표시.
+      const message = (err as Error)?.message || 'legacy_list_failed';
+      const localFail: BatchCreateResult[] = selectedItems.map((item) => ({
+        gradeClass: `${item.grade}-${item.cls}`,
+        courseName: item.name,
+        kind: 'failed' as ResultKind,
+        message: `legacy_list_failed: ${message}`,
+      }));
+      setResults(localFail);
+      setProgress(selectedItems.length);
+      setPhase('done');
+      return;
     }
 
     for (let i = 0; i < selectedItems.length; i++) {
@@ -201,7 +212,7 @@ function CourseBulkCreateDialogContent({
       const name = item.name;
       const id = aliasFor(year, item.grade, item.cls);
 
-      if (legacyKeys.has(`${name}${section}`)) {
+      if (legacyKeys.has(JSON.stringify([name, section]))) {
         localResults.push({
           gradeClass: section,
           courseName: name,
