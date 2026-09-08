@@ -133,6 +133,43 @@ describe('ChatBulkCreateDialog component', () => {
     expect(doneEl.textContent).toContain('legacy_list_failed');
   });
 
+  // 시나리오 F12: 128자 초과 displayName 은 client 층에서 즉시 failed/display_name_too_long, create 미호출 (v0.97 Codex F12 회귀).
+  it('scenario 5: fails long displayName at client without calling create', async () => {
+    // 반 이름 118자 → courseName prefix ('2026학년도 1학년 ') + 반 이름 118자 + '반' > 128
+    const longClass = 'A'.repeat(118);
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: 2026,
+          grades: [{ grade: 1, classes: [longClass, '1'] }],
+          rosters: { '1': { [longClass]: [], '1': [] } },
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDialog();
+    fireEvent.click(screen.getByTestId(`bulk-create-chat-class-cb-1-${longClass}`));
+    fireEvent.click(screen.getByTestId('bulk-create-chat-class-cb-1-1'));
+    fireEvent.click(screen.getByTestId('bulk-create-chat-preview-btn'));
+    fireEvent.change(screen.getByTestId('bulk-create-chat-confirm-input'), {
+      target: { value: '2' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('bulk-create-chat-execute-btn'));
+    });
+
+    // 짧은 반 이름 하나만 create, 긴 반 이름은 client 컷.
+    expect(mockCallChatCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallChatCreate).toHaveBeenCalledWith({
+      displayName: '2026학년도 1학년 1반',
+    });
+    const doneEl = screen.getByTestId('bulk-create-chat-done');
+    expect(doneEl.textContent).toContain('display_name_too_long');
+  });
+
   // 시나리오 4: 한국어·특수문자 반 이름이 displayName 에 그대로 전달 (F5 회귀 방지 유틸 재사용 확인).
   it('scenario 4: preserves korean and special class names in displayName without splitting', async () => {
     mockUseBasicDataGet.mockReturnValue({

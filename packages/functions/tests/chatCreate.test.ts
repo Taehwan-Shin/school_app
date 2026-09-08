@@ -236,6 +236,38 @@ describe('chatCreate unit tests', () => {
     });
   });
 
+  // 시나리오 F12: displayName 128자 초과 → invalid-argument display_name_too_long
+  it('rejects displayName longer than 128 characters with invalid-argument display_name_too_long', async () => {
+    const longName = 'X'.repeat(129);
+    const req = createRequest({ data: { displayName: longName } });
+
+    await expect(chatCreate.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'display_name_too_long',
+    });
+
+    expect(mockChatSpacesCreate).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'chat.write',
+        result: 'error',
+        message: 'display_name_too_long',
+      }),
+    );
+  });
+
+  // 시나리오 F12b: 정확히 128자 displayName 은 통과 (경계값)
+  it('accepts displayName of exactly 128 characters', async () => {
+    const boundary = 'X'.repeat(128);
+    mockChatSpacesCreate.mockResolvedValueOnce({
+      data: { name: 'spaces/BOUND128', displayName: boundary, spaceType: 'SPACE' },
+    });
+
+    const req = createRequest({ data: { displayName: boundary } });
+    const result = await chatCreate.run(req);
+    expect(result.space.name).toBe('spaces/BOUND128');
+  });
+
   // 추가 시나리오: super_admin 도 생성 가능
   it('allows super_admin to create chat space and writes ok audit log', async () => {
     mockChatSpacesCreate.mockResolvedValueOnce({

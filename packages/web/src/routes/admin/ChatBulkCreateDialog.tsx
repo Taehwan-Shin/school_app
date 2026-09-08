@@ -128,10 +128,11 @@ function ChatBulkCreateDialogContent({
     setProgress(0);
     const localResults: ChatBatchCreateResult[] = [];
 
-    // Google Chat 은 alias idempotency 가 없어서 사전 대조가 유일한 duplicate 방어.
-    // callChatList 로 사용자 접근 가능한 스페이스 displayName 을 모아 skip 판정.
-    // list 실패는 fail-closed — 방어가 무의미해지는 상태에서는 create 를 실행하지 않는다
-    // (v0.96 F10 패턴).
+    // 사전 callChatList 로 사용자 접근 가능한 스페이스 displayName 을 모아 skip 판정.
+    // Google Chat spaces.create 는 조직 내 동일 displayName 에 ALREADY_EXISTS 를 반환하므로
+    // 서버 layer 가 최종 fallback 이지만, client 사전 대조로 UX 개선 + 불필요한 API 호출 절감.
+    // list 실패는 fail-closed (v0.96 F10 패턴) — 사전 대조가 무의미해지는 상태에서는
+    // create 를 실행하지 않는다.
     const legacyKeys = new Set<string>();
     try {
       const list = await callChatList();
@@ -165,6 +166,20 @@ function ChatBulkCreateDialogContent({
           displayName,
           kind: 'skipped',
           message: 'legacy_duplicate',
+        });
+        setProgress(i + 1);
+        continue;
+      }
+
+      // Google Chat spaces.create displayName 128자 제한. basicData 는 반 이름 길이
+      // 제약 없으므로 courseName prefix 붙으면 초과 가능 (v0.97 Codex F12). client 층에서
+      // 사전 컷하여 사용자에게 즉시 이유 표시.
+      if (displayName.length > 128) {
+        localResults.push({
+          gradeClass,
+          displayName,
+          kind: 'failed',
+          message: `display_name_too_long: ${displayName.length}/128`,
         });
         setProgress(i + 1);
         continue;

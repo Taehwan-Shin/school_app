@@ -81,6 +81,11 @@ export const chatCreate = onCall(
         throw new HttpsError('invalid-argument', 'display_name_required');
       }
       const displayName = data.displayName.trim();
+      // Google Chat spaces.create displayName 은 128자 제한. bulk 생성 시 긴 반 이름 +
+      // courseName prefix 로 초과할 수 있어 서버에서 명시 검증 (v0.97 Codex F12).
+      if (displayName.length > 128) {
+        throw new HttpsError('invalid-argument', 'display_name_too_long');
+      }
 
       const chat = getChatClient(user.googleAccessToken);
       const res = await chat.spaces.create({
