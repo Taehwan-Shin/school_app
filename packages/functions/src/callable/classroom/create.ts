@@ -112,6 +112,13 @@ export const classroomCreate = onCall(
         throw new HttpsError('invalid-argument', 'invalid_owner_id');
       }
 
+      // app-role `teacher` 는 본인 소유 코스만 생성. Google 도메인 관리자 계정이
+      // app-role 만 teacher 로 매핑된 경우 다른 owner 로 코스를 만들 수 있으므로
+      // 앱 층에서 강제한다. admin/super_admin 은 조직 위임을 위해 우회.
+      if (user.role === 'teacher' && ownerId !== 'me') {
+        throw new HttpsError('permission-denied', 'teacher_cannot_set_owner');
+      }
+
       const courseState = data.courseState ?? 'PROVISIONED';
       if (courseState !== 'PROVISIONED' && courseState !== 'ACTIVE') {
         throw new HttpsError('invalid-argument', 'invalid_course_state');

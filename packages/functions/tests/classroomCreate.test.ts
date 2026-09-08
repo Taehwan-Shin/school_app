@@ -282,4 +282,86 @@ describe('classroomCreate unit tests', () => {
       message: 'google_upstream_denied: insufficient permissions',
     });
   });
+
+  // 시나리오 8: role=teacher · ownerId=me -> 정상 create
+  it('allows teacher to create course with ownerId=me', async () => {
+    mockCoursesCreate.mockResolvedValueOnce({
+      data: { id: 'c-201', name: '수학 101', ownerId: 'teacher@cam.hs.kr' },
+    });
+
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { name: '수학 101', ownerId: 'me' },
+    });
+    const res = await classroomCreate.run(req);
+
+    expect(res.course.id).toBe('c-201');
+    expect(mockCoursesCreate).toHaveBeenCalledWith({
+      requestBody: expect.objectContaining({ ownerId: 'me' }),
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'teacher', result: 'ok' }),
+    );
+  });
+
+  // 시나리오 9: role=teacher · ownerId=me 생략 (기본 'me') -> 정상 create
+  it('allows teacher to create course when ownerId is omitted (defaults to me)', async () => {
+    mockCoursesCreate.mockResolvedValueOnce({
+      data: { id: 'c-202', name: '수학 102' },
+    });
+
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { name: '수학 102' },
+    });
+    await classroomCreate.run(req);
+
+    expect(mockCoursesCreate).toHaveBeenCalledWith({
+      requestBody: expect.objectContaining({ ownerId: 'me' }),
+    });
+  });
+
+  // 시나리오 10: role=teacher · ownerId != me -> permission-denied 'teacher_cannot_set_owner'
+  it('rejects teacher setting ownerId other than me and writes denied audit', async () => {
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { name: '수학 103', ownerId: 'other@cam.hs.kr' },
+    });
+
+    await expect(classroomCreate.run(req)).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'teacher_cannot_set_owner',
+    });
+
+    expect(mockCoursesCreate).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      action: 'classroom.create',
+      target: '*',
+      request_id: 'req-test-123',
+      result: 'denied',
+      message: 'teacher_cannot_set_owner',
+    });
+  });
+
+  // 시나리오 11: role=admin · ownerId != me -> 정상 (관리자는 위임 owner 허용)
+  it('allows admin to create course with ownerId other than me', async () => {
+    mockCoursesCreate.mockResolvedValueOnce({
+      data: { id: 'c-301', name: 'delegated course' },
+    });
+
+    const req = createRequest({
+      role: 'admin',
+      data: { name: 'delegated course', ownerId: 'teacher@cam.hs.kr' },
+    });
+    await classroomCreate.run(req);
+
+    expect(mockCoursesCreate).toHaveBeenCalledWith({
+      requestBody: expect.objectContaining({ ownerId: 'teacher@cam.hs.kr' }),
+    });
+  });
 });
