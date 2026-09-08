@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
+import { assertTeacherInCourseIfTeacherRole } from '../../authz/classroomTeacherMembership.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getClassroomClient, type ClassroomStudent } from '../../google/classroomClient.js';
 
@@ -118,6 +119,7 @@ export const classroomStudentsAdd = onCall(
       const userId = data.userId.trim();
 
       const classroom = getClassroomClient(user.googleAccessToken);
+      await assertTeacherInCourseIfTeacherRole(classroom, user.role, courseId);
       const res = await classroom.courses.students.create({
         courseId,
         requestBody: { userId },
