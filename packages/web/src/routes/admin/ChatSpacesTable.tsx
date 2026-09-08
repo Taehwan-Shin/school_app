@@ -12,10 +12,12 @@ import {
 import { CreateChatSpaceDialog } from './CreateChatSpaceDialog';
 import { DeleteChatSpaceDialog, type DeleteChatSpaceTarget } from './DeleteChatSpaceDialog';
 import { ChatSpaceMembersDialog } from './ChatSpaceMembersDialog';
+import { ChatBulkCreateDialog } from './ChatBulkCreateDialog';
 
 export function ChatSpacesTable() {
   const { data, isLoading, isError, error } = useChatList();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteChatSpaceTarget | null>(null);
   const [membersTarget, setMembersTarget] = useState<{ name: string; displayName?: string } | null>(null);
 
@@ -25,9 +27,18 @@ export function ChatSpacesTable() {
         <p className="text-small text-fg-secondary">
           {data?.spaces ? `${data.spaces.length}개 챗방` : '챗방 목록'}
         </p>
-        <Button onClick={() => setIsCreateOpen(true)} data-testid="chat-create-btn">
-          + 챗방 추가
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setIsBulkCreateOpen(true)}
+            data-testid="chat-bulk-create-btn"
+          >
+            학급 일괄 생성
+          </Button>
+          <Button onClick={() => setIsCreateOpen(true)} data-testid="chat-create-btn">
+            + 챗방 추가
+          </Button>
+        </div>
       </div>
       {isLoading && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="chat-spaces-loading">
@@ -92,6 +103,7 @@ export function ChatSpacesTable() {
         </div>
       )}
       <CreateChatSpaceDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <ChatBulkCreateDialog open={isBulkCreateOpen} onOpenChange={setIsBulkCreateOpen} />
       <DeleteChatSpaceDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
