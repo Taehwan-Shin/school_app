@@ -22,6 +22,8 @@ import {
   courseName,
   keyOf,
   naturalCompare,
+  hashSlug,
+  aliasFor,
 } from '../src/routes/admin/CourseBulkCreateDialog';
 
 describe('CourseBulkCreateDialog component', () => {
@@ -216,14 +218,14 @@ describe('CourseBulkCreateDialog component', () => {
 
     expect(mockCallClassroomCreate).toHaveBeenCalledTimes(2);
     expect(mockCallClassroomCreate).toHaveBeenNthCalledWith(1, {
-      id: 'd:2026-1-1',
+      id: aliasFor(2026, 1, '1'),
       name: '2026학년도 1학년 1반',
       section: '1-1',
       ownerId: 'teacher@school.kr',
       courseState: 'ACTIVE',
     });
     expect(mockCallClassroomCreate).toHaveBeenNthCalledWith(2, {
-      id: 'd:2026-1-2',
+      id: aliasFor(2026, 1, '2'),
       name: '2026학년도 1학년 2반',
       section: '1-2',
       ownerId: 'teacher@school.kr',
@@ -455,7 +457,7 @@ describe('CourseBulkCreateDialog component', () => {
 
     expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
     expect(mockCallClassroomCreate).toHaveBeenCalledWith({
-      id: 'd:2026-1-A-1',
+      id: aliasFor(2026, 1, 'A-1'),
       name: '2026학년도 1학년 A-1반',
       section: '1-A-1',
       ownerId: 'me',
@@ -465,7 +467,60 @@ describe('CourseBulkCreateDialog component', () => {
       expect.objectContaining({ section: '1-A' }),
     );
     expect(mockCallClassroomCreate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'd:2026-1-A' }),
+      expect.objectContaining({ id: aliasFor(2026, 1, 'A') }),
     );
+  });
+
+  // 시나리오 12: 한국어·특수문자 반 이름도 서버 ID_RE 안전한 alias 로 인코딩 (v0.95 F6 회귀 방지)
+  it('scenario 12: encodes non-ASCII class names into ID_RE-safe alias', async () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: 2026,
+          grades: [{ grade: 1, classes: ['1반', 'A!'] }],
+          rosters: {
+            '1': {
+              '1반': [],
+              'A!': [],
+            },
+          },
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<CourseBulkCreateDialog open={true} onOpenChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-1반'));
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-A!'));
+    fireEvent.click(screen.getByTestId('bulk-create-preview-btn'));
+    fireEvent.change(screen.getByTestId('bulk-create-confirm-input'), {
+      target: { value: '2' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('bulk-create-execute-btn'));
+    });
+
+    expect(mockCallClassroomCreate).toHaveBeenCalledTimes(2);
+    const idRE = /^d:[A-Za-z0-9._@:\-]{1,100}$/;
+    for (const call of mockCallClassroomCreate.mock.calls) {
+      expect(call[0].id).toMatch(idRE);
+    }
+    const [call1반, callA] = mockCallClassroomCreate.mock.calls;
+    expect(call1반[0].id).toBe(aliasFor(2026, 1, '1반'));
+    expect(callA[0].id).toBe(aliasFor(2026, 1, 'A!'));
+    expect(call1반[0].section).toBe('1-1반');
+    expect(callA[0].section).toBe('1-A!');
+  });
+
+  // 시나리오 13: hashSlug 결정성 · 다른 입력이 다른 hash (충돌 방지 sanity check)
+  it('scenario 13: hashSlug is deterministic and distinct per input', () => {
+    expect(hashSlug('1반')).toBe(hashSlug('1반'));
+    expect(hashSlug('A')).not.toBe(hashSlug('B'));
+    expect(hashSlug('A')).not.toBe(hashSlug('A '));
+    expect(hashSlug('1반')).toMatch(/^[0-9a-f]{16}$/);
+    expect(aliasFor(2026, 1, '1반')).toBe(`d:2026-1-${hashSlug('1반')}`);
   });
 });

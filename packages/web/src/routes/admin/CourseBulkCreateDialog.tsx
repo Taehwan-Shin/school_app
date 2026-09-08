@@ -58,6 +58,27 @@ export function naturalCompare(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true });
 }
 
+// FNV-1a 64-bit → 16자 hex. 서버 ID_RE (`d:[A-Za-z0-9._@:\-]{1,100}`) 안전 문자만.
+// basicData 는 반 이름에 한국어·특수문자·공백을 허용하므로 원본 문자열을 그대로
+// alias 에 넣으면 서버 검증에서 invalid_id 로 실패한다 (v0.95 Codex F6). 결정적
+// hash 로 인코딩해 alias 생성.
+export function hashSlug(input: string): string {
+  const PRIME = 0x100000001b3n;
+  const OFFSET = 0xcbf29ce484222325n;
+  const MASK = 0xffffffffffffffffn;
+  let h = OFFSET;
+  const bytes = new TextEncoder().encode(input);
+  for (const b of bytes) {
+    h ^= BigInt(b);
+    h = (h * PRIME) & MASK;
+  }
+  return h.toString(16).padStart(16, '0');
+}
+
+export function aliasFor(year: number, grade: number, cls: string): string {
+  return `d:${year}-${grade}-${hashSlug(cls)}`;
+}
+
 function CourseBulkCreateDialogContent({
   open,
   onOpenChange,
@@ -158,7 +179,7 @@ function CourseBulkCreateDialogContent({
       const item = selectedItems[i];
       const section = `${item.grade}-${item.cls}`;
       const name = item.name;
-      const id = `d:${year}-${item.grade}-${item.cls}`;
+      const id = aliasFor(year, item.grade, item.cls);
       try {
         const res = await callClassroomCreate({
           id,
