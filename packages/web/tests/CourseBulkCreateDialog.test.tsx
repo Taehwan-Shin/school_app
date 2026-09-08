@@ -20,6 +20,8 @@ import {
   isAlreadyExistsError,
   isYearValid,
   courseName,
+  keyOf,
+  naturalCompare,
 } from '../src/routes/admin/CourseBulkCreateDialog';
 
 describe('CourseBulkCreateDialog component', () => {
@@ -69,6 +71,15 @@ describe('CourseBulkCreateDialog component', () => {
     expect(isYearValid('   ')).toBe(false);
     expect(isYearValid('abc')).toBe(false);
     expect(isYearValid('2026.5')).toBe(false);
+  });
+
+  it('helpers: keyOf produces null byte separated string', () => {
+    expect(keyOf(1, 'A-1')).toBe('1\0A-1');
+  });
+
+  it('helpers: naturalCompare sorts alphanumerics naturally', () => {
+    expect(naturalCompare('A-1', 'A-2')).toBeLessThan(0);
+    expect(naturalCompare('A-10', 'A-2')).toBeGreaterThan(0);
   });
 
   // 시나리오 1: open=false -> 미렌더
@@ -205,12 +216,14 @@ describe('CourseBulkCreateDialog component', () => {
 
     expect(mockCallClassroomCreate).toHaveBeenCalledTimes(2);
     expect(mockCallClassroomCreate).toHaveBeenNthCalledWith(1, {
+      id: 'd:2026-1-1',
       name: '2026학년도 1학년 1반',
       section: '1-1',
       ownerId: 'teacher@school.kr',
       courseState: 'ACTIVE',
     });
     expect(mockCallClassroomCreate).toHaveBeenNthCalledWith(2, {
+      id: 'd:2026-1-2',
       name: '2026학년도 1학년 2반',
       section: '1-2',
       ownerId: 'teacher@school.kr',
@@ -393,5 +406,66 @@ describe('CourseBulkCreateDialog component', () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  // 시나리오 11: '-' 포함 반 이름(A-1) 분리 오류 회귀 방지 (F5)
+  it('scenario 11: preserves class names containing hyphens without splitting and passes correct id and section', async () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: 2026,
+          grades: [{ grade: 1, classes: ['A-1', 'B'] }],
+          rosters: {
+            '1': {
+              'A-1': [],
+              'B': [],
+            },
+          },
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <CourseBulkCreateDialog
+        open={true}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    const cbA1 = screen.getByTestId('bulk-create-class-cb-1-A-1');
+    fireEvent.click(cbA1);
+
+    const previewBtn = screen.getByTestId('bulk-create-preview-btn');
+    fireEvent.click(previewBtn);
+
+    const previewContainer = screen.getByTestId('bulk-create-preview');
+    expect(previewContainer.textContent).toContain('2026학년도 1학년 A-1반');
+    expect(previewContainer.textContent).not.toContain('2026학년도 1학년 A반');
+
+    fireEvent.change(screen.getByTestId('bulk-create-confirm-input'), {
+      target: { value: '1' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('bulk-create-execute-btn'));
+    });
+
+    expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallClassroomCreate).toHaveBeenCalledWith({
+      id: 'd:2026-1-A-1',
+      name: '2026학년도 1학년 A-1반',
+      section: '1-A-1',
+      ownerId: 'me',
+      courseState: 'PROVISIONED',
+    });
+    expect(mockCallClassroomCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ section: '1-A' }),
+    );
+    expect(mockCallClassroomCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'd:2026-1-A' }),
+    );
   });
 });

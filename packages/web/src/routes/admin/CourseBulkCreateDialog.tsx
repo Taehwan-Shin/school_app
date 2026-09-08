@@ -50,6 +50,14 @@ export function isAlreadyExistsError(message: string): boolean {
   );
 }
 
+export function keyOf(grade: number, cls: string): string {
+  return `${grade}\0${cls}`;
+}
+
+export function naturalCompare(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true });
+}
+
 function CourseBulkCreateDialogContent({
   open,
   onOpenChange,
@@ -59,7 +67,7 @@ function CourseBulkCreateDialogContent({
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const [yearInput, setYearInput] = useState(String(thisYear));
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Map<string, { grade: number; cls: string }>>(new Map());
   const [ownerId, setOwnerId] = useState('me');
   const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
   const [confirmText, setConfirmText] = useState('');
@@ -73,7 +81,7 @@ function CourseBulkCreateDialogContent({
   useEffect(() => {
     if (open) {
       setPhase('select');
-      setSelected(new Set());
+      setSelected(new Map());
       setConfirmText('');
       setProgress(0);
       setResults([]);
@@ -89,20 +97,20 @@ function CourseBulkCreateDialogContent({
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
-    setSelected(new Set());
+    setSelected(new Map());
     if (isYearValid(val)) {
       setYear(Number.parseInt(val.trim(), 10));
     }
   };
 
   const toggleClass = (grade: number, cls: string) => {
-    const key = `${grade}-${cls}`;
+    const key = keyOf(grade, cls);
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(key)) {
         next.delete(key);
       } else {
-        next.add(key);
+        next.set(key, { grade, cls });
       }
       return next;
     });
@@ -110,9 +118,9 @@ function CourseBulkCreateDialogContent({
 
   const handleSelectAllGrade = (grade: number, classes: string[]) => {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const c of classes) {
-        next.add(`${grade}-${c}`);
+        next.set(keyOf(grade, c), { grade, cls: c });
       }
       return next;
     });
@@ -120,9 +128,9 @@ function CourseBulkCreateDialogContent({
 
   const handleDeselectAllGrade = (grade: number, classes: string[]) => {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const c of classes) {
-        next.delete(`${grade}-${c}`);
+        next.delete(keyOf(grade, c));
       }
       return next;
     });
@@ -130,24 +138,14 @@ function CourseBulkCreateDialogContent({
 
   const selectedItems = useMemo(() => {
     if (!isYearValid(yearInput)) return [];
-    return Array.from(selected)
-      .map((key) => {
-        const [gStr, c] = key.split('-');
-        const g = Number.parseInt(gStr, 10);
-        return {
-          grade: g,
-          cls: c,
-          key,
-          name: courseName(year, g, c),
-        };
-      })
-      .sort((a, b) => {
-        if (a.grade !== b.grade) return a.grade - b.grade;
-        const aNum = Number.parseInt(a.cls, 10);
-        const bNum = Number.parseInt(b.cls, 10);
-        if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
-        return a.cls.localeCompare(b.cls);
-      });
+    return Array.from(selected.values())
+      .map((item) => ({
+        grade: item.grade,
+        cls: item.cls,
+        key: `${item.grade}-${item.cls}`,
+        name: courseName(year, item.grade, item.cls),
+      }))
+      .sort((a, b) => a.grade - b.grade || naturalCompare(a.cls, b.cls));
   }, [selected, year, yearInput]);
 
   const handleExecute = async () => {
@@ -160,8 +158,10 @@ function CourseBulkCreateDialogContent({
       const item = selectedItems[i];
       const section = `${item.grade}-${item.cls}`;
       const name = item.name;
+      const id = `d:${year}-${item.grade}-${item.cls}`;
       try {
         const res = await callClassroomCreate({
+          id,
           name,
           section,
           ownerId: ownerId.trim() || 'me',
@@ -285,7 +285,7 @@ function CourseBulkCreateDialogContent({
                             >
                               <input
                                 type="checkbox"
-                                checked={selected.has(`${g.grade}-${c}`)}
+                                checked={selected.has(keyOf(g.grade, c))}
                                 onChange={() => toggleClass(g.grade, c)}
                                 data-testid={`bulk-create-class-cb-${g.grade}-${c}`}
                                 className="accent-fg-primary cursor-pointer"
