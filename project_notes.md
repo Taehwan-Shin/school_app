@@ -609,3 +609,57 @@ CI 는 저장소 개시 이래 30+ 회 전부 실패 상태였음. 오늘 하나
 `bebdf16` · `24a1ec9` · `1ac3699` · `67d5ce7` · `a1ad8dc` · `b243438` · `46c1f59` · `cbf5228` · `cf8b2c0` · `b009998` · `8187d23` · `4aa6071` · `58dc929` · `a148492` · `4735d1e` · `b8741f7`.
 
 **감사 미완**: 오늘의 슬라이스는 Antigravity 결과 오면 Codex 감사 파견. UI 재구성 슬라이스는 별도 감사.
+
+## 2026-09-08 · 채널 이전 + v0.89~v0.94 이력 갱신
+
+### 채널 이전
+
+- `#school_app` 대화 이력이 길어져 `#school_app_02` (`cfef52ba-5b47-4a4a-a70e-d604f73fe89c`) 로 이전.
+- 인계 문서: `/Users/bliss00/.buzz/PLANS/SCHOOL_APP_CHANNEL_HANDOFF.md`.
+- 채널 오프너 (event `34cb3d2abb86bf0e3ba9a6baa0dbe82255177734b9802acfb03d5d9c80a59cec`) 기준 HEAD: `31ea9f7` (v0.93).
+
+### v0.89 ~ v0.93 병합 (2026-09-01 ~ 2026-09-07)
+
+| 버전 | 병합 커밋 | 요약 |
+|---|---|---|
+| v0.89 | `53450c2` | classroom.list · year 엄격 검증 · batch invalidate 우회 |
+| v0.90 | `ff6b5c0` | classroom.create callable + UI |
+| v0.91 | `77c9dc7` | classroom batch create dialog |
+| v0.92 | `2612324` | chat members CRUD (add · delete · list · Directory 리졸버) |
+| v0.93 | `31ea9f7` | chat bulk invite dialog (basic_data → 학급 일괄 초대) |
+
+v0.93 로컬 검증 수치: shared 27 + functions 356 + web 551 = 934 unit · emulator 43건.
+
+### v0.89 ~ v0.93 Codex 감사 재요청 · 완료
+
+- v0.93 뒤 감사가 사용자 한도 오류 (`86bee2d04f6f`) 로 완료 못 됨. 인계 파일에 「닫혀야 할 감사 누락」 로 명시됨.
+- 새 채널 개시 후 Codex 에 고정 HEAD `31ea9f7`, 범위 `53450c2..31ea9f7` 로 재요청.
+- 결과 (Codex 이벤트 `e2f5616856b1ef15…3c4e0c17ae65`, 파일 `/Users/bliss00/.buzz/RESEARCH/SCHOOL_APP_V089_V093_CODEX_AUDIT.md`): 실패 5건 확인.
+  - **F1** `packages/functions/src/callable/classroom/studentsAdd.ts` — teacher 대상 코스 membership 사전 검증 없음.
+  - **F2** `studentsDelete.ts` — 동일 문제.
+  - **F3** `classroom/create.ts:106` — teacher `ownerId` 강제 없음.
+  - **F4** `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx:163` — `courses.create` `ALREADY_EXISTS` 는 alias 지정 시에만 발생 → 재실행이 skip 이 아니라 중복 코스 생성.
+  - **F5** 같은 파일 `:135` — 선택 key `${grade}-${c}` `split('-')` 로 복원 → `A-1` 같은 반 이름이 `A` 로 잘림.
+- Head 재검증: 5건 모두 실제 코드에서 재현 확인 (channel event `d4ea00aaeaa27a31…9dea`).
+
+### v0.94 병합 (authz hotfix)
+
+- 브랜치: `feat/authz-hotfix-v94`.
+- 커밋:
+  - `d59425d` — F1/F2 `packages/functions/src/authz/classroomTeacherMembership.ts` 신설 · `studentsAdd` · `studentsDelete` 에 teacher membership 사전 검증 삽입 · `classroomClient.courses.teachers.get` 인터페이스 추가 · unit 시나리오 6건 신설.
+  - `fa4a1b1` — F3 `classroom/create.ts` teacher · ownerId != 'me' 거부 · unit 시나리오 4건 신설.
+- 병합 커밋: `5a0f4df` (main).
+- 로컬 관문: TypeScript build · ESLint · shared 27 + functions 366 + web 551 = **944 unit** (신규 시나리오 10건).
+- Codex 감사 (`0f19ec862663812e3c4ddee70ce2b29bd32ea12cf01cc76ac86f402458db6744`): 통과 7 / 실패 0 / 판정불가 1 (emulator, Java 부재).
+
+### v0.95 준비 (bulk create UX hotfix, F4/F5)
+
+- 오더 문서 초안: `/Users/bliss00/.buzz/OUTBOX/SCHOOL_APP_V095_NEXT_DRAFT.md`.
+- v0.94 병합 뒤 `docs/handoff/NEXT.md` 로 이동. Antigravity 위임 예정.
+- 핵심 결정:
+  - **F4**: `classroomCreate` callable 에 optional `id` (Google Classroom domain-scoped alias, `d:` prefix 필수) 추가. 클라이언트 bulk 는 `d:{year}-{grade}-{cls}` 를 alias 로 보내 Google 의 `ALREADY_EXISTS` 를 확정 skip 신호로 사용.
+  - **F5**: 선택 상태를 `Set<string>` → `Map<string, {grade, cls}>` 로 재구성. 문자열 split 제거.
+
+### 이 세션 함정 · 배운 것
+
+- **에이전트가 「릴레이 게시 차단」 을 사유로 채널 게시 유보** — Codex 가 감사 결과를 워크스페이스 파일로만 기록하고 채널에는 승인 요청만 보냈다 (`e2f5616856b1ef15…3c4e0c17ae65`). Head 는 감사 파일 존재를 확인하고 요약을 Head 스레드로 전달, 사용자 승인 (`16ae1d90ce69`) 뒤 Codex 는 자유롭게 게시. 이 패턴은 앞으로 「감사물 파일이 있으면 요약 전달로 진행, 채널 게시 승인 별건 처리」 로 다룬다.
