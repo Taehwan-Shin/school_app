@@ -1,133 +1,30 @@
-# NEXT.md — 일꾼 오더 파일 (v0.95)
+# NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> 지금 이 파일의 오더는 **CourseBulkCreateDialog F4/F5 수정 v0.95**.
+> **지금 이 파일에 열린 오더 없음.** v0.96 (bulk create hotfix) 병합 완료 (`e3dd87d`).
+> 다음 제품 방향은 사용자 확정 대기.
 
-## 상설 규약
+## 최근 병합 (참고, 상세는 `project_notes.md`)
 
-`AGENTS.md` §3 그대로. 요약:
-- 기존 파일 재작성 금지, 요청받은 부분만
-- **삭제가 추가보다 많으면 멈추고 보고**
-- `git add -A` 금지, `main` push 금지 — 작업 브랜치는 원격에 `git push -u origin feat/bulk-create-hotfix-v95`
-- 지금 코드와 다르면 다르다고 보고
-- 「판정 불가」 허용
-- 근거는 `파일:줄번호`, 항목당 한 줄
-- **이모지 금지**
-- **커밋 전 기계 관문 통과** — TypeScript · ESLint · Vitest
+- `e3dd87d` v0.96 — classroom bulk create hotfix (F4~F11, 4 라운드 감사).
+- `5a0f4df` v0.94 — classroom authz hotfix (F1~F3).
+- `31ea9f7` v0.93 — chat bulk invite.
 
-**추가**: 완료 후 반드시 스레드 보고. 커밋 2 개 (F4, F5 분리).
+## 오더 확정 대기
 
-## 기준 커밋
+STATUS.md 「다음 제품 방향 확정」 항목 참조. 후보:
+- (a) Classroom 코스와 Chat 스페이스 학급 통합 생성/배정.
+- (b) admin console v2 (역할 관리 UI + capability matrix).
+- (c) 그 외 사용자 지시.
 
-**Base**: `5a0f4df` (main, v0.94 authz hotfix 병합).
+## 상설 규약 (변하지 않음)
 
-## 지금 할 것 — CourseBulkCreateDialog F4/F5 수정
-
-### 왜
-
-v0.89~v0.93 Codex 감사에서 두 가지 결함 확인:
-
-- **F4** — `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx:163`: `courses.create` 는 alias 를 명시하지 않는 한 `ALREADY_EXISTS` 를 돌려주지 않는다. 지금 재실행은 skip 이 아니라 중복 코스 생성이다.
-- **F5** — `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx:135`: 선택 key `${grade}-${cls}` 를 `split('-')` 로 복원한다. `basicData.ts` (`packages/shared/src/basicData.ts:44`) 는 `-` 를 포함한 반 이름을 허용하므로 `A-1` 같은 값이 `A` 로 잘려 잘못된 코스가 생성된다.
-
-**해결 방향**:
-
-- **F4**: `classroomCreate` callable 에 optional `id` 파라미터 (Google Classroom domain-scoped alias) 추가. 클라이언트 일괄 생성은 `d:{year}-{grade}-{cls}` 를 `id` 로 보내고, Google 이 반환하는 `ALREADY_EXISTS` (alias 중복) 를 「이미 존재」로 확정 분류한다.
-- **F5**: 선택 상태를 `Set<string>` 이 아니라 `Map<string, { grade: number; cls: string }>` 로 유지한다. key 는 `${grade}\0${cls}` (null byte separator — 반 이름에 나타나지 않음). 실행부는 Map value 를 직접 사용해 문자열 split 을 완전히 제거.
-
-**하지 않는 것**:
-- 다른 도메인 (chat, users, groups) 은 손대지 마라.
-- Chat bulk invite 는 alias 사용하지 않음 (chatMembersAdd 는 email 기반).
-- `courseName` · `isYearValid` · `isAlreadyExistsError` 유틸 시그니처 유지.
-
-### 이 과제가 바꿀 경로
-
-**수정 대상**:
-- `packages/shared/src/classroom.ts` (또는 해당 request 타입 정의 위치) — `ClassroomCreateRequest` 에 optional `id?: string` 추가. 있으면 반드시 `d:` prefix + 안전 문자 제약.
-- `packages/functions/src/callable/classroom/create.ts` — `id` 파라미터 검증 · `requestBody.id` 전달.
-- `packages/functions/src/google/classroomClient.ts` — `courses.create` 인터페이스에 optional `id` 필드 추가.
-- `packages/web/src/api/classroomCreate.ts` — `ClassroomCreateRequest` mirror.
-- `packages/web/src/routes/admin/CourseBulkCreateDialog.tsx` — Set → Map · `handleToggle` · `handleDeselectAllGrade` · `selectedItems` · `handleExecute` · `id` 전달.
-
-**수정 대상 (테스트)**:
-- `packages/functions/tests/classroomCreate.test.ts` — 시나리오 추가: id valid pass · id invalid prefix reject · id 중복 (upstream 409 ALREADY_EXISTS mapping).
-- `packages/web/tests/CourseBulkCreateDialog.test.tsx` — 시나리오 추가: `-` 포함 반 이름이 잘리지 않고 요청에 그대로 전달 · id 자동 부여 확인.
-
-**손대지 마라**:
-- `classroomTeacherMembership.ts` (v0.94)
-- v0.94 F3 owner 강제 로직 (신규 시나리오에서 admin role 로 테스트)
-- 다른 callable · UI · 라우팅
-
-### 세부 요구
-
-#### 1. 서버 — `classroomCreate` optional `id` 검증
-
-```
-if (data.id !== undefined) {
-  if (typeof data.id !== 'string') throw 'invalid_id';
-  const trimmed = data.id.trim();
-  if (!/^d:[A-Za-z0-9._@:\-]{1,100}$/.test(trimmed)) throw 'invalid_id';
-  requestBody.id = trimmed;
-}
-```
-
-`d:` prefix 강제 (domain-scoped alias). 순수 숫자 id (Google 내부 assignable) 는 허용하지 않는다 — 오직 alias.
-
-시나리오:
-- id 없음 → 기존 동작 유지.
-- 유효 alias (`d:2026-1-1반`) → requestBody 에 포함.
-- prefix 없음 (`2026-1-1반`) → invalid-argument `invalid_id`.
-- 상위 409 (`ALREADY_EXISTS`) → 기존 mapUpstreamError 경로 (message 유지).
-
-#### 2. 클라이언트 API — `ClassroomCreateRequest.id`
-
-`packages/web/src/api/classroomCreate.ts` 의 `ClassroomCreateRequest` 에 `id?: string` 추가. body serialize 는 그대로 spread.
-
-#### 3. UI — `CourseBulkCreateDialog` selection state 변경
-
-- `useState<Set<string>>` → `useState<Map<string, { grade: number; cls: string }>>` (state 는 항상 새 Map 인스턴스로 교체).
-- key: `` `${grade}\0${cls}` ``. helper `keyOf(grade, cls)` 하나로 통일.
-- `handleToggleGrade` / `handleToggleClass` / `handleDeselectAllGrade` 모두 Map 기반으로 재작성.
-- `selectedItems` 은 `Array.from(selected.values())` 로 얻고 `.sort((a, b) => a.grade - b.grade || naturalCompare(a.cls, b.cls))`. 문자열 split 제거.
-- `handleExecute` 실행 시 `id = \`d:${year}-${item.grade}-${item.cls}\``, `section = \`${item.grade}-${item.cls}\``, `name = courseName(...)`. `-` 가 반 이름에 들어가도 그대로 유지.
-
-#### 4. 테스트 — F5 회귀 방지
-
-`packages/web/tests/CourseBulkCreateDialog.test.tsx` 에 새 시나리오:
-- `basic_data.rosters` 에 `{grade: 1, classes: ['A-1', 'B']}` 를 넣고 `A-1` 을 선택 → 실행 시 mock `callClassroomCreate` 인자에 `section === '1-A-1'` 그리고 `id === 'd:2026-1-A-1'` 그대로 전달.
-- 잘라진 값 (`A` 만) 이 전달되면 실패.
-
-`classroomCreate.test.ts` 에 새 시나리오:
-- 유효 `id: 'd:2026-1-1'` → `requestBody.id === 'd:2026-1-1'`.
-- 무효 `id: '2026-1-1'` (prefix 없음) → invalid-argument.
-
-#### 5. 손대지 말아야 할 유틸
-
-- `isAlreadyExistsError` (error message 파싱) 는 그대로 유지. alias 사용해도 Google 이 반환하는 error message 의 문구를 우리가 완전히 통제할 수 없으므로 fallback 으로 남긴다.
-- `courseName(year, grade, cls)` 는 그대로 유지.
-
-### 관문 · 커밋
-
-1. TypeScript build (shared → functions → web)
-2. ESLint (functions)
-3. Vitest — shared · functions · web
-4. Web production build
-
-각 관문 통과 확인 뒤:
-- 커밋 1: `feat(functions,shared,web): F4 classroomCreate optional domain-scoped alias`
-- 커밋 2: `fix(web): F5 CourseBulkCreateDialog selection Map 으로 재구성`
-
-커밋 메시지는 이유·근거 파일 포함. 이모지 금지.
-
-작업 브랜치는 `feat/bulk-create-hotfix-v95` — origin push 는 Head 가 지시할 때.
-
-### 완료 보고
-
-Head 스레드에 다음 4줄 형식으로 보고:
-
-```
-브랜치: feat/bulk-create-hotfix-v95
-HEAD: <hash>
-관문: shared X + functions Y + web Z = N unit · lint · build 통과
-판정 불가: <있으면 이유, 없으면 "없음">
-```
+`AGENTS.md` §3 참조:
+- 기존 파일 재작성 금지, 요청받은 부분만.
+- 삭제가 추가보다 많으면 멈추고 보고.
+- `git add -A` 금지. `main` push 금지.
+- 지금 코드와 다르면 다르다고 보고.
+- 「판정 불가」 허용.
+- 근거는 `파일:줄번호`, 항목당 한 줄.
+- 이모지 금지.
+- 커밋 전 기계 관문 통과 — TypeScript · ESLint · Vitest.

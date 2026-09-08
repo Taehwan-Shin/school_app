@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| v0.95 UX hotfix (F4 alias · F5 선택 key 구조화) | 헤드/일꾼/감사 | **오더 준비 완료** — `docs/handoff/NEXT.md` (v0.95 draft) | Antigravity 킥오프 후 `feat/bulk-create-hotfix-v95` 완료 · Codex 감사 · 병합 |
+| 다음 제품 방향 확정 (v0.97+) | 사용자 | 답 대기 | 후보: (a) Classroom 코스와 Chat 스페이스 학급 단위 통합 생성/배정 · (b) admin console v2 (역할 관리 UI + capability matrix) · (c) 그 외 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
 | Node 20 환경 재실행 | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인 |
@@ -26,8 +26,8 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
-| v0.94 | `5a0f4df` (main) | authz hotfix — F1/F2 teacher membership 사전 검증 · F3 teacher ownerId=me 강제 |
+| v0.96 | `e3dd87d` (main) | classroom bulk create hotfix — F4 optional alias · F5 선택 key Map · F6 alias FNV-1a hash · F7 NEXT.md NUL cleanup · F8 legacy 사전 대조 · F9 aliasFor tuple hash · F10 fail-closed · F11 JSON.stringify key. 4 라운드 Codex 감사 |
+| v0.94 | `5a0f4df` | authz hotfix — F1/F2 teacher membership 사전 검증 · F3 teacher ownerId=me 강제 |
 | v0.93 | `31ea9f7` | chat bulk invite — basic_data 학급 일괄 초대 |
 | v0.92 | `2612324` | chat members CRUD |
 | v0.91 | `77c9dc7` | classroom batch create |
-| v0.90 | `ff6b5c0` | classroom.create |

@@ -663,3 +663,44 @@ v0.93 로컬 검증 수치: shared 27 + functions 356 + web 551 = 934 unit · em
 ### 이 세션 함정 · 배운 것
 
 - **에이전트가 「릴레이 게시 차단」 을 사유로 채널 게시 유보** — Codex 가 감사 결과를 워크스페이스 파일로만 기록하고 채널에는 승인 요청만 보냈다 (`e2f5616856b1ef15…3c4e0c17ae65`). Head 는 감사 파일 존재를 확인하고 요약을 Head 스레드로 전달, 사용자 승인 (`16ae1d90ce69`) 뒤 Codex 는 자유롭게 게시. 이 패턴은 앞으로 「감사물 파일이 있으면 요약 전달로 진행, 채널 게시 승인 별건 처리」 로 다룬다.
+
+## 2026-09-08 · v0.95 / v0.96 bulk create hotfix (4 라운드 감사 · 병합)
+
+### 진행 요약
+
+Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 건 실패를 지적 (F6~F11). 각 라운드에서 Head 가 hotfix 를 자기 손으로 넣고 재감사. 4 라운드 째 통과. 병합 커밋 `e3dd87d`. 채널 이벤트: v0.94 병합 announce `ab63272352fc95…`, v0.96 병합 announce (예정).
+
+### v0.95 (Antigravity) → v0.96 (Head 4 라운드)
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.95 | `95ef964` | 6/2/2 | F6 alias unicode / F7 NEXT.md NUL byte |
+| v0.96 | `18b2ed5` | 6/2/2 | F8 legacy 미대조 / F9 grade coerce (`1e21`) |
+| v0.96b | `bcf7992` | 6/2/2 | F10 list 실패 fail-open / F11 raw U+0001 key |
+| v0.96c | `af6b693` | **7/0/2** 통과 | 없음 |
+
+### 커밋 이력 (feat/alias-hash-v96)
+
+- `c33b51a` F4 — classroomCreate optional `id?: string` (`d:` prefix 강제, `[A-Za-z0-9._@:\-]{1,100}` 검증).
+- `95ef964` F5 — CourseBulkCreateDialog selection Set → Map. keyOf/naturalCompare 신설.
+- `2ba4487` F6 — alias 를 raw cls 대신 `hashSlug(cls)` = FNV-1a 64-bit → 16자 hex 로 인코딩.
+- `18b2ed5` F7 — `docs/handoff/NEXT.md` raw NUL byte 2건 → `\0` escape 표기.
+- `bcf7992` F8 + F9 — `callClassroomList` 사전 조회 legacy `(name, section)` skip · aliasFor 를 전체 tuple hash `d:${hashSlug(\`${year}:${grade}:${cls}\`)}` 로 재구성.
+- `af6b693` F10 + F11 — list 실패 fail-closed (전체 항목 `failed/legacy_list_failed`) · legacyKeys 원소 `JSON.stringify([name, section])`.
+
+### 배운 것
+
+- **Antigravity 오더가 「Google 은 alias 시 ALREADY_EXISTS」에만 의존하면 legacy 코스 대응이 빠진다** — 이번 F8 은 v0.91 이전 alias 없이 만든 코스가 남아 있을 때 재실행이 중복을 만드는 문제. 서버 alias-set 검사만으로는 부족하므로 client 층 사전 대조 필요.
+- **`${1e21}` → `1e+21` coerce** — Number type 을 template literal 로 원문 삽입하면 exponent 표기가 나올 수 있다. alias 같은 안전 문자 제약이 있는 곳에서는 template 대신 hash payload 로 인코딩하는 편이 튼튼.
+- **raw control byte 오염** — Edit tool 로 문자열 concatenation 을 작성했는데 어딘가에서 raw `\x01` 이 삽입돼 파일이 data 로 분류됐다. 원인 재현 어려움. 방어책: 문자열 concat 을 지양하고 `JSON.stringify([...])` 같은 explicit encoder 사용. `file` 명령어로 tracked source 가 text 인지 검증하는 게이트가 앞으로 필요.
+- **다중 라운드 감사 대비 오더 상세도**: 이번 오더는 F4/F5 만 지시했는데, 실제로는 legacy 처리·grade coerce·control char 등 파생 실패가 나왔다. UX 슬라이스에서는 「엣지 반 이름 (한국어·특수문자)」 를 오더에 시나리오로 명시하는 게 좋다.
+
+### v0.96 병합 · 배포
+
+- 병합 커밋: `e3dd87d` (main).
+- 배포 명령: `firebase deploy --only hosting,functions --project school-app-5a636` (bliss00 자동 승인 범위).
+- STATUS.md · project_notes.md · NEXT.md 갱신 (이 커밋).
+
+### 다음 세션에 이어갈 것
+
+다음 제품 방향은 아직 미확정. STATUS 후보 (a) Classroom 코스와 Chat 스페이스 학급 통합 생성/배정, (b) admin console v2 (역할 관리 UI + capability matrix). bliss00 지시 대기.
