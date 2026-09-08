@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockUseBasicDataGet = vi.fn();
 const mockCallClassroomCreate = vi.fn();
+const mockCallClassroomList = vi.fn();
 
 vi.mock('../src/api/basicDataGet', () => ({
   useBasicDataGet: (year: number, enabled: boolean) => mockUseBasicDataGet(year, enabled),
@@ -13,6 +14,10 @@ vi.mock('../src/api/basicDataGet', () => ({
 vi.mock('../src/api/classroomCreate', () => ({
   callClassroomCreate: (args: any) => mockCallClassroomCreate(args),
   useClassroomCreate: vi.fn(),
+}));
+
+vi.mock('../src/api/classroomList', () => ({
+  callClassroomList: () => mockCallClassroomList(),
 }));
 
 import {
@@ -47,6 +52,7 @@ describe('CourseBulkCreateDialog component', () => {
     mockCallClassroomCreate.mockResolvedValue({
       course: { id: 'c-new', name: '새 코스' },
     });
+    mockCallClassroomList.mockResolvedValue({ courses: [] });
   });
 
   // helper tests
@@ -521,6 +527,94 @@ describe('CourseBulkCreateDialog component', () => {
     expect(hashSlug('A')).not.toBe(hashSlug('B'));
     expect(hashSlug('A')).not.toBe(hashSlug('A '));
     expect(hashSlug('1반')).toMatch(/^[0-9a-f]{16}$/);
-    expect(aliasFor(2026, 1, '1반')).toBe(`d:2026-1-${hashSlug('1반')}`);
+  });
+
+  // 시나리오 14: aliasFor 가 year/grade/cls 전체를 hash payload 로 인코딩 · 결과는 항상 d:<16 hex>
+  it('scenario 14: aliasFor absorbs year/grade/cls into hash slug', () => {
+    const idRE = /^d:[0-9a-f]{16}$/;
+    expect(aliasFor(2026, 1, 'A')).toMatch(idRE);
+    // 서버 ID_RE 는 hex 도 통과하지만 형식이 d:<16 hex> 로 고정됨을 확인.
+    expect(aliasFor(2026, 1, '1반')).toMatch(idRE);
+    // grade 가 exponent 표기로 coerce 될 수 있는 큰 값에도 alias 는 안전.
+    expect(aliasFor(2026, 1e21, 'A')).toMatch(/^d:[0-9a-f]{16}$/);
+    // 서버 create.ts ID_RE 도 통과.
+    const serverIdRE = /^d:[A-Za-z0-9._@:\-]{1,100}$/;
+    expect(aliasFor(2026, 1e21, 'A')).toMatch(serverIdRE);
+    // 결정성 유지 · 다른 튜플은 다른 alias.
+    expect(aliasFor(2026, 1, 'A')).toBe(aliasFor(2026, 1, 'A'));
+    expect(aliasFor(2026, 1, 'A')).not.toBe(aliasFor(2027, 1, 'A'));
+    expect(aliasFor(2026, 1, 'A')).not.toBe(aliasFor(2026, 2, 'A'));
+    expect(aliasFor(2026, 1, 'A')).not.toBe(aliasFor(2026, 1, 'B'));
+  });
+
+  // 시나리오 15: legacy (name, section) 매치 시 create 하지 않고 skipped (F8)
+  it('scenario 15: skips legacy courses with matching name/section without calling create', async () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: 2026,
+          grades: [{ grade: 1, classes: ['1', '2'] }],
+          rosters: { '1': { '1': [], '2': [] } },
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockCallClassroomList.mockResolvedValue({
+      courses: [
+        { id: 'c-legacy', name: '2026학년도 1학년 1반', section: '1-1' },
+      ],
+    });
+
+    render(<CourseBulkCreateDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-1'));
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-2'));
+    fireEvent.click(screen.getByTestId('bulk-create-preview-btn'));
+    fireEvent.change(screen.getByTestId('bulk-create-confirm-input'), {
+      target: { value: '2' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('bulk-create-execute-btn'));
+    });
+
+    expect(mockCallClassroomList).toHaveBeenCalledTimes(1);
+    // 1-1 반은 legacy 로 skip, 1-2 반은 create 호출.
+    expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallClassroomCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ section: '1-2' }),
+    );
+    expect(mockCallClassroomCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ section: '1-1' }),
+    );
+  });
+
+  // 시나리오 16: list 조회 실패해도 fatal 이 아니라 create 는 그대로 진행 (fallback 은 서버 alias 충돌)
+  it('scenario 16: falls back to normal create when legacy list fetch fails', async () => {
+    mockUseBasicDataGet.mockReturnValue({
+      data: {
+        data: {
+          year: 2026,
+          grades: [{ grade: 1, classes: ['1'] }],
+          rosters: { '1': { '1': [] } },
+        },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockCallClassroomList.mockRejectedValue(new Error('http_500'));
+
+    render(<CourseBulkCreateDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('bulk-create-class-cb-1-1'));
+    fireEvent.click(screen.getByTestId('bulk-create-preview-btn'));
+    fireEvent.change(screen.getByTestId('bulk-create-confirm-input'), {
+      target: { value: '1' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('bulk-create-execute-btn'));
+    });
+
+    expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
   });
 });

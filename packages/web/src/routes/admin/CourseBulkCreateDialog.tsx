@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
+import { callClassroomList } from '../../api/classroomList';
 
 export interface CourseBulkCreateDialogProps {
   open: boolean;
@@ -75,8 +76,12 @@ export function hashSlug(input: string): string {
   return h.toString(16).padStart(16, '0');
 }
 
+// (year, grade, cls) 전체를 hash payload 에 넣어 alias 생성. 기존 (year·grade 를
+// 그대로 삽입) 방식은 `1e21` 같은 값에서 JS 가 `1e+21` 로 string 변환하며 서버
+// ID_RE 의 금지 문자 `+` 를 유발했다 (v0.96 Codex F9). 전체 tuple 을 hash 하면
+// grade·year 도 hex slug 안에 흡수돼 결과 alias 는 항상 `d:<16 hex>` 형태다.
 export function aliasFor(year: number, grade: number, cls: string): string {
-  return `d:${year}-${grade}-${hashSlug(cls)}`;
+  return `d:${hashSlug(`${year}:${grade}:${cls}`)}`;
 }
 
 function CourseBulkCreateDialogContent({
@@ -175,11 +180,38 @@ function CourseBulkCreateDialogContent({
     setProgress(0);
     const localResults: BatchCreateResult[] = [];
 
+    // v0.91 이전에 alias 없이 만든 코스는 새 alias-scoped create 로는 감지되지 않아
+    // 재실행 시 중복이 만들어진다 (v0.96 Codex F8). 사전에 사용자가 접근 가능한
+    // 코스 목록을 한 번 조회해 (name, section) 로 legacy skip 을 확정한다.
+    const legacyKeys = new Set<string>();
+    try {
+      const list = await callClassroomList();
+      for (const c of list.courses ?? []) {
+        if (typeof c.name === 'string' && typeof c.section === 'string') {
+          legacyKeys.add(`${c.name}${c.section}`);
+        }
+      }
+    } catch {
+      // list 실패는 fatal 이 아니라 legacy skip 만 포기 (Google alias 충돌은 서버 layer 가 잡음).
+    }
+
     for (let i = 0; i < selectedItems.length; i++) {
       const item = selectedItems[i];
       const section = `${item.grade}-${item.cls}`;
       const name = item.name;
       const id = aliasFor(year, item.grade, item.cls);
+
+      if (legacyKeys.has(`${name}${section}`)) {
+        localResults.push({
+          gradeClass: section,
+          courseName: name,
+          kind: 'skipped',
+          message: 'legacy_duplicate',
+        });
+        setProgress(i + 1);
+        continue;
+      }
+
       try {
         const res = await callClassroomCreate({
           id,
