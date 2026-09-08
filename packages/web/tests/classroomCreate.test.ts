@@ -158,4 +158,28 @@ describe('classroomCreate API & Hook', () => {
       callClassroomCreate({ name: '테스트' }),
     ).rejects.toThrow('not_authenticated');
   });
+
+  it('passes domain-scoped alias id in request body when provided', async () => {
+    let capturedBody: any;
+    global.fetch = vi.fn(async (_url: any, init: any) => {
+      capturedBody = JSON.parse(init.body as string);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          result: {
+            course: { id: 'c-alias', name: '알리아스 코스' },
+          },
+        }),
+      } as any;
+    });
+
+    const res = await callClassroomCreate({
+      id: 'd:2026-1-1',
+      name: '알리아스 코스',
+    });
+
+    expect(res.course.id).toBe('c-alias');
+    expect(capturedBody.data.id).toBe('d:2026-1-1');
+  });
 });

@@ -71,6 +71,7 @@ export interface ClassroomClient {
     }) => Promise<{ data: ClassroomCourse }>;
     create: (params: {
       requestBody: {
+        id?: string;
         name: string;
         section?: string;
         description?: string;

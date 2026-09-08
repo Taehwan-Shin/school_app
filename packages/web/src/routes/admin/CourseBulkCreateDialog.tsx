@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
+import { callClassroomList } from '../../api/classroomList';
 
 export interface CourseBulkCreateDialogProps {
   open: boolean;
@@ -50,6 +51,39 @@ export function isAlreadyExistsError(message: string): boolean {
   );
 }
 
+export function keyOf(grade: number, cls: string): string {
+  return `${grade}\0${cls}`;
+}
+
+export function naturalCompare(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true });
+}
+
+// FNV-1a 64-bit → 16자 hex. 서버 ID_RE (`d:[A-Za-z0-9._@:\-]{1,100}`) 안전 문자만.
+// basicData 는 반 이름에 한국어·특수문자·공백을 허용하므로 원본 문자열을 그대로
+// alias 에 넣으면 서버 검증에서 invalid_id 로 실패한다 (v0.95 Codex F6). 결정적
+// hash 로 인코딩해 alias 생성.
+export function hashSlug(input: string): string {
+  const PRIME = 0x100000001b3n;
+  const OFFSET = 0xcbf29ce484222325n;
+  const MASK = 0xffffffffffffffffn;
+  let h = OFFSET;
+  const bytes = new TextEncoder().encode(input);
+  for (const b of bytes) {
+    h ^= BigInt(b);
+    h = (h * PRIME) & MASK;
+  }
+  return h.toString(16).padStart(16, '0');
+}
+
+// (year, grade, cls) 전체를 hash payload 에 넣어 alias 생성. 기존 (year·grade 를
+// 그대로 삽입) 방식은 `1e21` 같은 값에서 JS 가 `1e+21` 로 string 변환하며 서버
+// ID_RE 의 금지 문자 `+` 를 유발했다 (v0.96 Codex F9). 전체 tuple 을 hash 하면
+// grade·year 도 hex slug 안에 흡수돼 결과 alias 는 항상 `d:<16 hex>` 형태다.
+export function aliasFor(year: number, grade: number, cls: string): string {
+  return `d:${hashSlug(`${year}:${grade}:${cls}`)}`;
+}
+
 function CourseBulkCreateDialogContent({
   open,
   onOpenChange,
@@ -59,7 +93,7 @@ function CourseBulkCreateDialogContent({
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const [yearInput, setYearInput] = useState(String(thisYear));
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Map<string, { grade: number; cls: string }>>(new Map());
   const [ownerId, setOwnerId] = useState('me');
   const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
   const [confirmText, setConfirmText] = useState('');
@@ -73,7 +107,7 @@ function CourseBulkCreateDialogContent({
   useEffect(() => {
     if (open) {
       setPhase('select');
-      setSelected(new Set());
+      setSelected(new Map());
       setConfirmText('');
       setProgress(0);
       setResults([]);
@@ -89,20 +123,20 @@ function CourseBulkCreateDialogContent({
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
-    setSelected(new Set());
+    setSelected(new Map());
     if (isYearValid(val)) {
       setYear(Number.parseInt(val.trim(), 10));
     }
   };
 
   const toggleClass = (grade: number, cls: string) => {
-    const key = `${grade}-${cls}`;
+    const key = keyOf(grade, cls);
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(key)) {
         next.delete(key);
       } else {
-        next.add(key);
+        next.set(key, { grade, cls });
       }
       return next;
     });
@@ -110,9 +144,9 @@ function CourseBulkCreateDialogContent({
 
   const handleSelectAllGrade = (grade: number, classes: string[]) => {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const c of classes) {
-        next.add(`${grade}-${c}`);
+        next.set(keyOf(grade, c), { grade, cls: c });
       }
       return next;
     });
@@ -120,9 +154,9 @@ function CourseBulkCreateDialogContent({
 
   const handleDeselectAllGrade = (grade: number, classes: string[]) => {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const c of classes) {
-        next.delete(`${grade}-${c}`);
+        next.delete(keyOf(grade, c));
       }
       return next;
     });
@@ -130,24 +164,14 @@ function CourseBulkCreateDialogContent({
 
   const selectedItems = useMemo(() => {
     if (!isYearValid(yearInput)) return [];
-    return Array.from(selected)
-      .map((key) => {
-        const [gStr, c] = key.split('-');
-        const g = Number.parseInt(gStr, 10);
-        return {
-          grade: g,
-          cls: c,
-          key,
-          name: courseName(year, g, c),
-        };
-      })
-      .sort((a, b) => {
-        if (a.grade !== b.grade) return a.grade - b.grade;
-        const aNum = Number.parseInt(a.cls, 10);
-        const bNum = Number.parseInt(b.cls, 10);
-        if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
-        return a.cls.localeCompare(b.cls);
-      });
+    return Array.from(selected.values())
+      .map((item) => ({
+        grade: item.grade,
+        cls: item.cls,
+        key: `${item.grade}-${item.cls}`,
+        name: courseName(year, item.grade, item.cls),
+      }))
+      .sort((a, b) => a.grade - b.grade || naturalCompare(a.cls, b.cls));
   }, [selected, year, yearInput]);
 
   const handleExecute = async () => {
@@ -156,12 +180,52 @@ function CourseBulkCreateDialogContent({
     setProgress(0);
     const localResults: BatchCreateResult[] = [];
 
+    // v0.91 이전에 alias 없이 만든 코스는 새 alias-scoped create 로는 감지되지 않아
+    // 재실행 시 중복이 만들어진다 (v0.96 Codex F8). 사전에 사용자가 접근 가능한
+    // 코스 목록을 한 번 조회해 (name, section) 로 legacy skip 을 확정한다.
+    const legacyKeys = new Set<string>();
+    try {
+      const list = await callClassroomList();
+      for (const c of list.courses ?? []) {
+        if (typeof c.name === 'string' && typeof c.section === 'string') {
+          legacyKeys.add(JSON.stringify([c.name, c.section]));
+        }
+      }
+    } catch (err) {
+      // list 조회 실패를 삼키면 legacy 사전 대조가 효과없어져 F8 의미가 사라진다 (v0.96b Codex F10). fail-closed 로 실행 중단 후 사용자에게 결과 표시.
+      const message = (err as Error)?.message || 'legacy_list_failed';
+      const localFail: BatchCreateResult[] = selectedItems.map((item) => ({
+        gradeClass: `${item.grade}-${item.cls}`,
+        courseName: item.name,
+        kind: 'failed' as ResultKind,
+        message: `legacy_list_failed: ${message}`,
+      }));
+      setResults(localFail);
+      setProgress(selectedItems.length);
+      setPhase('done');
+      return;
+    }
+
     for (let i = 0; i < selectedItems.length; i++) {
       const item = selectedItems[i];
       const section = `${item.grade}-${item.cls}`;
       const name = item.name;
+      const id = aliasFor(year, item.grade, item.cls);
+
+      if (legacyKeys.has(JSON.stringify([name, section]))) {
+        localResults.push({
+          gradeClass: section,
+          courseName: name,
+          kind: 'skipped',
+          message: 'legacy_duplicate',
+        });
+        setProgress(i + 1);
+        continue;
+      }
+
       try {
         const res = await callClassroomCreate({
+          id,
           name,
           section,
           ownerId: ownerId.trim() || 'me',
@@ -285,7 +349,7 @@ function CourseBulkCreateDialogContent({
                             >
                               <input
                                 type="checkbox"
-                                checked={selected.has(`${g.grade}-${c}`)}
+                                checked={selected.has(keyOf(g.grade, c))}
                                 onChange={() => toggleClass(g.grade, c)}
                                 data-testid={`bulk-create-class-cb-${g.grade}-${c}`}
                                 className="accent-fg-primary cursor-pointer"
