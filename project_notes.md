@@ -704,3 +704,36 @@ Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 
 ### 다음 세션에 이어갈 것
 
 다음 제품 방향은 아직 미확정. STATUS 후보 (a) Classroom 코스와 Chat 스페이스 학급 통합 생성/배정, (b) admin console v2 (역할 관리 UI + capability matrix). bliss00 지시 대기.
+
+## 2026-09-09 · v0.97 chat bulk create (Head 직접 + F12 hotfix · 병합)
+
+### 진행 요약
+
+사용자 확정 방향 (a) 「Classroom×Chat 학급 통합」 의 첫 절반. `basicData` 로 학급 단위 Chat 스페이스 일괄 생성 dialog. Antigravity 오더를 v0.97 로 커밋 (`6b98cbe`) 했으나 미응답 → 사용자 지시 「계속 이어서 작업」 에 따라 Head 가 직접 구현. Codex 첫 감사에서 F12 발견, hotfix 후 통과.
+
+### 커밋 이력 (feat/chat-bulk-create-v97)
+
+| 커밋 | 요약 |
+|---|---|
+| `7c50ccd` | feat(web): ChatBulkCreateDialog — Phase · Map selection · courseName/keyOf/isAlreadyExistsError 재사용 · 사전 callChatList · JSON.stringify legacy key · fail-closed on list 실패 · 시나리오 4건 |
+| `a42f964` | feat(web): ChatSpacesTable 「학급 일괄 생성」 버튼 통합 |
+| `5c7456b` | fix(chat,web): F12 displayName 128자 검증 (client + server) · 시나리오 3건 |
+
+### v0.97 (Head) → v0.97b (Head, 1 라운드 hotfix)
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.97 | `a42f964` | 7/1/2 | F12 displayName 128자 미검증 |
+| v0.97b | `5c7456b` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `f0cf35b` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 372 + web 565 = 964 unit.
+
+### 배운 것
+
+- **Codex 지적 「sole duplicate defense」 정정**: 첫 회 comment 에 「Chat 은 alias idempotency 없어서 사전 대조가 유일한 duplicate 방어」 로 썼지만 실제 `spaces.create` 는 조직 내 동일 displayName 에 ALREADY_EXISTS 를 반환. 사전 대조는 UX + API 절감 목적이지 유일한 방어는 아니다. → 사전에 API 문서 읽는 태도가 코드 comment 정확도로 이어진다.
+- **길이 제약은 upstream 을 믿지 말고 명시 검증**: Google Chat displayName 128자 제한을 upstream 에 맡기면 좋은 사용자 경험이 안 나옴. 클라이언트 preview 층 + 서버 층 양쪽에 명시 검증하는 편이 견고.
+- **Antigravity 미응답 대응**: 오더 커밋 후 20+ 분 무반응이면 Head 가 직접 구현. NEXT.md 오더 문서 자체는 유지 (다음 이 유사 슬라이스 반복 시 참고).

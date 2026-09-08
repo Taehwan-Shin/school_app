@@ -7,7 +7,8 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.97+) | 사용자 | 답 대기 | 후보: (a) Classroom 코스와 Chat 스페이스 학급 단위 통합 생성/배정 · (b) admin console v2 (역할 관리 UI + capability matrix) · (c) 그 외 |
+| v0.98 준비 — (a) 두 번째 절반: Classroom×Chat 통합 pair 다이얼로그 | 헤드 | 오더 준비 필요 | v0.97 로 Chat bulk create 완성. 통합 dialog: 선택 (grade, class) → course + space 순차 생성 · pair 결과 표시. 오더 문서 후속 갱신 |
+| Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
 | Node 20 환경 재실행 | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인 |
@@ -26,8 +27,8 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
-| v0.96 | `e3dd87d` (main) | classroom bulk create hotfix — F4 optional alias · F5 선택 key Map · F6 alias FNV-1a hash · F7 NEXT.md NUL cleanup · F8 legacy 사전 대조 · F9 aliasFor tuple hash · F10 fail-closed · F11 JSON.stringify key. 4 라운드 Codex 감사 |
+| v0.97 | `f0cf35b` (main) | chat bulk create — ChatBulkCreateDialog · basic_data 학급 단위 chat 스페이스 일괄 생성 · F12 displayName 128자 검증 (client + server) · 2 라운드 Codex 감사 |
+| v0.96 | `e3dd87d` | classroom bulk create hotfix — F4~F11 · 4 라운드 Codex 감사 |
 | v0.94 | `5a0f4df` | authz hotfix — F1/F2 teacher membership 사전 검증 · F3 teacher ownerId=me 강제 |
 | v0.93 | `31ea9f7` | chat bulk invite — basic_data 학급 일괄 초대 |
 | v0.92 | `2612324` | chat members CRUD |
-| v0.91 | `77c9dc7` | classroom batch create |
