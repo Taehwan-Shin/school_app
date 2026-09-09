@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| v0.98 준비 — (a) 두 번째 절반: Classroom×Chat 통합 pair 다이얼로그 | 헤드 | 오더 준비 필요 | v0.97 로 Chat bulk create 완성. 통합 dialog: 선택 (grade, class) → course + space 순차 생성 · pair 결과 표시. 오더 문서 후속 갱신 |
+| 다음 제품 방향 확정 (v0.99+) | 사용자 | 답 대기 | (a) 「Classroom×Chat 학급 통합」 완료 (v0.97 chat bulk + v0.98 pair). 후보: (b) admin console v2 (역할 관리 UI + capability matrix) · (c) 실 Workspace 확인 workflow (v0.94~v0.98 판정불가 항목 소거) · (d) 그 외 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,8 +27,8 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
-| v0.97 | `f0cf35b` (main) | chat bulk create — ChatBulkCreateDialog · basic_data 학급 단위 chat 스페이스 일괄 생성 · F12 displayName 128자 검증 (client + server) · 2 라운드 Codex 감사 |
+| v0.98 | `142fa23` (main) | classroom+chat pair 통합 생성 — 학급 선택 하나로 course + space 동시 생성 · Promise.all legacy 조회 · course 실패시 chat 미시도 · F13 128자 pair 사전 컷 (orphan 방지) · 2 라운드 Codex 감사 |
+| v0.97 | `f0cf35b` | chat bulk create — ChatBulkCreateDialog · basic_data 학급 단위 chat 스페이스 일괄 생성 · F12 displayName 128자 검증 (client + server) · 2 라운드 Codex 감사 |
 | v0.96 | `e3dd87d` | classroom bulk create hotfix — F4~F11 · 4 라운드 Codex 감사 |
 | v0.94 | `5a0f4df` | authz hotfix — F1/F2 teacher membership 사전 검증 · F3 teacher ownerId=me 강제 |
 | v0.93 | `31ea9f7` | chat bulk invite — basic_data 학급 일괄 초대 |
-| v0.92 | `2612324` | chat members CRUD |

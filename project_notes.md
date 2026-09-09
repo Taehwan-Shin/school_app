@@ -737,3 +737,43 @@ Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 
 - **Codex 지적 「sole duplicate defense」 정정**: 첫 회 comment 에 「Chat 은 alias idempotency 없어서 사전 대조가 유일한 duplicate 방어」 로 썼지만 실제 `spaces.create` 는 조직 내 동일 displayName 에 ALREADY_EXISTS 를 반환. 사전 대조는 UX + API 절감 목적이지 유일한 방어는 아니다. → 사전에 API 문서 읽는 태도가 코드 comment 정확도로 이어진다.
 - **길이 제약은 upstream 을 믿지 말고 명시 검증**: Google Chat displayName 128자 제한을 upstream 에 맡기면 좋은 사용자 경험이 안 나옴. 클라이언트 preview 층 + 서버 층 양쪽에 명시 검증하는 편이 견고.
 - **Antigravity 미응답 대응**: 오더 커밋 후 20+ 분 무반응이면 Head 가 직접 구현. NEXT.md 오더 문서 자체는 유지 (다음 이 유사 슬라이스 반복 시 참고).
+
+## 2026-09-09 · v0.98 classroom+chat pair 통합 (Head 직접 + F13 hotfix · 병합)
+
+### 진행 요약
+
+사용자 확정 방향 (a) 「Classroom×Chat 학급 통합」 의 두 번째 절반. 학급 선택 하나로 course + space 동시 생성. Antigravity 미응답 지속 → Head 직접 구현. Codex 첫 감사에서 F13 발견, hotfix 후 통과. (a) 완료.
+
+### 커밋 이력 (feat/classroom-chat-pair-v98)
+
+| 커밋 | 요약 |
+|---|---|
+| `e7f5222` | feat(web): ClassroomChatPairBulkCreateDialog — Phase 4 · Map selection · Promise.all([callClassroomList, callChatList]) · course 실패 시 chat=not_attempted · pair 결과 render · 시나리오 6건 |
+| `acf35d0` | feat(web): ClassroomTable 「학급 통합 생성」 버튼 통합 |
+| `c201c4e` | fix(web): F13 pair 사전 128자 검증 — course 도 만들지 않음 (orphan 방지) |
+
+### v0.98 (Head) → v0.98b (Head, 1 라운드 hotfix)
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.98 | `acf35d0` | 7/1/2 | F13 128자 초과에도 course 생성 (orphan 발생) |
+| v0.98b | `c201c4e` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `142fa23` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 372 + web 571 = 970 unit.
+
+### 배운 것
+
+- **통합 다이얼로그의 원자성 트레이드오프**: pair 는 성격상 「양쪽 다 원한다」 이므로 한 쪽이 확정 실패면 다른 쪽도 건드리지 않는 편이 낫다. best-effort 로 course 만 만들면 orphan course 가 남아 다음 실행이 legacy skip 으로 계속 밟히는 부작용. 「pair precheck」 개념 명시.
+- **Codex 는 시나리오 기대값도 오답 지표로 본다**: 첫 시나리오 5 는 「course=ok, chat=failed」 를 정답으로 가정했는데 이 자체가 결함의 반영. Codex 는 「이 기대값이 완료를 고정」 이라고 지적. 시나리오는 최종 정답 기대값에 맞춰 재작성.
+- **재사용 유틸의 축적 효과**: `aliasFor`, `keyOf`, `courseName`, `isAlreadyExistsError` 등 v0.91~v0.97 축적 유틸이 v0.98 코드를 짧게 유지. 잔뜩 export 해둔 게 이 시점에 값어치를 냈다.
+
+### 다음 세션에 이어갈 것
+
+방향 (a) 완결. STATUS 후보:
+- (b) admin console v2 (역할 관리 UI + capability matrix).
+- (c) 실 Workspace 확인 workflow — v0.94~v0.98 판정불가 (실 Google alias 충돌, 실 Chat 동일 이름 충돌, membership 반영 시차 등) 를 소거하는 실 리소스 테스트 스크립트 · 문서화.
+- (d) 그 외 사용자 지시.
