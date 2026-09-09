@@ -19,6 +19,7 @@ import {
 import { CourseMembersDialog } from './CourseMembersDialog';
 import { CreateClassroomDialog } from './CreateClassroomDialog';
 import { CourseBulkCreateDialog } from './CourseBulkCreateDialog';
+import { ClassroomChatPairBulkCreateDialog } from './ClassroomChatPairBulkCreateDialog';
 import { Button } from '../../components/ui/button';
 
 export function translateCourseState(s?: string): string {
@@ -39,6 +40,7 @@ export function ClassroomTable() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [isPairOpen, setIsPairOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -47,6 +49,13 @@ export function ClassroomTable() {
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
         </p>
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setIsPairOpen(true)}
+            data-testid="classroom-pair-create-btn"
+          >
+            학급 통합 생성
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setIsBatchOpen(true)}
@@ -171,6 +180,10 @@ export function ClassroomTable() {
       <CourseBulkCreateDialog
         open={isBatchOpen}
         onOpenChange={setIsBatchOpen}
+      />
+      <ClassroomChatPairBulkCreateDialog
+        open={isPairOpen}
+        onOpenChange={setIsPairOpen}
       />
     </div>
   );
