@@ -101,13 +101,49 @@ export const usersUpdateRole = onCall(
       }
 
       const authUser = await getAuth().getUserByEmail(email);
-      await getAuth().setCustomUserClaims(authUser.uid, { role: newRole });
-      await getFirestore()
-        .doc(`users/${authUser.uid}`)
-        .set(
-          { role: newRole, updatedAt: FieldValue.serverTimestamp() },
-          { merge: true },
+      // F15: 기존 custom claims 를 그대로 보존하고 role 만 갱신 (setCustomUserClaims 는 전체 덮어씀).
+      const existingClaims =
+        (authUser.customClaims as Record<string, unknown> | undefined) ?? {};
+      const previousRole =
+        typeof existingClaims.role === 'string' ? (existingClaims.role as string) : undefined;
+
+      // Auth 를 먼저 갱신 (실제 authz 소스는 ID token role claim). Firestore 는 UI display 겸.
+      await getAuth().setCustomUserClaims(authUser.uid, {
+        ...existingClaims,
+        role: newRole,
+      });
+
+      // F16: Firestore 쓰기가 실패하면 Auth claim 을 이전 상태로 롤백해서 두 저장소 정합 유지.
+      // F18: email 필드가 users/<uid> 문서 부재 시에도 존재하도록 병기 저장 — 다른 callable
+      // (예: users/update.ts) 의 email 기반 조회 (`where('email', '==', ...)` 등) 를 깨지 않는다.
+      try {
+        await getFirestore()
+          .doc(`users/${authUser.uid}`)
+          .set(
+            {
+              role: newRole,
+              email,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+      } catch (firestoreErr) {
+        try {
+          await getAuth().setCustomUserClaims(authUser.uid, {
+            ...existingClaims,
+            ...(previousRole !== undefined ? { role: previousRole } : {}),
+          });
+        } catch (rollbackErr) {
+          throw new HttpsError(
+            'internal',
+            `role_write_partial_failure: firestore=${(firestoreErr as Error).message} rollback=${(rollbackErr as Error).message}`,
+          );
+        }
+        throw new HttpsError(
+          'unavailable',
+          `role_firestore_failed_rolled_back: ${(firestoreErr as Error).message}`,
         );
+      }
 
       await writeAudit({
         actor: user.email,

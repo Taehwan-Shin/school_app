@@ -410,7 +410,6 @@ export function AccountsTable() {
                                   onClick={() =>
                                     setEditRoleTarget({
                                       email: user.email,
-                                      currentRole: null,
                                     })
                                   }
                                   data-testid={`edit-user-role-${user.email}`}

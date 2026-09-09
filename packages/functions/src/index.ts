@@ -23,6 +23,7 @@ export { groupsMembersDelete } from './callable/groups/members/delete.js';
 export { groupsMembersUpdate } from './callable/groups/members/update.js';
 export { usersResetPassword } from './callable/users/resetPassword.js';
 export { usersUpdateRole } from './callable/users/updateRole.js';
+export { usersGetRole } from './callable/users/getRole.js';
 export { basicDataGet } from './callable/basicData/get.js';
 export { basicDataSet } from './callable/basicData/set.js';
 export { basicDataListYears } from './callable/basicData/listYears.js';

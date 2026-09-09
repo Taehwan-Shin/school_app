@@ -28,7 +28,10 @@ describe('usersUpdateRole unit tests', () => {
     vi.clearAllMocks();
     mockWriteAudit.mockResolvedValue(undefined);
     process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-    mockGetUserByEmail.mockResolvedValue({ uid: 'uid-target-123' });
+    mockGetUserByEmail.mockResolvedValue({
+      uid: 'uid-target-123',
+      customClaims: { role: 'teacher', otherFlag: true },
+    });
     mockSetCustomUserClaims.mockResolvedValue(undefined);
     mockDocSet.mockResolvedValue(undefined);
   });
@@ -170,15 +173,23 @@ describe('usersUpdateRole unit tests', () => {
 
   // 시나리오 8: 본인 super_admin 재설정 (no-op) 은 허용.
   it('allows super_admin to re-assert own super_admin role', async () => {
+    mockGetUserByEmail.mockResolvedValueOnce({
+      uid: 'uid-super-1',
+      customClaims: { role: 'super_admin', otherFlag: true },
+    });
     const req = createRequest({
       data: { primaryEmail: 'super@cam.hs.kr', role: 'super_admin' },
     });
     const res = await usersUpdateRole.run(req);
     expect(res.role).toBe('super_admin');
-    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-target-123', { role: 'super_admin' });
+    // F15: 기존 claim (otherFlag) 이 보존되어야 한다.
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-super-1', {
+      role: 'super_admin',
+      otherFlag: true,
+    });
   });
 
-  // 시나리오 9: 정상 — setCustomUserClaims + Firestore users/uid role 갱신 · ok 감사.
+  // 시나리오 9: 정상 — setCustomUserClaims + Firestore users/uid role · email 병기 · ok 감사.
   it('promotes target user role and writes ok audit', async () => {
     const req = createRequest({
       data: { primaryEmail: 'target@cam.hs.kr', role: 'admin' },
@@ -191,10 +202,15 @@ describe('usersUpdateRole unit tests', () => {
       role: 'admin',
     });
     expect(mockGetUserByEmail).toHaveBeenCalledWith('target@cam.hs.kr');
-    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-target-123', { role: 'admin' });
+    // F15: 기존 otherFlag 보존.
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-target-123', {
+      role: 'admin',
+      otherFlag: true,
+    });
     expect(mockDoc).toHaveBeenCalledWith('users/uid-target-123');
+    // F18: email 필드가 Firestore 쓰기에 포함되어야 한다.
     expect(mockDocSet).toHaveBeenCalledWith(
-      { role: 'admin', updatedAt: '__serverTimestamp__' },
+      { role: 'admin', email: 'target@cam.hs.kr', updatedAt: '__serverTimestamp__' },
       { merge: true },
     );
     expect(mockWriteAudit).toHaveBeenCalledWith(
@@ -211,6 +227,10 @@ describe('usersUpdateRole unit tests', () => {
 
   // 시나리오 10: teacher 로 강등도 정상.
   it('demotes target from admin to teacher successfully', async () => {
+    mockGetUserByEmail.mockResolvedValueOnce({
+      uid: 'uid-target-123',
+      customClaims: { role: 'admin' },
+    });
     const req = createRequest({
       data: { primaryEmail: 'target@cam.hs.kr', role: 'teacher' },
     });
@@ -235,6 +255,66 @@ describe('usersUpdateRole unit tests', () => {
         action: 'users.update_role',
         result: 'error',
         message: 'user-not-found',
+      }),
+    );
+  });
+
+  // 시나리오 12 (F15): 기존 customClaims 가 없어도 role 만 저장하며 정상 흐름 완료.
+  it('F15: writes role-only claim when existing customClaims is undefined', async () => {
+    mockGetUserByEmail.mockResolvedValueOnce({
+      uid: 'uid-no-claims',
+      customClaims: undefined,
+    });
+    const req = createRequest({
+      data: { primaryEmail: 'nocc@cam.hs.kr', role: 'teacher' },
+    });
+    const res = await usersUpdateRole.run(req);
+    expect(res.role).toBe('teacher');
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-no-claims', { role: 'teacher' });
+  });
+
+  // 시나리오 13 (F16): Firestore 쓰기 실패 시 Auth claim 을 이전 상태로 롤백하고 unavailable.
+  it('F16: rolls back Auth claim when Firestore write fails and reports unavailable', async () => {
+    mockDocSet.mockRejectedValueOnce(new Error('firestore_transient'));
+
+    const req = createRequest({
+      data: { primaryEmail: 'target@cam.hs.kr', role: 'admin' },
+    });
+    await expect(usersUpdateRole.run(req)).rejects.toMatchObject({
+      code: 'unavailable',
+      message: expect.stringContaining('role_firestore_failed_rolled_back'),
+    });
+
+    // 두 번 호출: 첫 번째는 새 role 적용, 두 번째는 이전 role 로 롤백.
+    expect(mockSetCustomUserClaims).toHaveBeenCalledTimes(2);
+    expect(mockSetCustomUserClaims).toHaveBeenNthCalledWith(1, 'uid-target-123', {
+      role: 'admin',
+      otherFlag: true,
+    });
+    expect(mockSetCustomUserClaims).toHaveBeenNthCalledWith(2, 'uid-target-123', {
+      role: 'teacher',
+      otherFlag: true,
+    });
+  });
+
+  // 시나리오 14 (F16): 롤백까지 실패하면 internal · 파괴적 정합 오류 감사.
+  it('F16b: escalates to internal when rollback also fails', async () => {
+    mockDocSet.mockRejectedValueOnce(new Error('firestore_down'));
+    mockSetCustomUserClaims
+      .mockResolvedValueOnce(undefined) // 첫 세팅 (새 role) 성공
+      .mockRejectedValueOnce(new Error('auth_down')); // 롤백 실패
+
+    const req = createRequest({
+      data: { primaryEmail: 'target@cam.hs.kr', role: 'admin' },
+    });
+    await expect(usersUpdateRole.run(req)).rejects.toMatchObject({
+      code: 'internal',
+      message: expect.stringContaining('role_write_partial_failure'),
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'users.update_role',
+        result: 'error',
       }),
     );
   });

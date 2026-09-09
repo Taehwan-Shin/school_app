@@ -9,11 +9,11 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { useUsersUpdateRole } from '../../api/usersUpdateRole';
+import { useUserRole } from '../../api/usersGetRole';
 import type { Role } from '@school-app/shared';
 
 export interface EditUserRoleTarget {
   email: string;
-  currentRole: Role | null;
 }
 
 export interface EditUserRoleDialogProps {
@@ -29,14 +29,21 @@ const ROLE_OPTIONS: { value: Role; label: string; description: string }[] = [
 ];
 
 export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDialogProps) {
-  const [selectedRole, setSelectedRole] = useState<Role>(user?.currentRole || 'teacher');
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const { mutateAsync, isPending, error, reset } = useUsersUpdateRole();
+  const {
+    data: roleData,
+    isLoading: isRoleLoading,
+    isError: isRoleError,
+    error: roleError,
+  } = useUserRole(user?.email ?? null, open);
+  const currentRole: Role | null = roleData?.role ?? null;
 
   useEffect(() => {
     if (user) {
-      setSelectedRole(user.currentRole ?? 'teacher');
+      setSelectedRole(null);
       setValidationError(null);
       reset();
     }
@@ -55,8 +62,19 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
     setValidationError(null);
     if (!user) return;
 
-    if (user.currentRole === selectedRole) {
+    if (selectedRole === null) {
+      setValidationError('새 역할을 선택해주세요.');
+      return;
+    }
+
+    if (currentRole === selectedRole) {
       setValidationError('현재와 동일한 역할입니다.');
+      return;
+    }
+
+    // 현재 role 이 로드 안 됐거나 오류인 상태에서는 확인 문구를 요구 (F17 실수 강등 방어).
+    if (isRoleLoading) {
+      setValidationError('현재 역할을 확인하는 중입니다. 잠시 기다려주세요.');
       return;
     }
 
@@ -87,11 +105,19 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <div className="text-small text-fg-secondary mb-2">
+            <div className="text-small text-fg-secondary mb-2" data-testid="edit-user-role-current">
               현재 역할:{' '}
-              <span className="font-mono text-fg-primary">
-                {user?.currentRole ?? '(없음)'}
-              </span>
+              {isRoleLoading ? (
+                <span className="text-fg-muted">불러오는 중...</span>
+              ) : isRoleError ? (
+                <span className="text-state-danger">
+                  확인 실패: {roleError?.message || '알 수 없음'}
+                </span>
+              ) : (
+                <span className="font-mono text-fg-primary">
+                  {currentRole ?? '(할당되지 않음)'}
+                </span>
+              )}
             </div>
             <div className="space-y-2" role="radiogroup" data-testid="edit-user-role-options">
               {ROLE_OPTIONS.map((opt) => (
@@ -109,7 +135,12 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
                     className="mt-1 accent-fg-primary cursor-pointer"
                   />
                   <div>
-                    <div className="font-mono text-body text-fg-primary">{opt.label}</div>
+                    <div className="font-mono text-body text-fg-primary">
+                      {opt.label}
+                      {currentRole === opt.value && (
+                        <span className="ml-2 text-xs text-fg-secondary">(현재)</span>
+                      )}
+                    </div>
                     <div className="text-xs text-fg-secondary">{opt.description}</div>
                   </div>
                 </label>
@@ -146,7 +177,9 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
             </Button>
             <Button
               type="submit"
-              disabled={!user || isPending}
+              disabled={
+                !user || isPending || isRoleLoading || selectedRole === null || selectedRole === currentRole
+              }
               data-testid="edit-user-role-submit"
             >
               {isPending ? '변경 중...' : '역할 변경'}
