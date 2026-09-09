@@ -165,14 +165,15 @@ describe('ClassroomChatPairBulkCreateDialog component', () => {
     expect(doneEl.textContent).toContain('legacy_list_failed');
   });
 
-  // 시나리오 5: chat displayName 128자 초과 시 chat 만 client 컷 (course 는 이미 생성됐음).
-  it('scenario 5: fails long chat displayName at client while course succeeded', async () => {
+  // 시나리오 5 (v0.98b F13): chat displayName 128자 초과가 확정적일 때 course 도 만들지
+  // 않고 pair 전체 skip. orphan course 방지.
+  it('scenario 5: skips both course and chat when displayName exceeds 128 chars', async () => {
     const longClass = 'A'.repeat(118); // '2026학년도 1학년 ' + 118자 + '반' > 128
     mockUseBasicDataGet.mockReturnValue({
       data: {
         data: {
           year: 2026,
-          grades: [{ grade: 1, classes: [longClass] }],
+          grades: [{ grade: 1, classes: [longClass, '1'] }],
           rosters: {},
         },
       },
@@ -183,22 +184,30 @@ describe('ClassroomChatPairBulkCreateDialog component', () => {
 
     renderDialog();
     fireEvent.click(screen.getByTestId(`pair-class-cb-1-${longClass}`));
+    fireEvent.click(screen.getByTestId('pair-class-cb-1-1'));
     fireEvent.click(screen.getByTestId('pair-preview-btn'));
     fireEvent.change(screen.getByTestId('pair-confirm-input'), {
-      target: { value: '1' },
+      target: { value: '2' },
     });
     await act(async () => {
       fireEvent.click(screen.getByTestId('pair-execute-btn'));
     });
 
-    // Course 는 생성 (alias hash 는 길이 무관).
+    // 짧은 반 이름 pair 만 실제 create — 긴 반 이름은 사전 컷으로 API 호출 0회.
     expect(mockCallClassroomCreate).toHaveBeenCalledTimes(1);
-    // Chat 은 client 컷.
-    expect(mockCallChatCreate).not.toHaveBeenCalled();
+    expect(mockCallClassroomCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ section: '1-1' }),
+    );
+    expect(mockCallChatCreate).toHaveBeenCalledTimes(1);
+    expect(mockCallChatCreate).toHaveBeenCalledWith({
+      displayName: '2026학년도 1학년 1반',
+    });
+
     const results = screen.getByTestId('pair-results');
-    expect(results.textContent).toContain('course: ok');
-    expect(results.textContent).toContain('chat: failed');
+    // 긴 반 이름: course=failed (pair_precheck), chat=not_attempted.
+    expect(results.textContent).toContain('pair_precheck_failed');
     expect(results.textContent).toContain('display_name_too_long');
+    expect(results.textContent).toContain('chat: not_attempted');
   });
 
   // 시나리오 6: chat legacy 매치 시 chat skip, course 는 정상 생성.

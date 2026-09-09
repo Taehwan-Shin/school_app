@@ -188,6 +188,24 @@ function ClassroomChatPairBulkCreateDialogContent({
       let courseKind: ResultKind;
       let courseId: string | undefined;
       let courseMessage: string | undefined;
+      let chatKind: PairChildKind = 'not_attempted';
+      let chatSpaceName: string | undefined;
+      let chatMessage: string | undefined;
+
+      // 0. pair 사전 검증 — chat 이 확정적으로 실패할 걸 알면 course 도 만들지 않는다.
+      // Google Chat displayName 128자 제한 (v0.97 F12) 이 확정 실패라 통합 다이얼로그에서
+      // course 만 만들면 orphan 이 남는다 (v0.98 Codex F13). pair 전체 skip.
+      if (displayName.length > CHAT_DISPLAY_NAME_MAX) {
+        localResults.push({
+          gradeClass,
+          displayName,
+          courseKind: 'failed',
+          courseMessage: `pair_precheck_failed: display_name_too_long: ${displayName.length}/${CHAT_DISPLAY_NAME_MAX}`,
+          chatKind: 'not_attempted',
+        });
+        setProgress(i + 1);
+        continue;
+      }
 
       // 1. course
       if (legacyCourseKeys.has(JSON.stringify([displayName, section]))) {
@@ -212,18 +230,10 @@ function ClassroomChatPairBulkCreateDialogContent({
       }
 
       // 2. chat — course 가 실패하면 시도하지 않는다.
-      let chatKind: PairChildKind = 'not_attempted';
-      let chatSpaceName: string | undefined;
-      let chatMessage: string | undefined;
-
       if (courseKind !== 'failed') {
         if (legacyChatKeys.has(JSON.stringify([displayName]))) {
           chatKind = 'skipped';
           chatMessage = 'legacy_duplicate';
-        } else if (displayName.length > CHAT_DISPLAY_NAME_MAX) {
-          // v0.97 F12 — client 사전 컷.
-          chatKind = 'failed';
-          chatMessage = `display_name_too_long: ${displayName.length}/${CHAT_DISPLAY_NAME_MAX}`;
         } else {
           try {
             const res = await callChatCreate({ displayName });
