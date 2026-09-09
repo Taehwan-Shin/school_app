@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/table";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
+import { EditUserRoleDialog, type EditUserRoleTarget } from "./EditUserRoleDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
@@ -26,7 +27,7 @@ type SortDirection = 'asc' | 'desc';
 const PAGE_SIZE = 25;
 
 export function AccountsTable() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role: currentRole } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
   const [searchParams, setSearchParams] = useSearchParams();
   const kpiFilter = searchParams.get('filter');
@@ -35,6 +36,7 @@ export function AccountsTable() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<SuspendUserTarget | null>(null);
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
+  const [editRoleTarget, setEditRoleTarget] = useState<EditUserRoleTarget | null>(null);
   const [resetTarget, setResetTarget] = useState<ResetPasswordTarget | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const sortColumn: SortColumn = (() => {
@@ -400,6 +402,25 @@ export function AccountsTable() {
                             >
                               편집
                             </button>
+                            {currentRole === 'super_admin' && (
+                              <>
+                                <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditRoleTarget({
+                                      email: user.email,
+                                      currentRole: null,
+                                    })
+                                  }
+                                  data-testid={`edit-user-role-${user.email}`}
+                                  title="역할 변경 (super_admin 전용)"
+                                  className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                >
+                                  역할
+                                </button>
+                              </>
+                            )}
                             <span className="text-fg-muted text-small" aria-hidden="true">·</span>
                             <button
                               type="button"
@@ -517,6 +538,14 @@ export function AccountsTable() {
           if (!open) setEditTarget(null);
         }}
         user={editTarget}
+      />
+
+      <EditUserRoleDialog
+        open={Boolean(editRoleTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditRoleTarget(null);
+        }}
+        user={editRoleTarget}
       />
 
       <DeleteUserDialog
