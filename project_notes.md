@@ -777,3 +777,42 @@ Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 
 - (b) admin console v2 (역할 관리 UI + capability matrix).
 - (c) 실 Workspace 확인 workflow — v0.94~v0.98 판정불가 (실 Google alias 충돌, 실 Chat 동일 이름 충돌, membership 반영 시차 등) 를 소거하는 실 리소스 테스트 스크립트 · 문서화.
 - (d) 그 외 사용자 지시.
+
+## 2026-09-09 · v0.99 admin console v2 첫 슬라이스 (capability matrix)
+
+### 진행 요약
+
+사용자 확정 방향 (b) admin console v2 의 첫 조각. 역할·capability 매트릭스 시각화 페이지 (`/super_admin/capabilities`). 서버 진실의 원본 `shared/roleCapabilities.ts` 를 UI 로 파생 렌더 (읽기 전용). Head 직접 구현. Codex 첫 감사에서 F14 (하단 안내 문구 부정확) 발견, 문구만 정정 후 통과.
+
+### 커밋 이력 (feat/capability-matrix-v99)
+
+| 커밋 | 요약 |
+|---|---|
+| `0934442` | feat(web): CapabilityMatrixPage — table 렌더 · shared 상수 순회 · 셀 O/·  · role 총합 · Vitest 시나리오 6건 |
+| `bbb5146` | feat(web): SuperAdminPage 시스템 설정 → 역할·권한 매트릭스 링크 (App.tsx 라우트 등록 포함) |
+| `c4b1ae0` | fix(web): F14 하단 문구 정정 (promote-user.mjs · Auth claim + Firestore role · 재로그인) |
+
+### v0.99 (Head) → v0.99b (Head, 1 라운드 문구)
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.99 | `bbb5146` | 7/1/2 | F14 하단 문구 「Firestore custom claim」 부정확 |
+| v0.99b | `c4b1ae0` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `1a5b0e0` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 372 + web 577 = 976 unit.
+
+### 배운 것
+
+- **UI 안내 문구도 감사 대상**: 코드가 정확해도 사용자 안내가 실제 운영 도구와 어긋나면 병합 차단 사유. Codex 는 「존재하지 않는 변경 수단」 을 정확히 지적. UI 문구 작성 시 도구/스크립트를 grep 하고 실제 동작을 확인하는 습관 필요.
+- **파생 뷰 vs 진실의 원본**: 이 슬라이스는 shared 상수를 렌더만 하는 좋은 예. UI 에서 별도 매핑을 유지하지 않고 shared 를 직접 순회 → 서버·UI 정합 자동 보장. 라벨 (사용자 친화) 만 별도 맵으로 분리해 리터럴 안정성 + UI 유연성 확보.
+
+### 다음 세션에 이어갈 것
+
+방향 (b) 첫 슬라이스 완결. 다음 후보:
+- (b2) admin console v2 다음 단계 — 실제 역할 변경 UI (super_admin 이 사용자의 role 을 웹에서 promote/demote). 서버 변경 필요 (`system.manage_roles` capability 를 실제 callable 에 매핑).
+- (c) 실 Workspace 확인 workflow.
+- (d) 그 외 사용자 지시.
