@@ -816,3 +816,49 @@ Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 
 - (b2) admin console v2 다음 단계 — 실제 역할 변경 UI (super_admin 이 사용자의 role 을 웹에서 promote/demote). 서버 변경 필요 (`system.manage_roles` capability 를 실제 callable 에 매핑).
 - (c) 실 Workspace 확인 workflow.
 - (d) 그 외 사용자 지시.
+
+## 2026-09-10 · v0.100 role management UI (b2 · 3 라운드 감사 · 병합)
+
+### 진행 요약
+
+사용자 확정 방향 (b2) admin console v2 다음 단계. super_admin 이 UI 에서 사용자 role 을 promote/demote 하는 서버 + 클라이언트 통합 슬라이스. 안전 핵심 (auth 경계 변경) 이라 Head 직접 구현. Codex 3 라운드 감사 (총 8 항목 지적) 후 통과.
+
+### 커밋 이력 (feat/users-update-role-v100)
+
+| 커밋 | 요약 |
+|---|---|
+| `b851321` | feat(functions): usersUpdateRole callable — system.manage_roles cap · Firebase Auth setCustomUserClaims + Firestore users doc · 본인 강등 방지 · 시나리오 11건 |
+| `8dff3ae` | feat(web): usersUpdateRole API + useUsersUpdateRole hook · 시나리오 5건 |
+| `8b4adcd` | feat(web): EditUserRoleDialog radio 다이얼로그 + AccountsTable 「역할」 진입점 (super_admin 전용) |
+| `ecc9fea` | fix: F15 claim 보존 · F16 Firestore 실패 시 Auth rollback (partial failure escalate) · F17 usersGetRole callable + useUserRole hook · F18 Firestore email 병기 |
+| `97975de` | fix: F19 getRole 은 Auth 원본 반환 · null 포함 모든 split 감사 · F20 dialog fail-closed on error · F21 update 성공 시 role query cache 즉시 갱신 |
+
+### v0.100 (Head) → v0.100b → v0.100c (Head, 2 라운드 hotfix)
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.100 | `8b4adcd` | 7/4/2 | F15 claim overwrite · F16 rollback 부재 · F17 currentRole null · F18 email 누락 |
+| v0.100b | `ecc9fea` | 7/3/2 | F19 Firestore 우선 오분류 · F20 dialog error 미차단 · F21 role cache 미갱신 |
+| v0.100c | `97975de` | **8/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `2324255` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 393 + web 586 = 1006 unit.
+
+### 배운 것
+
+- **`setCustomUserClaims` 는 전체 덮어쓰기다** — 새 role 만 넣으면 다른 claim 이 사라진다. 항상 spread 후 갱신 (F15).
+- **두 저장소 원자성 없이 갱신하면 실패 시 정합 깨진다** — Auth + Firestore 를 각각 쓰면 두 저장소가 갈라진다. Auth 를 먼저 쓰고, Firestore 실패 시 Auth 롤백. 롤백 실패는 internal escalate (F16). 이 패턴은 다른 이중 저장소 흐름에도 재사용 가능.
+- **UI 안전 컷은 loading + error 둘 다** — 조회 오류 시 loading 만 방어하면 오강등 경로가 남는다. fail-closed 는 loading + error 둘 다 (F20).
+- **Mutation 성공 시 관련 query cache 는 명시적으로 갱신** — invalidate 만으로는 stale 재사용을 완전 방지 못한다. `setQueryData` 로 즉시 값 갱신 + invalidate 조합이 안전 (F21).
+- **읽기 원본은 authz 의 진실을 반영해야** — Firestore 는 display cache. Auth 가 authz 원본. getRole 이 Firestore 값을 반환하면 실제 권한과 다른 값을 사용자에게 보여줄 수 있다. Auth 반환 + split 감사 (F19).
+- **Codex 는 3 라운드까지 파고든다** — 안전 핵심 슬라이스에서는 첫 감사 후에도 파생 결함이 나올 수 있다. F15/F16 이 해결되니 F19/F20/F21 이 남았다. 「fail closed」·「원자성」·「캐시 정합」 같은 시스템 속성 각각을 개별 시나리오로 검증하는 습관 필요.
+
+### 다음 세션에 이어갈 것
+
+방향 (b) admin console v2 두 슬라이스 완결. 다음 후보:
+- (b3) 감사 로그 검색·필터 개선 · role_split 감사 이벤트 전용 view 등.
+- (c) 실 Workspace 확인 workflow — v0.94~v0.100 판정불가 (실 Auth claim 전파, Auth→Firestore rollback, alias 충돌, 128자 실 API 응답 등) 를 소거하는 실 리소스 검증.
+- (d) 사용자 지시 그 외.
