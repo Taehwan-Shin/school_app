@@ -128,11 +128,23 @@ export function SuperAdminPage() {
         </section>
 
         {/* 시스템 설정 shortcut */}
-        <section className="bg-elevated p-8 border border-border-subtle space-y-2">
-          <h2 className="text-h3 font-semibold text-fg-primary">시스템 설정 (준비 중)</h2>
-          <p className="text-small text-fg-secondary">
-            역할 관리 · 캡 매트릭스 · 기초값 · 배포 상태 등. 다음 슬라이스에서 붙습니다.
-          </p>
+        <section className="bg-elevated p-8 border border-border-subtle space-y-4">
+          <h2 className="text-h3 font-semibold text-fg-primary">시스템 설정</h2>
+          <ul className="space-y-2 text-small">
+            <li>
+              <Link
+                to="/super_admin/capabilities"
+                className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary transition-colors"
+                data-testid="super-admin-nav-capabilities"
+              >
+                역할·권한 매트릭스 →
+              </Link>
+              <span className="text-fg-secondary"> — 각 역할이 실행 가능한 서버 capability 를 표로 확인.</span>
+            </li>
+            <li className="text-fg-muted">
+              역할 관리 UI · 기초값 · 배포 상태 (준비 중)
+            </li>
+          </ul>
         </section>
       </div>
     </AppShell>
