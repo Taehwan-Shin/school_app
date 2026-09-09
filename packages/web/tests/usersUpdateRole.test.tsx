@@ -90,8 +90,8 @@ describe('usersUpdateRole API & Hook', () => {
     expect(parsed.data.role).toBe('teacher');
   });
 
-  // 시나리오 4: hook 성공 시 users list query 무효화.
-  it('scenario 4: useUsersUpdateRole invalidates users list on success', async () => {
+  // 시나리오 4: hook 성공 시 users list query 무효화 + role query cache 갱신·무효화 (F21).
+  it('scenario 4: useUsersUpdateRole invalidates users list AND updates+invalidates role query on success', async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => ({ result: { primaryEmail: 't@cam.hs.kr', uid: 'u', role: 'admin' } }),
@@ -100,6 +100,7 @@ describe('usersUpdateRole API & Hook', () => {
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const setDataSpy = vi.spyOn(qc, 'setQueryData');
 
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
@@ -110,6 +111,12 @@ describe('usersUpdateRole API & Hook', () => {
     await waitFor(() =>
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'list'] }),
     );
+    expect(setDataSpy).toHaveBeenCalledWith(['users', 'role', 't@cam.hs.kr'], {
+      primaryEmail: 't@cam.hs.kr',
+      uid: 'u',
+      role: 'admin',
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'role', 't@cam.hs.kr'] });
   });
 
   // 시나리오 5: 로그아웃 상태 (currentUser null) → not_authenticated.

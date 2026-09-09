@@ -63,9 +63,12 @@ export function useUsersUpdateRole() {
   const qc = useQueryClient();
   return useMutation<UsersUpdateRoleResponse, Error, UsersUpdateRoleRequest>({
     mutationFn: (data) => callUsersUpdateRole(data),
-    onSuccess: () => {
-      // 사용자 목록 재조회 (role 필드 갱신 반영).
+    onSuccess: (res, vars) => {
       qc.invalidateQueries({ queryKey: ['users', 'list'] });
+      // v0.100b F21: 개별 role query cache 도 즉시 갱신·무효화 — dialog 재오픈 시 오래된 role 로
+      // no-op 방어가 잘못 걸리는 문제 방지.
+      qc.setQueryData(['users', 'role', vars.primaryEmail], res);
+      qc.invalidateQueries({ queryKey: ['users', 'role', vars.primaryEmail] });
     },
   });
 }

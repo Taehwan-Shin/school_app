@@ -90,35 +90,35 @@ export const usersGetRole = onCall(
 
       const authUser = await getAuth().getUserByEmail(email);
       const claim = (authUser.customClaims as { role?: unknown } | undefined) ?? {};
-      let role: Role | null =
+      const authRole: Role | null =
         claim.role === 'super_admin' || claim.role === 'admin' || claim.role === 'teacher'
           ? (claim.role as Role)
           : null;
 
-      // Firestore 문서가 있으면 그 값을 우선. Auth claim 과 다르면 Auth 를 신뢰 (감사에 노출).
       const snap = await getFirestore().doc(`users/${authUser.uid}`).get();
-      if (snap.exists) {
-        const docRole = (snap.data() as { role?: unknown } | undefined)?.role;
-        if (docRole === 'super_admin' || docRole === 'admin' || docRole === 'teacher') {
-          if (role !== null && role !== docRole) {
-            // 두 저장소 불일치를 감사 로그로 노출 — F16 실패 이후 잔재 감지.
-            await writeAudit({
-              actor: user.email,
-              role: user.role,
-              action: 'users.read',
-              target: `users/${authUser.uid}`,
-              request_id: requestId,
-              result: 'error',
-              message: `role_split: auth=${role} firestore=${docRole}`,
-            });
-          }
-          if (role === null) {
-            role = docRole as Role;
-          }
-        }
+      const docRawRole = snap.exists
+        ? (snap.data() as { role?: unknown } | undefined)?.role
+        : undefined;
+      const docRole: Role | null =
+        docRawRole === 'super_admin' || docRawRole === 'admin' || docRawRole === 'teacher'
+          ? (docRawRole as Role)
+          : null;
+
+      // Auth 가 authz 의 진실. Firestore 는 display cache. 어느 쪽이든 다르면 split 로 기록.
+      // v0.100b F19: null 쪽 vs role 쪽도 split — 이전엔 role !== null 만 검사해 놓쳤음.
+      if (authRole !== docRole) {
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'users.read',
+          target: `users/${authUser.uid}`,
+          request_id: requestId,
+          result: 'error',
+          message: `role_split: auth=${authRole ?? 'null'} firestore=${docRole ?? 'null'}`,
+        });
       }
 
-      return { primaryEmail: email, uid: authUser.uid, role };
+      return { primaryEmail: email, uid: authUser.uid, role: authRole };
     } catch (err) {
       const mapped =
         err instanceof HttpsError

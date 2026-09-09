@@ -72,9 +72,13 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
       return;
     }
 
-    // 현재 role 이 로드 안 됐거나 오류인 상태에서는 확인 문구를 요구 (F17 실수 강등 방어).
+    // 현재 role 이 로드 안 됐거나 오류인 상태에서는 확인 문구를 요구 (F17/F20 실수 강등 방어 — fail-closed).
     if (isRoleLoading) {
       setValidationError('현재 역할을 확인하는 중입니다. 잠시 기다려주세요.');
+      return;
+    }
+    if (isRoleError) {
+      setValidationError('현재 역할 조회에 실패했습니다. 대화상자를 닫고 다시 시도해주세요.');
       return;
     }
 
@@ -178,7 +182,12 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
             <Button
               type="submit"
               disabled={
-                !user || isPending || isRoleLoading || selectedRole === null || selectedRole === currentRole
+                !user ||
+                isPending ||
+                isRoleLoading ||
+                isRoleError ||
+                selectedRole === null ||
+                selectedRole === currentRole
               }
               data-testid="edit-user-role-submit"
             >

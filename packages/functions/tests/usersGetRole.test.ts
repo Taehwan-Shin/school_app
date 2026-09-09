@@ -72,7 +72,7 @@ describe('usersGetRole unit tests', () => {
     });
   });
 
-  it('returns role from Auth custom claim when Firestore doc absent', async () => {
+  it('returns role from Auth custom claim when Firestore doc absent (records null split)', async () => {
     mockDocGet.mockResolvedValueOnce({ exists: false });
     const req = createRequest();
     const res = await usersGetRole.run(req);
@@ -81,17 +81,46 @@ describe('usersGetRole unit tests', () => {
       uid: 'uid-target-1',
       role: 'admin',
     });
+    // F19: Auth role 이 있는데 Firestore 가 없으면 이것도 split.
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'users.read',
+        result: 'error',
+        message: expect.stringContaining('role_split: auth=admin firestore=null'),
+      }),
+    );
   });
 
-  it('returns null when neither Auth claim nor Firestore has role', async () => {
+  it('returns null when neither Auth claim nor Firestore has role, no audit', async () => {
     mockGetUserByEmail.mockResolvedValueOnce({ uid: 'uid-target-1', customClaims: {} });
     mockDocGet.mockResolvedValueOnce({ exists: false });
     const req = createRequest();
     const res = await usersGetRole.run(req);
     expect(res.role).toBeNull();
+    // 양쪽 다 null 이면 split 아님.
+    expect(mockWriteAudit).not.toHaveBeenCalled();
   });
 
-  it('records role_split audit when Auth and Firestore disagree', async () => {
+  it('F19: records role_split when Auth is null but Firestore has role, returns Auth (null)', async () => {
+    mockGetUserByEmail.mockResolvedValueOnce({ uid: 'uid-target-1', customClaims: {} });
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ role: 'admin' }),
+    });
+    const req = createRequest();
+    const res = await usersGetRole.run(req);
+    // Auth 원본 반환 (null).
+    expect(res.role).toBeNull();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'users.read',
+        result: 'error',
+        message: expect.stringContaining('role_split: auth=null firestore=admin'),
+      }),
+    );
+  });
+
+  it('records role_split audit when Auth and Firestore disagree (both non-null)', async () => {
     mockGetUserByEmail.mockResolvedValueOnce({
       uid: 'uid-target-1',
       customClaims: { role: 'admin' },
@@ -101,12 +130,14 @@ describe('usersGetRole unit tests', () => {
       data: () => ({ role: 'teacher' }),
     });
     const req = createRequest();
-    await usersGetRole.run(req);
+    const res = await usersGetRole.run(req);
+    // Auth 반환.
+    expect(res.role).toBe('admin');
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'users.read',
         result: 'error',
-        message: expect.stringContaining('role_split'),
+        message: expect.stringContaining('role_split: auth=admin firestore=teacher'),
       }),
     );
   });
