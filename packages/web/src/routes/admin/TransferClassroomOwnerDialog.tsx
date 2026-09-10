@@ -72,7 +72,11 @@ export function TransferClassroomOwnerDialog({
       ? '이관 권한이 없거나 스코프가 부족합니다.'
       : mutationError.message.includes('invalid_new_owner_email')
         ? '새 소유자 이메일 형식이 올바르지 않습니다.'
-        : `이관 실패: ${mutationError.message}`
+        : mutationError.message.includes('invalid_new_owner_domain')
+          ? '새 소유자는 학교 도메인 계정만 가능합니다.'
+          : mutationError.message.includes('added_teacher_but_patch_failed')
+            ? `이관 실패 — 새 소유자를 교사로 추가는 됐으나 소유자 이관이 실패했습니다: ${mutationError.message}`
+            : `이관 실패: ${mutationError.message}`
     : null;
 
   return (

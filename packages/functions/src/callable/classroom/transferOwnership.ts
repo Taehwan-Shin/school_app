@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
+import { ALLOWED_DOMAIN } from '../../auth/onUserCreate.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getClassroomClient, type ClassroomCourse } from '../../google/classroomClient.js';
 
@@ -27,11 +28,22 @@ const COURSE_ID_RE = /^[A-Za-z0-9_-]+$/;
 // Google Workspace 이메일 형식 (@domain 필수) — Directory API 가 최종 판정.
 const EMAIL_RE = /^[A-Za-z0-9._+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
 
+// v0.116b F75: partial-fail 경로가 이미 감사를 기록했음을 외곽 catch 에 신호.
+const ALREADY_AUDITED = Symbol('transfer_owner_already_audited');
+type AuditedHttpsError = HttpsError & { [ALREADY_AUDITED]?: true };
+
+function extractStatus(err: unknown): number | undefined {
+  return (
+    (err as { response?: { status?: number }; code?: number })?.response?.status ??
+    (typeof (err as { code?: number })?.code === 'number'
+      ? (err as { code: number }).code
+      : undefined)
+  );
+}
+
 function mapUpstreamError(err: unknown): HttpsError {
   if (err instanceof HttpsError) return err;
-  const status: number | undefined =
-    (err as any)?.response?.status ??
-    (typeof (err as any)?.code === 'number' ? (err as any).code : undefined);
+  const status = extractStatus(err);
   const msg = (err as Error).message ?? 'unknown';
   if (status === 401 || status === 403) {
     return new HttpsError('permission-denied', `google_upstream_denied: ${msg}`);
@@ -120,6 +132,14 @@ export const classroomTransferOwnership = onCall(
       const courseId = data.courseId.trim();
       const newOwnerEmail = data.newOwnerEmail.trim();
 
+      // v0.116b F74: Google Classroom Courses.patch(ownerId) 는 새 owner 가 같은
+      // Workspace 도메인 사용자여야 성공. 서버 층에서 앱의 ALLOWED_DOMAIN 을 미리
+      // 강제해 upstream 실패를 사전 컷 + 감사 로그를 깨끗하게.
+      const domain = newOwnerEmail.split('@')[1]?.toLowerCase() ?? '';
+      if (domain !== ALLOWED_DOMAIN) {
+        throw new HttpsError('invalid-argument', 'invalid_new_owner_domain');
+      }
+
       const classroom = getClassroomClient(user.googleAccessToken);
 
       // Google Classroom API 는 새 owner 가 이미 course teacher 여야 patch 허용.
@@ -129,14 +149,9 @@ export const classroomTransferOwnership = onCall(
       try {
         await classroom.courses.teachers.get({ courseId, userId: newOwnerEmail });
       } catch (err) {
-        const status: number | undefined =
-          (err as { response?: { status?: number }; code?: number })?.response?.status ??
-          (typeof (err as { code?: number })?.code === 'number'
-            ? (err as { code: number }).code
-            : undefined);
-        if (status !== 404) throw err;
-        // 아직 teacher 아님 → 사전 추가. 이 단계 실패는 permission-denied/not-found 로 매핑
-        // (mapUpstreamError). audit 은 catch 블록에서 통합 기록.
+        if (extractStatus(err) !== 404) throw err;
+        // 아직 teacher 아님 → 사전 추가. 이 단계 실패는 mapUpstreamError 로 매핑
+        // (외곽 catch). audit 은 catch 블록에서 통합 기록.
         await classroom.courses.teachers.create({
           courseId,
           requestBody: { userId: newOwnerEmail },
@@ -144,24 +159,69 @@ export const classroomTransferOwnership = onCall(
         addedAsTeacher = true;
       }
 
-      const res = await classroom.courses.patch({
-        id: courseId,
-        updateMask: 'ownerId',
-        requestBody: { ownerId: newOwnerEmail },
-      });
+      // v0.116b F75: patch 를 별도 try 로 감싸서, 우리가 방금 teacher 로 추가한
+      // 사용자가 patch 실패로 인해 course 에 남는 orphan 상태를 처리한다.
+      // - 확정 client-error (4xx, 429 제외): 보상 teachers.delete 시도.
+      // - 429/5xx/timeout: 실제 상태 불확실 → 보상 skip, 감사에 명시.
+      try {
+        const res = await classroom.courses.patch({
+          id: courseId,
+          updateMask: 'ownerId',
+          requestBody: { ownerId: newOwnerEmail },
+        });
 
-      await writeAudit({
-        actor: user.email,
-        role: user.role,
-        action: 'classroom.transfer_owner',
-        target: `courses/${courseId}`,
-        request_id: requestId,
-        result: 'ok',
-        message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
-      });
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'classroom.transfer_owner',
+          target: `courses/${courseId}`,
+          request_id: requestId,
+          result: 'ok',
+          message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
+        });
 
-      return { course: res.data, addedAsTeacher };
+        return { course: res.data, addedAsTeacher };
+      } catch (patchErr) {
+        if (!addedAsTeacher) throw patchErr;
+
+        const patchStatus = extractStatus(patchErr);
+        const mapped = mapUpstreamError(patchErr);
+        const isDenied =
+          mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';
+
+        let rollback: 'ok' | 'failed' | 'skipped' = 'skipped';
+        // 확정 client error 만 보상 삭제. 429 는 실 상태가 5xx 와 같이 불확실.
+        if (
+          typeof patchStatus === 'number' &&
+          patchStatus >= 400 &&
+          patchStatus < 500 &&
+          patchStatus !== 429
+        ) {
+          try {
+            await classroom.courses.teachers.delete({ courseId, userId: newOwnerEmail });
+            rollback = 'ok';
+          } catch {
+            rollback = 'failed';
+          }
+        }
+
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'classroom.transfer_owner',
+          target: `courses/${courseId}`,
+          request_id: requestId,
+          result: isDenied ? 'denied' : 'error',
+          message: `added_teacher_but_patch_failed:${mapped.message} rollback=${rollback}`,
+        });
+        (mapped as AuditedHttpsError)[ALREADY_AUDITED] = true;
+        throw mapped;
+      }
     } catch (err) {
+      // F75: partial-fail 경로가 이미 상세 감사를 기록했으면 외곽에서 중복 기록 안 함.
+      if ((err as AuditedHttpsError)?.[ALREADY_AUDITED]) {
+        throw err;
+      }
       const mapped = mapUpstreamError(err);
       const isDenied =
         mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';

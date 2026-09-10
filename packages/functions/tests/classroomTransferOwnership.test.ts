@@ -9,12 +9,14 @@ vi.mock('../src/audit/writeAudit.js', () => ({
 const mockCoursesPatch = vi.fn();
 const mockCoursesTeachersGet = vi.fn();
 const mockCoursesTeachersCreate = vi.fn();
+const mockCoursesTeachersDelete = vi.fn();
 const mockGetClassroomClient = vi.fn(() => ({
   courses: {
     patch: mockCoursesPatch,
     teachers: {
       get: mockCoursesTeachersGet,
       create: mockCoursesTeachersCreate,
+      delete: mockCoursesTeachersDelete,
     },
   },
 }));
@@ -257,5 +259,114 @@ describe('classroomTransferOwnership unit tests', () => {
         result: 'error',
       }),
     );
+  });
+
+  // v0.116b F74 시나리오 10: ALLOWED_DOMAIN 이외 이메일 → invalid_new_owner_domain
+  it('rejects new owner email outside ALLOWED_DOMAIN before any API call', async () => {
+    const req = createRequest({
+      data: { courseId: 'c-101', newOwnerEmail: 'newowner@example.com' },
+    });
+    await expect(classroomTransferOwnership.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_new_owner_domain',
+    });
+    expect(mockCoursesTeachersGet).not.toHaveBeenCalled();
+    expect(mockCoursesTeachersCreate).not.toHaveBeenCalled();
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'classroom.transfer_owner',
+        target: 'courses/c-101',
+        message: 'invalid_new_owner_domain',
+      }),
+    );
+  });
+
+  // v0.116b F75 시나리오 11: 사전 teachers.create 후 patch 400 → 보상 teachers.delete +
+  // partial audit (added_teacher_but_patch_failed rollback=ok) 기록 · 중복 audit 없음.
+  it('rolls back added teacher when patch fails with confirmed 4xx', async () => {
+    const notFound: any = new Error('teacher not in course');
+    notFound.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFound);
+    mockCoursesTeachersCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
+    });
+    const patchErr: any = new Error('bad request');
+    patchErr.response = { status: 400 };
+    mockCoursesPatch.mockRejectedValueOnce(patchErr);
+    mockCoursesTeachersDelete.mockResolvedValueOnce({ data: {} });
+
+    await expect(classroomTransferOwnership.run(createRequest())).rejects.toMatchObject({
+      code: 'unknown',
+    });
+    expect(mockCoursesTeachersCreate).toHaveBeenCalledTimes(1);
+    expect(mockCoursesTeachersDelete).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'newowner@cam.hs.kr',
+    });
+    // partial audit 1 회만 기록 (외곽 catch 는 skip).
+    const transferAudits = mockWriteAudit.mock.calls.filter(
+      (call) => call[0]?.action === 'classroom.transfer_owner',
+    );
+    expect(transferAudits).toHaveLength(1);
+    expect(transferAudits[0][0]).toMatchObject({
+      result: 'error',
+      message: expect.stringMatching(
+        /^added_teacher_but_patch_failed:.*rollback=ok$/,
+      ),
+    });
+  });
+
+  // v0.116b F75 시나리오 12: teachers.create 후 patch 5xx → 보상 skip · rollback=skipped
+  it('skips rollback when patch fails with 5xx (state uncertain)', async () => {
+    const notFound: any = new Error('teacher not in course');
+    notFound.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFound);
+    mockCoursesTeachersCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
+    });
+    const patchErr: any = new Error('upstream unavailable');
+    patchErr.response = { status: 503 };
+    mockCoursesPatch.mockRejectedValueOnce(patchErr);
+
+    await expect(classroomTransferOwnership.run(createRequest())).rejects.toMatchObject({
+      code: 'unavailable',
+    });
+    expect(mockCoursesTeachersDelete).not.toHaveBeenCalled();
+    const transferAudits = mockWriteAudit.mock.calls.filter(
+      (call) => call[0]?.action === 'classroom.transfer_owner',
+    );
+    expect(transferAudits).toHaveLength(1);
+    expect(transferAudits[0][0]).toMatchObject({
+      result: 'error',
+      message: expect.stringMatching(
+        /^added_teacher_but_patch_failed:.*rollback=skipped$/,
+      ),
+    });
+  });
+
+  // v0.116b F75 시나리오 13: teachers.create 후 patch 400 + 보상 teachers.delete 실패
+  // → rollback=failed 로 기록 (에러 자체는 원래 patch 매핑 그대로 throw).
+  it('records rollback=failed when compensating teachers.delete also fails', async () => {
+    const notFound: any = new Error('teacher not in course');
+    notFound.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFound);
+    mockCoursesTeachersCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
+    });
+    const patchErr: any = new Error('bad request');
+    patchErr.response = { status: 400 };
+    mockCoursesPatch.mockRejectedValueOnce(patchErr);
+    mockCoursesTeachersDelete.mockRejectedValueOnce(new Error('delete also fails'));
+
+    await expect(classroomTransferOwnership.run(createRequest())).rejects.toMatchObject({
+      code: 'unknown',
+    });
+    expect(mockCoursesTeachersDelete).toHaveBeenCalledTimes(1);
+    const transferAudits = mockWriteAudit.mock.calls.filter(
+      (call) => call[0]?.action === 'classroom.transfer_owner',
+    );
+    expect(transferAudits).toHaveLength(1);
+    expect(transferAudits[0][0].message).toMatch(/rollback=failed$/);
   });
 });
