@@ -539,4 +539,62 @@ describe('auditLogList unit tests', () => {
       expect.objectContaining({ filterAction: undefined }),
     );
   });
+
+  // v0.104: filterActions 다중
+  it('v0.104: forwards filterActions array to readAuditEntries', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: ['users.update_role', 'users.read'] },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filterActions: ['users.update_role', 'users.read'],
+      }),
+    );
+  });
+
+  it('v0.104: filters non-string/empty entries from filterActions', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: ['', 42, 'users.read', null, 'audit.read'] as any },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterActions: ['users.read', 'audit.read'] }),
+    );
+  });
+
+  it('v0.104: filterActions includes actions=... in success audit message', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: ['a', 'b'] },
+    });
+    await auditLogList.run(req);
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: expect.stringContaining('actions=a,b'),
+      }),
+    );
+  });
+
+  it('v0.104: empty filterActions array → undefined (not forwarded)', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: [] },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterActions: undefined }),
+    );
+  });
 });

@@ -190,6 +190,46 @@ describe('readAuditEntries unit tests', () => {
     expect(mockWhere).toHaveBeenCalledTimes(1);
   });
 
+  it('v0.104: filterActions 다중 → `in` where 사용 (uniq · 최대 30)', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['users.update_role', 'users.read', 'users.read'], // duplicate 제거 확인
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', 'in', [
+      'users.update_role',
+      'users.read',
+    ]);
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.104: filterActions 단일 원소 → `==` where 로 축약 (index 재사용)', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['users.read'],
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', '==', 'users.read');
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.104: filterActions 가 있으면 filterAction 은 무시', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['a', 'b'],
+      filterAction: 'unused',
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', 'in', ['a', 'b']);
+    expect(mockWhere).not.toHaveBeenCalledWith('action', '==', 'unused');
+  });
+
   it('does not apply any filter where clauses when no filters are provided', async () => {
     mockGet.mockResolvedValueOnce({ docs: [] });
 
