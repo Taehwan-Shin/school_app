@@ -574,17 +574,39 @@ describe('SuperAdminPage', () => {
     expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
   });
 
-  // v0.105 role_split 감시 카드 시나리오
-  it('v0.105: renders role_split 감시 카드 · empty state when no role_split events', () => {
+  // v0.105 (b 갱신): 카드 문구는 「최근 조회 sample 안」 범위 명시. empty 를
+  // 「동기 상태」로 단정하지 않는다 (Codex F35 지적).
+  it('v0.105b: empty state → "감지 없음 · 전수 대조 아님" 문구', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    // useAuditLogList default (entries: []) 로 no role_split.
+    // useAuditLogList default (entries: [], hasMore: false) 로 no role_split.
     renderWithRouter(<SuperAdminPage />);
 
     const section = screen.getByTestId('super-admin-role-split-section');
     expect(section).toBeDefined();
-    expect(section.textContent).toContain('두 저장소 동기 상태');
+    expect(section.textContent).toContain('role_split 감지 없음');
+    expect(section.textContent).toContain('전수 대조가 아니라');
+    // 이전 「동기 상태」 단정 표현은 없어야.
+    expect(section.textContent).not.toContain('동기 상태');
     expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
+  });
+
+  // v0.105b: hasMore=true 시 pagination 안내 문구.
+  it('v0.105b: hasMore=true → 이전 이벤트가 있음 안내', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+      hasMore: true,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('더 이전 이벤트가 있음');
   });
 
   it('v0.105: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {
