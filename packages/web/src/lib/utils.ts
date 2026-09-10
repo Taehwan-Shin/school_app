@@ -13,7 +13,6 @@ const twMerge = extendTailwindMerge({
         "canvas",
         "surface",
         "elevated",
-        "canvas-subtle",
         "fg-primary",
         "fg-secondary",
         "fg-muted",
@@ -24,43 +23,12 @@ const twMerge = extendTailwindMerge({
         "state-danger",
         "state-success",
         "state-warning",
-        // Say Briefly 원시 팔레트
-        "forest-ink",
-        "highlighter-yellow",
-        "cream-paper",
-        "pencil-gray",
-        "whisper-gray",
-        "sticky-note-teal",
-        "sticky-note-mint",
-        "sticky-note-blush",
-        "terracotta",
       ],
     },
     classGroups: {
       "font-size": [
-        {
-          text: [
-            // 하위 호환
-            "display",
-            "h1",
-            "h2",
-            "h3",
-            "body",
-            "small",
-            // Say Briefly 신규
-            "micro",
-            "caption",
-            "body-sm",
-            "body-lg",
-            "subheading",
-            "heading-sm",
-            "heading",
-            "heading-lg",
-            "display-xl",
-          ],
-        },
+        { text: ["display", "h1", "h2", "h3", "body", "small", "micro"] },
       ],
-      "font-family": [{ font: ["sans", "display", "mono"] }],
     },
   },
 });

@@ -11,27 +11,31 @@ vi.mock('../src/lib/theme', () => ({
   useTheme: () => ({ theme: 'light', toggleTheme: vi.fn(), setTheme: vi.fn() }),
 }));
 
-describe('Topbar responsive & overflow (v0.102b F27)', () => {
-  it('renders long pageTitle with truncate + title tooltip and does not overflow flex controls', () => {
+describe('Topbar (v0.103)', () => {
+  // v0.102 F27 회귀 유지: 긴 이메일/그룹 이름 페이지 제목이 컨트롤을 밀지 않아야.
+  it('long pageTitle truncates with flex-1 min-w-0 truncate + title tooltip', () => {
     const longTitle =
-      '2026학년도 매우매우 길고 긴 사용자 이메일 alice.superadmin@some-long-domain.example.co.kr 상세';
+      '2026학년도 매우 긴 사용자 이메일 alice.superadmin@some-long-domain.example.co.kr 상세';
 
     render(<Topbar pageTitle={longTitle} />);
 
     const h1 = screen.getByText(longTitle);
-    // truncate + min-w-0 + flex-1 클래스가 존재해야 overflow 방지.
     expect(h1.className).toContain('truncate');
     expect(h1.className).toContain('min-w-0');
     expect(h1.className).toContain('flex-1');
-    // 원본 텍스트를 title 로 노출 (tooltip 접근성).
     expect(h1.getAttribute('title')).toBe(longTitle);
   });
 
-  it('hover 배경 dark 모드에서 highlighter-yellow 저대비 회피 — dark:hover:bg-elevated 명시', () => {
+  // v0.103 로그아웃 버튼: LogOut 아이콘 병기 (aria-hidden) + 텍스트 라벨.
+  it('logout button renders LogOut icon (aria-hidden) with text label', () => {
     render(<Topbar pageTitle="테스트" />);
+
     const button = screen.getByRole('button', { name: '로그아웃' });
-    expect(button.className).toContain('hover:bg-highlighter-yellow');
-    expect(button.className).toContain('dark:hover:bg-elevated');
-    expect(button.className).toContain('hover:text-forest-ink');
+    expect(button).toBeDefined();
+
+    // 아이콘은 button 내부 SVG · aria-hidden true 여야 스크린리더가 무시.
+    const svg = button.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg!.getAttribute('aria-hidden')).toBe('true');
   });
 });
