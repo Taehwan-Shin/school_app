@@ -340,7 +340,7 @@ describe('usersResolveRoleSplit unit tests', () => {
     );
   });
 
-  it('v0.107d F47 (b): post-write Auth 변경했지만 Firestore == Auth (우연 수렴) → resolved 감사', async () => {
+  it('v0.107d F47 (b) · v0.107e F50: 우연 수렴 → resolved 감사 + 응답은 실제 최종 role', async () => {
     // 1차 getUser: admin, 2차: teacher.
     // transaction 안: mockDocGet teacher (전제와 일치, transaction 통과, Firestore=admin 씀).
     // post-write docGet: teacher (동시 usersUpdateRole 이 Firestore 도 teacher 로 다시 씀).
@@ -363,7 +363,9 @@ describe('usersResolveRoleSplit unit tests', () => {
     const req = createRequest();
     const res = await usersResolveRoleSplit.run(req);
     // 성공 반환 (throw 안 함).
-    expect(res.authRole).toBe('admin'); // pre-write authRole 반환 유지
+    // v0.107e F50: 응답은 pre-write authRole 이 아니라 실제 최종 role (teacher).
+    expect(res.authRole).toBe('teacher');
+    expect(res.newFirestoreRole).toBe('teacher');
     expect(mockDocSet).toHaveBeenCalledTimes(1);
     // resolved_by_convergence 감사.
     expect(mockWriteAudit).toHaveBeenCalledWith(
@@ -371,6 +373,38 @@ describe('usersResolveRoleSplit unit tests', () => {
         action: 'system.role_split_resolved',
         result: 'ok',
         message: expect.stringContaining('resolved_by_convergence'),
+      }),
+    );
+  });
+
+  // v0.107e F48: post-write getUser 자체가 실패 → 새 detected 감사 + aborted.
+  it('v0.107e F48: post-write getUser 실패 → detected(auth=unknown) 감사 + aborted', async () => {
+    // 1차 getUser: 정상, 2차: throw.
+    mockGetUser
+      .mockResolvedValueOnce({
+        uid: 'uid-target-1',
+        email: 'target@cam.hs.kr',
+        customClaims: { role: 'admin' },
+      })
+      .mockRejectedValueOnce(new Error('network unreachable'));
+    const req = createRequest();
+    await expect(usersResolveRoleSplit.run(req)).rejects.toMatchObject({
+      code: 'aborted',
+      message: expect.stringContaining('auth_recheck_failed'),
+    });
+    // Firestore 는 이미 갱신됨.
+    expect(mockDocSet).toHaveBeenCalledTimes(1);
+    // 새 detected 감사 (auth=unknown 마커).
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'system.role_split_detected',
+        result: 'error',
+        message: expect.stringContaining('auth=unknown'),
+      }),
+    );
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('post_write_auth_recheck_failed'),
       }),
     );
   });

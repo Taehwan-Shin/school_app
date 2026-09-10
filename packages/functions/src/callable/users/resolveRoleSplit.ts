@@ -178,13 +178,34 @@ export const usersResolveRoleSplit = onCall(
         tx.set(getFirestore().doc(`users/${authUser.uid}`), writePayload, { merge: true });
       });
 
-      // v0.107c F45 · v0.107d F47: post-write Auth 재검증 + 상태 재조회.
+      // v0.107c F45 · v0.107d F47 · v0.107e F48/F50: post-write 재검증.
       // transaction 밖에서 Auth 와 Firestore 를 다시 읽는다:
       //  (a) Auth 가 pre-write 와 같음 → 성공. resolved 감사.
       //  (b) Auth 가 달라졌지만 Firestore == Auth → 우연히 수렴. resolved 감사 (converged 표시).
       //  (c) Auth 가 달라지고 Firestore != Auth → 우리가 새 split 을 만들었음. 새 detected 감사
       //      + aborted 예외. 클라이언트가 다음 감지 사이클에서 재해결.
-      const authUserAfter = await getAuth().getUser(uid);
+      //  (d) v0.107e F48: post-write getUser 자체가 실패 → 상태 알 수 없음. 새 detected 를
+      //      auth=unknown 으로 기록해 aggregation 이 정체된 옛 detected 를 대체하도록. 클라이언트
+      //      에는 aborted 로 재시도 신호.
+      let authUserAfter: any;
+      try {
+        authUserAfter = await getAuth().getUser(uid);
+      } catch (recheckErr) {
+        // (d) auth 재조회 실패.
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'system.role_split_detected',
+          target: `users/${authUser.uid}`,
+          request_id: requestId,
+          result: 'error',
+          message: `role_split: auth=unknown firestore=${authRole ?? 'null'} (post_write_auth_recheck_failed: ${(recheckErr as Error).message})`,
+        });
+        throw new HttpsError(
+          'aborted',
+          `auth_recheck_failed: ${(recheckErr as Error).message} — Firestore 는 이미 ${authRole ?? 'null'} 로 갱신됨. 새 detected 감사됨. 클라이언트 재감지 후 재시도.`,
+        );
+      }
       const claimAfter =
         (authUserAfter.customClaims as { role?: unknown } | undefined) ?? {};
       const authRoleAfter: Role | null =
@@ -192,6 +213,11 @@ export const usersResolveRoleSplit = onCall(
           ? (claimAfter.role as Role)
           : null;
       const authRoleAfterAsExpected = authRoleAfter ?? 'null';
+
+      // v0.107e F50: 응답에 반환할 실제 최종 상태. (a) 는 pre-write authRole 과 같음. (b) 는
+      // authRoleAfter/firestoreRoleAfter 최종값. (c) 는 throw 되므로 여기 안 옴.
+      let responseAuthRole: Role | null = authRole;
+      let responseNewFirestoreRole: Role | null = authRole;
 
       if (authRoleAfterAsExpected === authRoleAsExpected) {
         // (a) 정상.
@@ -216,6 +242,9 @@ export const usersResolveRoleSplit = onCall(
             : null;
         if (authRoleAfter === firestoreRoleAfter) {
           // (b) 우연히 수렴. 실제 sync 됐으므로 resolved 로 인정.
+          // v0.107e F50: 응답은 실제 최종값 (post-write) 반환.
+          responseAuthRole = authRoleAfter;
+          responseNewFirestoreRole = firestoreRoleAfter;
           await writeAudit({
             actor: user.email,
             role: user.role,
@@ -246,9 +275,9 @@ export const usersResolveRoleSplit = onCall(
       return {
         primaryEmail: email,
         uid: authUser.uid,
-        authRole,
+        authRole: responseAuthRole,
         previousFirestoreRole,
-        newFirestoreRole: authRole,
+        newFirestoreRole: responseNewFirestoreRole,
       };
     } catch (err) {
       const mapped =

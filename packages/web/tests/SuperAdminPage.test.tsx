@@ -792,6 +792,19 @@ describe('SuperAdminPage', () => {
       expect(err.textContent).toContain('boom');
     });
 
+    it('v0.107e F49: mutate 실패 시에도 unresolvedRoleSplits query invalidate (aborted → 새 detected)', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      mockResolveMutate.mockImplementation((_vars: any, opts: any) => {
+        opts?.onError?.(new Error('aborted: ...'));
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-x'));
+      expect(mockInvalidateQueries).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['audit', 'unresolvedRoleSplits'] }),
+      );
+    });
+
     it('v0.107c: raw uid target 안전 slice', () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       mockUnresolved({

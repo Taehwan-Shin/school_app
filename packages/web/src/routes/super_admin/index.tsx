@@ -97,6 +97,9 @@ export function SuperAdminPage() {
         onError: (err) => {
           setResolvingUid(null);
           setResolveError(err.message);
+          // v0.107e F49: 서버가 aborted 로 새 detected 를 기록했을 수 있음. 클라이언트도
+          // unresolved cache 를 즉시 무효화해서 옛 CAS row 를 재시도하지 않도록.
+          reloadUnresolved();
         },
       },
     );
