@@ -221,16 +221,24 @@ export function SuperAdminPage() {
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
-          {/* v0.110b F59: scanIncomplete 이면 부분 집계이므로 `N+` 접미어로 「최소값 표시」
-              (실제 미해결은 더 많을 수 있음). tooltip 에서 스캔 window 초과 안내. */}
+          {/* v0.110c F61: scanIncomplete 방향 분리 표기.
+              - detectedHasMore=true & resolvedHasMore=false: 「최소 N건」 확정 → `N+` (하한).
+              - resolvedHasMore=true: 스캔 밖 resolved 가 현재 unresolved 를 실제로 해결
+                했을 수 있음 → N 이 과대. 방향 불확실 → `N?`.
+              - 둘 다 완전: 확정 count. */}
           <KpiCard
             label="미해결 role_split"
             value={
               unresolvedQuery.isError
                 ? '—'
-                : scanIncomplete
-                  ? `${unresolvedQuery.data?.entries.length ?? 0}+`
-                  : unresolvedQuery.data?.entries.length ?? 0
+                : (() => {
+                    const count = unresolvedQuery.data?.entries.length ?? 0;
+                    const detectedMore = unresolvedQuery.data?.detectedHasMore ?? false;
+                    const resolvedMore = unresolvedQuery.data?.resolvedHasMore ?? false;
+                    if (resolvedMore) return `${count}?`;
+                    if (detectedMore) return `${count}+`;
+                    return count;
+                  })()
             }
             loading={unresolvedQuery.isLoading}
             href="nav"

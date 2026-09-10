@@ -1209,7 +1209,8 @@ describe('SuperAdminPage', () => {
       expect(card.textContent).toContain('3+');
     });
 
-    it('v0.110b F59: scanIncomplete=true (resolvedHasMore) 도 `+` 접미어', () => {
+    // v0.110c F61: resolvedHasMore 는 방향 불확실 (N 이 과대일 수 있음) → `N?` 로 표시.
+    it('v0.110c F61: resolvedHasMore=true → `N?` (방향 불확실)', () => {
       const entries = Array.from({ length: 2 }, (_, i) => ({
         id: `log-${i}`,
         actor: 'super@cam.hs.kr',
@@ -1235,7 +1236,38 @@ describe('SuperAdminPage', () => {
       });
       renderWithRouter(<SuperAdminPage />);
       const card = screen.getByTestId('kpi-card-미해결 role_split');
-      expect(card.textContent).toContain('2+');
+      expect(card.textContent).toContain('2?');
+      // `2+` 로 오도 되지 않아야.
+      expect(card.textContent).not.toMatch(/2\+/);
+    });
+
+    it('v0.110c F61: 둘 다 hasMore=true → resolvedHasMore 방향 불확실이 우선 → `N?`', () => {
+      const entries = Array.from({ length: 4 }, (_, i) => ({
+        id: `log-${i}`,
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'system.role_split_detected',
+        target: `users/uid-${i}`,
+        request_id: 'r',
+        result: 'error' as const,
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      }));
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries,
+          scannedDetected: 500,
+          scannedResolved: 500,
+          detectedHasMore: true,
+          resolvedHasMore: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-미해결 role_split');
+      expect(card.textContent).toContain('4?');
     });
 
     // v0.110b F60: 반응형 grid — md 2열 · lg 3열 · xl 5열.
