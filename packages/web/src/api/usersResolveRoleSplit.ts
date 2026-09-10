@@ -5,6 +5,9 @@ import type { Role } from '@school-app/shared';
 
 export interface UsersResolveRoleSplitRequest {
   uid: string;
+  // v0.107b F42: CAS — detected 이벤트에서 파싱한 기대치. 서버가 실제와 대조.
+  expectedAuthRole: Role | 'null';
+  expectedFirestoreRole: Role | 'null';
 }
 
 export interface UsersResolveRoleSplitResponse {

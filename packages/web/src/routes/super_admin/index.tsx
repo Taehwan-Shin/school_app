@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -39,25 +39,62 @@ export function SuperAdminPage() {
   // 계정은 이 카드에서 감지되지 않는다. 이는 sample-scope (표시 최대 N건) 와 다른, 트리거
   // 범위의 제약이다. hasMore 는 감지된 splits 자체가 N건을 초과할 때만 나타난다.
   const ROLE_SPLIT_SAMPLE_SIZE = 50;
-  const roleSplitFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
+  const detectedFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
     filterAction: 'system.role_split_detected',
   });
-  const roleSplitEntries = roleSplitFeed.entries;
+  // v0.107b F41: resolved 이벤트도 함께 받아서 target 별 최신 resolved.at 을 계산. detected
+  // 이벤트 중 resolved 가 그 이후에 있는 것은 해결된 상태 → 카드에서 제외 (append-only 이벤트
+  // 를 그대로 두면 영구 「미해결」 표시).
+  const resolvedFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
+    filterAction: 'system.role_split_resolved',
+  });
+  const latestResolvedAtByTarget = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of resolvedFeed.entries) {
+      const prev = map.get(e.target) ?? -Infinity;
+      if (e.at > prev) map.set(e.target, e.at);
+    }
+    return map;
+  }, [resolvedFeed.entries]);
+  const roleSplitEntries = useMemo(
+    () =>
+      detectedFeed.entries.filter(
+        (e) => e.at > (latestResolvedAtByTarget.get(e.target) ?? -Infinity),
+      ),
+    [detectedFeed.entries, latestResolvedAtByTarget],
+  );
+  const roleSplitFeed = detectedFeed; // 이하 기존 loading/error 참조 유지
   const roleSplitHasMore = roleSplitFeed.hasMore;
 
   // v0.107: 감지된 split 을 super_admin 이 한 클릭으로 Firestore = Auth 로 동기화.
-  // audit target 은 `users/${uid}` 형식이므로 uid 를 추출해서 callable 에 전달 (callable 이
-  // 서버측에서 uid → email 조회 후 Firestore 갱신).
+  // v0.107b F42: message 에서 auth/firestore 기대치 파싱 → CAS 로 서버가 stale write 방지.
   const resolveMutation = useUsersResolveRoleSplit();
   const [resolvingUid, setResolvingUid] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
 
-  const handleResolve = (entryTarget: string) => {
-    const uid = entryTarget.startsWith('users/') ? entryTarget.slice(6) : entryTarget;
+  const parseSplitMessage = (
+    message: string | undefined,
+  ): { auth: 'super_admin' | 'admin' | 'teacher' | 'null'; firestore: 'super_admin' | 'admin' | 'teacher' | 'null' } | null => {
+    if (!message) return null;
+    const m = message.match(/role_split:\s*auth=(\S+)\s+firestore=(\S+)/);
+    if (!m) return null;
+    const valid = (v: string): v is 'super_admin' | 'admin' | 'teacher' | 'null' =>
+      v === 'super_admin' || v === 'admin' || v === 'teacher' || v === 'null';
+    if (!valid(m[1]) || !valid(m[2])) return null;
+    return { auth: m[1], firestore: m[2] };
+  };
+
+  const handleResolve = (entry: { target: string; message: string }) => {
+    const uid = entry.target.startsWith('users/') ? entry.target.slice(6) : entry.target;
     if (!uid) return;
+    const parsed = parseSplitMessage(entry.message);
+    if (!parsed) {
+      setResolveError('감사 메시지에서 auth/firestore role 을 파싱할 수 없음 — 옛 형식 이벤트일 수 있음');
+      return;
+    }
     if (
       !window.confirm(
-        `Firestore role 을 Auth 원본으로 덮어씁니다. uid=${uid}\n\n계속하시겠습니까?`,
+        `Firestore role 을 Auth 원본으로 덮어씁니다.\nuid=${uid}\nauth=${parsed.auth}, firestore=${parsed.firestore}\n\n계속하시겠습니까?`,
       )
     ) {
       return;
@@ -65,11 +102,12 @@ export function SuperAdminPage() {
     setResolvingUid(uid);
     setResolveError(null);
     resolveMutation.mutate(
-      { uid },
+      { uid, expectedAuthRole: parsed.auth, expectedFirestoreRole: parsed.firestore },
       {
         onSuccess: () => {
           setResolvingUid(null);
-          roleSplitFeed.reload();
+          detectedFeed.reload();
+          resolvedFeed.reload();
         },
         onError: (err) => {
           setResolvingUid(null);
@@ -259,7 +297,7 @@ export function SuperAdminPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleResolve(e.target)}
+                      onClick={() => handleResolve({ target: e.target, message: e.message ?? '' })}
                       disabled={isThisRowResolving || resolveMutation.isPending}
                       data-testid={`super-admin-role-split-resolve-${e.id}`}
                       title="Firestore role 을 Auth 원본으로 덮어씀"
