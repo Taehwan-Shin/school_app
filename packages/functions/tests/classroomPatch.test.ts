@@ -7,9 +7,13 @@ vi.mock('../src/audit/writeAudit.js', () => ({
 }));
 
 const mockCoursesPatch = vi.fn();
+const mockCoursesTeachersGet = vi.fn();
 const mockGetClassroomClient = vi.fn(() => ({
   courses: {
     patch: mockCoursesPatch,
+    teachers: {
+      get: mockCoursesTeachersGet,
+    },
   },
 }));
 vi.mock('../src/google/classroomClient.js', () => ({
@@ -262,6 +266,81 @@ describe('classroomPatch unit tests', () => {
       request_id: 'req-test-123',
       result: 'denied',
       message: 'google_upstream_denied: insufficient permissions',
+    });
+  });
+
+  // v0.115b F72 시나리오 8: role=admin -> teachers.get 사전 검증 우회
+  it('does not pre-check teacher membership for admin role', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', courseState: 'ARCHIVED' },
+    });
+
+    const req = createRequest({
+      email: 'admin@cam.hs.kr',
+      role: 'admin',
+      data: { id: 'c-101', courseState: 'ARCHIVED' },
+    });
+    await classroomPatch.run(req);
+
+    expect(mockCoursesTeachersGet).not.toHaveBeenCalled();
+    expect(mockCoursesPatch).toHaveBeenCalledTimes(1);
+  });
+
+  // v0.115b F72 시나리오 9: role=teacher · teachers.get 성공 -> 정상 patch
+  it('proceeds with patch when teacher is a member of the target course', async () => {
+    mockCoursesTeachersGet.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'teacher@cam.hs.kr' },
+    });
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', courseState: 'ARCHIVED' },
+    });
+
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { id: 'c-101', courseState: 'ARCHIVED' },
+    });
+    await classroomPatch.run(req);
+
+    expect(mockCoursesTeachersGet).toHaveBeenCalledWith({
+      courseId: 'c-101',
+      userId: 'me',
+    });
+    expect(mockCoursesPatch).toHaveBeenCalledTimes(1);
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'teacher',
+        action: 'classroom.write',
+        result: 'ok',
+      }),
+    );
+  });
+
+  // v0.115b F72 시나리오 10: role=teacher · teachers.get 404 -> permission-denied
+  it('rejects teacher when not a member of the target course and writes denied audit', async () => {
+    const notFoundErr: any = new Error('Requested entity was not found.');
+    notFoundErr.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFoundErr);
+
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { id: 'c-101', courseState: 'ARCHIVED' },
+    });
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'teacher_not_in_course',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith({
+      actor: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      action: 'classroom.write',
+      target: 'courses/c-101',
+      request_id: 'req-test-123',
+      result: 'denied',
+      message: 'teacher_not_in_course',
     });
   });
 });

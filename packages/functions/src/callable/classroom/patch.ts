@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
+import { assertTeacherInCourseIfTeacherRole } from '../../authz/classroomTeacherMembership.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getClassroomClient, type ClassroomCourse } from '../../google/classroomClient.js';
 
@@ -106,6 +107,10 @@ export const classroomPatch = onCall(
       const courseState = data.courseState;
 
       const classroom = getClassroomClient(user.googleAccessToken);
+      // v0.115b F72: app-role teacher 는 본인 담당 코스만 아카이브/복구 가능.
+      // Google Workspace 관리자이면서 app-role 만 teacher 로 매핑된 계정이
+      // 담당 외 코스를 조작하는 경로를 앱 층에서 차단.
+      await assertTeacherInCourseIfTeacherRole(classroom, user.role, id);
       const res = await classroom.courses.patch({
         id,
         updateMask: 'courseState',
