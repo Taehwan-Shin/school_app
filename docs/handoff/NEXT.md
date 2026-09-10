@@ -1,23 +1,21 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **지금 이 파일에 열린 오더 없음.** v0.106 (server-side role_split_detected action) 병합 완료 (`9db5dd0`).
-> v0.104 (audit multi-action filter) 는 별 브랜치 `feat/audit-multi-action-v104 @ 470d854` Codex 감사 응답 6시간+ 지연.
+> **v0.104 병합 완료** (`5b721c5`) · v0.107 role_split 자동 복구 진행 중 (서버 완료, client UI 개발 중).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `5b721c5` v0.104 — audit multi-action filter (Firestore `in` 최대 30 · dedup+fail-closed · role=group).
 - `9db5dd0` v0.106 — server-side role_split_detected action (client filter 제거 · caveat trigger-scope 단일화 · F38 pagination 가드).
-- `ef6fb16` v0.105 — SuperAdminPage role_split 감시 카드 (users.read/error sample · client filter · pagination 안내).
-- `eca8056` v0.103 — Say Briefly revert + 아이콘 + 가독성 (masstige.io 복원, lucide-react, AA 대비).
-- `2b12361` v0.102 — Say Briefly 실험 (v0.103 에서 revert).
+- `ef6fb16` v0.105 — SuperAdminPage role_split 감시 카드.
+- `eca8056` v0.103 — Say Briefly revert + 아이콘 + 가독성.
 - `bb5a8f5` v0.101 — audit log filterAction.
 
 ## 다음 후보 (Head 자율 실행 예정)
 
 STATUS.md 참조:
-- **v0.104 재요청** — audit 다중 액션 필터 Codex 감사 6시간+ 무응답. 재감사 요청 또는 병합 재검토.
-- **role_split 자동 복구 callable** — 감지 후 super_admin 이 클릭으로 Auth ↔ Firestore 동기화 (Auth 원본을 Firestore 로 반영).
-- **감사 로그 CSV/JSON export** — 감사 페이지에서 현재 필터 기준 export 버튼.
+- **v0.107 완료** — role_split 자동 복구 callable + super_admin 카드 복구 버튼. 서버 (`usersResolveRoleSplit`) 완료. client UI 개발 중.
+- **감사 로그 CSV/JSON export** — 감사 페이지에서 현재 필터 기준 export 버튼. ~~CSV export 는 이미 구현됨 (AuditLogTable.tsx handleExportCsv). JSON export 는 검토 대상~~.
 - **(c) 실 Workspace 확인 workflow** — v0.94~v0.101 판정불가 소거.
 - **(d)** 사용자 지시 그 외.
 

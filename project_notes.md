@@ -1074,3 +1074,46 @@ v0.107 후보:
 - (c) 실 Workspace 확인 workflow (v0.94~ 판정불가 소거).
 - role_split 자동 복구 (Auth ↔ Firestore 동기화) callable.
 - 감사 로그 CSV/JSON export.
+
+---
+
+## 2026-09-10 · v0.104 audit multi-action filter (2 라운드 감사 · 병합)
+
+### 진행 요약
+
+v0.101 단일 액션 필터 (server `==`) 를 다중 액션 필터 (Firestore `in`, 최대 30) 로 확장. 서버 필터 + client checkbox multi-select popover (URL `?action=a,b,c`). Codex 6시간+ 응답 지연 후 F39 (정규화 배열 계약 불일치) · F40 (WAI-ARIA listbox → checkbox pattern) 지적 해결.
+
+### 커밋 이력 (feat/audit-multi-action-v104)
+
+| 커밋 | 요약 |
+|---|---|
+| `470d854` | feat(functions,web): v0.104 audit log 다중 액션 필터 (readAudit filterActions 배열 · list.ts input 정제 · AuditLogTable multi-checkbox popover · URL 콤마 구분 · 10 시나리오) |
+| `5898142` | fix(functions,web): v0.104b F39/F40 대응 (dedup+30 fail-closed callable 경계 이동 · readAudit slice 제거 · listbox→group role + aria-multiselectable 제거 · 4 회귀) |
+
+### v0.104 → v0.104b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.104 | `470d854` | 7/2/2 | F39 readAudit 이 조용히 slice(0,30) 잘라서 callable audit log 는 원본 전체 적용된 것처럼 남음 · F40 role=listbox 안에 checkbox 자식이라 semantics 불일치 |
+| v0.104b | `5898142` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `5b721c5` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — hosting + functions 전체 재배포.
+- 로컬 관문: shared 27 + functions 407 + web 596 = 1030 unit.
+
+### 배운 것
+
+- **정규화는 경계에서 한 번, 신뢰는 아래에서** — v0.104 처음엔 readAudit 이 방어적으로 dedup + slice 하는 사이 callable 은 원본 배열을 감사 log 에 남기고 있었음. 두 곳에서 각각 정규화 = 「무엇이 실제 적용됐는가」 를 감사가 잘못 기술. Fix: callable 이 유일한 정규화 지점, readAudit 은 상위 계약 신뢰. 이렇게 하면 callable 이 만드는 정규화 배열이 query·audit·success message 모두에 동일하게 흘러 「기록 = 실행」 이 성립.
+- **defense-in-depth 이 감사 무결성을 깰 수 있다** — 방어적 slice 는 「어쨌든 초과분은 잘라서 계속 진행」 이라는 실패 은닉. 감사 log 는 「31개 적용」 이라고 기록되지만 실제 30 개만. Codex 는 이 불일치를 잡음. 지금 방식: fail-closed (거부 + 감사 log 에 명시적 error 기록) → 초과 요청을 조용히 숨기지 않고 caller 에게 실체를 알림.
+- **WAI-ARIA 는 role 과 자식 구조가 짝** — `role=listbox` 는 자식이 `role=option` 이어야. checkbox 를 listbox 안에 넣으면 스크린리더가 「option」 을 기대해서 keyboard/selection semantics 어긋남. checkbox 묶음은 `role=group` (aria-multiselectable 은 listbox 전용 · group 에 붙이면 무효). 공식 참고: WAI-ARIA APG Checkbox Pattern.
+- **Codex 응답 지연 시 병렬 슬라이스가 통함** — v0.104 감사 6시간+ 지연 동안 v0.105/v0.106 별 브랜치로 병합·배포 완료. 재요청 (수동 pinging) 은 감사 응답이 오지 않을 때 마지막 수단. 이번엔 재요청 후 8분 만에 응답.
+
+### 다음 세션에 이어갈 것
+
+v0.107 슬라이스 진행 중:
+- role_split 자동 복구 callable (usersResolveRoleSplit) — Firestore = Auth 동기화.
+- 신규 action `system.role_split_resolved`.
+- super_admin 카드 복구 버튼.
+- 서버 완료, client UI 진행 중.
