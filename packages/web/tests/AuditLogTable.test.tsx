@@ -1038,6 +1038,69 @@ describe('AuditLogTable component', () => {
     expect(capturedSearch).toBe('');
   });
 
+  // v0.111: role_split quick filter preset.
+  it('v0.111: role_split preset 클릭 → action=system.role_split_detected,system.role_split_resolved 로 URL 갱신', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    fireEvent.click(btn);
+
+    // URL 에 두 action 이 콤마 구분으로 설정.
+    expect(capturedSearch).toContain('action=');
+    expect(capturedSearch).toContain('system.role_split_detected');
+    expect(capturedSearch).toContain('system.role_split_resolved');
+  });
+
+  it('v0.111: role_split preset 이미 활성일 때 재클릭 → clear', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?action=system.role_split_detected,system.role_split_resolved',
+        ]}
+      >
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    // 활성 상태여야.
+    expect(btn.className).toContain('bg-fg-primary');
+    fireEvent.click(btn);
+    // action param 사라져야.
+    expect(capturedSearch).not.toContain('action=');
+  });
+
+  it('v0.111: role_split preset 은 정확히 두 action 이 있을 때만 활성', () => {
+    // 하나만 → 비활성.
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?action=system.role_split_detected']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    expect(btn.className).not.toContain('bg-fg-primary text-canvas');
+  });
+
   it('renders actor as a link to user detail when actor ends with @cam.hs.kr, and plain text for non-domain actor', () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
