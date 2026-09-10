@@ -64,8 +64,10 @@ vi.mock('../src/api/usersResolveRoleSplit', () => ({
   useUsersResolveRoleSplit: () => mockUseUsersResolveRoleSplit(),
 }));
 
-// v0.107f F51: 상태 재확인 hook mock.
+// v0.107f F51 / v0.109c F57: 상태 재확인 hook mock. mutate + mutateAsync 둘 다 필요
+// (v0.109c 부터 auto batch 는 mutateAsync 사용).
 const mockRecheckMutate = vi.fn();
+const mockRecheckMutateAsync = vi.fn();
 const mockUseUsersRecheckRoleSplit = vi.fn();
 vi.mock('../src/api/usersRecheckRoleSplit', () => ({
   useUsersRecheckRoleSplit: () => mockUseUsersRecheckRoleSplit(),
@@ -122,8 +124,12 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockRecheckMutate.mockReset();
+    mockRecheckMutateAsync.mockReset();
+    // 기본: mutateAsync 는 즉시 resolve.
+    mockRecheckMutateAsync.mockResolvedValue({});
     mockUseUsersRecheckRoleSplit.mockReturnValue({
       mutate: mockRecheckMutate,
+      mutateAsync: mockRecheckMutateAsync,
       isPending: false,
       error: null,
     });
@@ -857,7 +863,7 @@ describe('SuperAdminPage', () => {
       expect(screen.queryByTestId('super-admin-role-split-resolve-log-rs-unknown')).toBeNull();
     });
 
-    it('v0.107f F51: recheck 버튼 클릭 → recheckMutation.mutate({ uid }) 호출 (confirm 없이)', () => {
+    it('v0.107f F51 / v0.109c: recheck 버튼 클릭 → mutate({ uid }) 호출 (mount auto 는 mutateAsync)', () => {
       const unknownEntry: AuditLogEntryRead = {
         ...roleSplitEntry,
         id: 'log-rs-unknown',
@@ -866,12 +872,12 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
-      // v0.109: mount 시 자동 recheck 1회 (unknown row). button click 추가로 2회 총.
-      const callsAfterMount = mockRecheckMutate.mock.calls.length;
+      // v0.109c: mount 시 auto batch 는 mutateAsync 사용. 수동 button click 은 mutate.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledWith({ uid: 'uid-target-1' });
+      const mutateBefore = mockRecheckMutate.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown'));
-      expect(mockRecheckMutate.mock.calls.length).toBeGreaterThan(callsAfterMount);
-      const lastCall = mockRecheckMutate.mock.calls.at(-1);
-      expect(lastCall?.[0]).toEqual({ uid: 'uid-target-1' });
+      expect(mockRecheckMutate.mock.calls.length).toBeGreaterThan(mutateBefore);
+      expect(mockRecheckMutate.mock.calls.at(-1)?.[0]).toEqual({ uid: 'uid-target-1' });
       // resolveMutation 은 호출 안 됨.
       expect(mockResolveMutate).not.toHaveBeenCalled();
     });
@@ -885,6 +891,7 @@ describe('SuperAdminPage', () => {
       mockUnresolved({ entries: [unknownEntry] });
       mockUseUsersRecheckRoleSplit.mockReturnValue({
         mutate: mockRecheckMutate,
+        mutateAsync: mockRecheckMutateAsync,
         isPending: true,
         error: null,
       });
@@ -904,8 +911,9 @@ describe('SuperAdminPage', () => {
       expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-fu')).toBeDefined();
     });
 
-    // v0.109: 카드 mount 시 unknown row 자동 recheck.
-    it('v0.109: mount 시 auth=unknown row 자동으로 recheckMutation 트리거', () => {
+    // v0.109c F57: 자동 재확인은 mutateAsync + Promise.allSettled 사용 (mutate consecutive
+    // callback 오류 방지).
+    it('v0.109c F57: mount 시 auth=unknown row 는 mutateAsync 로 자동 트리거', () => {
       const unknownEntry: AuditLogEntryRead = {
         ...roleSplitEntry,
         id: 'log-rs-auto',
@@ -914,11 +922,7 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
-      // v0.109b F56: batch options 도 함께 전달됨.
-      expect(mockRecheckMutate).toHaveBeenCalledWith(
-        { uid: 'uid-auto-1' },
-        expect.anything(),
-      );
+      expect(mockRecheckMutateAsync).toHaveBeenCalledWith({ uid: 'uid-auto-1' });
     });
 
     it('v0.109: parsable row 는 auto recheck 트리거하지 않음', () => {
@@ -929,7 +933,7 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [parsableEntry] });
       renderWithRouter(<SuperAdminPage />);
-      expect(mockRecheckMutate).not.toHaveBeenCalled();
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
     });
 
     it('v0.109: 같은 uid 는 auto recheck 를 두 번 호출하지 않음 (session-scoped Set)', () => {
@@ -941,14 +945,13 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       const { rerender } = renderWithRouter(<SuperAdminPage />);
-      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
-      // 같은 entries 로 rerender — auto recheck 재트리거 안 되어야.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(1);
       rerender(
         <MemoryRouter>
           <SuperAdminPage />
         </MemoryRouter>,
       );
-      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(1);
     });
 
     it('v0.109: loading 중엔 auto recheck 안 함', () => {
@@ -959,7 +962,7 @@ describe('SuperAdminPage', () => {
         error: null,
       });
       renderWithRouter(<SuperAdminPage />);
-      expect(mockRecheckMutate).not.toHaveBeenCalled();
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
     });
 
     it('v0.109: isError 중엔 auto recheck 안 함', () => {
@@ -970,10 +973,10 @@ describe('SuperAdminPage', () => {
         error: new Error('boom'),
       });
       renderWithRouter(<SuperAdminPage />);
-      expect(mockRecheckMutate).not.toHaveBeenCalled();
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
     });
 
-    // v0.109b F56: batch limit + 단일 invalidate.
+    // v0.109b F56 · v0.109c F57: batch limit + Promise.allSettled 후 단일 invalidate.
     it('v0.109b F56: 다중 unknown 이 있어도 AUTO_RECHECK_BATCH_LIMIT (5) 만 트리거', () => {
       const entries: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
         ...roleSplitEntry,
@@ -984,10 +987,10 @@ describe('SuperAdminPage', () => {
       mockUnresolved({ entries });
       renderWithRouter(<SuperAdminPage />);
       // 10 unknown 있어도 최대 5개만 trigger.
-      expect(mockRecheckMutate).toHaveBeenCalledTimes(5);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
     });
 
-    it('v0.109b F56: batch settle 후 unresolvedRoleSplits query 를 한 번만 invalidate', () => {
+    it('v0.109c F57: Promise.allSettled 완료 후 unresolvedRoleSplits query 를 한 번만 invalidate', async () => {
       const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
         ...roleSplitEntry,
         id: `log-rs-batch-${i}`,
@@ -995,19 +998,21 @@ describe('SuperAdminPage', () => {
         message: 'role_split: auth=unknown firestore=admin',
       }));
       mockUnresolved({ entries });
-      // 각 mutate 호출의 onSuccess 를 즉시 실행 (batch 전체 settle 시뮬).
-      mockRecheckMutate.mockImplementation((_vars: any, opts: any) => {
-        opts?.onSuccess?.();
-      });
+      // mutateAsync 3번 모두 resolve.
+      mockRecheckMutateAsync.mockResolvedValue({});
       renderWithRouter(<SuperAdminPage />);
-      // 3 mutations, 마지막 settle 시 한 번만 invalidate.
+      // 3 mutations 동시 호출.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(3);
+      // Promise.allSettled 이후 invalidate 호출. microtask 대기.
+      await Promise.resolve();
+      await Promise.resolve();
       const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
         JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
       );
       expect(invalidateCalls.length).toBe(1);
     });
 
-    it('v0.109b F56: 3 mutation 중 1 error 여도 batch settle 후 invalidate 는 한 번', () => {
+    it('v0.109c F57: 일부 mutation 이 reject 여도 allSettled → invalidate 한 번', async () => {
       const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
         ...roleSplitEntry,
         id: `log-rs-mix-${i}`,
@@ -1016,12 +1021,36 @@ describe('SuperAdminPage', () => {
       }));
       mockUnresolved({ entries });
       let callIdx = 0;
-      mockRecheckMutate.mockImplementation((_vars: any, opts: any) => {
-        if (callIdx === 1) opts?.onError?.(new Error('one failed'));
-        else opts?.onSuccess?.();
-        callIdx += 1;
+      mockRecheckMutateAsync.mockImplementation(() => {
+        const idx = callIdx++;
+        return idx === 1 ? Promise.reject(new Error('one failed')) : Promise.resolve({});
       });
       renderWithRouter(<SuperAdminPage />);
+      await Promise.resolve();
+      await Promise.resolve();
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
+    });
+
+    it('v0.109c F57: batch 5개 중간에 하나 reject 여도 단일 invalidate (batch 상한 검증)', async () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-limit-${i}`,
+        target: `users/uid-limit-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      mockRecheckMutateAsync.mockImplementation((v: any) => {
+        return v.uid.endsWith('-2')
+          ? Promise.reject(new Error('boom'))
+          : Promise.resolve({});
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      await Promise.resolve();
+      await Promise.resolve();
       const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
         JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
       );

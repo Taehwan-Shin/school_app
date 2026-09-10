@@ -144,8 +144,13 @@ export function SuperAdminPage() {
   // 하지 않음. Recheck 후에도 여전히 unknown 이면 수동 버튼으로 재시도.
   //
   // v0.109b F56: 한 mount 당 batch limit 로 처리량 상한 (N unknown 이 있어도 최대 5개만
-  // 자동 trigger). 각 mutation 이 개별 invalidate 하지 않고 batch 전체 settle 후 한 번만
-  // invalidate 해서 Functions 증폭 · aggregation refetch 폭주 방지. 초과분은 수동 버튼으로.
+  // 자동 trigger). batch 전체 settle 후 한 번만 invalidate 해서 Functions 증폭 · aggregation
+  // refetch 폭주 방지. 초과분은 수동 버튼으로.
+  //
+  // v0.109c F57: TanStack Query 는 같은 mutation observer 에 consecutive `mutate` 호출 시
+  // 마지막 per-call callback 만 실행 (공식 문서). pending 카운터 방식이 실패. `mutateAsync`
+  // 로 Promise 를 받아 `Promise.allSettled` 로 batch 완료를 기다린 뒤 한 번만 invalidate.
+  // 참고: https://tanstack.com/query/latest/docs/framework/react/guides/mutations#consecutive-mutations
   const AUTO_RECHECK_BATCH_LIMIT = 5;
   const autoRecheckedUids = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -161,20 +166,11 @@ export function SuperAdminPage() {
       targets.push(uid);
     }
     if (targets.length === 0) return;
-    // batch settle 카운터. 마지막 mutation 이 settle 되면 한 번만 invalidate.
-    let pending = targets.length;
-    const onBatchSettle = () => {
-      pending -= 1;
-      if (pending <= 0) {
-        qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
-      }
-    };
-    for (const uid of targets) {
-      recheckMutation.mutate(
-        { uid },
-        { onSuccess: onBatchSettle, onError: onBatchSettle },
-      );
-    }
+    Promise.allSettled(
+      targets.map((uid) => recheckMutation.mutateAsync({ uid })),
+    ).then(() => {
+      qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
+    });
     // recheckMutation 은 안정 참조 (React Query), roleSplitEntries 만 dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleSplitEntries, unresolvedQuery.isLoading, unresolvedQuery.isError]);
