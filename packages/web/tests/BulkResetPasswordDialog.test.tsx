@@ -160,12 +160,18 @@ describe('BulkResetPasswordDialog component', () => {
     expect(confirmInput.getAttribute('data-testid')).toBe('bulk-reset-password-confirm');
   });
 
-  // v0.113b F65: dialog close 시 평문 비밀번호 state 즉시 clear.
-  it('v0.113b F65: close 시 평문 비밀번호 state 즉시 clear', () => {
+  // v0.113b F65 · v0.113c F68: 「취소」 버튼 클릭 → handleOpenChange 를 거쳐 state clear.
+  // 그 뒤 재오픈 시 두 입력 모두 비어있어야.
+  it('v0.113c F68: 「취소」 버튼 클릭 → clearSensitiveState 실행 · 재오픈 시 입력 비었음', () => {
     const emails = ['a@cam.hs.kr'];
-    const onOpenChange = vi.fn();
+    // 부모 open state 를 외부 변수로 관리해서 취소 클릭 → onOpenChange(false) → 다시
+    // open=true 로 rerender 하는 흐름 시뮬.
+    let open = true;
+    const setOpen = (v: boolean) => {
+      open = v;
+    };
     const { rerender } = renderWithClient(
-      <BulkResetPasswordDialog open={true} onOpenChange={onOpenChange} emails={emails} />,
+      <BulkResetPasswordDialog open={open} onOpenChange={setOpen} emails={emails} />,
     );
     fireEvent.change(screen.getByTestId('bulk-reset-password-new'), {
       target: { value: 'longpass1' },
@@ -173,28 +179,31 @@ describe('BulkResetPasswordDialog component', () => {
     fireEvent.change(screen.getByTestId('bulk-reset-password-confirm'), {
       target: { value: 'longpass1' },
     });
-    // 닫는 액션 (취소 버튼 클릭) 을 시뮬. Radix Dialog 는 onOpenChange(false) 호출.
-    // 여기서는 open=false 로 rerender 후 다시 open=true 로 rerender 하며 state clear 검증.
+    // 취소 버튼을 실제로 클릭 (handleOpenChange 경로).
+    fireEvent.click(screen.getByTestId('bulk-reset-password-cancel-btn'));
+    expect(open).toBe(false);
+    // 닫힌 상태 rerender.
     rerender(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter>
-          <BulkResetPasswordDialog open={false} onOpenChange={onOpenChange} emails={emails} />
+          <BulkResetPasswordDialog open={false} onOpenChange={setOpen} emails={emails} />
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    // 실제로 handleOpenChange 를 통해 clearSensitiveState 가 실행되는지 확인하려면
-    // 「취소」 버튼 클릭 후 open 다시 true 로 → 입력 비어있어야.
+    // 다시 open=true 로 (component mount 는 유지). state clear 됐어야.
     rerender(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter>
-          <BulkResetPasswordDialog open={true} onOpenChange={onOpenChange} emails={emails} />
+          <BulkResetPasswordDialog open={true} onOpenChange={setOpen} emails={emails} />
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    const newInput = screen.getByTestId('bulk-reset-password-new') as HTMLInputElement;
-    const confirmInput = screen.getByTestId('bulk-reset-password-confirm') as HTMLInputElement;
-    expect(newInput.value).toBe('');
-    expect(confirmInput.value).toBe('');
+    expect(
+      (screen.getByTestId('bulk-reset-password-new') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (screen.getByTestId('bulk-reset-password-confirm') as HTMLInputElement).value,
+    ).toBe('');
   });
 
   it('v0.113b F65: 실행 완료 후에도 dialog 가 열린 채 남아있으면 state 는 비어있음', async () => {

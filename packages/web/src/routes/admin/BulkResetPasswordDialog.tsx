@@ -182,7 +182,13 @@ export function BulkResetPasswordDialog({
               )}
             </div>
             <DialogFooter>
-              <Button variant="secondary" onClick={() => onOpenChange(false)}>
+              {/* v0.113c F68: 「취소」 는 부모 prop 직접 호출 대신 `handleOpenChange` 를 거쳐야
+                  `clearSensitiveState` 를 통과. 부모 prop 직접 호출은 clear 우회. */}
+              <Button
+                variant="secondary"
+                onClick={() => handleOpenChange(false)}
+                data-testid="bulk-reset-password-cancel-btn"
+              >
                 취소
               </Button>
               <Button
