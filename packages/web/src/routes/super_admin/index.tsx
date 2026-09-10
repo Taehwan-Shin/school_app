@@ -188,9 +188,11 @@ export function SuperAdminPage() {
     <AppShell role={role} pageTitle="슈퍼 관리자">
       <div className="space-y-8">
         {/* KPI 로우 */}
-        {/* v0.110: 미해결 role_split KPI 추가 (grid-cols-5). 클릭 시 같은 페이지의
-            role_split section 으로 anchor scroll. */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* v0.110: 미해결 role_split KPI 추가. 클릭 시 같은 페이지의 role_split section 으로
+            anchor scroll.
+            v0.110b F60: md 폭 (사이드바 240px + 좌우 padding 32px 차감) 은 5열 감당 못 함.
+            반응형 breakpoint 를 md 2열 · lg 3열 · xl 5열 로 조정해 카드 폭 확보. */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
             label="총 사용자"
             value={users.data?.users?.length ?? 0}
@@ -219,12 +221,16 @@ export function SuperAdminPage() {
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
           />
+          {/* v0.110b F59: scanIncomplete 이면 부분 집계이므로 `N+` 접미어로 「최소값 표시」
+              (실제 미해결은 더 많을 수 있음). tooltip 에서 스캔 window 초과 안내. */}
           <KpiCard
             label="미해결 role_split"
             value={
               unresolvedQuery.isError
                 ? '—'
-                : unresolvedQuery.data?.entries.length ?? 0
+                : scanIncomplete
+                  ? `${unresolvedQuery.data?.entries.length ?? 0}+`
+                  : unresolvedQuery.data?.entries.length ?? 0
             }
             loading={unresolvedQuery.isLoading}
             href="nav"

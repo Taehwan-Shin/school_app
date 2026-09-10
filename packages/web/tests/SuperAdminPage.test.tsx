@@ -1178,5 +1178,87 @@ describe('SuperAdminPage', () => {
       fireEvent.click(screen.getByTestId('kpi-card-미해결 role_split'));
       expect(scrollSpy).toHaveBeenCalledTimes(1);
     });
+
+    // v0.110b F59: scanIncomplete → 부분 집계이므로 「N+」 로 표시.
+    it('v0.110b F59: scanIncomplete=true (detectedHasMore) → 값에 `+` 접미어', () => {
+      const entries = Array.from({ length: 3 }, (_, i) => ({
+        id: `log-${i}`,
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'system.role_split_detected',
+        target: `users/uid-${i}`,
+        request_id: 'r',
+        result: 'error' as const,
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      }));
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries,
+          scannedDetected: 500,
+          scannedResolved: 500,
+          detectedHasMore: true,
+          resolvedHasMore: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-미해결 role_split');
+      expect(card.textContent).toContain('3+');
+    });
+
+    it('v0.110b F59: scanIncomplete=true (resolvedHasMore) 도 `+` 접미어', () => {
+      const entries = Array.from({ length: 2 }, (_, i) => ({
+        id: `log-${i}`,
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'system.role_split_detected',
+        target: `users/uid-${i}`,
+        request_id: 'r',
+        result: 'error' as const,
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      }));
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries,
+          scannedDetected: 100,
+          scannedResolved: 500,
+          detectedHasMore: false,
+          resolvedHasMore: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-미해결 role_split');
+      expect(card.textContent).toContain('2+');
+    });
+
+    // v0.110b F60: 반응형 grid — md 2열 · lg 3열 · xl 5열.
+    it('v0.110b F60: KPI grid 는 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries: [],
+          scannedDetected: 0,
+          scannedResolved: 0,
+          detectedHasMore: false,
+          resolvedHasMore: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-총 사용자');
+      const grid = card.parentElement;
+      expect(grid).not.toBeNull();
+      expect(grid!.className).toContain('md:grid-cols-2');
+      expect(grid!.className).toContain('lg:grid-cols-3');
+      expect(grid!.className).toContain('xl:grid-cols-5');
+    });
   });
 });
