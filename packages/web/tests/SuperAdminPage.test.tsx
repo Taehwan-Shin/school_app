@@ -598,7 +598,7 @@ describe('SuperAdminPage', () => {
   });
 
   // v0.105b (v0.106 유지): hasMore=true 시 pagination 안내 문구.
-  it('v0.106: hasMore=true → 표시 상한 초과 안내', () => {
+  it('v0.106: hasMore=true → 표시 상한 초과 안내 (loading/error 아닌 경우만)', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
     mockUseAuditLogList.mockReturnValue({
@@ -613,6 +613,45 @@ describe('SuperAdminPage', () => {
 
     const section = screen.getByTestId('super-admin-role-split-section');
     expect(section.textContent).toContain('표시 상한 초과');
+  });
+
+  // v0.106b F38: useAuditLogList 초기 cursor undefined → hasMore=true 로 떨어지므로,
+  // loading 중에는 pagination 안내를 렌더하면 안 됨 (실제 데이터 없이 존재하지 않는 pagination
+  // 을 사용자에게 안내하게 됨).
+  it('v0.106b F38: loading=true + hasMore=true → pagination 안내 없음', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: true,
+      error: null,
+      hasMore: true,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('불러오는 중');
+    expect(section.textContent).not.toContain('표시 상한 초과');
+  });
+
+  it('v0.106b F38: error + hasMore=true → pagination 안내 없음', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: new Error('boom'),
+      hasMore: true,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('감시 데이터를 불러오지 못했습니다');
+    expect(section.textContent).not.toContain('표시 상한 초과');
   });
 
   it('v0.106: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {

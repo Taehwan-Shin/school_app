@@ -179,7 +179,9 @@ export function SuperAdminPage() {
                       — 아직 조회된 적 없는 계정은 확인되지 않는다.
                     </>
                   )}
-                  {roleSplitHasMore && (
+                  {/* F38: hasMore 는 useAuditLogList 초기·오류 cursor undefined 일 때 true 로
+                      떨어지므로, 실제 데이터 로딩이 끝난 상태에서만 pagination 안내. */}
+                  {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitHasMore && (
                     <span className="ml-1 text-fg-muted">
                       (표시 상한 초과. 「전체 보기」 로 감사 페이지에서 pagination.)
                     </span>
