@@ -370,17 +370,22 @@ describe('classroomTransferOwnership unit tests', () => {
     expect(transferAudits[0][0].message).toMatch(/rollback=failed$/);
   });
 
-  // v0.116c F76 시나리오 14: patch 성공 후 audit write 실패 시, patch 성공을
-  // partial-fail 로 오분류하지 않는다 · 결과는 성공으로 반환 · teachers.delete 미시도.
-  it('returns success even when audit write fails after successful patch', async () => {
+  // v0.116c F76 / v0.116d F78 시나리오 14: patch 성공 후 audit write 최종 실패
+  // (retry 3 회 모두 reject) 시에도 성공 반환 · teachers.delete 미시도 · Cloud
+  // Logging fallback 호출 (severity=ERROR 구조 로그).
+  it('F78: returns success and logs to Cloud Logging even when audit fails 3x after patch', async () => {
     mockCoursesTeachersGet.mockResolvedValueOnce({
       data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
     });
     mockCoursesPatch.mockResolvedValueOnce({
       data: { id: 'c-101', ownerId: 'newowner@cam.hs.kr', courseState: 'ACTIVE' },
     });
-    // audit write 는 실패시킨다. 절대 partial 경로로 흘러가면 안 됨.
-    mockWriteAudit.mockRejectedValueOnce(new Error('firestore audit write timeout'));
+    // 3 회 모두 reject → helper 는 Cloud Logging fallback 사용.
+    mockWriteAudit
+      .mockRejectedValueOnce(new Error('firestore timeout 1'))
+      .mockRejectedValueOnce(new Error('firestore timeout 2'))
+      .mockRejectedValueOnce(new Error('firestore timeout 3'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const result = await classroomTransferOwnership.run(createRequest());
 
@@ -388,14 +393,56 @@ describe('classroomTransferOwnership unit tests', () => {
     expect(result.addedAsTeacher).toBe(false);
     // teachers.delete (보상) 는 절대 호출되면 안 됨.
     expect(mockCoursesTeachersDelete).not.toHaveBeenCalled();
-    // partial audit message 는 남지 않아야 함.
+    // writeAudit 은 정확히 3 회 재시도.
+    expect(mockWriteAudit).toHaveBeenCalledTimes(3);
+    // Cloud Logging structured entry 검증.
+    const structured = errorSpy.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('audit_write_failed'),
+    );
+    expect(structured).toBeDefined();
+    const payload = JSON.parse(structured![0] as string);
+    expect(payload).toMatchObject({
+      severity: 'ERROR',
+      message: 'classroom_transfer_owner_audit_write_failed',
+      request_id: 'req-test-123',
+    });
+    expect(payload.audit_entry).toMatchObject({
+      action: 'classroom.transfer_owner',
+      result: 'ok',
+    });
+    // partial audit message 는 남지 않아야 함 (모든 audit 시도는 success 시도).
     const partialAudits = mockWriteAudit.mock.calls.filter(
       (call) =>
-        call[0]?.action === 'classroom.transfer_owner' &&
         typeof call[0]?.message === 'string' &&
         call[0].message.includes('added_teacher_but_patch_failed'),
     );
     expect(partialAudits).toHaveLength(0);
+    errorSpy.mockRestore();
+  });
+
+  // v0.116d F78 시나리오 14b: audit 첫 시도 실패 후 재시도 성공 → 최종 성공.
+  it('F78: writeAudit retry succeeds on second attempt after transient failure', async () => {
+    mockCoursesTeachersGet.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
+    });
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', ownerId: 'newowner@cam.hs.kr', courseState: 'ACTIVE' },
+    });
+    mockWriteAudit
+      .mockRejectedValueOnce(new Error('firestore glitch'))
+      .mockResolvedValueOnce(undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await classroomTransferOwnership.run(createRequest());
+
+    expect(result.course.ownerId).toBe('newowner@cam.hs.kr');
+    expect(mockWriteAudit).toHaveBeenCalledTimes(2);
+    // Cloud Logging fallback 은 절대 호출되면 안 됨.
+    const structured = errorSpy.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('audit_write_failed'),
+    );
+    expect(structured).toBeUndefined();
+    errorSpy.mockRestore();
   });
 
   // v0.116c F77 시나리오 15: partial 경로가 HttpsError.details 에 rollback 상태를
@@ -423,5 +470,49 @@ describe('classroomTransferOwnership unit tests', () => {
       });
       expect(err.details.underlying).toContain('upstream unavailable');
     }
+  });
+
+  // v0.116d F79 시나리오 16: partial 경로에서 audit retry 도 모두 실패해도,
+  // 던져진 HttpsError.details 는 원래 rollback/underlying 을 유지한다 (audit
+  // failure 가 details 를 대체하지 않음).
+  it('F79: preserves partial details on throw even when audit retries all fail', async () => {
+    const notFound: any = new Error('teacher not in course');
+    notFound.response = { status: 404 };
+    mockCoursesTeachersGet.mockRejectedValueOnce(notFound);
+    mockCoursesTeachersCreate.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'newowner@cam.hs.kr' },
+    });
+    const patchErr: any = new Error('upstream unavailable');
+    patchErr.response = { status: 503 };
+    mockCoursesPatch.mockRejectedValueOnce(patchErr);
+    // audit 3 회 모두 실패.
+    mockWriteAudit
+      .mockRejectedValueOnce(new Error('audit 1'))
+      .mockRejectedValueOnce(new Error('audit 2'))
+      .mockRejectedValueOnce(new Error('audit 3'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await classroomTransferOwnership.run(createRequest());
+      throw new Error('expected throw');
+    } catch (err: any) {
+      expect(err.code).toBe('unavailable');
+      expect(err.details).toMatchObject({
+        addedTeacherButPatchFailed: true,
+        rollback: 'skipped',
+        newOwnerEmail: 'newowner@cam.hs.kr',
+      });
+      expect(err.details.underlying).toContain('upstream unavailable');
+    }
+    // 최종 실패는 Cloud Logging 에 partial 감사 payload 그대로 fallback.
+    const structured = errorSpy.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('audit_write_failed'),
+    );
+    expect(structured).toBeDefined();
+    const payload = JSON.parse(structured![0] as string);
+    expect(payload.audit_entry.message).toMatch(
+      /^added_teacher_but_patch_failed:.*rollback=skipped$/,
+    );
+    errorSpy.mockRestore();
   });
 });

@@ -32,6 +32,40 @@ const EMAIL_RE = /^[A-Za-z0-9._+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
 const ALREADY_AUDITED = Symbol('transfer_owner_already_audited');
 type AuditedHttpsError = HttpsError & { [ALREADY_AUDITED]?: true };
 
+// v0.116d F78: audit_log 저장은 accountability 규율상 반드시 durable 이어야
+// 하지만 Firestore 쓰기는 드물게 실패 (network glitch · quota · outage). 재시도
+// 3 회 (지수 백오프) → 최종 실패 시 Cloud Logging 에 severity=ERROR + 감사 payload
+// 를 그대로 남긴다. Cloud Logging 은 로그 라우팅 sink 로 BigQuery/GCS 로 영구
+// 보관 가능하므로, 향후 request_id 기반 intent/outbox 로 마이그레이션 시에도
+// 재구성 가능. 이 helper 는 throw 하지 않는다 — 호출자가 patch 결과나 partial
+// throw 로 흐름을 결정하도록.
+type AuditEntry = Parameters<typeof writeAudit>[0];
+async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
+  const maxAttempts = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await writeAudit(entry);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+      }
+    }
+  }
+  // Cloud Logging 구조 로그 (Cloud Functions 자동 수집).
+  console.error(
+    JSON.stringify({
+      severity: 'ERROR',
+      message: 'classroom_transfer_owner_audit_write_failed',
+      request_id: requestId,
+      audit_entry: entry,
+      final_error: (lastErr as Error)?.message ?? String(lastErr),
+    }),
+  );
+}
+
 function extractStatus(err: unknown): number | undefined {
   return (
     (err as { response?: { status?: number }; code?: number })?.response?.status ??
@@ -195,18 +229,9 @@ export const classroomTransferOwnership = onCall(
           }
         }
 
-        await writeAudit({
-          actor: user.email,
-          role: user.role,
-          action: 'classroom.transfer_owner',
-          target: `courses/${courseId}`,
-          request_id: requestId,
-          result: isDenied ? 'denied' : 'error',
-          message: `added_teacher_but_patch_failed:${mapped.message} rollback=${rollback}`,
-        });
-
-        // v0.116c F77: client 가 partial 상태를 구분해 rollback=skipped/failed
-        // (교사가 남아 있을 수 있음) 를 사용자에게 알릴 수 있도록 details 에 실어 전달.
+        // v0.116d F79: partial HttpsError 를 audit 호출 앞에 미리 구성한다.
+        // 이 순서로 audit 실패가 던져진 error 를 대체하지 않고 details 를 온전히
+        // 보존한다.
         const partial = new HttpsError(
           mapped.code,
           `added_teacher_but_patch_failed:${mapped.message}`,
@@ -218,14 +243,29 @@ export const classroomTransferOwnership = onCall(
           },
         ) as AuditedHttpsError;
         partial[ALREADY_AUDITED] = true;
+
+        // F78/F79: durable audit (retry + Cloud Logging fallback). helper 는 절대
+        // throw 하지 않아, audit 결과와 무관하게 details 를 담은 partial 만 propagate.
+        await writeAuditWithBackup(
+          {
+            actor: user.email,
+            role: user.role,
+            action: 'classroom.transfer_owner',
+            target: `courses/${courseId}`,
+            request_id: requestId,
+            result: isDenied ? 'denied' : 'error',
+            message: `added_teacher_but_patch_failed:${mapped.message} rollback=${rollback}`,
+          },
+          requestId,
+        );
         throw partial;
       }
 
-      // v0.116c F76: patch 는 이미 성공. 감사 write 실패가 UI 성공을 뒤집으면
-      // 사용자가 재시도해서 double transfer 를 유발할 수 있다. audit 는 best-effort
-      // 로 처리하고 patch 결과를 그대로 반환.
-      try {
-        await writeAudit({
+      // v0.116c F76 / v0.116d F78: patch 는 이미 성공. audit 은 helper 가 3 회
+      // 재시도 후 실패 시 Cloud Logging fallback — 어느 경우든 patch 결과를 그대로
+      // 반환한다. audit 실패로 UI 를 뒤집으면 재시도 → double transfer 위험.
+      await writeAuditWithBackup(
+        {
           actor: user.email,
           role: user.role,
           action: 'classroom.transfer_owner',
@@ -233,13 +273,9 @@ export const classroomTransferOwnership = onCall(
           request_id: requestId,
           result: 'ok',
           message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
-        });
-      } catch (auditErr) {
-        console.error(
-          'classroom.transfer_owner: patch succeeded but audit write failed',
-          auditErr,
-        );
-      }
+        },
+        requestId,
+      );
 
       return { course: patchRes.data, addedAsTeacher };
     } catch (err) {
@@ -250,15 +286,19 @@ export const classroomTransferOwnership = onCall(
       const mapped = mapUpstreamError(err);
       const isDenied =
         mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';
-      await writeAudit({
-        actor: user.email,
-        role: user.role,
-        action: 'classroom.transfer_owner',
-        target,
-        request_id: requestId,
-        result: isDenied ? 'denied' : 'error',
-        message: mapped.message,
-      });
+      // v0.116d F78: 실패 경로도 audit 을 놓치지 않도록 retry + Cloud Logging.
+      await writeAuditWithBackup(
+        {
+          actor: user.email,
+          role: user.role,
+          action: 'classroom.transfer_owner',
+          target,
+          request_id: requestId,
+          result: isDenied ? 'denied' : 'error',
+          message: mapped.message,
+        },
+        requestId,
+      );
       throw mapped;
     }
   },
