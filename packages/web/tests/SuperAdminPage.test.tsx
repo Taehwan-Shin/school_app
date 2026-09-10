@@ -64,8 +64,10 @@ vi.mock('../src/api/usersResolveRoleSplit', () => ({
   useUsersResolveRoleSplit: () => mockUseUsersResolveRoleSplit(),
 }));
 
-// v0.107f F51: 상태 재확인 hook mock.
+// v0.107f F51 / v0.109c F57: 상태 재확인 hook mock. mutate + mutateAsync 둘 다 필요
+// (v0.109c 부터 auto batch 는 mutateAsync 사용).
 const mockRecheckMutate = vi.fn();
+const mockRecheckMutateAsync = vi.fn();
 const mockUseUsersRecheckRoleSplit = vi.fn();
 vi.mock('../src/api/usersRecheckRoleSplit', () => ({
   useUsersRecheckRoleSplit: () => mockUseUsersRecheckRoleSplit(),
@@ -122,8 +124,12 @@ describe('SuperAdminPage', () => {
       error: null,
     });
     mockRecheckMutate.mockReset();
+    mockRecheckMutateAsync.mockReset();
+    // 기본: mutateAsync 는 즉시 resolve.
+    mockRecheckMutateAsync.mockResolvedValue({});
     mockUseUsersRecheckRoleSplit.mockReturnValue({
       mutate: mockRecheckMutate,
+      mutateAsync: mockRecheckMutateAsync,
       isPending: false,
       error: null,
     });
@@ -857,7 +863,7 @@ describe('SuperAdminPage', () => {
       expect(screen.queryByTestId('super-admin-role-split-resolve-log-rs-unknown')).toBeNull();
     });
 
-    it('v0.107f F51: recheck 버튼 클릭 → recheckMutation.mutate({ uid }) 호출 (confirm 없이)', () => {
+    it('v0.107f F51 / v0.109c: recheck 버튼 클릭 → mutate({ uid }) 호출 (mount auto 는 mutateAsync)', () => {
       const unknownEntry: AuditLogEntryRead = {
         ...roleSplitEntry,
         id: 'log-rs-unknown',
@@ -866,9 +872,12 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
+      // v0.109c: mount 시 auto batch 는 mutateAsync 사용. 수동 button click 은 mutate.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledWith({ uid: 'uid-target-1' });
+      const mutateBefore = mockRecheckMutate.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown'));
-      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
-      expect(mockRecheckMutate.mock.calls[0][0]).toEqual({ uid: 'uid-target-1' });
+      expect(mockRecheckMutate.mock.calls.length).toBeGreaterThan(mutateBefore);
+      expect(mockRecheckMutate.mock.calls.at(-1)?.[0]).toEqual({ uid: 'uid-target-1' });
       // resolveMutation 은 호출 안 됨.
       expect(mockResolveMutate).not.toHaveBeenCalled();
     });
@@ -882,6 +891,7 @@ describe('SuperAdminPage', () => {
       mockUnresolved({ entries: [unknownEntry] });
       mockUseUsersRecheckRoleSplit.mockReturnValue({
         mutate: mockRecheckMutate,
+        mutateAsync: mockRecheckMutateAsync,
         isPending: true,
         error: null,
       });
@@ -899,6 +909,199 @@ describe('SuperAdminPage', () => {
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
       expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-fu')).toBeDefined();
+    });
+
+    // v0.109c F57: 자동 재확인은 mutateAsync + Promise.allSettled 사용 (mutate consecutive
+    // callback 오류 방지).
+    it('v0.109c F57: mount 시 auth=unknown row 는 mutateAsync 로 자동 트리거', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-auto',
+        target: 'users/uid-auto-1',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledWith({ uid: 'uid-auto-1' });
+    });
+
+    it('v0.109: parsable row 는 auto recheck 트리거하지 않음', () => {
+      const parsableEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-parsable',
+        message: 'role_split: auth=admin firestore=teacher',
+      };
+      mockUnresolved({ entries: [parsableEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('v0.109: 같은 uid 는 auto recheck 를 두 번 호출하지 않음 (session-scoped Set)', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-dedup',
+        target: 'users/uid-dedup',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      const { rerender } = renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(1);
+      rerender(
+        <MemoryRouter>
+          <SuperAdminPage />
+        </MemoryRouter>,
+      );
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('v0.109: loading 중엔 auto recheck 안 함', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('v0.109: isError 중엔 auto recheck 안 함', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('boom'),
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).not.toHaveBeenCalled();
+    });
+
+    // v0.109b F56 · v0.109c F57: batch limit + Promise.allSettled 후 단일 invalidate.
+    it('v0.109b F56: 다중 unknown 이 있어도 AUTO_RECHECK_BATCH_LIMIT (5) 만 트리거', () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-many-${i}`,
+        target: `users/uid-many-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      renderWithRouter(<SuperAdminPage />);
+      // 10 unknown 있어도 최대 5개만 trigger.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+    });
+
+    it('v0.109c F57: Promise.allSettled 완료 후 unresolvedRoleSplits query 를 한 번만 invalidate', async () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-batch-${i}`,
+        target: `users/uid-batch-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      // mutateAsync 3번 모두 resolve.
+      mockRecheckMutateAsync.mockResolvedValue({});
+      renderWithRouter(<SuperAdminPage />);
+      // 3 mutations 동시 호출.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(3);
+      // Promise.allSettled 이후 invalidate 호출. microtask 대기.
+      await Promise.resolve();
+      await Promise.resolve();
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
+    });
+
+    it('v0.109c F57: 일부 mutation 이 reject 여도 allSettled → invalidate 한 번', async () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-mix-${i}`,
+        target: `users/uid-mix-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      let callIdx = 0;
+      mockRecheckMutateAsync.mockImplementation(() => {
+        const idx = callIdx++;
+        return idx === 1 ? Promise.reject(new Error('one failed')) : Promise.resolve({});
+      });
+      renderWithRouter(<SuperAdminPage />);
+      await Promise.resolve();
+      await Promise.resolve();
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
+    });
+
+    it('v0.109c F57: batch 5개 중간에 하나 reject 여도 단일 invalidate (batch 상한 검증)', async () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-limit-${i}`,
+        target: `users/uid-limit-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      mockRecheckMutateAsync.mockImplementation((v: any) => {
+        return v.uid.endsWith('-2')
+          ? Promise.reject(new Error('boom'))
+          : Promise.resolve({});
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      await Promise.resolve();
+      await Promise.resolve();
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
+    });
+
+    // v0.109d F58: mount 당 최대 5회. 첫 batch 후 invalidate → refetch 로 entries 가 갱신돼도
+    // budget 소진돼 있으므로 추가 발화 안 함.
+    it('v0.109d F58: 첫 batch 5회 이후 entries 재갱신 (invalidate 시뮬) 로도 추가 발화 없음', async () => {
+      const initial: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-mount-${i}`,
+        target: `users/uid-mount-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      // 리렌더 사이에 entries 자체를 새 array reference 로 리턴 (invalidate→refetch 시뮬).
+      let round = 0;
+      mockUseUnresolvedRoleSplits.mockImplementation(() => {
+        round += 1;
+        // 매 render 마다 새 array reference (하지만 내용 동일) → useEffect 재실행.
+        return {
+          data: {
+            entries: initial.map((e) => ({ ...e })),
+            scannedDetected: 10,
+            scannedResolved: 0,
+            detectedHasMore: false,
+            resolvedHasMore: false,
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        };
+      });
+      mockRecheckMutateAsync.mockResolvedValue({});
+
+      const { rerender } = renderWithRouter(<SuperAdminPage />);
+      // 첫 batch: 5회.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      // batch 완료 대기 (Promise.allSettled → invalidate).
+      await Promise.resolve();
+      await Promise.resolve();
+      // 강제 rerender — 실제 invalidate→refetch 시나리오 시뮬.
+      rerender(
+        <MemoryRouter>
+          <SuperAdminPage />
+        </MemoryRouter>,
+      );
+      // budget 이 0 이 되었으므로 추가 mutateAsync 호출 없음.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      // useUnresolvedRoleSplits 는 여러 번 호출됐지만 mutateAsync 는 5회 고정.
+      expect(round).toBeGreaterThan(1);
     });
   });
 });

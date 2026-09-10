@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -116,6 +116,7 @@ export function SuperAdminPage() {
   };
 
   // v0.107f F51: 상태 재확인 handler. 서버가 Auth/Firestore 재조회 후 새 감사 이벤트 기록.
+  // v0.109b F56: hook 이 자동 invalidate 안 하므로 여기서 명시적 invalidate.
   const handleRecheck = (entryTarget: string) => {
     const uid = entryTarget.startsWith('users/') ? entryTarget.slice(6) : entryTarget;
     if (!uid) return;
@@ -126,15 +127,62 @@ export function SuperAdminPage() {
       {
         onSuccess: () => {
           setResolvingUid(null);
-          // onSettled 에서 invalidate 하므로 별도 reload 호출 불필요.
+          qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
         },
         onError: (err) => {
           setResolvingUid(null);
           setResolveError(err.message);
+          qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
         },
       },
     );
   };
+
+  // v0.109: unknown row 자동 재확인. F48 로 남긴 auth=unknown detected 는 UI 파서가 처리 못
+  // 하므로 super_admin 이 매번 「상태 재확인」 을 눌러야 했는데, 카드 mount 시 자동으로
+  // 트리거. session-scoped Set (useRef) 로 무한 루프 방지 — 같은 uid 를 한 번 이상 auto-recheck
+  // 하지 않음. Recheck 후에도 여전히 unknown 이면 수동 버튼으로 재시도.
+  //
+  // v0.109b F56: 한 mount 당 처리량 상한 (N unknown 이 있어도 최대 5개만 자동 trigger).
+  // batch 전체 settle 후 한 번만 invalidate 해서 Functions 증폭 · aggregation refetch 폭주
+  // 방지. 초과분은 수동 버튼으로.
+  //
+  // v0.109c F57: TanStack Query 는 같은 mutation observer 에 consecutive `mutate` 호출 시
+  // 마지막 per-call callback 만 실행 (공식 문서). `mutateAsync` + `Promise.allSettled` 로
+  // batch 완료를 기다린 뒤 한 번만 invalidate.
+  // 참고: https://tanstack.com/query/latest/docs/framework/react/guides/mutations#consecutive-mutations
+  //
+  // v0.109d F58: `autoRecheckedUids` Set 만으로는 「mount 당 최대 5개」 계약을 못 지켰음.
+  // invalidate → refetch → useEffect 재실행 시 Set 에 없는 다음 5개 UID 가 발화. 예:
+  // 10 unknown → 첫 batch 5개 → invalidate → 나머지 5개 UID 가 다음 사이클에 발화.
+  // 이제 mount-scoped `autoRecheckBudget` (useRef<number>) 로 총량 상한: 한 mount 동안 최대
+  // AUTO_RECHECK_BATCH_LIMIT 회 발화. 초과분은 수동 버튼 유지.
+  const AUTO_RECHECK_BATCH_LIMIT = 5;
+  const autoRecheckedUids = useRef<Set<string>>(new Set());
+  const autoRecheckBudget = useRef<number>(AUTO_RECHECK_BATCH_LIMIT);
+  useEffect(() => {
+    if (unresolvedQuery.isLoading || unresolvedQuery.isError) return;
+    if (autoRecheckBudget.current <= 0) return;
+    // batch 대상 uid 수집 (남은 budget 만큼).
+    const targets: string[] = [];
+    for (const e of roleSplitEntries) {
+      if (targets.length >= autoRecheckBudget.current) break;
+      if (!isRecheckNeeded(e.message)) continue;
+      const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
+      if (!uid || autoRecheckedUids.current.has(uid)) continue;
+      autoRecheckedUids.current.add(uid);
+      targets.push(uid);
+    }
+    if (targets.length === 0) return;
+    autoRecheckBudget.current -= targets.length;
+    Promise.allSettled(
+      targets.map((uid) => recheckMutation.mutateAsync({ uid })),
+    ).then(() => {
+      qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
+    });
+    // recheckMutation 은 안정 참조 (React Query), roleSplitEntries 만 dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleSplitEntries, unresolvedQuery.isLoading, unresolvedQuery.isError]);
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
