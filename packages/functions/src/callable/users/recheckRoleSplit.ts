@@ -5,6 +5,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
+import { ALLOWED_DOMAIN } from '../../auth/onUserCreate.js';
 
 export interface UsersRecheckRoleSplitRequest {
   uid: string;
@@ -90,6 +91,13 @@ export const usersRecheckRoleSplit = onCall(
 
       const authUser = await getAuth().getUser(uid);
       const email = authUser.email ?? '';
+      // v0.107g F52: ALLOWED_DOMAIN 강제 — 다른 role callable (getRole/resolveRoleSplit) 과
+      // 일관성 유지. 외부 도메인·email 부재 대상은 Firestore read 나 detected/resolved 감사
+      // 없이 거부.
+      const domain = email.split('@')[1];
+      if (domain !== ALLOWED_DOMAIN) {
+        throw new HttpsError('invalid-argument', 'invalid_email_domain');
+      }
       const claim = (authUser.customClaims as { role?: unknown } | undefined) ?? {};
       const authRole: Role | null =
         claim.role === 'super_admin' || claim.role === 'admin' || claim.role === 'teacher'

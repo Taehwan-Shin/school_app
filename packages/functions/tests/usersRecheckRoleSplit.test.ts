@@ -133,4 +133,41 @@ describe('usersRecheckRoleSplit unit tests', () => {
     expect(mockGetUser).toHaveBeenCalledTimes(1);
     expect(mockDocGet).toHaveBeenCalledTimes(1);
   });
+
+  // v0.107g F52: ALLOWED_DOMAIN 강제.
+  it('v0.107g F52: 외부 도메인 email 은 invalid-argument, Firestore read/audit 없음', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      uid: 'uid-target-1',
+      email: 'x@other.school',
+      customClaims: { role: 'admin' },
+    });
+    const req = createRequest();
+    await expect(usersRecheckRoleSplit.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_email_domain',
+    });
+    // Firestore read 발생 안 함.
+    expect(mockDocGet).not.toHaveBeenCalled();
+    // detected/resolved 감사 없음 — 오직 catch 블록의 error/denied 감사만.
+    expect(mockWriteAudit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'system.role_split_detected' }),
+    );
+    expect(mockWriteAudit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'system.role_split_resolved' }),
+    );
+  });
+
+  it('v0.107g F52: email 부재 (undefined) 도 invalid-argument', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      uid: 'uid-target-1',
+      email: undefined,
+      customClaims: { role: 'admin' },
+    });
+    const req = createRequest();
+    await expect(usersRecheckRoleSplit.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_email_domain',
+    });
+    expect(mockDocGet).not.toHaveBeenCalled();
+  });
 });
