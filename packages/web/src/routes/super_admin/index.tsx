@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogSummary } from '../../api/auditLogSummary';
+import { useAuditLogList } from '../../api/auditLogList';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -24,6 +27,26 @@ export function SuperAdminPage() {
   const previewEntries = summaryQuery.data?.entries ?? [];
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
+
+  // v0.105 (b 갱신): role_split 감사 감시.
+  // v0.100 getRole 은 Auth claim ≠ Firestore role 을 발견할 때만 users.read + error +
+  // message = "role_split: ..." 을 기록한다 — 즉 아직 usersGetRole 이 호출된 적 없는
+  // 계정은 감사에도 나타나지 않는다. Firestore 는 substring 필터를 지원 안 하므로
+  // 서버 필터는 users.read + error 까지, message prefix 는 client 에서 걸러야 한다.
+  //
+  // 이 카드는 「전수 대조」 가 아니라 「최근 조회 sample 안에서의 감지」 이다. 따라서
+  // sample size 를 표면에 노출하고, 결과 없음을 「동기 상태」 로 단정하지 않는다.
+  const ROLE_SPLIT_SAMPLE_SIZE = 50;
+  const roleSplitFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
+    filterAction: 'users.read',
+    filterResult: 'error',
+  });
+  const roleSplitEntries = useMemo(
+    () =>
+      roleSplitFeed.entries.filter((e) => (e.message ?? '').startsWith('role_split')),
+    [roleSplitFeed.entries],
+  );
+  const roleSplitHasMore = roleSplitFeed.hasMore; // 다음 페이지에 더 있을 수 있음.
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -121,6 +144,80 @@ export function SuperAdminPage() {
                       {e.result}
                     </span>
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* v0.105: role_split 경고 (Auth claim ≠ Firestore role) */}
+        <section
+          className="bg-elevated p-8 border border-border-subtle space-y-4"
+          data-testid="super-admin-role-split-section"
+        >
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <AlertTriangle
+                aria-hidden="true"
+                className={`w-5 h-5 shrink-0 mt-0.5 ${
+                  roleSplitEntries.length > 0 ? 'text-state-warning' : 'text-fg-muted'
+                }`}
+                strokeWidth={2}
+              />
+<div className="min-w-0">
+                <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
+                <p className="text-small text-fg-secondary mt-1">
+                  {roleSplitFeed.loading ? (
+                    '불러오는 중...'
+                  ) : roleSplitFeed.error ? (
+                    '감시 데이터를 불러오지 못했습니다.'
+                  ) : roleSplitEntries.length > 0 ? (
+                    `최근 users.read/error 감사 이벤트 ${roleSplitFeed.entries.length}건 (샘플 최대 ${ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split ${roleSplitEntries.length}건 감지. Auth 클레임과 Firestore role 이 다른 계정.`
+                  ) : (
+                    <>
+                      최근 users.read/error 감사 이벤트 {roleSplitFeed.entries.length}건 (샘플 최대{' '}
+                      {ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split 감지 없음.{' '}
+                      <strong className="font-semibold text-fg-primary">
+                        전수 대조가 아니라 최근 조회 sample 안에서만
+                      </strong>{' '}
+                      — 조회된 적 없는 계정은 이 카드에서 확인되지 않는다.
+                    </>
+                  )}
+                  {roleSplitHasMore && (
+                    <span className="ml-1 text-fg-muted">
+                      (더 이전 이벤트가 있음. 「전체 보기」 로 감사 페이지에서 pagination.)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/super_admin/audit?action=users.read&result=error&q=role_split"
+              className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors shrink-0"
+              data-testid="super-admin-role-split-link"
+            >
+              전체 보기 →
+            </Link>
+          </div>
+          {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitEntries.length > 0 && (
+            <ul
+              className="space-y-2 text-small"
+              data-testid="super-admin-role-split-list"
+            >
+              {roleSplitEntries.slice(0, 3).map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
+                  data-testid={`super-admin-role-split-item-${e.id}`}
+                >
+                  <span className="font-mono text-fg-secondary w-40 shrink-0">
+                    {new Date(e.at).toLocaleString('ko-KR')}
+                  </span>
+                  <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
+                  <span className="text-fg-secondary">·</span>
+                  <span className="text-state-warning font-mono truncate" title={e.message}>
+                    {e.message}
+                  </span>
                 </li>
               ))}
             </ul>
