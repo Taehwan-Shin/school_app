@@ -188,7 +188,11 @@ export function SuperAdminPage() {
     <AppShell role={role} pageTitle="슈퍼 관리자">
       <div className="space-y-8">
         {/* KPI 로우 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* v0.110: 미해결 role_split KPI 추가. 클릭 시 같은 페이지의 role_split section 으로
+            anchor scroll.
+            v0.110b F60: md 폭 (사이드바 240px + 좌우 padding 32px 차감) 은 5열 감당 못 함.
+            반응형 breakpoint 를 md 2열 · lg 3열 · xl 5열 로 조정해 카드 폭 확보. */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
             label="총 사용자"
             value={users.data?.users?.length ?? 0}
@@ -216,6 +220,32 @@ export function SuperAdminPage() {
             loading={summaryQuery.isLoading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
+          />
+          {/* v0.110c F61: scanIncomplete 방향 분리 표기.
+              - detectedHasMore=true & resolvedHasMore=false: 「최소 N건」 확정 → `N+` (하한).
+              - resolvedHasMore=true: 스캔 밖 resolved 가 현재 unresolved 를 실제로 해결
+                했을 수 있음 → N 이 과대. 방향 불확실 → `N?`.
+              - 둘 다 완전: 확정 count. */}
+          <KpiCard
+            label="미해결 role_split"
+            value={
+              unresolvedQuery.isError
+                ? '—'
+                : (() => {
+                    const count = unresolvedQuery.data?.entries.length ?? 0;
+                    const detectedMore = unresolvedQuery.data?.detectedHasMore ?? false;
+                    const resolvedMore = unresolvedQuery.data?.resolvedHasMore ?? false;
+                    if (resolvedMore) return `${count}?`;
+                    if (detectedMore) return `${count}+`;
+                    return count;
+                  })()
+            }
+            loading={unresolvedQuery.isLoading}
+            href="nav"
+            onClick={() => {
+              const el = document.getElementById('role-split-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           />
         </div>
 
@@ -288,6 +318,7 @@ export function SuperAdminPage() {
 
         {/* v0.106: role_split 경고 (Auth claim ≠ Firestore role) — server-side action 필터 */}
         <section
+          id="role-split-section"
           className="bg-elevated p-8 border border-border-subtle space-y-4"
           data-testid="super-admin-role-split-section"
         >
