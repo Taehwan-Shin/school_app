@@ -1215,3 +1215,50 @@ v0.109 후보:
 - role_split 자동 재확인 (카드 mount 시 unknown row 자동 recheck).
 - 감사 로그 배치 export (전체 페이지 순회 후 통합 JSON/CSV).
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-10 · v0.109 role_split unknown row 자동 재확인 (4 라운드 감사 · 병합)
+
+### 진행 요약
+
+v0.107f 에서 auth=unknown row 는 「상태 재확인」 수동 버튼으로 분기했음. v0.109 는 카드 mount 시 unknown row 를 자동으로 recheck 트리거해서 super_admin 이 발견하고 클릭하는 단계 제거. Codex 4 라운드에서 concurrency · TanStack Query semantics · mount 총량 상한 을 순차적으로 강화.
+
+### 커밋 이력 (feat/role-split-auto-recheck-v109)
+
+| 커밋 | 요약 |
+|---|---|
+| `13e41fa` | feat: mount 시 auth=unknown row auto recheck. session-scoped Set 으로 중복 방지 |
+| `629a53c` | fix: F56 batch limit 5 + hook automatic invalidate 제거 + caller invalidate. pending 카운터 방식 (초기) |
+| `767dee2` | fix: F57 mutateAsync + Promise.allSettled (TanStack consecutive mutate callback 오류 회피) |
+| `2afa2f6` | fix: F58 autoRecheckBudget useRef<number> mount-scoped 총량 상한 |
+
+### v0.109 → v0.109d
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.109 | `13e41fa` | 6/1/2 | F56 concurrency 없이 N mutate + N invalidate 증폭 |
+| v0.109b | `629a53c` | 6/1/2 | F57 consecutive `mutate` per-call callback 마지막 것만 실행 |
+| v0.109c | `767dee2` | 6/1/2 | F58 batch limit 은 per-batch, invalidate 후 다음 5개 추가 발화 |
+| v0.109d | `2afa2f6` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `ef5fef8` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — hosting 재배포.
+- 로컬 관문: shared 27 + functions 445 + web 631 = 1103 unit.
+
+### 배운 것
+
+- **TanStack Query 의 consecutive `mutate` 는 per-call callback 을 덮어씀** — 같은 mutation observer 에 연속 `mutate({}, {onSuccess, onError})` 호출 시 마지막 호출의 callbacks 만 실행됨 (공식 문서). pending 카운터 로 batch settle 을 감지하려면 `mutateAsync` + `Promise.allSettled` 를 사용해야 함. `mutate` 는 fire-and-forget 성격.
+- **useRef 는 mount-scoped state 의 도구** — Set 은 동일 UID 중복 방지에는 좋지만 「총량 상한」 은 별도 카운터가 필요. useRef<number> budget 으로 초기값 5, 매 발화마다 차감. mount 동안 누적 유지, unmount 시 리셋 (자연스러운 「재로드 = 새 시도」 계약).
+- **자동화의 리스크는 증폭** — 「N unknown 자동 처리」 는 N 개 Functions 호출 + N 개 invalidate → N 개 refetch → N 개 useEffect 재실행 → ... 폭주 가능. 상한 (budget) + 단일 invalidate 조합으로만 안전.
+- **Codex 는 hook 라이브러리 semantics 도 감사 대상** — Codex 가 TanStack Query 공식 문서 링크를 근거로 F57 을 지적. hook 반환값 (mutate vs mutateAsync) 의 사용 맥락을 정확히 이해해야 pass. 단순히 「테스트가 통과했다」 로는 충분 안 함.
+
+### 다음 세션에 이어갈 것
+
+v0.110 후보:
+- (c) 실 Workspace 확인 workflow — 판정불가 소거.
+- 감사 로그 배치 export (전체 페이지 순회 후 통합 JSON/CSV).
+- 감사 로그 필터 preset 저장 (자주 쓰는 필터 조합).
+- (d) 사용자 지시 그 외.
