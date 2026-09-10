@@ -574,19 +574,24 @@ describe('SuperAdminPage', () => {
     expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
   });
 
-  // v0.105 (b 갱신): 카드 문구는 「최근 조회 sample 안」 범위 명시. empty 를
-  // 「동기 상태」로 단정하지 않는다 (Codex F35 지적).
-  it('v0.105b: empty state → "감지 없음 · 전수 대조 아님" 문구', () => {
+  // v0.105 (c 갱신): 표본 명칭 정확화 + Markdown 별표 대신 <strong> 렌더.
+  it('v0.105c: empty state → 정확한 표본 명칭 + strong 강조, ** 노출 없음', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    // useAuditLogList default (entries: [], hasMore: false) 로 no role_split.
     renderWithRouter(<SuperAdminPage />);
 
     const section = screen.getByTestId('super-admin-role-split-section');
     expect(section).toBeDefined();
+    // 표본 명칭 (v0.105c 정정: 「usersGetRole 호출」 → 「users.read/error 감사 이벤트」).
+    expect(section.textContent).toContain('users.read/error 감사 이벤트');
     expect(section.textContent).toContain('role_split 감지 없음');
-    expect(section.textContent).toContain('전수 대조가 아니라');
-    // 이전 「동기 상태」 단정 표현은 없어야.
+    // 강조 문구가 <strong> 으로 렌더되는지 (Markdown ** 대신).
+    const strong = section.querySelector('strong');
+    expect(strong).not.toBeNull();
+    expect(strong!.textContent).toContain('전수 대조가 아니라 최근 조회 sample 안에서만');
+    // 화면에 raw ** 이 노출되면 안 됨.
+    expect(section.textContent).not.toContain('**');
+    // 이전 「동기 상태」 단정 표현도 계속 없어야.
     expect(section.textContent).not.toContain('동기 상태');
     expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
   });

@@ -167,13 +167,22 @@ export function SuperAdminPage() {
 <div className="min-w-0">
                 <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
                 <p className="text-small text-fg-secondary mt-1">
-                  {roleSplitFeed.loading
-                    ? '불러오는 중...'
-                    : roleSplitFeed.error
-                      ? '감시 데이터를 불러오지 못했습니다.'
-                      : roleSplitEntries.length > 0
-                        ? `최근 usersGetRole 호출 이벤트 ${roleSplitFeed.entries.length}건 (샘플 최대 ${ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split ${roleSplitEntries.length}건 감지. Auth 클레임과 Firestore role 이 다른 계정.`
-                        : `최근 usersGetRole 호출 이벤트 ${roleSplitFeed.entries.length}건 (샘플 최대 ${ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split 감지 없음. **전수 대조가 아니라 최근 조회 sample 안에서만** — 조회된 적 없는 계정은 이 카드에서 확인되지 않는다.`}
+                  {roleSplitFeed.loading ? (
+                    '불러오는 중...'
+                  ) : roleSplitFeed.error ? (
+                    '감시 데이터를 불러오지 못했습니다.'
+                  ) : roleSplitEntries.length > 0 ? (
+                    `최근 users.read/error 감사 이벤트 ${roleSplitFeed.entries.length}건 (샘플 최대 ${ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split ${roleSplitEntries.length}건 감지. Auth 클레임과 Firestore role 이 다른 계정.`
+                  ) : (
+                    <>
+                      최근 users.read/error 감사 이벤트 {roleSplitFeed.entries.length}건 (샘플 최대{' '}
+                      {ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split 감지 없음.{' '}
+                      <strong className="font-semibold text-fg-primary">
+                        전수 대조가 아니라 최근 조회 sample 안에서만
+                      </strong>{' '}
+                      — 조회된 적 없는 계정은 이 카드에서 확인되지 않는다.
+                    </>
+                  )}
                   {roleSplitHasMore && (
                     <span className="ml-1 text-fg-muted">
                       (더 이전 이벤트가 있음. 「전체 보기」 로 감사 페이지에서 pagination.)
