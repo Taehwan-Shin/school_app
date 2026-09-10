@@ -1172,3 +1172,46 @@ v0.108 후보:
 - role_split 감시 카드에 자동 재확인 (배포 후 첫 로드 시 auth=unknown row 자동 recheck).
 - 감사 로그 CSV export 개선 (JSON export 추가 · 필터 요약 포함 파일명).
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-10 · v0.108 감사 로그 JSON export + 파일명 필터 요약 (2 라운드 감사 · 병합)
+
+### 진행 요약
+
+기존 CSV export 옆에 JSON export 추가. JSON payload 는 `exportedAt` · `filter` metadata · `partial`/`hasMore` · `count` · `entries` (rich 필드 + before/after) 구조. 파일명은 filesystem-safe 필터 요약 접미어 포함해서 여러 export 를 구분. Codex 2 라운드에서 pagination · 타입 계약 · 정규화 metadata 를 강화.
+
+### 커밋 이력 (feat/audit-json-export-v108)
+
+| 커밋 | 요약 |
+|---|---|
+| `26339aa` | feat(web): JSON export + downloadBlob 공통 헬퍼 + filterSummaryForFilename + CSV 파일명 적용 |
+| `9b1c15c` | fix(web): F53 partial/hasMore · F54 before/after 보존 · F55 정규화된 hook 인자 metadata |
+
+### v0.108 → v0.108b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.108 | `26339aa` | 6/3/2 | F53 hasMore 누락 · F54 before/after 누락 · F55 metadata URL 원문 |
+| v0.108b | `9b1c15c` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `a70689e` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — hosting 재배포.
+- 로컬 관문: shared 27 + functions 445 + web 621 = 1093 unit.
+
+### 배운 것
+
+- **export payload 는 「어떤 조건으로 뽑았는가」 를 스스로 문서화해야** — filter metadata 를 부실하게 넣으면 export 파일이 나중에 정체 불명이 됨. 특히 hasMore 같은 pagination 상태를 안 넣으면 partial export 가 complete 처럼 보임 (F53). export 는 self-describing 원칙.
+- **타입 계약과 export 매핑 gap** — `AuditLogEntryRead` 타입에 before/after 가 있는데 export 매핑에서 빼면 「타입이 약속한 필드가 파일에서 사라짐」. 타입 vs 매핑 gap 은 정적 검사로 잡히지 않으므로 review 나 codex 감사가 필요.
+- **URL 원문 vs 서버 정규화** — search params 원문을 그대로 metadata 에 넣으면 서버가 실제 처리한 조건과 다를 수 있음. actionList (dedup 완료), atMinMs (유효 검증 통과) 같은 정규화된 hook 인자에서 만드는 게 진실 (F55).
+- **작은 슬라이스도 감사 라운드 필요** — v0.107 은 7 라운드였지만 v0.108 은 UI-only 이고도 2 라운드. 모든 export payload 는 self-describing 하고 정확해야 한다는 원칙이 있어서 「단순한 JSON dump」 로 취급하면 여러 지적 발생. Codex 는 payload 설계도 spec 으로 취급함.
+
+### 다음 세션에 이어갈 것
+
+v0.109 후보:
+- (c) 실 Workspace 확인 workflow — 판정불가 소거.
+- role_split 자동 재확인 (카드 mount 시 unknown row 자동 recheck).
+- 감사 로그 배치 export (전체 페이지 순회 후 통합 JSON/CSV).
+- (d) 사용자 지시 그 외.
