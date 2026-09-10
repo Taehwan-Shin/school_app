@@ -1038,6 +1038,161 @@ describe('AuditLogTable component', () => {
     expect(capturedSearch).toBe('');
   });
 
+  // v0.111: role_split quick filter preset.
+  it('v0.111: role_split preset 클릭 → action=system.role_split_detected,system.role_split_resolved 로 URL 갱신', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    fireEvent.click(btn);
+
+    // URL 에 두 action 이 콤마 구분으로 설정.
+    expect(capturedSearch).toContain('action=');
+    expect(capturedSearch).toContain('system.role_split_detected');
+    expect(capturedSearch).toContain('system.role_split_resolved');
+  });
+
+  it('v0.111: role_split preset 이미 활성일 때 재클릭 → clear', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?action=system.role_split_detected,system.role_split_resolved',
+        ]}
+      >
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    // 활성 상태여야.
+    expect(btn.className).toContain('bg-fg-primary');
+    fireEvent.click(btn);
+    // action param 사라져야.
+    expect(capturedSearch).not.toContain('action=');
+  });
+
+  it('v0.111: role_split preset 은 정확히 두 action 이 있을 때만 활성', () => {
+    // 하나만 → 비활성.
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?action=system.role_split_detected']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    expect(btn.className).not.toContain('bg-fg-primary text-canvas');
+  });
+
+  // v0.111b F62: action filter 로 결과 0건일 때 empty-state 문구가 「해당 필터에 매칭 없음」
+  // 이어야 (전체 부재 오도 방지).
+  it('v0.111b F62: action 필터로 0건이면 empty state = 「해당 필터에 매칭되는 로그가 없습니다」', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?action=system.role_split_detected,system.role_split_resolved',
+        ]}
+      >
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const empty = screen.getByTestId('audit-log-empty');
+    expect(empty.textContent).toContain('해당 필터에 매칭되는 로그가 없습니다');
+    expect(empty.textContent).not.toContain('감사 로그 항목이 없습니다');
+  });
+
+  it('v0.111b F62: q 검색 필터로 0건이어도 「해당 필터에 매칭 없음」', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?q=nonexistent']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const empty = screen.getByTestId('audit-log-empty');
+    expect(empty.textContent).toContain('해당 필터에 매칭되는 로그가 없습니다');
+  });
+
+  it('v0.111b F62: 필터 없이 0건이면 「감사 로그 항목이 없습니다」', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const empty = screen.getByTestId('audit-log-empty');
+    expect(empty.textContent).toContain('감사 로그 항목이 없습니다');
+  });
+
+  // v0.111c F64: 공백-only q 는 실제 필터 미적용이므로 empty state 도 「필터 없음」 처리.
+  it('v0.111c F64: 공백-only q 0건 → 「감사 로그 항목이 없습니다」 (필터 미적용)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?q=%20%20']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const empty = screen.getByTestId('audit-log-empty');
+    expect(empty.textContent).toContain('감사 로그 항목이 없습니다');
+    expect(empty.textContent).not.toContain('해당 필터에 매칭되는 로그가 없습니다');
+  });
+
+  // v0.111b F63: aria-pressed 접근성.
+  it('v0.111b F63: role_split preset 비활성 상태 aria-pressed=false', () => {
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('v0.111b F63: role_split preset 활성 상태 aria-pressed=true', () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?action=system.role_split_detected,system.role_split_resolved',
+        ]}
+      >
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('v0.111b F63: extra action 있으면 aria-pressed=false', () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?action=system.role_split_detected,system.role_split_resolved,users.read',
+        ]}
+      >
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-preset-role-split');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('renders actor as a link to user detail when actor ends with @cam.hs.kr, and plain text for non-domain actor', () => {
     const mockEntries: AuditLogEntryRead[] = [
       {

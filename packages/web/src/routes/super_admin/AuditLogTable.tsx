@@ -379,7 +379,7 @@ export function AuditLogTable() {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end flex-wrap gap-4">
         <div className="flex items-center gap-2" role="group" aria-label="날짜 프리셋">
           <span className="text-small text-fg-secondary mr-1">프리셋:</span>
           {[
@@ -403,6 +403,42 @@ export function AuditLogTable() {
               {label}
             </button>
           ))}
+        </div>
+        {/* v0.111: role_split 감지 + 해결 이벤트를 한 번에 보는 action preset. detected 와
+            resolved 를 multi-action 으로 필터. 이미 두 액션이 URL 에 있으면 「활성」 상태.
+            v0.111b F63: aria-pressed 로 screen reader 접근성. class 와 동일한 값 공유. */}
+        <div className="flex items-center gap-2" role="group" aria-label="액션 프리셋">
+          <span className="text-small text-fg-secondary mr-1">액션:</span>
+          {(() => {
+            const target = ['system.role_split_detected', 'system.role_split_resolved'];
+            const isRoleSplitActive =
+              actionList.length === 2 && target.every((a) => actionList.includes(a));
+            return (
+              <button
+                type="button"
+                aria-pressed={isRoleSplitActive}
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  if (isRoleSplitActive) {
+                    next.delete('action');
+                  } else {
+                    next.set('action', target.join(','));
+                  }
+                  setSearchParams(next, { replace: false });
+                }}
+                data-testid="audit-log-preset-role-split"
+                className={cn(
+                  'px-3 py-1 text-small border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong',
+                  isRoleSplitActive
+                    ? 'bg-fg-primary text-canvas border-fg-primary'
+                    : 'bg-canvas text-fg-primary border-border-subtle hover:border-border-strong',
+                )}
+                title="role_split 감지 + 해결 이벤트만 필터"
+              >
+                role_split
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -434,7 +470,16 @@ export function AuditLogTable() {
           className="py-12 text-center text-small text-fg-secondary"
           data-testid="audit-log-empty"
         >
-          {actorFilter || resultFilter !== 'all' || searchParams.get('atMin') || searchParams.get('atMax')
+          {/* v0.111b F62: action/q 도 필터로 포함해서 empty state 를 정확히 판정.
+              v0.111c F64: q 는 실제 필터 로직 (:69) 에서 `.trim()` 후 판정하므로 공백-only
+              도 필터 미적용. empty-state 도 `.trim().length > 0` 으로 맞춰야 공백-only q
+              에서 「매칭 없음」 오도 방지. */}
+          {actorFilter ||
+          resultFilter !== 'all' ||
+          searchParams.get('atMin') ||
+          searchParams.get('atMax') ||
+          actionList.length > 0 ||
+          actionSearch.trim().length > 0
             ? '해당 필터에 매칭되는 로그가 없습니다.'
             : '감사 로그 항목이 없습니다.'}
         </div>
