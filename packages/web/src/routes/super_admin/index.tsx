@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -6,8 +6,9 @@ import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogSummary } from '../../api/auditLogSummary';
-import { useAuditLogList } from '../../api/auditLogList';
+import { useAuditLogUnresolvedRoleSplits } from '../../api/auditLogUnresolvedRoleSplits';
 import { useUsersResolveRoleSplit } from '../../api/usersResolveRoleSplit';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/button';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -38,33 +39,18 @@ export function SuperAdminPage() {
   // 남은 제약 — getRole 은 EditUserRoleDialog 열 때만 호출되므로, 아직 조회된 적 없는
   // 계정은 이 카드에서 감지되지 않는다. 이는 sample-scope (표시 최대 N건) 와 다른, 트리거
   // 범위의 제약이다. hasMore 는 감지된 splits 자체가 N건을 초과할 때만 나타난다.
-  const ROLE_SPLIT_SAMPLE_SIZE = 50;
-  const detectedFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
-    filterAction: 'system.role_split_detected',
-  });
-  // v0.107b F41: resolved 이벤트도 함께 받아서 target 별 최신 resolved.at 을 계산. detected
-  // 이벤트 중 resolved 가 그 이후에 있는 것은 해결된 상태 → 카드에서 제외 (append-only 이벤트
-  // 를 그대로 두면 영구 「미해결」 표시).
-  const resolvedFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
-    filterAction: 'system.role_split_resolved',
-  });
-  const latestResolvedAtByTarget = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const e of resolvedFeed.entries) {
-      const prev = map.get(e.target) ?? -Infinity;
-      if (e.at > prev) map.set(e.target, e.at);
-    }
-    return map;
-  }, [resolvedFeed.entries]);
-  const roleSplitEntries = useMemo(
-    () =>
-      detectedFeed.entries.filter(
-        (e) => e.at > (latestResolvedAtByTarget.get(e.target) ?? -Infinity),
-      ),
-    [detectedFeed.entries, latestResolvedAtByTarget],
-  );
-  const roleSplitFeed = detectedFeed; // 이하 기존 loading/error 참조 유지
-  const roleSplitHasMore = roleSplitFeed.hasMore;
+  // v0.107c F44: 서버 aggregation callable 로 target 별 최신 상태 집계 (result=ok resolved 만
+  // 인정 · 두 feed pagination 결함 소거). client 는 자체 reconcile 하지 않고 결과만 렌더.
+  const unresolvedQuery = useAuditLogUnresolvedRoleSplits({ scanLimit: 500 });
+  const roleSplitEntries = unresolvedQuery.data?.entries ?? [];
+  // hasMore 는 서버가 detected/resolved 두 window 중 하나라도 초과했다고 알린 경우.
+  const scanIncomplete =
+    (unresolvedQuery.data?.detectedHasMore ?? false) ||
+    (unresolvedQuery.data?.resolvedHasMore ?? false);
+  const qc = useQueryClient();
+  // reload 헬퍼: 서버 aggregation query 무효화 → refetch.
+  const reloadUnresolved = () =>
+    qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
 
   // v0.107: 감지된 split 을 super_admin 이 한 클릭으로 Firestore = Auth 로 동기화.
   // v0.107b F42: message 에서 auth/firestore 기대치 파싱 → CAS 로 서버가 stale write 방지.
@@ -106,8 +92,7 @@ export function SuperAdminPage() {
       {
         onSuccess: () => {
           setResolvingUid(null);
-          detectedFeed.reload();
-          resolvedFeed.reload();
+          reloadUnresolved();
         },
         onError: (err) => {
           setResolvingUid(null);
@@ -236,29 +221,28 @@ export function SuperAdminPage() {
               <div className="min-w-0">
                 <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
                 <p className="text-small text-fg-secondary mt-1">
-                  {roleSplitFeed.loading ? (
+                  {unresolvedQuery.isLoading ? (
                     '불러오는 중...'
-                  ) : roleSplitFeed.error ? (
+                  ) : unresolvedQuery.isError ? (
                     '감시 데이터를 불러오지 못했습니다.'
                   ) : roleSplitEntries.length > 0 ? (
                     <>
-                      최근 role_split 감사 이벤트 {roleSplitEntries.length}건 (표시 최대{' '}
-                      {ROLE_SPLIT_SAMPLE_SIZE}) — Auth 클레임과 Firestore role 이 다른 계정.
+                      미해결 role_split {roleSplitEntries.length}건 — Auth 클레임과 Firestore role 이 다른 계정.
                     </>
                   ) : (
                     <>
-                      role_split 감사 이벤트 없음.{' '}
+                      미해결 role_split 없음.{' '}
                       <strong className="font-semibold text-fg-primary">
                         역할 편집 대화상자를 열어본 계정에서만 감지
                       </strong>{' '}
                       — 아직 조회된 적 없는 계정은 확인되지 않는다.
                     </>
                   )}
-                  {/* F38: hasMore 는 useAuditLogList 초기·오류 cursor undefined 일 때 true 로
-                      떨어지므로, 실제 데이터 로딩이 끝난 상태에서만 pagination 안내. */}
-                  {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitHasMore && (
-                    <span className="ml-1 text-fg-muted">
-                      (표시 상한 초과. 「전체 보기」 로 감사 페이지에서 pagination.)
+                  {/* v0.107c F44: 서버 aggregation 이 detected/resolved 두 스캔 window 중 하나
+                      라도 초과했음을 알린 경우 — 결과 신뢰성 저하 경고. */}
+                  {!unresolvedQuery.isLoading && !unresolvedQuery.isError && scanIncomplete && (
+                    <span className="ml-1 text-state-warning" data-testid="super-admin-role-split-scan-incomplete">
+                      (스캔 window 초과 · 일부 상태 반영 안 됐을 수 있음. 감사 페이지에서 target 별 pagination 로 검증 권장.)
                     </span>
                   )}
                 </p>
@@ -272,7 +256,7 @@ export function SuperAdminPage() {
               전체 보기 →
             </Link>
           </div>
-          {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitEntries.length > 0 && (
+          {!unresolvedQuery.isLoading && !unresolvedQuery.isError && roleSplitEntries.length > 0 && (
             <ul
               className="space-y-2 text-small"
               data-testid="super-admin-role-split-list"

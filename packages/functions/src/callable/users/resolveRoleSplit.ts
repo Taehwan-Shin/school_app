@@ -178,6 +178,26 @@ export const usersResolveRoleSplit = onCall(
         tx.set(getFirestore().doc(`users/${authUser.uid}`), writePayload, { merge: true });
       });
 
+      // v0.107c F45: post-write Auth 재검증. transaction 밖에서 Auth 를 다시 읽어 첫 read 시점
+      // 과 같은지 확인. 다르면 read 와 write 사이에 다른 usersUpdateRole 이 Auth 를 갱신했다는
+      // 뜻 — Firestore 에는 stale Auth 값을 이미 썼으므로 새 split 을 만들어냈을 위험. 이 경우
+      // aborted 로 실패 처리하고 감사 log 에 error 로 남긴다. 클라이언트는 새 상태로 재감지 후
+      // 다시 시도.
+      const authUserAfter = await getAuth().getUser(uid);
+      const claimAfter =
+        (authUserAfter.customClaims as { role?: unknown } | undefined) ?? {};
+      const authRoleAfter: Role | null =
+        claimAfter.role === 'super_admin' || claimAfter.role === 'admin' || claimAfter.role === 'teacher'
+          ? (claimAfter.role as Role)
+          : null;
+      const authRoleAfterAsExpected = authRoleAfter ?? 'null';
+      if (authRoleAfterAsExpected !== authRoleAsExpected) {
+        throw new HttpsError(
+          'aborted',
+          `auth_role_changed_during_write: before=${authRoleAsExpected} after=${authRoleAfterAsExpected} — Firestore 는 이미 갱신됨(${authRole ?? 'null'}). 재감지 후 재시도 필요.`,
+        );
+      }
+
       await writeAudit({
         actor: user.email,
         role: user.role,

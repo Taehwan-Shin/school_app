@@ -139,11 +139,9 @@ describe('usersResolveRoleSplit unit tests', () => {
   });
 
   it('resolves split by deleting Firestore role when Auth=null', async () => {
-    mockGetUser.mockResolvedValueOnce({
-      uid: 'uid-target-1',
-      email: 'target@cam.hs.kr',
-      customClaims: {},
-    });
+    // v0.107c F45: pre + post write 두 번 호출되므로 두 번 override.
+    const authNullUser = { uid: 'uid-target-1', email: 'target@cam.hs.kr', customClaims: {} };
+    mockGetUser.mockResolvedValueOnce(authNullUser).mockResolvedValueOnce(authNullUser);
     mockDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin' }) });
     const req = createRequest({
       data: {
@@ -294,5 +292,49 @@ describe('usersResolveRoleSplit unit tests', () => {
     await usersResolveRoleSplit.run(req);
     expect(mockRunTransaction).toHaveBeenCalledTimes(1);
     expect(mockDocSet).toHaveBeenCalledTimes(1);
+  });
+
+  // v0.107c F45: post-write Auth 재검증 (transaction 이후 Auth 가 바뀌었으면 aborted).
+  it('v0.107c F45: post-write Auth 가 pre-write 와 다르면 aborted + error 감사', async () => {
+    // 1차 getUser: authRole=admin (기대치와 일치, transaction 진입).
+    // 2차 getUser (post-write): authRole=teacher (그 사이 usersUpdateRole 이 실행됨).
+    mockGetUser
+      .mockResolvedValueOnce({
+        uid: 'uid-target-1',
+        email: 'target@cam.hs.kr',
+        customClaims: { role: 'admin' },
+      })
+      .mockResolvedValueOnce({
+        uid: 'uid-target-1',
+        email: 'target@cam.hs.kr',
+        customClaims: { role: 'teacher' },
+      });
+    const req = createRequest();
+    await expect(usersResolveRoleSplit.run(req)).rejects.toMatchObject({
+      code: 'aborted',
+      message: expect.stringContaining('auth_role_changed_during_write'),
+    });
+    // 이미 Firestore 는 갱신됐음.
+    expect(mockDocSet).toHaveBeenCalledTimes(1);
+    // 감사는 result=error (denied 아님).
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'system.role_split_resolved',
+        result: 'error',
+        message: expect.stringContaining('auth_role_changed_during_write'),
+      }),
+    );
+  });
+
+  it('v0.107c F45: post-write Auth 가 같으면 정상 진행 (ok 감사)', async () => {
+    // 두 getUser 호출 모두 admin 반환 (기본 mock 은 mockResolvedValue 로 무한 반복 반환).
+    const req = createRequest();
+    const res = await usersResolveRoleSplit.run(req);
+    expect(res.authRole).toBe('admin');
+    // getUser 는 2회 호출 (pre + post).
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'ok' }),
+    );
   });
 });
