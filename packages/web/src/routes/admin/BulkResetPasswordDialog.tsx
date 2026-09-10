@@ -49,10 +49,20 @@ export function BulkResetPasswordDialog({
     }
   }, [open]);
 
+  // v0.113b F65: 평문 비밀번호가 dialog state 에 잔존하지 않도록 close 시 즉시 clear.
+  const clearSensitiveState = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setValidationError(null);
+  };
+
   const handleOpenChange = (newOpen: boolean) => {
     if (phase === 'running') return;
-    if (!newOpen && phase === 'done') {
-      onDone?.();
+    if (!newOpen) {
+      clearSensitiveState();
+      if (phase === 'done') {
+        onDone?.();
+      }
     }
     onOpenChange(newOpen);
   };
@@ -70,6 +80,12 @@ export function BulkResetPasswordDialog({
       return;
     }
     setValidationError(null);
+    // v0.113b F65: 실행용 평문 비밀번호를 local 변수로 고정 후 state 는 즉시 clear.
+    // done phase 에 도달했을 때 이미 state 는 비어있게 해서 dialog 가 열린 채로 남아도
+    // 평문이 메모리 (React state) 에 남지 않게. changePasswordAtNextLogin 도 로컬로.
+    const passwordForRun = newPassword;
+    const forceChangeForRun = changePasswordAtNextLogin;
+    clearSensitiveState();
     setPhase('running');
     const localFailures: { email: string; message: string }[] = [];
     for (let i = 0; i < emails.length; i++) {
@@ -77,8 +93,8 @@ export function BulkResetPasswordDialog({
       try {
         await callUsersResetPassword({
           primaryEmail: email,
-          newPassword,
-          changePasswordAtNextLogin,
+          newPassword: passwordForRun,
+          changePasswordAtNextLogin: forceChangeForRun,
         });
       } catch (e) {
         localFailures.push({ email, message: (e as Error).message });
@@ -112,12 +128,18 @@ export function BulkResetPasswordDialog({
                 <li className="text-fg-muted">... 외 {emails.length - 5}명</li>
               )}
             </ul>
+            {/* v0.113b F66: label 이 input 을 참조하도록 htmlFor + id 연결. 보조기술이 두
+                필드를 구분할 수 있게. UI_SYSTEM label semantics 규약 준수. */}
             <div className="space-y-3">
               <div>
-                <label className="text-small text-fg-primary block mb-1">
+                <label
+                  htmlFor="bulk-reset-password-new-input"
+                  className="text-small text-fg-primary block mb-1"
+                >
                   새 비밀번호 (최소 8자)
                 </label>
                 <input
+                  id="bulk-reset-password-new-input"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -126,8 +148,14 @@ export function BulkResetPasswordDialog({
                 />
               </div>
               <div>
-                <label className="text-small text-fg-primary block mb-1">비밀번호 확인</label>
+                <label
+                  htmlFor="bulk-reset-password-confirm-input"
+                  className="text-small text-fg-primary block mb-1"
+                >
+                  비밀번호 확인
+                </label>
                 <input
+                  id="bulk-reset-password-confirm-input"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}

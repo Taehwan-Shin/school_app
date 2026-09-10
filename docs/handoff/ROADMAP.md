@@ -39,13 +39,19 @@
 ## 진행 후보 (다음 단계)
 
 ### Phase 5 — Product features (school-specific)
-- **기초 데이터 (학년/반/부서) 관리 UI** — 원본 Apps Script 「⚙️ 기초 데이터」 메뉴 포팅. `setupBasicData` + `importInitialStudentData`. 현재는 callable 만 존재, 완전한 UI 없음.
-- **초기 계정 일괄 세팅** — `initialAccountSetup` 포팅. 학년/반 CSV → 사용자·그룹·챗룸 동시 프로비저닝.
-- **전입생 계정 생성 workflow** — `laterAccountSetup` 포팅. 개별 학생 추가.
-- **비밀번호 일괄 변경** — `updateUserPasswords` 포팅.
-- **계정 삭제 안내 메일** — MailApp 기능 포팅 (SendGrid 등 대체).
-- **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅.
-- **클래스룸 archived 관리** — ACTIVE ↔ ARCHIVED 전환 + 일괄 삭제.
+
+이미 구현됨 (Phase 5 부분 완료):
+- **기초 데이터 (학년/반/부서) 관리 UI** — `admin/BasicDataPanel` + `EditBasicDataDialog` · `ImportBasicDataDialog` · `EditRostersDialog` · `AutoCreateGroupsDialog` · `AutoCreateDepartmentGroupsDialog` · `AutoInviteStudentsDialog`. 원본 「⚙️ 기초 데이터」 메뉴 대부분 커버.
+- **비밀번호 일괄 변경** — v0.113 `BulkResetPasswordDialog` 완료.
+- **일괄 정지 / 삭제 / OU 이동** — `BulkSuspendDialog` · `BulkDeleteDialog` · `BulkMoveOuDialog`.
+- **Classroom + Chat 통합 생성** — v0.98 `ClassroomChatPairBulkCreateDialog`.
+- **Chat/Classroom bulk invite** — `ChatBulkInviteDialog` · `ClassroomBulkInviteDialog`.
+
+남은 후보:
+- **전입생 계정 개별 생성 UX 개선** — 기존 `CreateUserDialog` 는 있으나 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 흐름을 아직 안 감쌈.
+- **계정 삭제 안내 메일** — 원본 MailApp 기능. SendGrid 등 3rd party 이메일 서비스 필요 (미구현).
+- **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅. Classroom Courses.patch(ownerId) callable.
+- **클래스룸 archived 관리** — ACTIVE ↔ ARCHIVED 전환 (`classroomPatch` 확장) + bulk archive/delete UI.
 
 ### Phase 6 — 통합·자동화
 - **감사 로그 배치 export** — 전체 페이지 순회 (hasMore 소진까지) 통합 JSON/CSV. 대량 export.
