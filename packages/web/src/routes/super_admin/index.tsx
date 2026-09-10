@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -126,7 +126,6 @@ export function SuperAdminPage() {
       {
         onSuccess: () => {
           setResolvingUid(null);
-          // onSettled 에서 invalidate 하므로 별도 reload 호출 불필요.
         },
         onError: (err) => {
           setResolvingUid(null);
@@ -135,6 +134,24 @@ export function SuperAdminPage() {
       },
     );
   };
+
+  // v0.109: unknown row 자동 재확인. F48 로 남긴 auth=unknown detected 는 UI 파서가 처리 못
+  // 하므로 super_admin 이 매번 「상태 재확인」 을 눌러야 했는데, 카드 mount 시 자동으로
+  // 트리거. session-scoped Set (useRef) 로 무한 루프 방지 — 같은 uid 를 한 번 이상 auto-recheck
+  // 하지 않음. Recheck 후에도 여전히 unknown 이면 수동 버튼으로 재시도.
+  const autoRecheckedUids = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (unresolvedQuery.isLoading || unresolvedQuery.isError) return;
+    for (const e of roleSplitEntries) {
+      if (!isRecheckNeeded(e.message)) continue;
+      const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
+      if (!uid || autoRecheckedUids.current.has(uid)) continue;
+      autoRecheckedUids.current.add(uid);
+      recheckMutation.mutate({ uid });
+    }
+    // recheckMutation 은 안정 참조 (React Query), roleSplitEntries 만 dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleSplitEntries, unresolvedQuery.isLoading, unresolvedQuery.isError]);
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">

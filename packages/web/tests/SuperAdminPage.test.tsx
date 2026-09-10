@@ -866,9 +866,12 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
+      // v0.109: mount 시 자동 recheck 1회 (unknown row). button click 추가로 2회 총.
+      const callsAfterMount = mockRecheckMutate.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown'));
-      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
-      expect(mockRecheckMutate.mock.calls[0][0]).toEqual({ uid: 'uid-target-1' });
+      expect(mockRecheckMutate.mock.calls.length).toBeGreaterThan(callsAfterMount);
+      const lastCall = mockRecheckMutate.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual({ uid: 'uid-target-1' });
       // resolveMutation 은 호출 안 됨.
       expect(mockResolveMutate).not.toHaveBeenCalled();
     });
@@ -899,6 +902,71 @@ describe('SuperAdminPage', () => {
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
       expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-fu')).toBeDefined();
+    });
+
+    // v0.109: 카드 mount 시 unknown row 자동 recheck.
+    it('v0.109: mount 시 auth=unknown row 자동으로 recheckMutation 트리거', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-auto',
+        target: 'users/uid-auto-1',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutate).toHaveBeenCalledWith({ uid: 'uid-auto-1' });
+    });
+
+    it('v0.109: parsable row 는 auto recheck 트리거하지 않음', () => {
+      const parsableEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-parsable',
+        message: 'role_split: auth=admin firestore=teacher',
+      };
+      mockUnresolved({ entries: [parsableEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutate).not.toHaveBeenCalled();
+    });
+
+    it('v0.109: 같은 uid 는 auto recheck 를 두 번 호출하지 않음 (session-scoped Set)', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-dedup',
+        target: 'users/uid-dedup',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      const { rerender } = renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
+      // 같은 entries 로 rerender — auto recheck 재트리거 안 되어야.
+      rerender(
+        <MemoryRouter>
+          <SuperAdminPage />
+        </MemoryRouter>,
+      );
+      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
+    });
+
+    it('v0.109: loading 중엔 auto recheck 안 함', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutate).not.toHaveBeenCalled();
+    });
+
+    it('v0.109: isError 중엔 auto recheck 안 함', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('boom'),
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(mockRecheckMutate).not.toHaveBeenCalled();
     });
   });
 });
