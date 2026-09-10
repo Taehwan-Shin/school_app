@@ -1104,4 +1104,79 @@ describe('SuperAdminPage', () => {
       expect(round).toBeGreaterThan(1);
     });
   });
+
+  // v0.110: 미해결 role_split KPI 카드.
+  describe('v0.110: 미해결 role_split KPI', () => {
+    beforeEach(() => {
+      mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+      mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    });
+
+    it('v0.110: KPI 카드에 미해결 role_split 개수 표시', () => {
+      const entries = Array.from({ length: 3 }, (_, i) => ({
+        id: `log-${i}`,
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'system.role_split_detected',
+        target: `users/uid-${i}`,
+        request_id: 'r',
+        result: 'error' as const,
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      }));
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries,
+          scannedDetected: 3,
+          scannedResolved: 0,
+          detectedHasMore: false,
+          resolvedHasMore: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-미해결 role_split');
+      expect(card).toBeDefined();
+      expect(card.textContent).toContain('3');
+    });
+
+    it('v0.110: unresolvedQuery isError → KPI 값이 "—"', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('boom'),
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const card = screen.getByTestId('kpi-card-미해결 role_split');
+      expect(card.textContent).toContain('—');
+    });
+
+    it('v0.110: KPI 카드 클릭 → role-split-section 으로 scroll', () => {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: {
+          entries: [],
+          scannedDetected: 0,
+          scannedResolved: 0,
+          detectedHasMore: false,
+          resolvedHasMore: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // section 이 id 로 존재.
+      const section = document.getElementById('role-split-section');
+      expect(section).not.toBeNull();
+      // scrollIntoView 는 jsdom 에서 미구현. spy 로 대체.
+      const scrollSpy = vi.fn();
+      section!.scrollIntoView = scrollSpy;
+
+      fireEvent.click(screen.getByTestId('kpi-card-미해결 role_split'));
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+    });
+  });
 });

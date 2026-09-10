@@ -188,7 +188,9 @@ export function SuperAdminPage() {
     <AppShell role={role} pageTitle="슈퍼 관리자">
       <div className="space-y-8">
         {/* KPI 로우 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* v0.110: 미해결 role_split KPI 추가 (grid-cols-5). 클릭 시 같은 페이지의
+            role_split section 으로 anchor scroll. */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <KpiCard
             label="총 사용자"
             value={users.data?.users?.length ?? 0}
@@ -216,6 +218,20 @@ export function SuperAdminPage() {
             loading={summaryQuery.isLoading}
             href="nav"
             onClick={() => navigate(`/super_admin/audit?atMin=${todayIso}`)}
+          />
+          <KpiCard
+            label="미해결 role_split"
+            value={
+              unresolvedQuery.isError
+                ? '—'
+                : unresolvedQuery.data?.entries.length ?? 0
+            }
+            loading={unresolvedQuery.isLoading}
+            href="nav"
+            onClick={() => {
+              const el = document.getElementById('role-split-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           />
         </div>
 
@@ -288,6 +304,7 @@ export function SuperAdminPage() {
 
         {/* v0.106: role_split 경고 (Auth claim ≠ Firestore role) — server-side action 필터 */}
         <section
+          id="role-split-section"
           className="bg-elevated p-8 border border-border-subtle space-y-4"
           data-testid="super-admin-role-split-section"
         >
