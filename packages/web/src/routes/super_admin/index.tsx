@@ -116,6 +116,7 @@ export function SuperAdminPage() {
   };
 
   // v0.107f F51: 상태 재확인 handler. 서버가 Auth/Firestore 재조회 후 새 감사 이벤트 기록.
+  // v0.109b F56: hook 이 자동 invalidate 안 하므로 여기서 명시적 invalidate.
   const handleRecheck = (entryTarget: string) => {
     const uid = entryTarget.startsWith('users/') ? entryTarget.slice(6) : entryTarget;
     if (!uid) return;
@@ -126,10 +127,12 @@ export function SuperAdminPage() {
       {
         onSuccess: () => {
           setResolvingUid(null);
+          qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
         },
         onError: (err) => {
           setResolvingUid(null);
           setResolveError(err.message);
+          qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
         },
       },
     );
@@ -139,15 +142,38 @@ export function SuperAdminPage() {
   // 하므로 super_admin 이 매번 「상태 재확인」 을 눌러야 했는데, 카드 mount 시 자동으로
   // 트리거. session-scoped Set (useRef) 로 무한 루프 방지 — 같은 uid 를 한 번 이상 auto-recheck
   // 하지 않음. Recheck 후에도 여전히 unknown 이면 수동 버튼으로 재시도.
+  //
+  // v0.109b F56: 한 mount 당 batch limit 로 처리량 상한 (N unknown 이 있어도 최대 5개만
+  // 자동 trigger). 각 mutation 이 개별 invalidate 하지 않고 batch 전체 settle 후 한 번만
+  // invalidate 해서 Functions 증폭 · aggregation refetch 폭주 방지. 초과분은 수동 버튼으로.
+  const AUTO_RECHECK_BATCH_LIMIT = 5;
   const autoRecheckedUids = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (unresolvedQuery.isLoading || unresolvedQuery.isError) return;
+    // batch 대상 uid 수집 (LIMIT 상한).
+    const targets: string[] = [];
     for (const e of roleSplitEntries) {
+      if (targets.length >= AUTO_RECHECK_BATCH_LIMIT) break;
       if (!isRecheckNeeded(e.message)) continue;
       const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
       if (!uid || autoRecheckedUids.current.has(uid)) continue;
       autoRecheckedUids.current.add(uid);
-      recheckMutation.mutate({ uid });
+      targets.push(uid);
+    }
+    if (targets.length === 0) return;
+    // batch settle 카운터. 마지막 mutation 이 settle 되면 한 번만 invalidate.
+    let pending = targets.length;
+    const onBatchSettle = () => {
+      pending -= 1;
+      if (pending <= 0) {
+        qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
+      }
+    };
+    for (const uid of targets) {
+      recheckMutation.mutate(
+        { uid },
+        { onSuccess: onBatchSettle, onError: onBatchSettle },
+      );
     }
     // recheckMutation 은 안정 참조 (React Query), roleSplitEntries 만 dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps

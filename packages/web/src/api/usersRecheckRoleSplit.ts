@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { auth } from '../lib/firebase';
 import { getGoogleAccessTokenFromSession } from '../lib/auth';
 import type { Role } from '@school-app/shared';
@@ -59,13 +59,12 @@ export async function callUsersRecheckRoleSplit(
   return (body.result ?? body) as UsersRecheckRoleSplitResponse;
 }
 
+// v0.109b F56: 자동 재확인 batch 가 mutation 마다 aggregation query 를 invalidate 하면
+// N unknown → N Functions 호출 + N refetch 로 증폭. hook 은 automatic invalidation 을
+// 하지 않고 caller (수동 button click · auto batch) 가 적절한 타이밍에 명시적으로
+// invalidate. useQueryClient import 는 caller 측에서.
 export function useUsersRecheckRoleSplit() {
-  const qc = useQueryClient();
   return useMutation<UsersRecheckRoleSplitResponse, Error, UsersRecheckRoleSplitRequest>({
     mutationFn: (data) => callUsersRecheckRoleSplit(data),
-    onSettled: () => {
-      // 성공/실패 모두 unresolved query 무효화 — 새 detected/resolved 이벤트 반영.
-      qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
-    },
   });
 }

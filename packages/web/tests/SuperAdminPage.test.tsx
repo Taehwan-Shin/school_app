@@ -914,7 +914,11 @@ describe('SuperAdminPage', () => {
       };
       mockUnresolved({ entries: [unknownEntry] });
       renderWithRouter(<SuperAdminPage />);
-      expect(mockRecheckMutate).toHaveBeenCalledWith({ uid: 'uid-auto-1' });
+      // v0.109b F56: batch options 도 함께 전달됨.
+      expect(mockRecheckMutate).toHaveBeenCalledWith(
+        { uid: 'uid-auto-1' },
+        expect.anything(),
+      );
     });
 
     it('v0.109: parsable row 는 auto recheck 트리거하지 않음', () => {
@@ -967,6 +971,61 @@ describe('SuperAdminPage', () => {
       });
       renderWithRouter(<SuperAdminPage />);
       expect(mockRecheckMutate).not.toHaveBeenCalled();
+    });
+
+    // v0.109b F56: batch limit + 단일 invalidate.
+    it('v0.109b F56: 다중 unknown 이 있어도 AUTO_RECHECK_BATCH_LIMIT (5) 만 트리거', () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-many-${i}`,
+        target: `users/uid-many-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      renderWithRouter(<SuperAdminPage />);
+      // 10 unknown 있어도 최대 5개만 trigger.
+      expect(mockRecheckMutate).toHaveBeenCalledTimes(5);
+    });
+
+    it('v0.109b F56: batch settle 후 unresolvedRoleSplits query 를 한 번만 invalidate', () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-batch-${i}`,
+        target: `users/uid-batch-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      // 각 mutate 호출의 onSuccess 를 즉시 실행 (batch 전체 settle 시뮬).
+      mockRecheckMutate.mockImplementation((_vars: any, opts: any) => {
+        opts?.onSuccess?.();
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 3 mutations, 마지막 settle 시 한 번만 invalidate.
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
+    });
+
+    it('v0.109b F56: 3 mutation 중 1 error 여도 batch settle 후 invalidate 는 한 번', () => {
+      const entries: AuditLogEntryRead[] = Array.from({ length: 3 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-mix-${i}`,
+        target: `users/uid-mix-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      mockUnresolved({ entries });
+      let callIdx = 0;
+      mockRecheckMutate.mockImplementation((_vars: any, opts: any) => {
+        if (callIdx === 1) opts?.onError?.(new Error('one failed'));
+        else opts?.onSuccess?.();
+        callIdx += 1;
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const invalidateCalls = mockInvalidateQueries.mock.calls.filter((c) =>
+        JSON.stringify(c[0]?.queryKey) === JSON.stringify(['audit', 'unresolvedRoleSplits']),
+      );
+      expect(invalidateCalls.length).toBe(1);
     });
   });
 });
