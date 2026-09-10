@@ -19,20 +19,22 @@
   --color-sticky-note-blush: #f6d0ff;
   --color-terracotta: #cb5521;
 
-  /* 기존 semantic 토큰 → Say Briefly 매핑 (Light theme) */
+  /* 기존 semantic 토큰 → Say Briefly 매핑 (Light theme).
+   * 모든 텍스트/UI 는 배경 (Cream Paper #fcfaf5) 대비 4.5:1 이상 (WCAG AA).
+   * Pencil Gray (#b6b6b6), Terracotta 원시색은 border/장식 전용 — 텍스트 금지. */
   --bg-canvas: #fcfaf5;
   --bg-surface: #fcfaf5;
   --bg-elevated: #fcfaf5;
-  --fg-primary: #1a3300;
-  --fg-secondary: rgba(26, 51, 0, 0.72);
-  --fg-muted: #b6b6b6;
-  --border-subtle: #b6b6b6;
+  --fg-primary: #1a3300; /* Forest Ink · ~15:1 */
+  --fg-secondary: #3d4d24; /* forest 밝게 · ~7.3:1 */
+  --fg-muted: #5c6b47; /* forest 더 밝게 · ~4.6:1 (small 포함 AA 통과) */
+  --border-subtle: #b6b6b6; /* Pencil Gray · border 전용 */
   --border-strong: #1a3300;
   --accent-primary: #1a3300;
   --accent-on-primary: #fcfaf5;
-  --state-danger: #cb5521;
+  --state-danger: #a83a0e; /* 어두운 테라코타 · ~5.5:1 */
   --state-success: #1a3300;
-  --state-warning: #cb5521;
+  --state-warning: #8a4a00; /* 짙은 amber · ~7:1 */
 }
 
 .dark {

@@ -18,9 +18,9 @@ export function Sidebar({ role }: SidebarProps) {
         <div className="px-6 py-5 border-b border-border-subtle flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="flex items-center justify-center w-9 h-9 rounded-buttons bg-highlighter-yellow text-forest-ink font-display text-body-lg leading-none"
+            className="flex items-center justify-center w-9 h-9 rounded-buttons bg-highlighter-yellow text-forest-ink font-sans font-bold text-body-sm leading-none"
           >
-            ss
+            학
           </span>
           <span className="text-h3 font-bold text-fg-primary tracking-tight">학교</span>
         </div>
