@@ -1469,3 +1469,42 @@ v0.115 후보:
 - 클래스룸 archived 관리 (Phase 5).
 - 감사 로그 배치 export (Phase 6).
 - classroom 상세 페이지 (Phase 6).
+
+---
+
+## 2026-09-11 · v0.115 클래스룸 archived bulk 관리 + F72/F73 hotfix
+
+**슬라이스** — 원본 Apps Script `archiveClassrooms` 포팅. ClassroomTable 에 다중 선택 (`selectedIds: Set<string>`, eligible = ACTIVE|ARCHIVED) + bulk actions bar (선택 아카이브 / 선택 복구, 방향별 disabled, 선택 개수 라벨). `BulkArchiveClassroomDialog` 는 BulkSuspend 3-phase 재사용 (confirm/running/done): 대상 개수 숫자 입력 확인 · 순차 for-loop + 개별 실패 수집 · progress bar · running 중 close 차단 · done 후 `onDone` 콜백으로 selection reset. server 는 기존 `classroomPatch` callable 재사용 (신규 audit action 없음).
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `7f72985` | feat(web): ClassroomTable 다중 선택 + BulkArchiveClassroomDialog + 7 회귀 |
+| `f2725fc` | fix: F72 patch teacher membership 사전 검증 + F73 confirm 시점 courses·direction snapshot 고정 |
+
+### v0.115 → v0.115b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.115 | `7f72985` | 6/2/2 | F72 teacher 담당 외 코스 아카이브 가능 · F73 dialog courses 재계산으로 done 화면 성공 수 0 뒤집힘 |
+| v0.115b | `f2725fc` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `2da65ca` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 448 + web 695 = 1170 unit.
+
+### 배운 것
+
+- **teacher 캡 = 담당 코스 경계** — teacher role 이 `classroom.archive` cap 을 갖더라도, Google Workspace 관리자이면서 app-role 만 teacher 로 매핑된 계정은 담당 외 코스도 patch 요청이 통과된다. Google API 가 permission-denied 를 안 돌려주므로 앱 층에서 반드시 `courses.teachers.get(courseId, me)` 로 사전 검증. 이미 `assertTeacherInCourseIfTeacherRole` helper 가 있으니 이런 write 경로마다 재사용. **admin/super_admin 은 우회** (helper 내부 early return) — 광범위 관리 경로 보존.
+- **bulk workflow 는 confirm 시점에 대상을 snapshot 으로 고정** — dialog 가 render 마다 부모 prop 을 그대로 반영하면, 완료 후 list invalidation 이 대상 filter 를 바꿀 때 done 화면의 총량·성공 수가 뒤집힌다. `snapshot: { courses, direction }` state 에 확정 시점 값을 잠그고, running/done phase 는 snapshot 을 원본으로 삼는다. confirm phase 는 부모 prop 을 그대로 반영해서 선택 변경 즉시 반영.
+- **회귀 테스트 형태** — 「부모가 courses=[] 로 rerender 해도 done 화면의 성공 수·patch 호출 수 유지」 처럼 데이터 라이프사이클 회귀는 `rerender` 로 부모 prop 을 바꿔서 재현. 단순히 dialog 를 다시 열어 확인하는 테스트로는 잡을 수 없음.
+
+### 다음 세션에 이어갈 것
+
+v0.116 후보 (ROADMAP Phase 5/6 남음):
+- 클래스룸 소유자 이관 (Phase 5 남음, `transferClassroomOwnership` Apps Script 포팅).
+- classroom 상세 페이지 (Phase 6).
+- 감사 로그 배치 export (Phase 6).
