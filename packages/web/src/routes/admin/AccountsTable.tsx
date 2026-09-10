@@ -20,6 +20,7 @@ import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDi
 import { BulkSuspendDialog } from "./BulkSuspendDialog";
 import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
+import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -50,6 +51,7 @@ export function AccountsTable() {
   const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);
   const [isBulkSuspendOpen, setIsBulkSuspendOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkResetPasswordOpen, setIsBulkResetPasswordOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -230,6 +232,13 @@ export function AccountsTable() {
               data-testid="bulk-suspend-btn"
             >
               선택 정지
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkResetPasswordOpen(true)}
+              data-testid="bulk-reset-password-btn"
+            >
+              선택 비밀번호 변경
             </Button>
             <Button
               variant="secondary"
@@ -594,6 +603,13 @@ export function AccountsTable() {
       <BulkDeleteDialog
         open={isBulkDeleteOpen}
         onOpenChange={setIsBulkDeleteOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
+      />
+
+      <BulkResetPasswordDialog
+        open={isBulkResetPasswordOpen}
+        onOpenChange={setIsBulkResetPasswordOpen}
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />

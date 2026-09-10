@@ -1,0 +1,82 @@
+# ROADMAP — school_app 개발 로드맵
+
+> 2026-09-11 기준 · v0.112 배포 완료 · 다음 단계 계획.
+> `NEXT.md` 는 「지금 열린 오더」 · `ROADMAP.md` 는 「전체 계획」. 두 파일을 함께 본다.
+
+## 완료 (v0.93 baseline → v0.112)
+
+### Phase 1 — Admin Console v1 (v0.93 이전, baseline)
+- Firebase 스택 · pnpm workspace · Vitest · WCAG AA UI.
+- 인증 (Google 도메인 검증) · 역할 (super_admin/admin/teacher).
+- 사용자·그룹·챗룸·클래스룸 CRUD callable.
+- 감사 로그 append-only + 기본 조회.
+
+### Phase 2 — Admin Console v2 (v0.94 ~ v0.100)
+- Teacher 권한 fix (F1-F3): membership pre-check · ownerId=me 강제.
+- Alias hash · 128 자 사전 컷 · Chat/Classroom bulk create dialog.
+- Capability matrix (`/super_admin/capabilities`) 읽기 전용.
+- **usersUpdateRole callable** (system.manage_roles cap) + EditUserRoleDialog · Auth+Firestore 원자적 갱신 + rollback.
+
+### Phase 3 — Audit Log 강화 (v0.101 ~ v0.104, v0.108, v0.111, v0.112)
+- v0.101 filterAction + AUDIT_ACTIONS shared catalog + Firestore 복합 인덱스.
+- v0.104 다중 action 필터 (Firestore `in` 최대 30) + role=group WAI-ARIA.
+- v0.108 JSON export + 파일명 필터 요약 + partial/hasMore.
+- v0.111 role_split quick filter preset + empty-state trim 일치.
+- v0.112 「필터 초기화」 원자적 URL param clear.
+
+### Phase 4 — role_split 무결성 (v0.105 ~ v0.107, v0.109, v0.110)
+- v0.105 SuperAdminPage 감시 카드 (client filter).
+- v0.106 server-side `system.role_split_detected` action (client filter 제거).
+- **v0.107 자동 복구 + 상태 재확인** (7 라운드 감사): usersResolveRoleSplit (CAS + Firestore transaction + post-write Auth 3-way 분기) · usersRecheckRoleSplit (read-only) · auditLogUnresolvedRoleSplits (server aggregation, `system.role_split_resolved` + `users.update_role` 두 sync source).
+- v0.109 unknown row 자동 재확인 (mount-scoped budget + mutateAsync + Promise.allSettled).
+- v0.110 미해결 role_split KPI 카드 (반응형 grid + scanIncomplete `N+`/`N?` 분리).
+
+### 설계·품질 layer (반복 주제)
+- Codex 감사: v0.104-v0.112 총 약 30 라운드. 「F1~F64」 지적 사항 모두 해결.
+- UI_SYSTEM v1.1 (masstige.io 모노크롬 + lucide-react 아이콘 + AA 대비).
+- 기계 관문: TypeScript · web build · Functions build/lint · web lint · Vitest.
+
+## 진행 후보 (다음 단계)
+
+### Phase 5 — Product features (school-specific)
+- **기초 데이터 (학년/반/부서) 관리 UI** — 원본 Apps Script 「⚙️ 기초 데이터」 메뉴 포팅. `setupBasicData` + `importInitialStudentData`. 현재는 callable 만 존재, 완전한 UI 없음.
+- **초기 계정 일괄 세팅** — `initialAccountSetup` 포팅. 학년/반 CSV → 사용자·그룹·챗룸 동시 프로비저닝.
+- **전입생 계정 생성 workflow** — `laterAccountSetup` 포팅. 개별 학생 추가.
+- **비밀번호 일괄 변경** — `updateUserPasswords` 포팅.
+- **계정 삭제 안내 메일** — MailApp 기능 포팅 (SendGrid 등 대체).
+- **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅.
+- **클래스룸 archived 관리** — ACTIVE ↔ ARCHIVED 전환 + 일괄 삭제.
+
+### Phase 6 — 통합·자동화
+- **감사 로그 배치 export** — 전체 페이지 순회 (hasMore 소진까지) 통합 JSON/CSV. 대량 export.
+- **감사 로그 필터 preset 저장** — localStorage 기반 자주 쓰는 필터 조합 저장/불러오기.
+- **admin/users 검색 필터** — client-side 사용자 리스트 검색 (email/name).
+- **classroom 상세 페이지** — 멤버 리스트 + quick actions (add/remove roster).
+- **super_admin 대시보드 위젯** — 최근 활동 요약 (오늘/이번주 action 별 breakdown).
+
+### Phase 7 — 배포·운영 gate (사용자 조치 대기)
+- **Identity Platform 업그레이드** — Firebase Console → Authentication → Settings.
+- **커스텀 도메인 `cam-t.kr` 연결** — Firebase Console → Hosting.
+- **서비스 계정 (bootstrap 스크립트용)** — 도메인 검증 통과된 사용자가 웹 로그인 후 첫 admin 승격으로 대체 가능.
+- **Node 20 환경 재실행** — 판정불가 소거.
+- **Emulator 43건 재실행** — Java runtime 확보 후 재실행.
+
+### Phase 8 — 판정불가 소거 (Codex 감사 판정불가 항목)
+- **실 Firebase Auth ↔ Firestore transaction 워크플로우 검증** — v0.107 의 CAS · post-write 3-way 분기가 실제 concurrency 하에서 동작함을 통합 테스트로 확인.
+- **실 Workspace API 워크플로우 검증** — 도메인 서비스 계정 준비 후 실 Directory/Classroom/Chat API 호출로 판정불가 소거.
+- **브라우저 통합 테스트** — Playwright/Cypress 로 실 UI 시각·keyboard·스크린리더 workflow 검증.
+
+## 우선순위 근거
+
+**단기 (v0.113 ~ v0.120)**: Phase 5 학교 workflow 포팅 시작. 원본 Apps Script 의 「★ 실무 워크플로우」 5 단계 (기초값 · 초기 계정 · 전입생 · 비밀번호 · 그룹 배정) 를 순차 포팅. 각 단계는 기존 callable (v0.94~v0.100 에서 대부분 준비 완료) 을 UI 로 감싸는 작업.
+
+**중기 (v0.121+)**: Phase 6 감사·검색 UX 완성. Phase 7 배포 gate 는 사용자 조치 필요.
+
+**장기**: Phase 8 판정불가 소거는 실 인프라 접근이 확보되는 시점에.
+
+## 참고
+
+- 원본 기능 목록: `RESEARCH/school-webapp/FEATURES_CATALOG.md`.
+- 감사 결과: `RESEARCH/SCHOOL_APP_V*_CODEX_AUDIT.md`.
+- 세부 병합 이력: `project_notes.md`.
+- 현재 열린 오더: `NEXT.md`.
