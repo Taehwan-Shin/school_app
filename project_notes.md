@@ -1031,3 +1031,46 @@ v0.106 후보:
 - v0.104 (audit multi-action filter) Codex 감사 응답 대기 (5시간+ 지연) · 재요청 검토.
 - (c) 실 Workspace 확인 workflow (v0.94~ 판정불가 소거).
 - server-side `role_split` 전용 action 필드 도입 (client filter 불필요).
+
+---
+
+## 2026-09-10 · v0.106 server-side role_split_detected action (2 라운드 감사 · 병합)
+
+### 진행 요약
+
+v0.105 client filter 를 server-side 전용 action `system.role_split_detected` 로 이전. shared catalog 에 등록, getRole callable 이 split 감지 시 새 action 으로 기록. super_admin 카드는 `filterAction` 하나로 정확 count → empty state 가 확정 상태 (「없음 = 정말 없음」). caveat 은 sample-scope → trigger-scope (「역할 편집 대화상자를 열어본 계정에서만」) 로 단일화.
+
+### 커밋 이력 (feat/role-split-action-v106)
+
+| 커밋 | 요약 |
+|---|---|
+| `d33bfc0` | feat(shared,functions,web): system.role_split_detected action 도입 · getRole action 이전 · super_admin 카드 server 필터 · client filter 제거 · caveat trigger-scope 로 재작성 |
+| `35e1c01` | fix(web): F38 hasMore 안내를 `!loading && !error && hasMore` 로 가드 · loading/error 회귀 시나리오 2건 |
+
+### v0.106 → v0.106b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.106 | `d33bfc0` | 7/1/2 | F38 useAuditLogList 초기·오류 cursor undefined → hasMore=true 로 떨어져 pagination 안내가 loading/error 중에도 렌더됨 |
+| v0.106b | `35e1c01` | **5/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `9db5dd0` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — hosting + functions 전체 재배포 (functions build hash 변경으로 all update).
+- 로컬 관문: shared 27 + functions 397 + web 598 = 1022 unit.
+
+### 배운 것
+
+- **useAuditLogList 초기 hasMore=true 는 「데이터 있음」 이 아니라 「cursor 없음」 의 결과** — 실제 pagination 이 가능한지는 loading·error 완료 이후에만 판단 가능. hook 반환값을 UI 문구에 그대로 매핑하면 존재하지 않는 pagination 을 안내하게 됨. 가드 조합 `!loading && !error && flag` 는 async list hook 을 UI 에서 쓸 때의 기본 pattern (F38).
+- **회귀 시나리오는 「긍정」 뿐 아니라 「음성」 도 강제 필요** — 「hasMore=true → 안내 표시」 만 있으면 loading 중 hasMore=true 시나리오가 무커버리지. Codex 는 hook 내부까지 읽고 「초기 cursor undefined → hasMore=true」 를 잡아냈음. 상태별 (loading/error/success) × flag (true/false) 조합을 명시적으로 회귀에 걸어야 함.
+- **client filter → server filter 이전 시 empty state 의미가 바뀐다** — v0.105 empty = 「최근 50건 안에 없음」, v0.106 empty = 「전체 없음」. UI 문구 · caveat · 링크 URL 을 함께 갱신하지 않으면 사용자에게 옛 오해를 이어가게 됨. shared 카탈로그 · server callable · client hook · UI 문구 · 회귀 test 5 계층을 하나로 묶어 커밋해야 함.
+- **과거 events 는 마이그레이션 대신 audit 페이지 q 검색 위임 가능** — v0.105 이전에 기록된 `users.read + error + role_split:` events 는 새 action 이 아니라 여전히 users.read 지만, 감사 페이지에서 q=role_split substring 필터로 조회 가능. 신규 events 만 새 action 으로 두고 마이그레이션 안 함 (backfill 스크립트 부담 vs 옛 데이터 소량). 카드 링크는 「전체 보기」 를 신규 action exact filter 로 두어 최신 데이터 정확성 우선.
+
+### 다음 세션에 이어갈 것
+
+v0.107 후보:
+- v0.104 (audit multi-action filter) Codex 감사 응답 대기 (6시간+ 지연) · 재요청 검토.
+- (c) 실 Workspace 확인 workflow (v0.94~ 판정불가 소거).
+- role_split 자동 복구 (Auth ↔ Firestore 동기화) callable.
+- 감사 로그 CSV/JSON export.
