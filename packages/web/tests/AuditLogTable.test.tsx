@@ -589,6 +589,128 @@ describe('AuditLogTable component', () => {
     expect(exportButton.hasAttribute('disabled')).toBe(true);
   });
 
+  // v0.108: JSON export 는 CSV 옆에 추가. 필터 metadata 와 array 로 encoded.
+  it('v0.108: JSON export 는 필터 metadata + entries array 로 다운로드', async () => {
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.delete',
+        target: 'bad@cam.hs.kr',
+        request_id: 'req-1',
+        result: 'ok',
+        at: 1725150000000,
+        message: 'multi\nline\nmessage', // JSON 은 개행 유지 (CSV 는 제거).
+      },
+    ];
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: mockEntries });
+
+    let createdBlob: Blob | null = null;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      createdBlob = blob;
+      return 'blob:mock-url';
+    });
+    URL.revokeObjectURL = vi.fn();
+
+    let createdAnchor: HTMLAnchorElement | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+        const el = originalCreateElement(tagName, options);
+        if (tagName === 'a') createdAnchor = el as HTMLAnchorElement;
+        return el;
+      }) as typeof document.createElement);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      // URL 에 result=error 를 주면 파일명 요약에 반영돼야.
+      renderWithRouter(<AuditLogTable />, ['/super_admin/audit?result=error']);
+
+      const btn = screen.getByTestId('audit-log-export-json');
+      expect(btn).toBeDefined();
+      expect(btn.hasAttribute('disabled')).toBe(false);
+      fireEvent.click(btn);
+
+      expect(createdBlob).not.toBeNull();
+      expect((createdBlob as Blob).type).toContain('application/json');
+      // 파일명 확장자 + 필터 요약.
+      expect(createdAnchor?.download).toMatch(/^audit-log-\d{4}-\d{2}-\d{2}-result-error\.json$/);
+
+      const text = await (createdBlob as Blob).text();
+      const parsed = JSON.parse(text);
+      expect(parsed.filter).toMatchObject({ result: 'error' });
+      expect(parsed.count).toBe(1);
+      expect(parsed.entries).toHaveLength(1);
+      expect(parsed.entries[0]).toMatchObject({
+        id: 'log-1',
+        actor: 'super@cam.hs.kr',
+        action: 'users.delete',
+        result: 'ok',
+        message: 'multi\nline\nmessage', // 개행 유지.
+      });
+      expect(parsed.entries[0].atIso).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      createElementSpy.mockRestore();
+      clickSpy.mockRestore();
+    }
+  });
+
+  it('v0.108: JSON export 버튼은 empty 시 disabled', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    renderWithRouter(<AuditLogTable />);
+    const btn = screen.getByTestId('audit-log-export-json');
+    expect(btn.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('v0.108: CSV/JSON 파일명 요약 — action 필터 있을 때 파일명 접미어 포함', async () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-a',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.read',
+          target: '*',
+          request_id: 'req-a',
+          result: 'ok',
+          at: 1725150000000,
+        } as AuditLogEntryRead,
+      ],
+    });
+
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+    URL.revokeObjectURL = vi.fn();
+
+    let anchorEl: HTMLAnchorElement | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const spy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation(((tag: string, options?: ElementCreationOptions) => {
+        const el = originalCreateElement(tag, options);
+        if (tag === 'a') anchorEl = el as HTMLAnchorElement;
+        return el;
+      }) as typeof document.createElement);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      renderWithRouter(<AuditLogTable />, ['/super_admin/audit?action=users.read']);
+      fireEvent.click(screen.getByTestId('audit-log-export-csv'));
+      expect(anchorEl?.download).toMatch(/action-users\.read\.csv$/);
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      spy.mockRestore();
+      clickSpy.mockRestore();
+    }
+  });
+
   it('applies actor filter from initial URL search params (?actor=super@cam.hs.kr) and passes filterActor to hook', () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
