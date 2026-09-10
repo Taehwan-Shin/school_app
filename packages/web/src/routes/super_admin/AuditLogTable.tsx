@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,13 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
+import {
+  listPresets,
+  savePreset,
+  deletePreset,
+  normalizePresetName,
+  type AuditFilterPreset,
+} from './filterPresets';
 
 const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
 
@@ -206,6 +213,51 @@ export function AuditLogTable() {
     if (check(30)) return 30;
     return null;
   })();
+
+  // v0.114: 필터 preset 저장·불러오기·삭제. localStorage 기반.
+  const [presets, setPresets] = useState<AuditFilterPreset[]>(() => listPresets());
+  const [presetError, setPresetError] = useState<string | null>(null);
+
+  // v0.114b F69/F71: savePreset 이 반환하는 status 로 UI 분기.
+  // 이름 정규화는 유틸 (`normalizePresetName`) 을 쓰지만 status 판정도 유틸 쪽에 위임 —
+  // UI 는 raw 를 그대로 전달하고 유틸 결과만 반영. write 실패 (`storage_error`) 시에도
+  // persisted 상태를 유지 (state 갱신 X, error 표시 O).
+  const handleSavePreset = () => {
+    setPresetError(null);
+    const raw = window.prompt('preset 이름을 입력하세요 (최대 60자):');
+    if (raw === null) return;
+    // 사전 판정: 유틸과 같은 정규화 규칙으로 사용자에게 「빈 이름」 즉시 안내.
+    // (유틸도 같은 결과 반환하지만 두 경로 다 검증되도록 대칭 유지.)
+    if (!normalizePresetName(raw)) {
+      setPresetError('이름을 입력해야 합니다.');
+      return;
+    }
+    const params = searchParams.toString();
+    const result = savePreset(raw, params);
+    switch (result.status) {
+      case 'ok':
+        setPresets(result.presets);
+        return;
+      case 'invalid_name':
+        setPresetError('이름을 입력해야 합니다.');
+        return;
+      case 'limit_exceeded':
+        setPresetError('저장 가능한 preset 수 (20) 를 초과했습니다.');
+        return;
+      case 'storage_error':
+        setPresetError('브라우저 저장소에 쓸 수 없습니다 (용량 초과 또는 사설 모드).');
+        return;
+    }
+  };
+
+  const handleLoadPreset = (params: string) => {
+    setSearchParams(new URLSearchParams(params), { replace: false });
+  };
+
+  const handleDeletePreset = (name: string) => {
+    setPresetError(null);
+    setPresets(deletePreset(name));
+  };
 
   return (
     <div className="space-y-4">
@@ -459,6 +511,63 @@ export function AuditLogTable() {
             );
           })()}
         </div>
+      </div>
+
+      {/* v0.114: 저장된 필터 preset. localStorage 기반. 현재 URL 저장 · 저장된 것 불러오기
+          · 삭제. */}
+      <div
+        className="flex justify-end flex-wrap gap-2 items-center"
+        role="group"
+        aria-label="저장된 필터 preset"
+      >
+        <span className="text-small text-fg-secondary mr-1">저장된 필터:</span>
+        {presets.length === 0 && (
+          <span className="text-small text-fg-muted" data-testid="audit-log-presets-empty">
+            아직 없음
+          </span>
+        )}
+        {presets.map((p) => (
+          <span
+            key={p.name}
+            className="inline-flex items-center border border-border-subtle bg-canvas text-small"
+            data-testid={`audit-log-preset-saved-${p.name}`}
+          >
+            <button
+              type="button"
+              onClick={() => handleLoadPreset(p.params)}
+              className="px-3 py-1 text-fg-primary hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+              title={`?${p.params}`}
+            >
+              {p.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeletePreset(p.name)}
+              aria-label={`preset ${p.name} 삭제`}
+              data-testid={`audit-log-preset-saved-delete-${p.name}`}
+              className="px-2 py-1 border-l border-border-subtle text-fg-secondary hover:text-state-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleSavePreset}
+          data-testid="audit-log-preset-save-btn"
+          title="현재 필터 조건을 preset 으로 저장"
+        >
+          현재 필터 저장
+        </Button>
+        {presetError && (
+          <span
+            className="text-small text-state-danger"
+            data-testid="audit-log-preset-error"
+          >
+            {presetError}
+          </span>
+        )}
       </div>
 
       {loading && entries.length === 0 && (
