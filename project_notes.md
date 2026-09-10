@@ -862,3 +862,42 @@ Antigravity 가 v0.95 (F4/F5) 를 완료 후, Codex 가 3 라운드에 걸쳐 6 
 - (b3) 감사 로그 검색·필터 개선 · role_split 감사 이벤트 전용 view 등.
 - (c) 실 Workspace 확인 workflow — v0.94~v0.100 판정불가 (실 Auth claim 전파, Auth→Firestore rollback, alias 충돌, 128자 실 API 응답 등) 를 소거하는 실 리소스 검증.
 - (d) 사용자 지시 그 외.
+
+## 2026-09-10 · v0.101 audit log filterAction (b3 · 2 라운드 감사 · 병합)
+
+### 진행 요약
+
+v0.100 usersUpdateRole 도입으로 role_split 이 새 감사 이벤트로 나타나면서, 감사 로그 필터에서 액션 단위 탐색 필요성이 커졌다. shared 카탈로그 + 서버 정확 매치 필터 + 웹 드롭다운을 추가. Codex 감사에서 Firestore 복합 인덱스 누락 (F22) 발견, 인덱스 파일에 추가하여 통과.
+
+### 커밋 이력 (feat/audit-action-filter-v101)
+
+| 커밋 | 요약 |
+|---|---|
+| `dc2841b` | feat: AUDIT_ACTIONS shared 카탈로그 · readAudit + list callable filterAction · web hook/dep 배열 · AuditLogTable 드롭다운 · q 검색 message 확장 · 시나리오 6건 |
+| `cc551e6` | fix(firestore): F22 `audit_log(action ASCENDING, at DESCENDING)` 복합 인덱스 추가 |
+
+### v0.101 → v0.101b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.101 | `dc2841b` | 7/1/2 | F22 Firestore 복합 인덱스 누락 |
+| v0.101b | `cc551e6` | **4/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `bb5a8f5` (main).
+- 배포: `firebase deploy --only hosting,functions,firestore:indexes --project school-app-5a636` (인덱스 포함).
+- 로컬 관문: shared 27 + functions 397 + web 588 = 1012 unit.
+
+### 배운 것
+
+- **Firestore 복합 쿼리는 항상 인덱스가 필요** — `where(field, '==', v) + orderBy('at', desc)` 조합은 각 필드별로 복합 인덱스가 미리 있어야 실 런타임에서 동작. 로컬 mock 테스트는 인덱스를 검사하지 않으므로 회귀가 안 잡힌다. 서버 filter 추가 시 `firestore.indexes.json` 갱신을 병렬로 진행하는 습관 필요.
+- **shared 상수는 UI 재료지 서버 제약이 아니다** — 서버가 임의 액션 문자열을 저장할 수 있어야 미래 신규 액션이 인프라 확장 없이 감사 로그로 들어온다. 카탈로그는 UI 드롭다운 편의 목적에만 사용.
+- **부분 문자열 검색은 서버 정확 매치의 보완재** — Firestore 는 substring/contains 를 지원하지 않으므로 서버측 필터는 정확 매치만. UI 층 substring 은 이미 로드된 페이지 내에서 message/action 두 필드 매치. 두 기능은 겹치지 않고 상호보완.
+
+### 다음 세션에 이어갈 것
+
+방향 (b3) 완결. 다음 후보:
+- (c) 실 Workspace 확인 workflow (v0.94~v0.100 판정불가 소거).
+- (b4) 감사 로그 다중 액션·행위자 필터 · 액션 카탈로그 자동 동기화 (스크립트가 소스에서 추출).
+- (d) 사용자 지시 그 외.
