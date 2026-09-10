@@ -294,10 +294,12 @@ describe('usersResolveRoleSplit unit tests', () => {
     expect(mockDocSet).toHaveBeenCalledTimes(1);
   });
 
-  // v0.107c F45: post-write Auth 재검증 (transaction 이후 Auth 가 바뀌었으면 aborted).
-  it('v0.107c F45: post-write Auth 가 pre-write 와 다르면 aborted + error 감사', async () => {
-    // 1차 getUser: authRole=admin (기대치와 일치, transaction 진입).
-    // 2차 getUser (post-write): authRole=teacher (그 사이 usersUpdateRole 이 실행됨).
+  // v0.107c F45 · v0.107d F47: post-write Auth 재검증 + Firestore 재조회.
+  it('v0.107d F47 (c): post-write Auth 변경 + Firestore 도 여전히 split → new detected 감사 + aborted', async () => {
+    // 1차 getUser: admin (기대치와 일치, transaction 진입).
+    // 2차 getUser (post-write): teacher.
+    // transaction 안 mockDocGet: teacher (초기 기대치와 일치, transaction 통과 → Firestore=admin 씀).
+    // 3차 docGet (post-write): admin (우리가 방금 쓴 값). Auth 는 teacher 로 바뀌었으니 여전히 split.
     mockGetUser
       .mockResolvedValueOnce({
         uid: 'uid-target-1',
@@ -309,19 +311,66 @@ describe('usersResolveRoleSplit unit tests', () => {
         email: 'target@cam.hs.kr',
         customClaims: { role: 'teacher' },
       });
+    mockDocGet.mockReset();
+    mockDocGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'teacher' }) }) // transaction 안
+      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin' }) }); // post-write 재조회
     const req = createRequest();
     await expect(usersResolveRoleSplit.run(req)).rejects.toMatchObject({
       code: 'aborted',
       message: expect.stringContaining('auth_role_changed_during_write'),
     });
-    // 이미 Firestore 는 갱신됐음.
+    // Firestore 는 이미 갱신됨.
     expect(mockDocSet).toHaveBeenCalledTimes(1);
-    // 감사는 result=error (denied 아님).
+    // 새 detected 감사 기록 (v0.107d F47).
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'system.role_split_detected',
+        result: 'error',
+        message: expect.stringContaining('post_write_race'),
+      }),
+    );
+    // catch 블록 error 감사도 있음.
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'system.role_split_resolved',
         result: 'error',
         message: expect.stringContaining('auth_role_changed_during_write'),
+      }),
+    );
+  });
+
+  it('v0.107d F47 (b): post-write Auth 변경했지만 Firestore == Auth (우연 수렴) → resolved 감사', async () => {
+    // 1차 getUser: admin, 2차: teacher.
+    // transaction 안: mockDocGet teacher (전제와 일치, transaction 통과, Firestore=admin 씀).
+    // post-write docGet: teacher (동시 usersUpdateRole 이 Firestore 도 teacher 로 다시 씀).
+    // 결과: Auth=teacher, Firestore=teacher → 우연 수렴. resolved 로 인정.
+    mockGetUser
+      .mockResolvedValueOnce({
+        uid: 'uid-target-1',
+        email: 'target@cam.hs.kr',
+        customClaims: { role: 'admin' },
+      })
+      .mockResolvedValueOnce({
+        uid: 'uid-target-1',
+        email: 'target@cam.hs.kr',
+        customClaims: { role: 'teacher' },
+      });
+    mockDocGet.mockReset();
+    mockDocGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'teacher' }) }) // transaction 안
+      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'teacher' }) }); // post-write 재조회 (우연 수렴)
+    const req = createRequest();
+    const res = await usersResolveRoleSplit.run(req);
+    // 성공 반환 (throw 안 함).
+    expect(res.authRole).toBe('admin'); // pre-write authRole 반환 유지
+    expect(mockDocSet).toHaveBeenCalledTimes(1);
+    // resolved_by_convergence 감사.
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'system.role_split_resolved',
+        result: 'ok',
+        message: expect.stringContaining('resolved_by_convergence'),
       }),
     );
   });

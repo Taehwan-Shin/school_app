@@ -178,11 +178,12 @@ export const usersResolveRoleSplit = onCall(
         tx.set(getFirestore().doc(`users/${authUser.uid}`), writePayload, { merge: true });
       });
 
-      // v0.107c F45: post-write Auth 재검증. transaction 밖에서 Auth 를 다시 읽어 첫 read 시점
-      // 과 같은지 확인. 다르면 read 와 write 사이에 다른 usersUpdateRole 이 Auth 를 갱신했다는
-      // 뜻 — Firestore 에는 stale Auth 값을 이미 썼으므로 새 split 을 만들어냈을 위험. 이 경우
-      // aborted 로 실패 처리하고 감사 log 에 error 로 남긴다. 클라이언트는 새 상태로 재감지 후
-      // 다시 시도.
+      // v0.107c F45 · v0.107d F47: post-write Auth 재검증 + 상태 재조회.
+      // transaction 밖에서 Auth 와 Firestore 를 다시 읽는다:
+      //  (a) Auth 가 pre-write 와 같음 → 성공. resolved 감사.
+      //  (b) Auth 가 달라졌지만 Firestore == Auth → 우연히 수렴. resolved 감사 (converged 표시).
+      //  (c) Auth 가 달라지고 Firestore != Auth → 우리가 새 split 을 만들었음. 새 detected 감사
+      //      + aborted 예외. 클라이언트가 다음 감지 사이클에서 재해결.
       const authUserAfter = await getAuth().getUser(uid);
       const claimAfter =
         (authUserAfter.customClaims as { role?: unknown } | undefined) ?? {};
@@ -191,22 +192,56 @@ export const usersResolveRoleSplit = onCall(
           ? (claimAfter.role as Role)
           : null;
       const authRoleAfterAsExpected = authRoleAfter ?? 'null';
-      if (authRoleAfterAsExpected !== authRoleAsExpected) {
-        throw new HttpsError(
-          'aborted',
-          `auth_role_changed_during_write: before=${authRoleAsExpected} after=${authRoleAfterAsExpected} — Firestore 는 이미 갱신됨(${authRole ?? 'null'}). 재감지 후 재시도 필요.`,
-        );
-      }
 
-      await writeAudit({
-        actor: user.email,
-        role: user.role,
-        action: 'system.role_split_resolved',
-        target: `users/${authUser.uid}`,
-        request_id: requestId,
-        result: 'ok',
-        message: `resolved: firestore ${previousFirestoreRole ?? 'null'} → ${authRole ?? 'null'} (auth 원본)`,
-      });
+      if (authRoleAfterAsExpected === authRoleAsExpected) {
+        // (a) 정상.
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'system.role_split_resolved',
+          target: `users/${authUser.uid}`,
+          request_id: requestId,
+          result: 'ok',
+          message: `resolved: firestore ${previousFirestoreRole ?? 'null'} → ${authRole ?? 'null'} (auth 원본)`,
+        });
+      } else {
+        // Auth 가 write 사이에 바뀜 → Firestore 다시 read 해서 실제 상태 판정.
+        const snapAfter = await getFirestore().doc(`users/${authUser.uid}`).get();
+        const docRawAfter = snapAfter.exists
+          ? (snapAfter.data() as { role?: unknown } | undefined)?.role
+          : undefined;
+        const firestoreRoleAfter: Role | null =
+          docRawAfter === 'super_admin' || docRawAfter === 'admin' || docRawAfter === 'teacher'
+            ? (docRawAfter as Role)
+            : null;
+        if (authRoleAfter === firestoreRoleAfter) {
+          // (b) 우연히 수렴. 실제 sync 됐으므로 resolved 로 인정.
+          await writeAudit({
+            actor: user.email,
+            role: user.role,
+            action: 'system.role_split_resolved',
+            target: `users/${authUser.uid}`,
+            request_id: requestId,
+            result: 'ok',
+            message: `resolved_by_convergence: auth pre=${authRoleAsExpected} post=${authRoleAfterAsExpected}, firestore=${firestoreRoleAfter ?? 'null'} (경쟁 update 후 우연히 동기)`,
+          });
+        } else {
+          // (c) 새 split. 감사에 detected 로 기록하고 aborted 로 예외.
+          await writeAudit({
+            actor: user.email,
+            role: user.role,
+            action: 'system.role_split_detected',
+            target: `users/${authUser.uid}`,
+            request_id: requestId,
+            result: 'error',
+            message: `role_split: auth=${authRoleAfter ?? 'null'} firestore=${firestoreRoleAfter ?? 'null'} (post_write_race)`,
+          });
+          throw new HttpsError(
+            'aborted',
+            `auth_role_changed_during_write: before=${authRoleAsExpected} after=${authRoleAfterAsExpected} firestore=${firestoreRoleAfter ?? 'null'} — 새 split 감사에 기록됨. 클라이언트 재감지 후 재시도.`,
+          );
+        }
+      }
 
       return {
         primaryEmail: email,

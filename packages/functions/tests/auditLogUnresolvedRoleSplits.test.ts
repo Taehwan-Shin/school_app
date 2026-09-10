@@ -80,10 +80,25 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
     });
   });
 
-  it('returns empty when no detected/resolved events', async () => {
+  // v0.107d F46: 3 readAudit 호출 (detected + resolved + users.update_role) 순서.
+  function mockThreeCalls(
+    detected: any[],
+    resolved: any[],
+    updateRole: any[],
+    opts: {
+      detectedCursor?: number | null;
+      resolvedCursor?: number | null;
+      updateRoleCursor?: number | null;
+    } = {},
+  ) {
     mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+      .mockResolvedValueOnce({ entries: detected, nextCursor: opts.detectedCursor ?? null })
+      .mockResolvedValueOnce({ entries: resolved, nextCursor: opts.resolvedCursor ?? null })
+      .mockResolvedValueOnce({ entries: updateRole, nextCursor: opts.updateRoleCursor ?? null });
+  }
+
+  it('returns empty when no detected/resolved/update events', async () => {
+    mockThreeCalls([], [], []);
     const req = createRequest();
     const res = await auditLogUnresolvedRoleSplits.run(req);
     expect(res.entries).toEqual([]);
@@ -95,9 +110,7 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
 
   it('returns detected without any resolved as unresolved', async () => {
     const detected = makeEntry({ id: 'd-1', target: 'users/uid-A', at: 1725100000000 });
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [detected], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+    mockThreeCalls([detected], [], []);
     const req = createRequest();
     const res = await auditLogUnresolvedRoleSplits.run(req);
     expect(res.entries).toHaveLength(1);
@@ -113,16 +126,45 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
       action: 'system.role_split_resolved',
       result: 'ok',
     });
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [detected], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [resolved], nextCursor: null });
+    mockThreeCalls([detected], [resolved], []);
     const req = createRequest();
     const res = await auditLogUnresolvedRoleSplits.run(req);
     expect(res.entries).toEqual([]);
   });
 
+  // v0.107d F46: users.update_role 도 해소 신호로 인정 (Auth+Firestore 원자적 갱신).
+  it('v0.107d F46: users.update_role (result=ok) 이 detected 이후면 unresolved 아님', async () => {
+    const detected = makeEntry({ id: 'd-old', target: 'users/uid-A', at: 1725100000000 });
+    const updateRole = makeEntry({
+      id: 'ur-new',
+      target: 'users/uid-A',
+      at: 1725200000000,
+      action: 'users.update_role',
+      result: 'ok',
+    });
+    mockThreeCalls([detected], [], [updateRole]);
+    const req = createRequest();
+    const res = await auditLogUnresolvedRoleSplits.run(req);
+    expect(res.entries).toEqual([]);
+  });
+
+  it('v0.107d F46: users.update_role 이 detected 이전이면 detected 남음', async () => {
+    const detected = makeEntry({ id: 'd-new', target: 'users/uid-A', at: 1725300000000 });
+    const updateRole = makeEntry({
+      id: 'ur-old',
+      target: 'users/uid-A',
+      at: 1725100000000,
+      action: 'users.update_role',
+      result: 'ok',
+    });
+    mockThreeCalls([detected], [], [updateRole]);
+    const req = createRequest();
+    const res = await auditLogUnresolvedRoleSplits.run(req);
+    expect(res.entries).toHaveLength(1);
+    expect(res.entries[0].id).toBe('d-new');
+  });
+
   it('keeps detected where detected.at > latest resolved.at (재감지)', async () => {
-    // Note: readAudit returns at desc — 최신 첫 번째.
     const detectedNew = makeEntry({ id: 'd-new', target: 'users/uid-A', at: 1725300000000 });
     const detectedOld = makeEntry({ id: 'd-old', target: 'users/uid-A', at: 1725100000000 });
     const resolved = makeEntry({
@@ -132,23 +174,18 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
       action: 'system.role_split_resolved',
       result: 'ok',
     });
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [detectedNew, detectedOld], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [resolved], nextCursor: null });
+    mockThreeCalls([detectedNew, detectedOld], [resolved], []);
     const req = createRequest();
     const res = await auditLogUnresolvedRoleSplits.run(req);
     expect(res.entries).toHaveLength(1);
-    // target 별로 최신 detected 만 남기고, resolved.at 이후이면 unresolved.
     expect(res.entries[0].id).toBe('d-new');
   });
 
-  it('requests readAudit with filterResult=ok for resolved feed (denied/error 는 상태 전이 아님)', async () => {
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+  it('requests readAudit with filterResult=ok for both resolved sources', async () => {
+    mockThreeCalls([], [], []);
     const req = createRequest();
     await auditLogUnresolvedRoleSplits.run(req);
-    // 2번째 호출이 resolved feed.
+    // 2번째 호출: system.role_split_resolved + ok
     expect(mockReadAuditEntries).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -156,13 +193,22 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
         filterResult: 'ok',
       }),
     );
+    // 3번째 호출: users.update_role + ok (v0.107d F46)
+    expect(mockReadAuditEntries).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        filterAction: 'users.update_role',
+        filterResult: 'ok',
+      }),
+    );
   });
 
-  it('surfaces detectedHasMore/resolvedHasMore when scan window exceeded', async () => {
+  it('surfaces detectedHasMore/resolvedHasMore when any of 3 scans exceed window', async () => {
     const detected = makeEntry({ id: 'd-1', target: 'users/uid-A', at: 1725100000000 });
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [detected], nextCursor: 1725000000000 })
-      .mockResolvedValueOnce({ entries: [], nextCursor: 1725000000000 });
+    mockThreeCalls([detected], [], [], {
+      detectedCursor: 1725000000000,
+      updateRoleCursor: 1725000000000, // updateRole hasMore 도 resolvedHasMore 로 카운트.
+    });
     const req = createRequest();
     const res = await auditLogUnresolvedRoleSplits.run(req);
     expect(res.detectedHasMore).toBe(true);
@@ -170,9 +216,7 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
   });
 
   it('clamps scanLimit to [1, 1000]', async () => {
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+    mockThreeCalls([], [], []);
     const req = createRequest({ data: { scanLimit: 999999 } });
     await auditLogUnresolvedRoleSplits.run(req);
     expect(mockReadAuditEntries).toHaveBeenCalledWith(
@@ -182,9 +226,7 @@ describe('auditLogUnresolvedRoleSplits unit tests', () => {
 
   it('audits success with counts in message', async () => {
     const detected = makeEntry({ id: 'd-1', target: 'users/uid-A', at: 1725100000000 });
-    mockReadAuditEntries
-      .mockResolvedValueOnce({ entries: [detected], nextCursor: null })
-      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+    mockThreeCalls([detected], [], []);
     const req = createRequest();
     await auditLogUnresolvedRoleSplits.run(req);
     expect(mockWriteAudit).toHaveBeenCalledWith(
