@@ -12,7 +12,13 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
-import { listPresets, savePreset, deletePreset, type AuditFilterPreset } from './filterPresets';
+import {
+  listPresets,
+  savePreset,
+  deletePreset,
+  normalizePresetName,
+  type AuditFilterPreset,
+} from './filterPresets';
 
 const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
 
@@ -212,26 +218,36 @@ export function AuditLogTable() {
   const [presets, setPresets] = useState<AuditFilterPreset[]>(() => listPresets());
   const [presetError, setPresetError] = useState<string | null>(null);
 
+  // v0.114b F69/F71: savePreset 이 반환하는 status 로 UI 분기.
+  // 이름 정규화는 유틸 (`normalizePresetName`) 을 쓰지만 status 판정도 유틸 쪽에 위임 —
+  // UI 는 raw 를 그대로 전달하고 유틸 결과만 반영. write 실패 (`storage_error`) 시에도
+  // persisted 상태를 유지 (state 갱신 X, error 표시 O).
   const handleSavePreset = () => {
     setPresetError(null);
     const raw = window.prompt('preset 이름을 입력하세요 (최대 60자):');
     if (raw === null) return;
-    const name = raw.trim();
-    if (!name) {
+    // 사전 판정: 유틸과 같은 정규화 규칙으로 사용자에게 「빈 이름」 즉시 안내.
+    // (유틸도 같은 결과 반환하지만 두 경로 다 검증되도록 대칭 유지.)
+    if (!normalizePresetName(raw)) {
       setPresetError('이름을 입력해야 합니다.');
       return;
     }
     const params = searchParams.toString();
-    const next = savePreset(name, params);
-    // MAX_PRESETS 초과면 savePreset 이 그대로 반환. 동일 이름이 없으면 상한 도달.
-    if (
-      next.length === presets.length &&
-      !next.some((p) => p.name === name)
-    ) {
-      setPresetError('저장 가능한 preset 수 (20) 를 초과했습니다.');
-      return;
+    const result = savePreset(raw, params);
+    switch (result.status) {
+      case 'ok':
+        setPresets(result.presets);
+        return;
+      case 'invalid_name':
+        setPresetError('이름을 입력해야 합니다.');
+        return;
+      case 'limit_exceeded':
+        setPresetError('저장 가능한 preset 수 (20) 를 초과했습니다.');
+        return;
+      case 'storage_error':
+        setPresetError('브라우저 저장소에 쓸 수 없습니다 (용량 초과 또는 사설 모드).');
+        return;
     }
-    setPresets(next);
   };
 
   const handleLoadPreset = (params: string) => {

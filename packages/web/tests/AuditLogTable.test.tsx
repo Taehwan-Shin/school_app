@@ -1336,6 +1336,30 @@ describe('AuditLogTable component', () => {
     promptSpy.mockRestore();
   });
 
+  // v0.114b F69: setItem throws (quota/security) → 저장소 오류 문구 · chip 렌더 안 함.
+  it('v0.114b F69: storage_error → error 문구 표시, chip 렌더 안 함', () => {
+    localStorage.clear();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('new');
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('quota exceeded');
+      });
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-preset-save-btn'));
+    expect(screen.getByTestId('audit-log-preset-error').textContent).toContain(
+      '브라우저 저장소',
+    );
+    expect(screen.queryByTestId('audit-log-preset-saved-new')).toBeNull();
+    promptSpy.mockRestore();
+    setItemSpy.mockRestore();
+  });
+
   // v0.111b F63: aria-pressed 접근성.
   it('v0.111b F63: role_split preset 비활성 상태 aria-pressed=false', () => {
     render(
