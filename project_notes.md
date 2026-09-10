@@ -987,3 +987,47 @@ v0.102 (토큰+shell) 완결. 다음 후보:
 - (b4) 감사 로그 다중 액션·행위자 필터.
 - (c) 실 Workspace 확인 workflow.
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-10 · v0.105 SuperAdminPage role_split 감시 카드 (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+v0.100 에서 도입한 `role_split` 감사 이벤트(Auth claim ≠ Firestore role) 를 super_admin 대시보드에서 「최근 조회 sample 안에서」 즉시 감지하는 카드. `useAuditLogList` 로 `users.read/error` 50건을 받고 client 에서 `message.startsWith('role_split')` 필터. Codex 3 라운드에서 「전수 대조」 오해 소거, 표본 명칭 정확도, JSX 안 markdown 오노출 순차 해결.
+
+### 커밋 이력 (feat/role-split-card-v105)
+
+| 커밋 | 요약 |
+|---|---|
+| `bae1d38` | feat(web): SuperAdminPage role_split 감시 카드 (AlertTriangle · 3건 미리보기 · action/result/q 전체 보기 링크) |
+| `8ded7bb` | fix(web): F34/F35 「동기 상태」 단정 제거 · sample size (50) 노출 · hasMore pagination 안내 |
+| `704c5c6` | fix(web): F36/F37 표본 명칭 「usersGetRole 호출」→「users.read/error 감사 이벤트」 · JSX `**…**` markdown → `<strong>` element 교체 |
+
+### v0.105 → v0.105b → v0.105c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.105 | `bae1d38` | 7/2/2 | F34 「두 저장소 동기 상태」 단정 (sample 범위 오해) · F35 hasMore pagination 무시 |
+| v0.105b | `8ded7bb` | 6/2/2 | F36 표본 명칭 오도 (usersGetRole vs users.read/error) · F37 JSX 안 raw `**` markdown 노출 |
+| v0.105c | `704c5c6` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `ef6fb16` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — 함수 무변경 (skipped) · hosting 만 재배포.
+- 로컬 관문: shared 27 + functions 397 + web 596 = 1020 unit.
+
+### 배운 것
+
+- **client 표본 범위를 UI 에 노출** — Firestore 는 substring 필터 없어서 `role_split` prefix 는 client 에서 걸러야 함. sample size · hasMore 안내 없이 「감지 없음」 을 표시하면 사용자는 「전수 대조 통과」 로 오해. 카드 문구에 「최근 N건 sample 안에서만」 · 「조회된 적 없는 계정 제외」 를 명시적으로 박아 오해 소거 (F34/F35).
+- **필터 조건 = 표본 명칭** — 서버 필터가 `users.read + error` 라면 실제 sample 은 `usersGetRole` 뿐 아니라 `usersList` error 등 모든 users.read/error 이벤트 포함. 「usersGetRole 호출 이벤트」 라는 좁은 명칭은 표본 출처를 왜곡. 필터 조건과 명칭을 일치시켜야 (F36).
+- **JSX 문자열 안 markdown 은 렌더되지 않는다** — `<>...**bold**...</>` 는 raw asterisk 로 화면 노출. React 는 markdown 파서가 아님. 강조는 `<strong className="font-semibold">` 로 실제 element 사용해야 함. 로컬 테스트도 raw `**` 부재 assert 추가로 회귀 고정 (F37).
+- **커밋 메시지 안 `**` 는 zsh 확장 가능성** — heredoc + printf 로 `**` 넣으면 shell 이 파일 glob 시도. `git commit -F <파일>` 로 우회.
+
+### 다음 세션에 이어갈 것
+
+v0.106 후보:
+- v0.104 (audit multi-action filter) Codex 감사 응답 대기 (5시간+ 지연) · 재요청 검토.
+- (c) 실 Workspace 확인 workflow (v0.94~ 판정불가 소거).
+- server-side `role_split` 전용 action 필드 도입 (client filter 불필요).

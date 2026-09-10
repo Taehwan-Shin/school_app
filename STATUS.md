@@ -7,7 +7,8 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.104+) | 사용자 | 답 대기 | (a)(b) 완료 · v0.101 감사 필터 · v0.102 Say Briefly 실험 폐기 · v0.103 masstige 복원+아이콘+가독성. 후보: (c) 실 Workspace 확인 workflow · (b4) 감사 로그 다중 액션·행위자 필터 · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.106+) | 사용자 | 답 대기 | v0.105 role_split 감시 카드 병합 완료. v0.104 audit multi-action 필터는 Codex 감사 응답 지연 대기 중. 후보: (c) 실 Workspace 확인 workflow · server-side role_split 전용 action 필드 · (d) 그 외 |
+| v0.104 Codex 감사 응답 지연 | Codex | 5시간+ 무응답 | `feat/audit-multi-action-v104 @ 470d854` — 재요청 여부 사용자 판단 대기 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
 | Node 20 환경 재실행 | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인 |
@@ -26,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.105 | `ef6fb16` (main) | SuperAdminPage role_split 감시 카드 — `users.read/error` 감사 이벤트 최대 50건 표본에서 `role_split` prefix client filter · AlertTriangle 아이콘 · 최근 3건 미리보기 · 「전수 대조 아님」 명시 `<strong>` 강조 · hasMore pagination 안내 · 전체 보기 링크 (action/result/q param) · 3 라운드 Codex 감사 |
 | v0.103 | `eca8056` (main) | Say Briefly 디자인 revert + 아이콘 + 가독성 — v0.102 전체 되돌리기 + masstige.io 모노크롬 복원 · lucide-react 아이콘 (사이드바 각 항목 · Topbar 로그아웃 · 활성 stroke 2.25) · body 15→16 · small 13→14 · fg-muted #A3A3A3→#6B7280 (AA 4.83:1) · state 색 상향 · UI_SYSTEM v1.1 재봉인 · 3 라운드 Codex 감사 |
 | v0.102 | `2b12361` | Say Briefly 디자인 첫 슬라이스 — Google Fonts · 토큰 재매핑 · Bricolage headline · WCAG AA · shell 재구성 · UI_SYSTEM v2.0 재봉인 · 3 라운드 Codex 감사 · **v0.103 에서 revert** |
 | v0.101 | `bb5a8f5` | 감사 액션 필터 — AUDIT_ACTIONS shared 카탈로그 · readAudit/list filterAction (서버 정확 매치) · AuditLogTable 액션 드롭다운 · q substring 검색 message 확장 (role_split 탐색) · audit_log(action, at DESC) 복합 인덱스 · 2 라운드 Codex 감사 |
