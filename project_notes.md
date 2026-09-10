@@ -1427,3 +1427,45 @@ v0.114 후보 (ROADMAP Phase 5 남은 항목 or Phase 6):
 - 전입생 계정 UX 개선.
 - 감사 로그 배치 export.
 - 필터 preset 저장.
+
+---
+
+## 2026-09-11 · v0.114 audit filter preset 저장 (2 라운드 감사 · 병합)
+
+### 진행 요약
+
+Phase 6 (통합·자동화) 첫 슬라이스. super_admin 이 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 저장 → 다음 방문 시 chip 클릭 한 번으로 복원. Codex 1 라운드에서 write 실패 · read 정규화 · UI/유틸 일관성을 지적, hotfix 로 통과.
+
+### 커밋 이력
+
+| 커밋 | 요약 |
+|---|---|
+| `672d28e` | feat: filterPresets 유틸 (localStorage) + AuditLogTable 저장/불러오기/삭제 UI + 16 회귀 |
+| `2029425` | fix: F69 write status 반환 · F70 read 정규화 (trim·dedup·상한) · F71 이름 정규화 UI/유틸 공유 |
+
+### v0.114 → v0.114b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.114 | `672d28e` | 6/3/2 | F69 write 실패 삼킴 · F70 read 정규화 부재 · F71 UI/유틸 일치 안 함 |
+| v0.114b | `2029425` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `30e5c25` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 445 + web 687 = 1159 unit.
+
+### 배운 것
+
+- **localStorage write 는 실패 status 를 명시적으로 반환** — quota/private-mode/security 오류를 조용히 삼키면 UI 는 저장된 것처럼 보이나 새로고침 시 사라짐. `SavePresetResult { status, presets }` 로 명시. UI 는 status 별 분기 · storage_error 시 state 갱신 skip → persisted 상태와 UI 일치 유지.
+- **read 경로에도 정규화 적용** — 구버전 데이터 · 손상 파일 · 다른 브라우저 탭에서 잘못 쓴 값이 있어도 UI 불변식 (dedup, name 길이, 상한) 을 유지해야. 「write 시점에만 정규화」 로는 부족. read/write 양쪽에서 같은 규칙 적용.
+- **UI 사전 판정과 유틸 판정은 같은 함수 공유** — `normalizePresetName` 을 export 해서 UI 도 유틸 규칙 재사용. 「UI 는 trim, 유틸은 60자 컷」 같은 미묘한 불일치가 20 개 상태에서 61자 입력 시 stale error 유발.
+
+### 다음 세션에 이어갈 것
+
+v0.115 후보:
+- 클래스룸 소유자 이관 (Phase 5 남음).
+- 클래스룸 archived 관리 (Phase 5).
+- 감사 로그 배치 export (Phase 6).
+- classroom 상세 페이지 (Phase 6).

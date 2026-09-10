@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.114+) | 사용자 | 답 대기 | v0.104~v0.113 병합 완료. Phase 5 시작 (BulkResetPasswordDialog). 후보: 클래스룸 소유자 이관 · Archived 관리 · 전입생 UX · 감사 배치 export · 필터 preset · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.115+) | 사용자 | 답 대기 | v0.104~v0.114 병합 완료. Phase 5/6 진행. 후보: 클래스룸 소유자 이관 · Archived 관리 · classroom 상세 · 감사 배치 export · (d) 그 외 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
 | Node 20 환경 재실행 | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인 |
@@ -26,6 +26,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.114 | `30e5c25` (main) | audit filter preset 저장 (localStorage) — 자주 쓰는 필터 조합 chip 저장/불러오기/삭제 · SavePresetResult status 로 write 실패 UI 반영 · read/write 정규화 대칭 (trim·60자·dedup·MAX 20) · normalizePresetName export UI/유틸 공유 · 2 라운드 Codex 감사 |
 | v0.113 | `5cfca49` (main) | BulkResetPasswordDialog + ROADMAP.md — 원본 Apps Script 「비밀번호 일괄 변경」 (`updateUserPasswords`) 포팅 · BulkSuspend 패턴 · sensitive state clear (F65 close+실행 시작 시) · label htmlFor (F66) · ROADMAP Phase 5 재분류 (F67) · 취소 버튼 handleOpenChange 경로 (F68) · 3 라운드 Codex 감사 |
 | v0.112 | `0fd1848` (main) | audit page 「필터 초기화」 버튼 — 활성 필터 하나라도 있으면 활성 · 모든 URL param 원자적 제거 · 공백-only q 는 v0.111c 대칭 미포함 · 1 라운드 Codex 감사 (6/0/2 첫 라운드 통과) |
 | v0.111 | `7ef2057` (main) | audit page role_split quick filter — 프리셋 로우에 「role_split」 액션 preset 버튼 · toggle 활성/비활성 · aria-pressed 접근성 · empty-state 필터 판정 개선 (action/q 포함, trim 일치) · 3 라운드 Codex 감사 |
