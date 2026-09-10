@@ -1117,3 +1117,58 @@ v0.107 슬라이스 진행 중:
 - 신규 action `system.role_split_resolved`.
 - super_admin 카드 복구 버튼.
 - 서버 완료, client UI 진행 중.
+
+---
+
+## 2026-09-10 · v0.107 role_split 자동 복구 + 상태 재확인 (7 라운드 감사 · 병합)
+
+### 진행 요약
+
+super_admin 이 감지된 role_split 을 클릭 한 번으로 Firestore = Auth 로 동기화. Auth 는 authz 소스이므로 방향 하나만 지원 (반대 방향은 EditUserRoleDialog + usersUpdateRole 이 이미 원자적으로 처리). 서버 aggregation callable 로 두 audit source (`system.role_split_resolved` + `users.update_role`) 를 통합, 전용 recheck callable 로 unknown row 재확인 흐름 분리. Codex 감사 7 라운드에서 CAS · pagination · race handling · post-write recovery · domain enforcement 을 순차적으로 강화.
+
+### 커밋 이력 (feat/role-split-resolve-v107)
+
+| 커밋 | 요약 |
+|---|---|
+| `0a3f3d3` | feat: usersResolveRoleSplit callable · 카드 복구 버튼 · CAS 기대치 (uid + expectedAuthRole + expectedFirestoreRole) |
+| `5522eec` | fix: F41 detected append-only 소거 (resolved feed 병합) · F42 Firestore transaction CAS · rebase onto main (v0.104) |
+| `54a87c8` | fix: F43 자동 흡수 · F44 auditLogUnresolvedRoleSplits aggregation callable (server-side reconcile) · F45 post-write Auth 재검증 |
+| `ca2487d` | fix: F46 users.update_role 도 sync 신호로 인정 · F47 post-write 3-way 분기 (정상/우연수렴/새split) |
+| `4a1202e` | fix: F48 post-write getUser 실패 복구 (detected auth=unknown 기록) · F49 client error 경로 invalidate · F50 convergence 응답 실제 최종값 |
+| `3558d03` | fix: F51 usersRecheckRoleSplit read-only callable · unknown row 는 「상태 재확인」 버튼으로 분기 |
+| `5922e4e` | fix: F52 recheckRoleSplit ALLOWED_DOMAIN 강제 |
+
+### v0.107 → v0.107g
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.107 | `0a3f3d3` | 7/2/2 | F41 detected append-only · F42 read-write race |
+| v0.107b | `5522eec` | 6/3/2 | F43 resolved 결과 미필터 · F44 pagination 불완결 · F45 post-write race |
+| v0.107c | `54a87c8` | 7/2/2 | F46 updateRole sync 미인정 · F47 post-write error 정체 |
+| v0.107d | `ca2487d` | 7/3/2 | F48 post-write getUser 실패 · F49 error 경로 미invalidate · F50 convergence 응답 stale |
+| v0.107e | `4a1202e` | 7/1/2 | F51 auth=unknown row 파싱 실패 고착 |
+| v0.107f | `3558d03` | 8/1/2 | F52 recheck ALLOWED_DOMAIN 누락 |
+| v0.107g | `5922e4e` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `f7e5bb4` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636` — hosting + functions 전체 재배포.
+- 로컬 관문: shared 27 + functions 445 + web 615 = 1087 unit.
+
+### 배운 것
+
+- **Auth ↔ Firestore atomicity 는 진정 불가능 · CAS + 재검증만 가능** — Firebase Auth 는 Firestore transaction 밖. 한 개의 원자적 write 를 만들 수 없으므로 pre-CAS (읽어서 기대치 대조) + post-CAS (쓴 후 재확인 + 필요 시 보상) 조합 이 실제 가능한 최대 보증. 그리고 이 조합 안에서도 post-write 재조회 자체가 실패하면 상태를 알 수 없으므로 「auth=unknown」 을 명시적으로 기록해서 상위 로직 (aggregation + client UI) 이 인식 가능한 상태로 두어야 함.
+- **감사 이벤트는 상태 전이의 진실** — audit log 를 「기록만 남기는」 것으로 보지 말고, aggregation query 의 진실 소스로 사용. append-only 특성 때문에 detected 이벤트가 그대로 남으면 「미해결」 로 보이므로, resolved 이벤트를 target 별 최신 시각으로 병합해서 「detected.at > resolved.at」 만 unresolved 로 필터. 여기서 resolved 신호는 여러 action 이 될 수 있음 (`system.role_split_resolved` + `users.update_role` result=ok). action 하나로 좁히면 다른 경로로 sync 된 경우 놓침 (F46).
+- **client-server contract 는 message 포맷도 포함** — client parser 가 auth=X 를 role 4개 (`super_admin/admin/teacher/null`) 만 허용하는 상태에서 server 가 `auth=unknown` 을 기록하면 parsing 실패로 UI 가 고착 (F51). 서버가 새 marker 를 도입할 때 client 도 그 marker 를 어떻게 처리할지 결정 필요. F51 은 unknown row 를 별도 recheck 흐름으로 분기해서 UI 가 「상태 재확인」 버튼 제공.
+- **7 라운드 감사 = 각 라운드마다 새 concurrency 문제 노출** — 처음엔 simple resolver 였다가 CAS 도입 → race window 인식 → post-write 재검증 → 재검증 실패 처리 → unknown 상태 관리 → 도메인 강제 순으로 발견. 각 fix 가 새 attack surface 를 만들었음. 이 정도 깊이의 감사는 설계 단계에서 미리 파악하기 어렵고, Codex 라운드 구조 자체가 depth-first 발견에 강함.
+- **read-only mutation 은 confirm 없이** — resolve 는 Firestore 를 쓰므로 window.confirm 유지. recheck 는 오직 audit log 만 남기므로 confirm 불필요. UI affordance 는 mutation 의 실제 영향과 맞춰야 함.
+- **rebase 는 --force-with-lease 로만** — v0.107 은 v0.104 병합 이전 main 위에서 시작. v0.104 병합 후 rebase 하고 `git push --force-with-lease origin <branch>`. force push 는 feature branch 만, main 은 절대 안 됨 (AGENTS.md 규약).
+
+### 다음 세션에 이어갈 것
+
+v0.108 후보:
+- (c) 실 Workspace 확인 workflow — v0.94~v0.101 판정불가 소거.
+- role_split 감시 카드에 자동 재확인 (배포 후 첫 로드 시 auth=unknown row 자동 recheck).
+- 감사 로그 CSV export 개선 (JSON export 추가 · 필터 요약 포함 파일명).
+- (d) 사용자 지시 그 외.
