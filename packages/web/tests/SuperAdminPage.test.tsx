@@ -574,30 +574,31 @@ describe('SuperAdminPage', () => {
     expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
   });
 
-  // v0.105 (c 갱신): 표본 명칭 정확화 + Markdown 별표 대신 <strong> 렌더.
-  it('v0.105c: empty state → 정확한 표본 명칭 + strong 강조, ** 노출 없음', () => {
+  // v0.106: server-side action 필터 · trigger-scope caveat.
+  it('v0.106: empty state → trigger-scope caveat + strong 강조, ** 노출 없음', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
     renderWithRouter(<SuperAdminPage />);
 
     const section = screen.getByTestId('super-admin-role-split-section');
     expect(section).toBeDefined();
-    // 표본 명칭 (v0.105c 정정: 「usersGetRole 호출」 → 「users.read/error 감사 이벤트」).
-    expect(section.textContent).toContain('users.read/error 감사 이벤트');
-    expect(section.textContent).toContain('role_split 감지 없음');
-    // 강조 문구가 <strong> 으로 렌더되는지 (Markdown ** 대신).
+    // 서버가 이미 action 필터로 정확히 셌으므로 「감사 이벤트 없음」 이 확정 상태.
+    expect(section.textContent).toContain('role_split 감사 이벤트 없음');
+    // trigger-scope caveat: 편집 대화상자 열림 시에만 감지.
     const strong = section.querySelector('strong');
     expect(strong).not.toBeNull();
-    expect(strong!.textContent).toContain('전수 대조가 아니라 최근 조회 sample 안에서만');
+    expect(strong!.textContent).toContain('역할 편집 대화상자를 열어본 계정에서만 감지');
     // 화면에 raw ** 이 노출되면 안 됨.
     expect(section.textContent).not.toContain('**');
+    // v0.105 의 sample-scope 문구 는 v0.106 에서 사라져야 (server 필터가 정확 매치).
+    expect(section.textContent).not.toContain('전수 대조가 아니라 최근 조회 sample 안에서만');
     // 이전 「동기 상태」 단정 표현도 계속 없어야.
     expect(section.textContent).not.toContain('동기 상태');
     expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
   });
 
-  // v0.105b: hasMore=true 시 pagination 안내 문구.
-  it('v0.105b: hasMore=true → 이전 이벤트가 있음 안내', () => {
+  // v0.105b (v0.106 유지): hasMore=true 시 pagination 안내 문구.
+  it('v0.106: hasMore=true → 표시 상한 초과 안내 (loading/error 아닌 경우만)', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
     mockUseAuditLogList.mockReturnValue({
@@ -611,19 +612,59 @@ describe('SuperAdminPage', () => {
     renderWithRouter(<SuperAdminPage />);
 
     const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('더 이전 이벤트가 있음');
+    expect(section.textContent).toContain('표시 상한 초과');
   });
 
-  it('v0.105: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {
+  // v0.106b F38: useAuditLogList 초기 cursor undefined → hasMore=true 로 떨어지므로,
+  // loading 중에는 pagination 안내를 렌더하면 안 됨 (실제 데이터 없이 존재하지 않는 pagination
+  // 을 사용자에게 안내하게 됨).
+  it('v0.106b F38: loading=true + hasMore=true → pagination 안내 없음', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: true,
+      error: null,
+      hasMore: true,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('불러오는 중');
+    expect(section.textContent).not.toContain('표시 상한 초과');
+  });
+
+  it('v0.106b F38: error + hasMore=true → pagination 안내 없음', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: new Error('boom'),
+      hasMore: true,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('감시 데이터를 불러오지 못했습니다');
+    expect(section.textContent).not.toContain('표시 상한 초과');
+  });
+
+  it('v0.106: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
 
+    // v0.106: server 가 action=system.role_split_detected 로 정확히 필터해서 넘김.
     const entries: AuditLogEntryRead[] = [
       {
         id: 'log-rs-1',
         actor: 'super@cam.hs.kr',
         role: 'super_admin',
-        action: 'users.read',
+        action: 'system.role_split_detected',
         target: 'users/uid-A',
         request_id: 'req-1',
         result: 'error',
@@ -634,24 +675,12 @@ describe('SuperAdminPage', () => {
         id: 'log-rs-2',
         actor: 'super@cam.hs.kr',
         role: 'super_admin',
-        action: 'users.read',
+        action: 'system.role_split_detected',
         target: 'users/uid-B',
         request_id: 'req-2',
         result: 'error',
         at: 1725149000000,
         message: 'role_split: auth=null firestore=admin',
-      },
-      // 일반 users.read error (role_split 아님) — 카드에 안 잡혀야.
-      {
-        id: 'log-other',
-        actor: 'admin@cam.hs.kr',
-        role: 'admin',
-        action: 'users.read',
-        target: '*',
-        request_id: 'req-3',
-        result: 'error',
-        at: 1725148000000,
-        message: 'permission_denied',
       },
     ];
     mockUseAuditLogList.mockReturnValue({
@@ -666,19 +695,17 @@ describe('SuperAdminPage', () => {
     renderWithRouter(<SuperAdminPage />);
 
     const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('role_split 2건');
-    // "전체 보기" 링크가 audit 페이지 role_split URL 로 이동.
+    expect(section.textContent).toContain('role_split 감사 이벤트 2건');
+    // "전체 보기" 링크는 v0.106 전용 action 필터로 이동 (q=role_split 대신).
     const link = screen.getByTestId('super-admin-role-split-link');
     expect(link.getAttribute('href')).toContain('/super_admin/audit');
-    expect(link.getAttribute('href')).toContain('action=users.read');
-    expect(link.getAttribute('href')).toContain('q=role_split');
-    // role_split 항목 2개 표시, 다른 users.read 는 안 잡힘.
+    expect(link.getAttribute('href')).toContain('action=system.role_split_detected');
+    // role_split 항목 2개 표시.
     expect(screen.getByTestId('super-admin-role-split-item-log-rs-1')).toBeDefined();
     expect(screen.getByTestId('super-admin-role-split-item-log-rs-2')).toBeDefined();
-    expect(screen.queryByTestId('super-admin-role-split-item-log-other')).toBeNull();
   });
 
-  it('v0.105: hook 호출 인자는 filterAction=users.read + filterResult=error', () => {
+  it('v0.106: hook 호출 인자는 filterAction=system.role_split_detected (result 필터 없음)', () => {
     mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
     mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
     renderWithRouter(<SuperAdminPage />);
@@ -687,8 +714,9 @@ describe('SuperAdminPage', () => {
     expect(call).toBeDefined();
     // (pageSize, filters) 시그니처.
     expect(call![1]).toMatchObject({
-      filterAction: 'users.read',
-      filterResult: 'error',
+      filterAction: 'system.role_split_detected',
     });
+    // v0.106 부터 client 는 filterResult 를 지정하지 않는다 (전용 action 이므로 불필요).
+    expect(call![1].filterResult).toBeUndefined();
   });
 });
