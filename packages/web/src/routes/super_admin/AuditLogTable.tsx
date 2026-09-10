@@ -78,6 +78,29 @@ export function AuditLogTable() {
     });
   }, [entries, actionSearch]);
 
+  // v0.108: 현재 필터 요약을 파일명에 반영. 여러 export 를 구분할 수 있도록. filesystem-safe
+  // 문자만 남기고 나머지는 _ 로 치환.
+  const filterSummaryForFilename = (): string => {
+    const parts: string[] = [];
+    if (actionParam) parts.push(`action-${actionParam.replace(/,/g, '_')}`);
+    if (resultFilter !== 'all') parts.push(`result-${resultFilter}`);
+    if (actorFilter) parts.push(`actor-${actorFilter.replace(/@.*/, '')}`);
+    if (actionSearch) parts.push(`q-${actionSearch.slice(0, 20)}`);
+    return parts.length > 0 ? '-' + parts.join('-').replace(/[^a-zA-Z0-9._-]/g, '_') : '';
+  };
+
+  // v0.108: filteredEntries 를 Blob 다운로드로 밀어내는 공통 helper. CSV/JSON 진입점이 공유.
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportCsv = () => {
     const header = ['시간', '행위자', '역할', '액션', '대상', '결과', '요청 ID', '메시지'];
     const rows = filteredEntries.map((e) => [
@@ -94,14 +117,57 @@ export function AuditLogTable() {
       .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
       .join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM 으로 Excel 한글 지원
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const dateStr = new Date().toISOString().split('T')[0];
+    downloadBlob(blob, `audit-log-${dateStr}${filterSummaryForFilename()}.csv`);
+  };
+
+  // v0.108: JSON export. CSV 가 개행 제거하고 flat table 로 변환하는 반면 JSON 은 원본 그대로
+  // 기계 처리에 적합. before/after 필드도 (존재 시) 함께 담음. NDJSON 아닌 array 로.
+  // v0.108b F53/F54/F55: hasMore + before/after 포함 · metadata 는 URL 원문이 아니라 실제
+  // 서버로 넘긴 정규화된 hook 인자 사용.
+  const handleExportJson = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      // F55: 정규화된 실제 hook 인자를 그대로 반영 (actionList 는 dedup 완료 · atMin/Max
+      // 는 유효 검증 통과한 ms). URL 원문과 다를 수 있는 사례: 중복 action 제거, 잘못된
+      // 날짜 무시. 사용자가 export 파일만 봐도 실제 어떤 조건으로 조회됐는지 정확히 알 수
+      // 있게.
+      filter: {
+        actions: actionList.length > 0 ? actionList : null,
+        result: resultFilter !== 'all' ? resultFilter : null,
+        actor: actorFilter || null,
+        q: actionSearch || null,
+        atMinMs: atMinMs ?? null,
+        atMinIso: atMinMs !== undefined ? new Date(atMinMs).toISOString() : null,
+        atMaxMs: atMaxMs ?? null,
+        atMaxIso: atMaxMs !== undefined ? new Date(atMaxMs).toISOString() : null,
+        pageSize: 25,
+      },
+      // F53: hasMore=true 이면 partial 결과. count/entries 를 완전한 필터 결과처럼 해석
+      // 하지 않도록 명시.
+      partial: hasMore,
+      hasMore,
+      count: filteredEntries.length,
+      entries: filteredEntries.map((e) => ({
+        id: e.id,
+        at: e.at,
+        atIso: new Date(e.at).toISOString(),
+        actor: e.actor,
+        role: e.role,
+        action: e.action,
+        target: e.target,
+        result: e.result,
+        requestId: e.request_id,
+        message: e.message ?? null,
+        // F54: AuditLogEntryRead 타입이 약속한 before/after 보존 (존재 시).
+        before: e.before ?? null,
+        after: e.after ?? null,
+      })),
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const dateStr = new Date().toISOString().split('T')[0];
+    downloadBlob(blob, `audit-log-${dateStr}${filterSummaryForFilename()}.json`);
   };
 
   const handlePreset = (days: number | null) => {
@@ -299,6 +365,16 @@ export function AuditLogTable() {
             data-testid="audit-log-export-csv"
           >
             CSV 내보내기
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportJson}
+            disabled={filteredEntries.length === 0}
+            data-testid="audit-log-export-json"
+            title="현재 필터 조건과 함께 감사 이벤트를 JSON 파일로 저장"
+          >
+            JSON 내보내기
           </Button>
         </div>
       </div>
