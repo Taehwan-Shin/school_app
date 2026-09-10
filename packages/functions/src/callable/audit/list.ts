@@ -13,6 +13,7 @@ export interface AuditLogListRequest {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
+  filterAction?: string;
 }
 
 export interface AuditLogListResponse {
@@ -103,6 +104,10 @@ export const auditLogList = onCall(
         data?.filterResult === 'ok' || data?.filterResult === 'error' || data?.filterResult === 'denied'
           ? data.filterResult
           : undefined;
+      const filterAction =
+        typeof data?.filterAction === 'string' && data.filterAction.length > 0
+          ? data.filterAction
+          : undefined;
 
       const result = await readAuditEntries({
         limit,
@@ -112,12 +117,14 @@ export const auditLogList = onCall(
         filterActor,
         filterTarget,
         filterResult,
+        filterAction,
       });
 
       const filters = [];
       if (filterActor) filters.push(`actor=${filterActor}`);
       if (filterTarget) filters.push(`target=${filterTarget}`);
       if (filterResult) filters.push(`result=${filterResult}`);
+      if (filterAction) filters.push(`action=${filterAction}`);
       if (atMin) filters.push(`atMin=${new Date(atMin).toISOString()}`);
       if (atMax) filters.push(`atMax=${new Date(atMax).toISOString()}`);
       const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';

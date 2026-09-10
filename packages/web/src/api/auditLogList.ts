@@ -24,6 +24,7 @@ export interface AuditLogListRequest {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
+  filterAction?: string;
 }
 
 export interface AuditLogListResponse {
@@ -81,6 +82,7 @@ export interface AuditLogFilters {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
+  filterAction?: string;
   atMin?: number;
   atMax?: number;
 }
@@ -133,7 +135,7 @@ export function useAuditLogList(
         setLoading(false);
       }
     },
-    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.atMin, filters?.atMax]
+    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.filterAction, filters?.atMin, filters?.atMax]
   );
 
   useEffect(() => {
@@ -159,7 +161,7 @@ export function useAuditLogList(
     return () => {
       cancelled = true;
     };
-  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.atMin, filters?.atMax]);
+  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.filterAction, filters?.atMin, filters?.atMax]);
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || cursorRef.current === null || cursorRef.current === undefined) {

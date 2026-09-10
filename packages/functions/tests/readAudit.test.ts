@@ -178,6 +178,18 @@ describe('readAuditEntries unit tests', () => {
     expect(mockLimit).toHaveBeenCalledWith(50);
   });
 
+  it('applies filterAction where clause when filterAction is provided (v0.101)', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterAction: 'users.update_role',
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', '==', 'users.update_role');
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+  });
+
   it('does not apply any filter where clauses when no filters are provided', async () => {
     mockGet.mockResolvedValueOnce({ docs: [] });
 

@@ -496,4 +496,47 @@ describe('auditLogList unit tests', () => {
       );
     });
   });
+
+  // v0.101 filterAction 시나리오
+  it('passes filterAction to readAuditEntries when provided', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterAction: 'users.update_role' },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterAction: 'users.update_role' }),
+    );
+  });
+
+  it('includes filterAction in success audit message', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterAction: 'users.update_role', filterResult: 'ok' },
+    });
+    await auditLogList.run(req);
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: expect.stringContaining('action=users.update_role'),
+      }),
+    );
+  });
+
+  it('ignores non-string or empty filterAction and does not forward it', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterAction: '' },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterAction: undefined }),
+    );
+  });
 });

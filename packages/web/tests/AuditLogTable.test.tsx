@@ -91,7 +91,8 @@ describe('AuditLogTable component', () => {
     expect(screen.getByTestId('audit-log-row-log-3')).toBeDefined();
 
     expect(screen.getByText('super@cam.hs.kr')).toBeDefined();
-    expect(screen.getByText('users.delete')).toBeDefined();
+    // dropdown option 도 같은 텍스트를 가지므로 getAllByText — 표 셀 존재만 확인.
+    expect(screen.getAllByText('users.delete').length).toBeGreaterThan(0);
     expect(screen.getByText('bad@cam.hs.kr')).toBeDefined();
     expect(screen.getByText('12345678')).toBeDefined(); // short request_id (last 8 chars)
     expect(screen.getByText('사용자 영구 삭제')).toBeDefined();
@@ -821,6 +822,61 @@ describe('AuditLogTable component', () => {
 
     expect(screen.queryByTestId('audit-actor-link-unknown')).toBeNull();
     expect(screen.getByText('unknown')).toBeDefined();
+  });
+
+  // v0.101: filterAction dropdown 시나리오
+  it('v0.101: renders action filter dropdown with known audit actions and forwards selection to hook', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?action=users.update_role']);
+
+    const select = screen.getByTestId('audit-log-filter-action-select') as HTMLSelectElement;
+    expect(select).toBeDefined();
+    expect(select.value).toBe('users.update_role');
+
+    // 최소 몇 개 알려진 옵션이 목록에 있는지.
+    const optionValues = Array.from(select.querySelectorAll('option')).map((o) => o.value);
+    expect(optionValues).toContain('users.update_role');
+    expect(optionValues).toContain('classroom.create');
+    expect(optionValues).toContain('audit.read');
+
+    // hook 에 filterAction 이 전달됐는지.
+    const lastCall = mockUseAuditLogList.mock.calls.at(-1);
+    expect(lastCall?.[1]).toMatchObject({ filterAction: 'users.update_role' });
+  });
+
+  // v0.101: 메시지 substring 검색이 message 필드도 매치하는지 (role_split 등 탐색).
+  it('v0.101: message substring filter (q) matches both action and message fields', () => {
+    const entries: AuditLogEntryRead[] = [
+      {
+        id: 'log-split',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.read',
+        target: 'users/uid-1',
+        request_id: 'req-s',
+        result: 'error',
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      },
+      {
+        id: 'log-other',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.read',
+        target: '*',
+        request_id: 'req-o',
+        result: 'ok',
+        at: 1725149000000,
+        message: 'listed 10 users',
+      },
+    ];
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?q=role_split']);
+
+    expect(screen.getByTestId('audit-log-row-log-split')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-row-log-other')).toBeNull();
   });
 });
 
