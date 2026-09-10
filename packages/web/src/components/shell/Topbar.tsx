@@ -10,8 +10,7 @@ export function Topbar({ pageTitle }: TopbarProps) {
     <header className="sticky top-0 z-10 min-h-16 bg-canvas border-b border-border-subtle px-4 md:px-8 py-3 flex items-center gap-3 shrink-0">
       <h1
         title={pageTitle}
-        className="font-display text-subheading md:text-heading-sm text-fg-primary flex-1 min-w-0 truncate"
-        style={{ letterSpacing: '0.03em' }}
+        className="font-sans font-bold text-subheading md:font-display md:font-extrabold md:text-heading-sm md:tracking-[0.04em] md:leading-none text-fg-primary flex-1 min-w-0 truncate"
       >
         {pageTitle}
       </h1>

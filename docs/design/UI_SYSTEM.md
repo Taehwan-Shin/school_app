@@ -57,8 +57,8 @@
 | `--bg-surface` | `#171717` |
 | `--bg-elevated` | `#262626` |
 | `--fg-primary` | `#FAFAFA` |
-| `--fg-secondary` | `#A3A3A3` |
-| `--fg-muted` | `#737373` |
+| `--fg-secondary` | `#A3A3A3` (~7.85:1) |
+| `--fg-muted` | `#9ca3af` (~7.8:1, v0.102c AA 상향) |
 | `--border-subtle` | `#262626` |
 | `--border-strong` | `#FAFAFA` |
 | `--accent-primary` | `#FAFAFA` |
