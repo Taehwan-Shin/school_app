@@ -67,17 +67,44 @@ export function TransferClassroomOwnerDialog({
     }
   };
 
-  const errorMessage = mutationError
-    ? mutationError.message.includes('permission-denied')
-      ? '이관 권한이 없거나 스코프가 부족합니다.'
-      : mutationError.message.includes('invalid_new_owner_email')
-        ? '새 소유자 이메일 형식이 올바르지 않습니다.'
-        : mutationError.message.includes('invalid_new_owner_domain')
-          ? '새 소유자는 학교 도메인 계정만 가능합니다.'
-          : mutationError.message.includes('added_teacher_but_patch_failed')
-            ? `이관 실패 — 새 소유자를 교사로 추가는 됐으나 소유자 이관이 실패했습니다: ${mutationError.message}`
-            : `이관 실패: ${mutationError.message}`
-    : null;
+  // v0.116c F77: server 가 partial 실패 시 HttpsError.details 로 rollback 상태를
+  // 전달. `useMutation` 은 raw Error 를 전달하므로 fetch 계층에서 붙인 `details`
+  // 프로퍼티를 통해 「교사로 추가는 됐으나 patch 실패 · rollback 상태」 를 읽는다.
+  const partialDetails = (mutationError as (Error & { details?: unknown }) | null)
+    ?.details as
+    | {
+        addedTeacherButPatchFailed?: boolean;
+        rollback?: 'ok' | 'failed' | 'skipped';
+        newOwnerEmail?: string;
+        underlying?: string;
+      }
+    | undefined;
+
+  let errorMessage: string | null = null;
+  if (mutationError) {
+    if (partialDetails?.addedTeacherButPatchFailed) {
+      const rollback = partialDetails.rollback;
+      if (rollback === 'ok') {
+        errorMessage =
+          '이관 실패 — 새 소유자를 교사로 추가했으나 소유자 이관에 실패했습니다. 추가된 교사는 자동으로 다시 삭제됐습니다.';
+      } else if (rollback === 'failed') {
+        errorMessage =
+          '이관 실패 — 새 소유자를 교사로 추가했으나 소유자 이관에 실패했고, 추가된 교사 삭제도 실패했습니다. 클래스룸 교사 목록을 직접 정리해 주세요.';
+      } else {
+        // 'skipped' 또는 undefined
+        errorMessage =
+          '이관 실패 — 새 소유자를 교사로 추가한 뒤 소유자 이관 응답을 받지 못했습니다. 클래스룸 상태를 직접 확인해 주세요 (교사가 남아 있거나 이관이 완료됐을 수 있음).';
+      }
+    } else if (mutationError.message.includes('permission-denied')) {
+      errorMessage = '이관 권한이 없거나 스코프가 부족합니다.';
+    } else if (mutationError.message.includes('invalid_new_owner_email')) {
+      errorMessage = '새 소유자 이메일 형식이 올바르지 않습니다.';
+    } else if (mutationError.message.includes('invalid_new_owner_domain')) {
+      errorMessage = '새 소유자는 학교 도메인 계정만 가능합니다.';
+    } else {
+      errorMessage = `이관 실패: ${mutationError.message}`;
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

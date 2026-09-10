@@ -54,8 +54,15 @@ export async function callClassroomTransferOwnership(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const message = body.error?.message ?? `http_${res.status}`;
-    const err = new Error(message) as Error & { status?: number };
+    const err = new Error(message) as Error & {
+      status?: number;
+      details?: unknown;
+    };
     err.status = res.status;
+    // v0.116c F77: server 는 partial 실패 (교사 추가 후 patch 실패) 시 details 에
+    // { addedTeacherButPatchFailed, rollback, newOwnerEmail } 를 실어 보낸다.
+    // UI 는 rollback=skipped/failed 시 「교사가 남아 있을 수 있음」 안내.
+    err.details = body.error?.details;
     throw err;
   }
 

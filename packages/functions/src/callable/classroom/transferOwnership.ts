@@ -159,28 +159,18 @@ export const classroomTransferOwnership = onCall(
         addedAsTeacher = true;
       }
 
-      // v0.116b F75: patch 를 별도 try 로 감싸서, 우리가 방금 teacher 로 추가한
-      // 사용자가 patch 실패로 인해 course 에 남는 orphan 상태를 처리한다.
+      // v0.116b F75 / v0.116c F76: patch 호출만 좁게 try 로 감싸서 orphan teacher
+      // 를 처리한다. 성공 감사와 반환은 try 밖으로 빼내, `patch 성공 → writeAudit
+      // 실패` 가 partial 경로로 오분류되는 것을 막는다.
       // - 확정 client-error (4xx, 429 제외): 보상 teachers.delete 시도.
-      // - 429/5xx/timeout: 실제 상태 불확실 → 보상 skip, 감사에 명시.
+      // - 429/5xx/timeout: 실 상태 불확실 → 보상 skip, 감사에 명시.
+      let patchRes: { data: ClassroomCourse };
       try {
-        const res = await classroom.courses.patch({
+        patchRes = await classroom.courses.patch({
           id: courseId,
           updateMask: 'ownerId',
           requestBody: { ownerId: newOwnerEmail },
         });
-
-        await writeAudit({
-          actor: user.email,
-          role: user.role,
-          action: 'classroom.transfer_owner',
-          target: `courses/${courseId}`,
-          request_id: requestId,
-          result: 'ok',
-          message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
-        });
-
-        return { course: res.data, addedAsTeacher };
       } catch (patchErr) {
         if (!addedAsTeacher) throw patchErr;
 
@@ -214,9 +204,44 @@ export const classroomTransferOwnership = onCall(
           result: isDenied ? 'denied' : 'error',
           message: `added_teacher_but_patch_failed:${mapped.message} rollback=${rollback}`,
         });
-        (mapped as AuditedHttpsError)[ALREADY_AUDITED] = true;
-        throw mapped;
+
+        // v0.116c F77: client 가 partial 상태를 구분해 rollback=skipped/failed
+        // (교사가 남아 있을 수 있음) 를 사용자에게 알릴 수 있도록 details 에 실어 전달.
+        const partial = new HttpsError(
+          mapped.code,
+          `added_teacher_but_patch_failed:${mapped.message}`,
+          {
+            addedTeacherButPatchFailed: true,
+            rollback,
+            newOwnerEmail,
+            underlying: mapped.message,
+          },
+        ) as AuditedHttpsError;
+        partial[ALREADY_AUDITED] = true;
+        throw partial;
       }
+
+      // v0.116c F76: patch 는 이미 성공. 감사 write 실패가 UI 성공을 뒤집으면
+      // 사용자가 재시도해서 double transfer 를 유발할 수 있다. audit 는 best-effort
+      // 로 처리하고 patch 결과를 그대로 반환.
+      try {
+        await writeAudit({
+          actor: user.email,
+          role: user.role,
+          action: 'classroom.transfer_owner',
+          target: `courses/${courseId}`,
+          request_id: requestId,
+          result: 'ok',
+          message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
+        });
+      } catch (auditErr) {
+        console.error(
+          'classroom.transfer_owner: patch succeeded but audit write failed',
+          auditErr,
+        );
+      }
+
+      return { course: patchRes.data, addedAsTeacher };
     } catch (err) {
       // F75: partial-fail 경로가 이미 상세 감사를 기록했으면 외곽에서 중복 기록 안 함.
       if ((err as AuditedHttpsError)?.[ALREADY_AUDITED]) {

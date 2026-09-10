@@ -141,6 +141,84 @@ describe('TransferClassroomOwnerDialog component', () => {
     });
   });
 
+  // v0.116c F77: server 가 partial 실패 (교사 추가는 됐으나 patch 실패) 시,
+  // HttpsError.details 로 rollback 상태를 실어 던짐 → UI 는 rollback 별 맞춤 안내.
+  it('F77: partial 실패 (rollback=ok) 시 "자동으로 다시 삭제됐습니다" 안내', async () => {
+    const err = new Error('added_teacher_but_patch_failed:google_upstream_denied') as Error & {
+      details?: unknown;
+    };
+    err.details = {
+      addedTeacherButPatchFailed: true,
+      rollback: 'ok',
+      newOwnerEmail: 'new@example.com',
+    };
+    mockCallTransferOwnership.mockRejectedValueOnce(err);
+    renderWithClient(
+      <TransferClassroomOwnerDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        target={{ id: 'c-101' }}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('transfer-owner-error').textContent).toContain(
+        '자동으로 다시 삭제됐습니다',
+      );
+    });
+  });
+
+  it('F77: partial 실패 (rollback=failed) 시 "직접 정리" 안내', async () => {
+    const err = new Error('added_teacher_but_patch_failed:...') as Error & {
+      details?: unknown;
+    };
+    err.details = { addedTeacherButPatchFailed: true, rollback: 'failed' };
+    mockCallTransferOwnership.mockRejectedValueOnce(err);
+    renderWithClient(
+      <TransferClassroomOwnerDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        target={{ id: 'c-101' }}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('transfer-owner-error').textContent).toContain(
+        '직접 정리',
+      );
+    });
+  });
+
+  it('F77: partial 실패 (rollback=skipped) 시 "직접 확인" 안내', async () => {
+    const err = new Error('added_teacher_but_patch_failed:...') as Error & {
+      details?: unknown;
+    };
+    err.details = { addedTeacherButPatchFailed: true, rollback: 'skipped' };
+    mockCallTransferOwnership.mockRejectedValueOnce(err);
+    renderWithClient(
+      <TransferClassroomOwnerDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        target={{ id: 'c-101' }}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('transfer-owner-error').textContent).toContain(
+        '직접 확인',
+      );
+    });
+  });
+
   it('server 실패 → error 배너 표시 · onSuccess 미호출', async () => {
     mockCallTransferOwnership.mockRejectedValueOnce(new Error('permission-denied: nope'));
     const onSuccess = vi.fn();
