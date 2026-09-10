@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -6,6 +7,8 @@ import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogSummary } from '../../api/auditLogSummary';
 import { useAuditLogList } from '../../api/auditLogList';
+import { useUsersResolveRoleSplit } from '../../api/usersResolveRoleSplit';
+import { Button } from '../../components/ui/button';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -41,6 +44,40 @@ export function SuperAdminPage() {
   });
   const roleSplitEntries = roleSplitFeed.entries;
   const roleSplitHasMore = roleSplitFeed.hasMore;
+
+  // v0.107: 감지된 split 을 super_admin 이 한 클릭으로 Firestore = Auth 로 동기화.
+  // audit target 은 `users/${uid}` 형식이므로 uid 를 추출해서 callable 에 전달 (callable 이
+  // 서버측에서 uid → email 조회 후 Firestore 갱신).
+  const resolveMutation = useUsersResolveRoleSplit();
+  const [resolvingUid, setResolvingUid] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const handleResolve = (entryTarget: string) => {
+    const uid = entryTarget.startsWith('users/') ? entryTarget.slice(6) : entryTarget;
+    if (!uid) return;
+    if (
+      !window.confirm(
+        `Firestore role 을 Auth 원본으로 덮어씁니다. uid=${uid}\n\n계속하시겠습니까?`,
+      )
+    ) {
+      return;
+    }
+    setResolvingUid(uid);
+    setResolveError(null);
+    resolveMutation.mutate(
+      { uid },
+      {
+        onSuccess: () => {
+          setResolvingUid(null);
+          roleSplitFeed.reload();
+        },
+        onError: (err) => {
+          setResolvingUid(null);
+          setResolveError(err.message);
+        },
+      },
+    );
+  };
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -202,22 +239,44 @@ export function SuperAdminPage() {
               className="space-y-2 text-small"
               data-testid="super-admin-role-split-list"
             >
-              {roleSplitEntries.slice(0, 3).map((e) => (
+              {roleSplitEntries.slice(0, 3).map((e) => {
+                const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
+                const isThisRowResolving = resolvingUid === uid;
+                return (
+                  <li
+                    key={e.id}
+                    className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
+                    data-testid={`super-admin-role-split-item-${e.id}`}
+                  >
+                    <span className="font-mono text-fg-secondary w-40 shrink-0">
+                      {new Date(e.at).toLocaleString('ko-KR')}
+                    </span>
+                    <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span className="text-state-warning font-mono truncate flex-1" title={e.message}>
+                      {e.message}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleResolve(e.target)}
+                      disabled={isThisRowResolving || resolveMutation.isPending}
+                      data-testid={`super-admin-role-split-resolve-${e.id}`}
+                      title="Firestore role 을 Auth 원본으로 덮어씀"
+                    >
+                      {isThisRowResolving ? '동기화 중...' : '복구'}
+                    </Button>
+                  </li>
+                );
+              })}
+              {resolveError && (
                 <li
-                  key={e.id}
-                  className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
-                  data-testid={`super-admin-role-split-item-${e.id}`}
+                  className="text-small text-state-danger px-2"
+                  data-testid="super-admin-role-split-resolve-error"
                 >
-                  <span className="font-mono text-fg-secondary w-40 shrink-0">
-                    {new Date(e.at).toLocaleString('ko-KR')}
-                  </span>
-                  <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
-                  <span className="text-fg-secondary">·</span>
-                  <span className="text-state-warning font-mono truncate" title={e.message}>
-                    {e.message}
-                  </span>
+                  복구 실패: {resolveError}
                 </li>
-              ))}
+              )}
             </ul>
           )}
         </section>

@@ -30,4 +30,7 @@ export const AUDIT_ACTIONS: readonly string[] = [
   // v0.106: super_admin 카드가 「Auth claim ≠ Firestore role」 분기 상태를 server 필터로
   // 정확히 셀 수 있도록 도입. getRole callable 이 감지 시 이 action 으로도 별도 기록.
   'system.role_split_detected',
+  // v0.107: super_admin 이 감지된 split 을 Firestore = Auth 로 자동 동기화 (resolveRoleSplit
+  // callable). 감사 페이지에서 detected → resolved 흐름을 시간순으로 추적할 수 있게 별도 action.
+  'system.role_split_resolved',
 ] as const;
