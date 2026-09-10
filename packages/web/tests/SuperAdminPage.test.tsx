@@ -64,6 +64,13 @@ vi.mock('../src/api/usersResolveRoleSplit', () => ({
   useUsersResolveRoleSplit: () => mockUseUsersResolveRoleSplit(),
 }));
 
+// v0.107f F51: 상태 재확인 hook mock.
+const mockRecheckMutate = vi.fn();
+const mockUseUsersRecheckRoleSplit = vi.fn();
+vi.mock('../src/api/usersRecheckRoleSplit', () => ({
+  useUsersRecheckRoleSplit: () => mockUseUsersRecheckRoleSplit(),
+}));
+
 // react-query useQueryClient stub — reloadUnresolved 은 invalidateQueries 호출.
 const mockInvalidateQueries = vi.fn();
 vi.mock('@tanstack/react-query', async (importOriginal) => {
@@ -111,6 +118,12 @@ describe('SuperAdminPage', () => {
     mockResolveMutate.mockReset();
     mockUseUsersResolveRoleSplit.mockReturnValue({
       mutate: mockResolveMutate,
+      isPending: false,
+      error: null,
+    });
+    mockRecheckMutate.mockReset();
+    mockUseUsersRecheckRoleSplit.mockReturnValue({
+      mutate: mockRecheckMutate,
       isPending: false,
       error: null,
     });
@@ -829,6 +842,63 @@ describe('SuperAdminPage', () => {
       expect(screen.getByTestId('super-admin-role-split-resolve-error').textContent).toContain(
         '파싱할 수 없음',
       );
+    });
+
+    // v0.107f F51: auth=unknown row 는 recheck button 으로 분기.
+    it('v0.107f F51: auth=unknown row → 「상태 재확인」 버튼 표시, 복구 버튼 없음', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        message: 'role_split: auth=unknown firestore=admin (post_write_auth_recheck_failed: network unreachable)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown')).toBeDefined();
+      expect(screen.queryByTestId('super-admin-role-split-resolve-log-rs-unknown')).toBeNull();
+    });
+
+    it('v0.107f F51: recheck 버튼 클릭 → recheckMutation.mutate({ uid }) 호출 (confirm 없이)', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        target: 'users/uid-target-1',
+        message: 'role_split: auth=unknown firestore=admin (post_write_auth_recheck_failed)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown'));
+      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
+      expect(mockRecheckMutate.mock.calls[0][0]).toEqual({ uid: 'uid-target-1' });
+      // resolveMutation 은 호출 안 됨.
+      expect(mockResolveMutate).not.toHaveBeenCalled();
+    });
+
+    it('v0.107f F51: recheck pending 중 버튼 disabled', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      mockUseUsersRecheckRoleSplit.mockReturnValue({
+        mutate: mockRecheckMutate,
+        isPending: true,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const btn = screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('v0.107f F51: firestore=unknown row 도 recheck 로 분기', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-fu',
+        message: 'role_split: auth=admin firestore=unknown (some_hypothetical_reason)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-fu')).toBeDefined();
     });
   });
 });
