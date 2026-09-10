@@ -470,15 +470,16 @@ export function AuditLogTable() {
           className="py-12 text-center text-small text-fg-secondary"
           data-testid="audit-log-empty"
         >
-          {/* v0.111b F62: action/q 도 필터로 포함해서 empty state 를 정확히 판정. 이전엔
-              role_split preset 이 action 필터를 걸어 0건일 때 「감사 로그 항목 없음」 으로
-              전체 부재로 오도. */}
+          {/* v0.111b F62: action/q 도 필터로 포함해서 empty state 를 정확히 판정.
+              v0.111c F64: q 는 실제 필터 로직 (:69) 에서 `.trim()` 후 판정하므로 공백-only
+              도 필터 미적용. empty-state 도 `.trim().length > 0` 으로 맞춰야 공백-only q
+              에서 「매칭 없음」 오도 방지. */}
           {actorFilter ||
           resultFilter !== 'all' ||
           searchParams.get('atMin') ||
           searchParams.get('atMax') ||
           actionList.length > 0 ||
-          actionSearch
+          actionSearch.trim().length > 0
             ? '해당 필터에 매칭되는 로그가 없습니다.'
             : '감사 로그 항목이 없습니다.'}
         </div>

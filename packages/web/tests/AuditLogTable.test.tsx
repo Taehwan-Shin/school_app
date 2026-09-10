@@ -1141,6 +1141,19 @@ describe('AuditLogTable component', () => {
     expect(empty.textContent).toContain('감사 로그 항목이 없습니다');
   });
 
+  // v0.111c F64: 공백-only q 는 실제 필터 미적용이므로 empty state 도 「필터 없음」 처리.
+  it('v0.111c F64: 공백-only q 0건 → 「감사 로그 항목이 없습니다」 (필터 미적용)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn, entries: [] });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?q=%20%20']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const empty = screen.getByTestId('audit-log-empty');
+    expect(empty.textContent).toContain('감사 로그 항목이 없습니다');
+    expect(empty.textContent).not.toContain('해당 필터에 매칭되는 로그가 없습니다');
+  });
+
   // v0.111b F63: aria-pressed 접근성.
   it('v0.111b F63: role_split preset 비활성 상태 aria-pressed=false', () => {
     render(
