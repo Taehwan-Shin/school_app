@@ -69,12 +69,14 @@ export async function readAuditEntries(
   }
   // v0.104: filterActions (다중) 우선, 없으면 filterAction (단일) 사용.
   // 다중 배열 입력이 1개면 == 로 축약 (Firestore `in` 대신 == 로 index 재사용).
+  // v0.104b F39: 계약 — 호출자 (callable/audit/list.ts) 가 이미 dedup + 30 개 초과 fail-closed
+  // 했다는 것을 신뢰. 내부에서 조용히 slice 하지 않는다. 초과 배열이 오면 Firestore in-query
+  // 가 자연스럽게 실패해 콜스택 상위로 전파 (dead-code path).
   if (filterActions && filterActions.length > 0) {
-    const unique = Array.from(new Set(filterActions)).slice(0, 30);
-    if (unique.length === 1) {
-      query = query.where('action', '==', unique[0]);
+    if (filterActions.length === 1) {
+      query = query.where('action', '==', filterActions[0]);
     } else {
-      query = query.where('action', 'in', unique);
+      query = query.where('action', 'in', filterActions);
     }
   } else if (filterAction) {
     query = query.where('action', '==', filterAction);

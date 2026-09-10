@@ -216,10 +216,11 @@ export function AuditLogTable() {
                   ? actionList[0]
                   : `${actionList.length}개 액션 선택됨`}
             </summary>
+            {/* F40: WAI-ARIA listbox 는 role=option 자식을 요구. 여기 자식은 native checkbox
+                이므로 checkbox pattern 에 맞춰 role=group 컨테이너로 변경. */}
             <div
               className="absolute z-20 mt-1 right-0 md:right-auto md:left-0 w-64 max-h-72 overflow-y-auto border border-border-subtle bg-canvas shadow-md p-2 space-y-1"
-              role="listbox"
-              aria-multiselectable="true"
+              role="group"
               aria-label="액션 다중 선택"
             >
               <div className="flex justify-between items-center pb-1 mb-1 border-b border-border-subtle">

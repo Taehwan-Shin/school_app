@@ -110,13 +110,23 @@ export const auditLogList = onCall(
           ? data.filterAction
           : undefined;
       // v0.104: filterActions 다중. 값이 문자열 배열이고 비어있지 않을 때만 통과.
-      const filterActions =
-        Array.isArray(data?.filterActions)
-          ? (data!.filterActions as unknown[])
-              .filter((v): v is string => typeof v === 'string' && v.length > 0)
-          : undefined;
-      const filterActionsClean =
-        filterActions && filterActions.length > 0 ? filterActions : undefined;
+      // v0.104b F39: 경계에서 dedup + 30개 초과 fail-closed. 이전엔 readAudit 이 조용히
+      // slice(0,30) 로 잘라서 감사 log 는 원본 전체가 적용된 것처럼 남았음. 이제 callable
+      // 이 하나의 정규화 배열을 만들어 readAudit·감사 log 모두에 동일하게 사용.
+      const filterActionsRaw = Array.isArray(data?.filterActions)
+        ? (data!.filterActions as unknown[]).filter(
+            (v): v is string => typeof v === 'string' && v.length > 0,
+          )
+        : undefined;
+      const filterActionsClean = filterActionsRaw && filterActionsRaw.length > 0
+        ? Array.from(new Set(filterActionsRaw))
+        : undefined;
+      if (filterActionsClean && filterActionsClean.length > 30) {
+        throw new HttpsError(
+          'invalid-argument',
+          `filterActions_too_many: ${filterActionsClean.length} (max 30 per Firestore in-query)`,
+        );
+      }
 
       const result = await readAuditEntries({
         limit,

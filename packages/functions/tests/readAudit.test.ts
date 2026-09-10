@@ -190,12 +190,14 @@ describe('readAuditEntries unit tests', () => {
     expect(mockWhere).toHaveBeenCalledTimes(1);
   });
 
-  it('v0.104: filterActions 다중 → `in` where 사용 (uniq · 최대 30)', async () => {
+  // v0.104b F39: dedup 은 callable 경계 책임으로 이동. readAudit 은 입력을 verbatim
+  // 그대로 in-where 에 전달 (callable audit log 와 query 가 같은 정규화 배열을 쓰도록).
+  it('v0.104b F39: filterActions 다중 → `in` where 에 verbatim 전달 (dedup 은 상위 계약)', async () => {
     mockGet.mockResolvedValueOnce({ docs: [] });
 
     await readAuditEntries({
       limit: 50,
-      filterActions: ['users.update_role', 'users.read', 'users.read'], // duplicate 제거 확인
+      filterActions: ['users.update_role', 'users.read'],
     });
 
     expect(mockWhere).toHaveBeenCalledWith('action', 'in', [

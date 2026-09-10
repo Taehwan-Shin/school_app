@@ -877,6 +877,21 @@ describe('AuditLogTable component', () => {
     });
   });
 
+  // v0.104b F40: WAI-ARIA — checkbox 컨테이너는 role=listbox 가 아닌 role=group.
+  it('v0.104b F40: action multi popover 컨테이너는 role=group (aria-multiselectable 없음)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />);
+
+    const groupEl = screen.getByRole('group', { name: /액션 다중 선택/ });
+    expect(groupEl).toBeDefined();
+    expect(groupEl.getAttribute('role')).toBe('group');
+    // listbox 로 오인식되지 않아야.
+    expect(groupEl.getAttribute('aria-multiselectable')).toBeNull();
+    // listbox 는 존재하면 안 됨.
+    expect(screen.queryByRole('listbox', { name: /액션 다중 선택/ })).toBeNull();
+  });
+
   // v0.104: 전체 해제 버튼 → URL action 파라미터 삭제.
   it('v0.104: clear-all button removes action param', () => {
     mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });

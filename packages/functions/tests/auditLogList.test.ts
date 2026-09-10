@@ -597,4 +597,63 @@ describe('auditLogList unit tests', () => {
       expect.objectContaining({ filterActions: undefined }),
     );
   });
+
+  // v0.104b F39: dedup 후 30 개 초과면 fail-closed. 이전엔 readAudit 이 조용히 slice 해서
+  // 감사 log 는 원본 전체가 적용된 것처럼 보였음.
+  it('v0.104b F39: dedup 후 30개 초과 filterActions → invalid-argument', async () => {
+    const actions = Array.from({ length: 31 }, (_, i) => `act.${i}`); // 31 unique
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: actions },
+    });
+    await expect(auditLogList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining('filterActions_too_many: 31'),
+    });
+    // 감사 log 에도 error 로 남아야 (fail-closed 흔적).
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'audit.read',
+        result: 'error',
+        message: expect.stringContaining('filterActions_too_many'),
+      }),
+    );
+    expect(mockReadAuditEntries).not.toHaveBeenCalled();
+  });
+
+  it('v0.104b F39: dedup 후 정확히 30개는 통과 (경계 검증)', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const actions = Array.from({ length: 30 }, (_, i) => `act.${i}`); // 30 unique
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: actions },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterActions: actions }),
+    );
+  });
+
+  it('v0.104b F39: dedup 이 원본을 압축 (같은 정규화 배열을 query·audit 양쪽에 전달)', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { filterActions: ['a', 'b', 'a', 'b', 'c'] },
+    });
+    await auditLogList.run(req);
+    // query 에 dedup 배열 전달.
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ filterActions: ['a', 'b', 'c'] }),
+    );
+    // 감사 log 도 같은 dedup 배열.
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: expect.stringContaining('actions=a,b,c'),
+      }),
+    );
+  });
 });
