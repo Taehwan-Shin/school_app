@@ -46,6 +46,11 @@ vi.mock('../src/api/auditLogSummary', () => ({
   useAuditLogSummary: (...args: any[]) => mockUseAuditLogSummary(...args),
 }));
 
+const mockUseAuditLogList = vi.fn();
+vi.mock('../src/api/auditLogList', () => ({
+  useAuditLogList: (...args: any[]) => mockUseAuditLogList(...args),
+}));
+
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin']) {
   return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 }
@@ -58,6 +63,14 @@ describe('SuperAdminPage', () => {
       isLoading: false,
       isError: false,
       error: null,
+    });
+    mockUseAuditLogList.mockReturnValue({
+      entries: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
     });
   });
 
@@ -559,5 +572,96 @@ describe('SuperAdminPage', () => {
     expect(screen.getByText('오늘 이벤트가 없습니다.')).toBeDefined();
     expect(screen.queryByText('불러오는 중...')).toBeNull();
     expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
+  });
+
+  // v0.105 role_split 감시 카드 시나리오
+  it('v0.105: renders role_split 감시 카드 · empty state when no role_split events', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    // useAuditLogList default (entries: []) 로 no role_split.
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section).toBeDefined();
+    expect(section.textContent).toContain('두 저장소 동기 상태');
+    expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
+  });
+
+  it('v0.105: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+
+    const entries: AuditLogEntryRead[] = [
+      {
+        id: 'log-rs-1',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.read',
+        target: 'users/uid-A',
+        request_id: 'req-1',
+        result: 'error',
+        at: 1725150000000,
+        message: 'role_split: auth=admin firestore=teacher',
+      },
+      {
+        id: 'log-rs-2',
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'users.read',
+        target: 'users/uid-B',
+        request_id: 'req-2',
+        result: 'error',
+        at: 1725149000000,
+        message: 'role_split: auth=null firestore=admin',
+      },
+      // 일반 users.read error (role_split 아님) — 카드에 안 잡혀야.
+      {
+        id: 'log-other',
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'users.read',
+        target: '*',
+        request_id: 'req-3',
+        result: 'error',
+        at: 1725148000000,
+        message: 'permission_denied',
+      },
+    ];
+    mockUseAuditLogList.mockReturnValue({
+      entries,
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    renderWithRouter(<SuperAdminPage />);
+
+    const section = screen.getByTestId('super-admin-role-split-section');
+    expect(section.textContent).toContain('role_split 2건');
+    // "전체 보기" 링크가 audit 페이지 role_split URL 로 이동.
+    const link = screen.getByTestId('super-admin-role-split-link');
+    expect(link.getAttribute('href')).toContain('/super_admin/audit');
+    expect(link.getAttribute('href')).toContain('action=users.read');
+    expect(link.getAttribute('href')).toContain('q=role_split');
+    // role_split 항목 2개 표시, 다른 users.read 는 안 잡힘.
+    expect(screen.getByTestId('super-admin-role-split-item-log-rs-1')).toBeDefined();
+    expect(screen.getByTestId('super-admin-role-split-item-log-rs-2')).toBeDefined();
+    expect(screen.queryByTestId('super-admin-role-split-item-log-other')).toBeNull();
+  });
+
+  it('v0.105: hook 호출 인자는 filterAction=users.read + filterResult=error', () => {
+    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    renderWithRouter(<SuperAdminPage />);
+
+    const call = mockUseAuditLogList.mock.calls.at(-1);
+    expect(call).toBeDefined();
+    // (pageSize, filters) 시그니처.
+    expect(call![1]).toMatchObject({
+      filterAction: 'users.read',
+      filterResult: 'error',
+    });
   });
 });

@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogSummary } from '../../api/auditLogSummary';
+import { useAuditLogList } from '../../api/auditLogList';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -24,6 +27,20 @@ export function SuperAdminPage() {
   const previewEntries = summaryQuery.data?.entries ?? [];
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
+
+  // v0.105: role_split 감사 감시.
+  // v0.100 getRole 이 Auth claim ≠ Firestore role 발견 시 users.read 액션 · error 결과 ·
+  // message = "role_split: ..." 로 기록. 서버 substring 필터가 없어 users.read+error 를
+  // fetch 후 client 에서 message prefix 로 걸러낸다.
+  const roleSplitFeed = useAuditLogList(50, {
+    filterAction: 'users.read',
+    filterResult: 'error',
+  });
+  const roleSplitEntries = useMemo(
+    () =>
+      roleSplitFeed.entries.filter((e) => (e.message ?? '').startsWith('role_split')),
+    [roleSplitFeed.entries],
+  );
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -121,6 +138,66 @@ export function SuperAdminPage() {
                       {e.result}
                     </span>
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* v0.105: role_split 경고 (Auth claim ≠ Firestore role) */}
+        <section
+          className="bg-elevated p-8 border border-border-subtle space-y-4"
+          data-testid="super-admin-role-split-section"
+        >
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <AlertTriangle
+                aria-hidden="true"
+                className={`w-5 h-5 shrink-0 mt-0.5 ${
+                  roleSplitEntries.length > 0 ? 'text-state-warning' : 'text-fg-muted'
+                }`}
+                strokeWidth={2}
+              />
+              <div className="min-w-0">
+                <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
+                <p className="text-small text-fg-secondary mt-1">
+                  {roleSplitFeed.loading
+                    ? '불러오는 중...'
+                    : roleSplitFeed.error
+                      ? '감시 데이터를 불러오지 못했습니다.'
+                      : roleSplitEntries.length > 0
+                        ? `최근 감사에서 role_split ${roleSplitEntries.length}건 감지. Auth 클레임과 Firestore role 이 다른 계정.`
+                        : '최근 감사에서 role_split 없음. 두 저장소 동기 상태.'}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/super_admin/audit?action=users.read&result=error&q=role_split"
+              className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors shrink-0"
+              data-testid="super-admin-role-split-link"
+            >
+              전체 보기 →
+            </Link>
+          </div>
+          {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitEntries.length > 0 && (
+            <ul
+              className="space-y-2 text-small"
+              data-testid="super-admin-role-split-list"
+            >
+              {roleSplitEntries.slice(0, 3).map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
+                  data-testid={`super-admin-role-split-item-${e.id}`}
+                >
+                  <span className="font-mono text-fg-secondary w-40 shrink-0">
+                    {new Date(e.at).toLocaleString('ko-KR')}
+                  </span>
+                  <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
+                  <span className="text-fg-secondary">·</span>
+                  <span className="text-state-warning font-mono truncate" title={e.message}>
+                    {e.message}
+                  </span>
                 </li>
               ))}
             </ul>
