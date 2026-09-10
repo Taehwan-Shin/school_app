@@ -643,6 +643,9 @@ describe('AuditLogTable component', () => {
       const text = await (createdBlob as Blob).text();
       const parsed = JSON.parse(text);
       expect(parsed.filter).toMatchObject({ result: 'error' });
+      // v0.108b F53: partial/hasMore 명시.
+      expect(parsed).toHaveProperty('hasMore');
+      expect(parsed).toHaveProperty('partial');
       expect(parsed.count).toBe(1);
       expect(parsed.entries).toHaveLength(1);
       expect(parsed.entries[0]).toMatchObject({
@@ -653,6 +656,9 @@ describe('AuditLogTable component', () => {
         message: 'multi\nline\nmessage', // 개행 유지.
       });
       expect(parsed.entries[0].atIso).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      // v0.108b F54: before/after 필드 존재 (null 또는 값).
+      expect(parsed.entries[0]).toHaveProperty('before');
+      expect(parsed.entries[0]).toHaveProperty('after');
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
       URL.revokeObjectURL = originalRevokeObjectURL;
@@ -666,6 +672,132 @@ describe('AuditLogTable component', () => {
     renderWithRouter(<AuditLogTable />);
     const btn = screen.getByTestId('audit-log-export-json');
     expect(btn.hasAttribute('disabled')).toBe(true);
+  });
+
+  // v0.108b F53: hasMore=true → partial=true 로 명시.
+  it('v0.108b F53: hasMore=true 시 payload partial=true', async () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-1',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.read',
+          target: '*',
+          request_id: 'r1',
+          result: 'ok',
+          at: 1725150000000,
+        } as AuditLogEntryRead,
+      ],
+      hasMore: true,
+    });
+
+    let capturedBlob: Blob | null = null;
+    const origCreate = URL.createObjectURL;
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      capturedBlob = b;
+      return 'blob:mock-url';
+    });
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-export-json'));
+      const text = await (capturedBlob as unknown as Blob).text();
+      const parsed = JSON.parse(text);
+      expect(parsed.hasMore).toBe(true);
+      expect(parsed.partial).toBe(true);
+    } finally {
+      URL.createObjectURL = origCreate;
+      clickSpy.mockRestore();
+    }
+  });
+
+  // v0.108b F54: before/after 값이 있으면 export.
+  it('v0.108b F54: entry.before/after 는 payload 에 보존', async () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-1',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.update',
+          target: 'u@cam.hs.kr',
+          request_id: 'r1',
+          result: 'ok',
+          at: 1725150000000,
+          before: { role: 'teacher' },
+          after: { role: 'admin' },
+        } as any,
+      ],
+    });
+
+    let capturedBlob: Blob | null = null;
+    const origCreate = URL.createObjectURL;
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      capturedBlob = b;
+      return 'blob:mock-url';
+    });
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-export-json'));
+      const text = await (capturedBlob as unknown as Blob).text();
+      const parsed = JSON.parse(text);
+      expect(parsed.entries[0].before).toEqual({ role: 'teacher' });
+      expect(parsed.entries[0].after).toEqual({ role: 'admin' });
+    } finally {
+      URL.createObjectURL = origCreate;
+      clickSpy.mockRestore();
+    }
+  });
+
+  // v0.108b F55: URL 에 중복 action 이 들어오면 실제 hook 은 dedup 배열, payload metadata 도 dedup.
+  it('v0.108b F55: URL 에 중복 action 있으면 payload.filter.actions 는 dedup 배열', async () => {
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-1',
+          actor: 'super@cam.hs.kr',
+          role: 'super_admin',
+          action: 'users.read',
+          target: '*',
+          request_id: 'r1',
+          result: 'ok',
+          at: 1725150000000,
+        } as AuditLogEntryRead,
+      ],
+    });
+
+    let capturedBlob: Blob | null = null;
+    const origCreate = URL.createObjectURL;
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      capturedBlob = b;
+      return 'blob:mock-url';
+    });
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      // URL 에 중복.
+      renderWithRouter(<AuditLogTable />, [
+        '/super_admin/audit?action=users.read,users.read,audit.read',
+      ]);
+      fireEvent.click(screen.getByTestId('audit-log-export-json'));
+      const text = await (capturedBlob as unknown as Blob).text();
+      const parsed = JSON.parse(text);
+      // dedup 결과: 중복 users.read 제거.
+      expect(parsed.filter.actions).toEqual(['users.read', 'audit.read']);
+    } finally {
+      URL.createObjectURL = origCreate;
+      clickSpy.mockRestore();
+    }
   });
 
   it('v0.108: CSV/JSON 파일명 요약 — action 필터 있을 때 파일명 접미어 포함', async () => {
