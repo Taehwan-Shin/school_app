@@ -195,8 +195,8 @@ describe('AppShell', () => {
     expect(settingsSvg!.getAttribute('aria-hidden')).toBe('true');
   });
 
-  // v0.103: 활성 항목은 `aria-current="page"` + 폰트 semibold + 두꺼운 아이콘 stroke.
-  it('v0.103: active nav item marks aria-current=page and thicker font weight', () => {
+  // v0.103: 활성 항목은 aria-current=page + font-semibold + SVG stroke-width 2.25 (inactive 2).
+  it('v0.103: active nav item marks aria-current=page, font-semibold, thicker SVG stroke', () => {
     render(
       <MemoryRouter initialEntries={['/super_admin/audit']}>
         <AppShell role="super_admin" pageTitle="관리자">
@@ -210,9 +210,18 @@ describe('AppShell', () => {
     expect(auditLink!.getAttribute('aria-current')).toBe('page');
     expect(auditLink!.className).toContain('font-semibold');
 
-    // 비활성 항목은 aria-current 없음.
+    // 활성 SVG 는 stroke-width=2.25, aria-hidden=true.
+    const activeSvg = auditLink!.querySelector('svg');
+    expect(activeSvg).not.toBeNull();
+    expect(activeSvg!.getAttribute('aria-hidden')).toBe('true');
+    expect(activeSvg!.getAttribute('stroke-width')).toBe('2.25');
+
+    // 비활성 항목은 aria-current 없음 · SVG stroke-width=2.
     const groupLink = screen.getByText('그룹').closest('a');
     expect(groupLink!.getAttribute('aria-current')).toBeNull();
+    const inactiveSvg = groupLink!.querySelector('svg');
+    expect(inactiveSvg).not.toBeNull();
+    expect(inactiveSvg!.getAttribute('stroke-width')).toBe('2');
   });
 
   it('calls signOut when logout button is clicked in Topbar', () => {
