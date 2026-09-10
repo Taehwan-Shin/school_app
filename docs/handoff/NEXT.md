@@ -1,15 +1,15 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.110 병합 완료** (`7b7a9bd`) — 미해결 role_split KPI 카드 · 3 라운드 Codex 감사.
+> **v0.111 병합 완료** (`7ef2057`) — audit role_split quick filter · 3 라운드 Codex 감사.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `7ef2057` v0.111 — audit role_split quick filter preset + empty-state 개선.
 - `7b7a9bd` v0.110 — 미해결 role_split KPI (반응형 grid · scanIncomplete 방향 분리).
 - `ef5fef8` v0.109 — role_split unknown row 자동 재확인.
-- `a70689e` v0.108 — 감사 로그 JSON export + 파일명 필터 요약.
+- `a70689e` v0.108 — 감사 로그 JSON export.
 - `f7e5bb4` v0.107 — role_split 자동 복구 + 상태 재확인.
-- `5b721c5` v0.104 — audit multi-action filter.
 
 ## 다음 후보 (Head 자율 실행 예정)
 

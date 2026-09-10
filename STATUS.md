@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.111+) | 사용자 | 답 대기 | v0.104~v0.110 모두 병합 완료. role_split KPI 배포 완료. 후보: (c) 실 Workspace 확인 workflow · 감사 로그 배치 export · 필터 preset 저장 · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.112+) | 사용자 | 답 대기 | v0.104~v0.111 모두 병합 완료. audit role_split quick filter 배포 완료. 후보: (c) 실 Workspace 확인 workflow · 감사 로그 배치 export · 필터 preset 저장 · (d) 그 외 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
 | Node 20 환경 재실행 | 헤드/사용자 | 판정불가 (환경) | Node 20 환경에서 `pnpm -r test` + `pnpm test:emu` 재실행. 지금은 Node 22 로만 확인 |
@@ -26,6 +26,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.111 | `7ef2057` (main) | audit page role_split quick filter — 프리셋 로우에 「role_split」 액션 preset 버튼 · toggle 활성/비활성 · aria-pressed 접근성 · empty-state 필터 판정 개선 (action/q 포함, trim 일치) · 3 라운드 Codex 감사 |
 | v0.110 | `7b7a9bd` (main) | 미해결 role_split KPI 카드 — SuperAdminPage KPI 로우 5번째 카드 · count 표시 · scanIncomplete 방향 분리 (`N+` 하한 / `N?` 방향불확실) · 반응형 grid (md:2 lg:3 xl:5) · click anchor scroll · 3 라운드 Codex 감사 |
 | v0.109 | `ef5fef8` (main) | role_split unknown row 자동 재확인 — 카드 mount 시 auth=unknown row 에 usersRecheckRoleSplit 자동 트리거 · mount-scoped budget (5) 로 총량 상한 · mutateAsync + Promise.allSettled 로 batch 완료 후 단일 invalidate · 4 라운드 Codex 감사 |
 | v0.108 | `a70689e` (main) | 감사 로그 JSON export + 파일명 필터 요약 — 기존 CSV 옆에 JSON 내보내기 · payload 에 exportedAt · 정규화된 filter metadata · partial/hasMore · before/after 보존 · pageSize · downloadBlob 공통 헬퍼 · 2 라운드 Codex 감사 |

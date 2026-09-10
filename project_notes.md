@@ -1306,3 +1306,47 @@ v0.111 후보:
 - 감사 로그 배치 export.
 - 필터 preset 저장.
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-10 · v0.111 audit page role_split quick filter (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+AuditLogTable 상단 프리셋 로우 옆에 「role_split」 액션 preset button. click → URL 을 `?action=system.role_split_detected,system.role_split_resolved` 로 설정 (v0.104 multi-action 재사용). 3 라운드에서 empty-state 필터 판정 · aria-pressed · trim 일치 순차 강화.
+
+### 커밋 이력
+
+| 커밋 | 요약 |
+|---|---|
+| `0411b1a` | feat: role_split preset button + toggle |
+| `0260a4a` | fix: F62 empty-state 필터 판정 · F63 aria-pressed |
+| `63c7772` | fix: F64 empty-state trim 로직 일치 |
+
+### v0.111 → v0.111c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.111 | `0411b1a` | 6/2/2 | F62 empty-state 필터 판정 부재 · F63 aria-pressed 없음 |
+| v0.111b | `0260a4a` | 6/1/2 | F64 공백-only q 판정 mismatch |
+| v0.111c | `63c7772` | **5/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `7ef2057` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 445 + web 648 = 1120 unit.
+
+### 배운 것
+
+- **empty-state 판정은 실제 필터 로직과 대칭** — filteredEntries 가 `.trim()` 후 판정하면 empty-state 도 `.trim().length > 0` 사용해야 UI 문구가 일관. raw truthy 검사와 실제 필터 검사가 다르면 사용자 오도 (F64).
+- **aria-pressed 로 toggle button 상태 노출** — CSS class 는 시각 사용자 전용. `aria-pressed` 는 screen reader 사용자를 위한 상태 표현. 계산된 활성값을 class 와 aria-pressed 가 공유해야 두 채널 일관 (F63).
+- **printf `%` 이스케이프 주의** — `%20%20` 같은 URL-encoded 문자열은 printf 에서 format directive 로 오해. `%%20%%20` 로 이스케이프 or 다른 이스케이프 방식.
+
+### 다음 세션에 이어갈 것
+
+v0.112 후보:
+- (c) 실 Workspace 확인 workflow.
+- 감사 로그 배치 export.
+- 필터 preset 저장.
+- (d) 사용자 지시 그 외.
