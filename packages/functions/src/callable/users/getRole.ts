@@ -106,11 +106,15 @@ export const usersGetRole = onCall(
 
       // Auth 가 authz 의 진실. Firestore 는 display cache. 어느 쪽이든 다르면 split 로 기록.
       // v0.100b F19: null 쪽 vs role 쪽도 split — 이전엔 role !== null 만 검사해 놓쳤음.
+      // v0.106: 기존 users.read/error 에서 전용 system.role_split_detected action 으로 이전.
+      // 이유 — super_admin 카드가 server 필터 하나로 정확히 셀 수 있게, 그리고 일반 usersList
+      // error 등 다른 users.read/error 이벤트와 섞이지 않게. 과거 events 는 message substring
+      // (q=role_split) 로 audit 페이지에서 계속 조회 가능.
       if (authRole !== docRole) {
         await writeAudit({
           actor: user.email,
           role: user.role,
-          action: 'users.read',
+          action: 'system.role_split_detected',
           target: `users/${authUser.uid}`,
           request_id: requestId,
           result: 'error',

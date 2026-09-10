@@ -27,4 +27,7 @@ export const AUDIT_ACTIONS: readonly string[] = [
   'basic_data.write',
   'audit.read',
   'created',
+  // v0.106: super_admin 카드가 「Auth claim ≠ Firestore role」 분기 상태를 server 필터로
+  // 정확히 셀 수 있도록 도입. getRole callable 이 감지 시 이 action 으로도 별도 기록.
+  'system.role_split_detected',
 ] as const;

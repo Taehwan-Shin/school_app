@@ -82,9 +82,10 @@ describe('usersGetRole unit tests', () => {
       role: 'admin',
     });
     // F19: Auth role 이 있는데 Firestore 가 없으면 이것도 split.
+    // v0.106: split 기록 action 을 전용 system.role_split_detected 로 변경.
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'users.read',
+        action: 'system.role_split_detected',
         result: 'error',
         message: expect.stringContaining('role_split: auth=admin firestore=null'),
       }),
@@ -113,7 +114,7 @@ describe('usersGetRole unit tests', () => {
     expect(res.role).toBeNull();
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'users.read',
+        action: 'system.role_split_detected',
         result: 'error',
         message: expect.stringContaining('role_split: auth=null firestore=admin'),
       }),
@@ -135,7 +136,7 @@ describe('usersGetRole unit tests', () => {
     expect(res.role).toBe('admin');
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'users.read',
+        action: 'system.role_split_detected',
         result: 'error',
         message: expect.stringContaining('role_split: auth=admin firestore=teacher'),
       }),

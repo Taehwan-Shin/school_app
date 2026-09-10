@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -28,25 +27,20 @@ export function SuperAdminPage() {
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
-  // v0.105 (b 갱신): role_split 감사 감시.
-  // v0.100 getRole 은 Auth claim ≠ Firestore role 을 발견할 때만 users.read + error +
-  // message = "role_split: ..." 을 기록한다 — 즉 아직 usersGetRole 이 호출된 적 없는
-  // 계정은 감사에도 나타나지 않는다. Firestore 는 substring 필터를 지원 안 하므로
-  // 서버 필터는 users.read + error 까지, message prefix 는 client 에서 걸러야 한다.
+  // v0.106: role_split 감사 감시 — server 필터로 전환.
+  // v0.100 getRole 은 Auth claim ≠ Firestore role 을 발견할 때 감사를 기록한다. v0.106 부터
+  // 전용 action `system.role_split_detected` 로 기록해서 server 필터 하나로 정확히 셀 수 있다
+  // (이전엔 users.read/error 로 기록되어 client 에서 message prefix 로 걸러야 했음).
   //
-  // 이 카드는 「전수 대조」 가 아니라 「최근 조회 sample 안에서의 감지」 이다. 따라서
-  // sample size 를 표면에 노출하고, 결과 없음을 「동기 상태」 로 단정하지 않는다.
+  // 남은 제약 — getRole 은 EditUserRoleDialog 열 때만 호출되므로, 아직 조회된 적 없는
+  // 계정은 이 카드에서 감지되지 않는다. 이는 sample-scope (표시 최대 N건) 와 다른, 트리거
+  // 범위의 제약이다. hasMore 는 감지된 splits 자체가 N건을 초과할 때만 나타난다.
   const ROLE_SPLIT_SAMPLE_SIZE = 50;
   const roleSplitFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
-    filterAction: 'users.read',
-    filterResult: 'error',
+    filterAction: 'system.role_split_detected',
   });
-  const roleSplitEntries = useMemo(
-    () =>
-      roleSplitFeed.entries.filter((e) => (e.message ?? '').startsWith('role_split')),
-    [roleSplitFeed.entries],
-  );
-  const roleSplitHasMore = roleSplitFeed.hasMore; // 다음 페이지에 더 있을 수 있음.
+  const roleSplitEntries = roleSplitFeed.entries;
+  const roleSplitHasMore = roleSplitFeed.hasMore;
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -150,7 +144,7 @@ export function SuperAdminPage() {
           )}
         </section>
 
-        {/* v0.105: role_split 경고 (Auth claim ≠ Firestore role) */}
+        {/* v0.106: role_split 경고 (Auth claim ≠ Firestore role) — server-side action 필터 */}
         <section
           className="bg-elevated p-8 border border-border-subtle space-y-4"
           data-testid="super-admin-role-split-section"
@@ -164,7 +158,7 @@ export function SuperAdminPage() {
                 }`}
                 strokeWidth={2}
               />
-<div className="min-w-0">
+              <div className="min-w-0">
                 <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
                 <p className="text-small text-fg-secondary mt-1">
                   {roleSplitFeed.loading ? (
@@ -172,27 +166,29 @@ export function SuperAdminPage() {
                   ) : roleSplitFeed.error ? (
                     '감시 데이터를 불러오지 못했습니다.'
                   ) : roleSplitEntries.length > 0 ? (
-                    `최근 users.read/error 감사 이벤트 ${roleSplitFeed.entries.length}건 (샘플 최대 ${ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split ${roleSplitEntries.length}건 감지. Auth 클레임과 Firestore role 이 다른 계정.`
+                    <>
+                      최근 role_split 감사 이벤트 {roleSplitEntries.length}건 (표시 최대{' '}
+                      {ROLE_SPLIT_SAMPLE_SIZE}) — Auth 클레임과 Firestore role 이 다른 계정.
+                    </>
                   ) : (
                     <>
-                      최근 users.read/error 감사 이벤트 {roleSplitFeed.entries.length}건 (샘플 최대{' '}
-                      {ROLE_SPLIT_SAMPLE_SIZE}) 중 role_split 감지 없음.{' '}
+                      role_split 감사 이벤트 없음.{' '}
                       <strong className="font-semibold text-fg-primary">
-                        전수 대조가 아니라 최근 조회 sample 안에서만
+                        역할 편집 대화상자를 열어본 계정에서만 감지
                       </strong>{' '}
-                      — 조회된 적 없는 계정은 이 카드에서 확인되지 않는다.
+                      — 아직 조회된 적 없는 계정은 확인되지 않는다.
                     </>
                   )}
                   {roleSplitHasMore && (
                     <span className="ml-1 text-fg-muted">
-                      (더 이전 이벤트가 있음. 「전체 보기」 로 감사 페이지에서 pagination.)
+                      (표시 상한 초과. 「전체 보기」 로 감사 페이지에서 pagination.)
                     </span>
                   )}
                 </p>
               </div>
             </div>
             <Link
-              to="/super_admin/audit?action=users.read&result=error&q=role_split"
+              to="/super_admin/audit?action=system.role_split_detected"
               className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors shrink-0"
               data-testid="super-admin-role-split-link"
             >
