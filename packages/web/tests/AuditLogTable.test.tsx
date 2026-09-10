@@ -1154,6 +1154,62 @@ describe('AuditLogTable component', () => {
     expect(empty.textContent).not.toContain('해당 필터에 매칭되는 로그가 없습니다');
   });
 
+  // v0.112: 「필터 초기화」 button.
+  it('v0.112: 필터 없음 상태에서 「필터 초기화」 disabled', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-clear-filters') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('v0.112: 임의의 필터가 있으면 「필터 초기화」 활성', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?result=error']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-clear-filters') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
+
+  it('v0.112: 「필터 초기화」 클릭 → 모든 URL param 제거', () => {
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/super_admin/audit?actor=super@cam.hs.kr&result=error&action=users.read&q=test&atMin=2026-01-01',
+        ]}
+      >
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-clear-filters'));
+    expect(capturedSearch).toBe('');
+  });
+
+  it('v0.112: 공백-only q 는 「초기화」 대상 아님 (필터 미적용이므로 disabled 유지)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?q=%20%20']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    const btn = screen.getByTestId('audit-log-clear-filters') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
   // v0.111b F63: aria-pressed 접근성.
   it('v0.111b F63: role_split preset 비활성 상태 aria-pressed=false', () => {
     render(

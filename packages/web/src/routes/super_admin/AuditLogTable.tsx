@@ -357,6 +357,25 @@ export function AuditLogTable() {
           >
             새로 고침
           </Button>
+          {/* v0.112: 필터 초기화 — 모든 URL query param 을 한 번에 clear. 활성 필터가
+              하나도 없으면 disabled. 개별 필터 각각을 비우는 대신 한 번에 리셋. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={
+              !actorFilter &&
+              resultFilter === 'all' &&
+              !searchParams.get('atMin') &&
+              !searchParams.get('atMax') &&
+              actionList.length === 0 &&
+              actionSearch.trim().length === 0
+            }
+            data-testid="audit-log-clear-filters"
+            title="모든 필터 (행위자·결과·날짜·액션·검색) 초기화"
+          >
+            필터 초기화
+          </Button>
           <Button
             variant="secondary"
             size="sm"
