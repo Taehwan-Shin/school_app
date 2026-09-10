@@ -1382,3 +1382,48 @@ v0.113 후보:
 - 감사 로그 배치 export.
 - 필터 preset 저장.
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-11 · v0.113 BulkResetPasswordDialog + ROADMAP.md (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+사용자 지시 「로드맵 정리 + 다음 개발」. `docs/handoff/ROADMAP.md` 신규 (v0.93~v0.112 4 phase 완료 · Phase 5~8 후보 분류). Phase 5 첫 슬라이스로 원본 Apps Script 「비밀번호 일괄 변경」 (`updateUserPasswords`) 포팅. BulkSuspendDialog 패턴 재사용.
+
+### 커밋 이력
+
+| 커밋 | 요약 |
+|---|---|
+| `f064c77` | feat: BulkResetPasswordDialog + ROADMAP.md · 6 회귀 |
+| `6070948` | fix: F65 sensitive state clear · F66 label htmlFor · F67 ROADMAP 정정 (BasicData UI 이미 있음) |
+| `b546c76` | fix: F68 「취소」 버튼 handleOpenChange 경로 |
+
+### v0.113 → v0.113c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.113 | `f064c77` | 7/3/2 | F65 평문 잔존 · F66 label 없음 · F67 ROADMAP 오기재 |
+| v0.113b | `6070948` | 6/1/2 | F68 취소 버튼이 handleOpenChange 우회 |
+| v0.113c | `b546c76` | **5/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `5cfca49` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 445 + web 661 = 1133 unit.
+
+### 배운 것
+
+- **평문 비밀번호는 close 경로 마다 clear** — dialog 는 unmount 되지 않고 open toggle 만 되는 경우가 많음. state 는 mount 동안 유지되므로 사용자가 「취소」 로 닫아도 memory 잔존. 모든 close entry (button click · Radix outside click · Esc) 가 `handleOpenChange` 통과하도록 → 중앙 `clearSensitiveState` 실행. 실행 시작 시에도 local 변수로 실행값 고정 후 state clear 하면 done phase 에서도 잔존 없음.
+- **취소 버튼은 `handleOpenChange` 경로 필수** — 부모 prop `onOpenChange` 직접 호출은 handleOpenChange 의 running/done 처리와 clearSensitiveState 을 우회. dialog 내부 close entry 는 반드시 handleOpenChange 통해야.
+- **label htmlFor + id 는 접근성 기본** — form input 은 label 로 접근 가능해야 screen reader 가 필드 구분. `getByLabelText` 로 테스트 가능. UI_SYSTEM 규약에 명시 안 돼도 semantic HTML 관례.
+- **ROADMAP 은 실제 코드 기준 검증** — 문서 작성 시 「미구현」 이라고 적기 전에 실제 구현 여부 확인. Codex 는 문서와 코드 불일치도 감사 대상 (F67).
+
+### 다음 세션에 이어갈 것
+
+v0.114 후보 (ROADMAP Phase 5 남은 항목 or Phase 6):
+- 클래스룸 소유자 이관 / archived 관리.
+- 전입생 계정 UX 개선.
+- 감사 로그 배치 export.
+- 필터 preset 저장.
