@@ -405,40 +405,40 @@ export function AuditLogTable() {
           ))}
         </div>
         {/* v0.111: role_split 감지 + 해결 이벤트를 한 번에 보는 action preset. detected 와
-            resolved 를 multi-action 으로 필터. 이미 두 액션이 URL 에 있으면 「활성」 상태. */}
+            resolved 를 multi-action 으로 필터. 이미 두 액션이 URL 에 있으면 「활성」 상태.
+            v0.111b F63: aria-pressed 로 screen reader 접근성. class 와 동일한 값 공유. */}
         <div className="flex items-center gap-2" role="group" aria-label="액션 프리셋">
           <span className="text-small text-fg-secondary mr-1">액션:</span>
-          <button
-            type="button"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              const target = ['system.role_split_detected', 'system.role_split_resolved'];
-              const current = actionList;
-              // 이미 정확히 두 액션이면 clear, 아니면 설정.
-              const isActive =
-                current.length === 2 &&
-                target.every((a) => current.includes(a));
-              if (isActive) {
-                next.delete('action');
-              } else {
-                next.set('action', target.join(','));
-              }
-              setSearchParams(next, { replace: false });
-            }}
-            data-testid="audit-log-preset-role-split"
-            className={cn(
-              'px-3 py-1 text-small border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong',
-              actionList.length === 2 &&
-                ['system.role_split_detected', 'system.role_split_resolved'].every((a) =>
-                  actionList.includes(a),
-                )
-                ? 'bg-fg-primary text-canvas border-fg-primary'
-                : 'bg-canvas text-fg-primary border-border-subtle hover:border-border-strong',
-            )}
-            title="role_split 감지 + 해결 이벤트만 필터"
-          >
-            role_split
-          </button>
+          {(() => {
+            const target = ['system.role_split_detected', 'system.role_split_resolved'];
+            const isRoleSplitActive =
+              actionList.length === 2 && target.every((a) => actionList.includes(a));
+            return (
+              <button
+                type="button"
+                aria-pressed={isRoleSplitActive}
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  if (isRoleSplitActive) {
+                    next.delete('action');
+                  } else {
+                    next.set('action', target.join(','));
+                  }
+                  setSearchParams(next, { replace: false });
+                }}
+                data-testid="audit-log-preset-role-split"
+                className={cn(
+                  'px-3 py-1 text-small border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong',
+                  isRoleSplitActive
+                    ? 'bg-fg-primary text-canvas border-fg-primary'
+                    : 'bg-canvas text-fg-primary border-border-subtle hover:border-border-strong',
+                )}
+                title="role_split 감지 + 해결 이벤트만 필터"
+              >
+                role_split
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -470,7 +470,15 @@ export function AuditLogTable() {
           className="py-12 text-center text-small text-fg-secondary"
           data-testid="audit-log-empty"
         >
-          {actorFilter || resultFilter !== 'all' || searchParams.get('atMin') || searchParams.get('atMax')
+          {/* v0.111b F62: action/q 도 필터로 포함해서 empty state 를 정확히 판정. 이전엔
+              role_split preset 이 action 필터를 걸어 0건일 때 「감사 로그 항목 없음」 으로
+              전체 부재로 오도. */}
+          {actorFilter ||
+          resultFilter !== 'all' ||
+          searchParams.get('atMin') ||
+          searchParams.get('atMax') ||
+          actionList.length > 0 ||
+          actionSearch
             ? '해당 필터에 매칭되는 로그가 없습니다.'
             : '감사 로그 항목이 없습니다.'}
         </div>
