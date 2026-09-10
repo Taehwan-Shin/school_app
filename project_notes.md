@@ -901,3 +901,47 @@ v0.100 usersUpdateRole 도입으로 role_split 이 새 감사 이벤트로 나�
 - (c) 실 Workspace 확인 workflow (v0.94~v0.100 판정불가 소거).
 - (b4) 감사 로그 다중 액션·행위자 필터 · 액션 카탈로그 자동 동기화 (스크립트가 소스에서 추출).
 - (d) 사용자 지시 그 외.
+
+## 2026-09-10 · v0.102 Say Briefly 디자인 첫 슬라이스 (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+사용자 요청 (channel event `b1119960a301da63…`) — 첨부 이미지 UI 구조 참고 + Say Briefly moodboard 디자인 적용. 큰 방향 전환이라 단계별로 나눠 진행. 첫 슬라이스 v0.102 는 디자인 토큰 재매핑, Google Fonts 로드, shell 시각적 재구성에 국한. Codex 3 라운드 감사에서 UI_SYSTEM 문서·WCAG AA·모바일 폰트 스케일·다크 hover·overflow 지적 순차 해결.
+
+### 커밋 이력 (feat/saybriefly-v102)
+
+| 커밋 | 요약 |
+|---|---|
+| `594b9cd` | feat(web): Say Briefly 팔레트/폰트/radii 토큰 재매핑 · Google Fonts (Bricolage 800 · Inter · Roboto Mono) · tailwind-merge 확장 · Sidebar logo 뱃지 · Topbar 시각 리프레시 |
+| `207f005` | fix(web,docs): F23~F27 — UI_SYSTEM v2.0 재봉인 · fg-muted/state-danger/warning AA 상향 · Topbar dark hover 저대비 회피 · overflow 방어 (min-h/truncate/min-w-0/flex-1) · Sidebar logo Bricolage → Inter |
+| `e9b0c53` | fix(web,docs): F28/F29 — Topbar 모바일 Inter 700/28px + md+ Bricolage 800/40px · dark fg-muted #737373 → #9ca3af AA |
+
+### v0.102 → v0.102b → v0.102c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.102 | `594b9cd` | 6/5/2 | F23 UI_SYSTEM 옛 봉인 · F24 fg-muted AA · F25 state AA · F26 dark hover · F27 Topbar overflow |
+| v0.102b | `207f005` | 7/2/2 | F28 모바일 Bricolage 28px 규칙 위반 · F29 dark fg-muted AA |
+| v0.102c | `e9b0c53` | **7/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `2b12361` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 397 + web 590 = 1014 unit.
+
+### 배운 것
+
+- **디자인 시스템 전환은 문서 재봉인부터** — 옛 UI_SYSTEM 이 실 코드와 반대로 남아 있으면 다음 슬라이스 (Antigravity·Designer 오더) 가 잘못된 원본을 참조한다. 팔레트 바꾼 커밋과 UI_SYSTEM 재작성 커밋을 같은 슬라이스에 함께 넣어야 「도구 = 원본」 정합 유지.
+- **AA 대비 계산은 개별 색뿐 아니라 실제 사용 조합 (텍스트 위 배경) 마다 검증해야** — Say Briefly 원시 팔레트의 Pencil Gray/Terracotta 는 border/장식 용이라 「대비 낮음」 이 의도적. 하지만 이 값을 무비판적으로 semantic 텍스트 토큰에 매핑하면 AA 위반. semantic 매핑 시 배경 대비 계산이 필수.
+- **font-family 규칙 (Bricolage 40px+) 은 반응형에서도 보존해야** — `text-subheading` (28px) 에 `font-display` 를 적용하면 「40px 이상」 규칙 위반. 모바일/데스크톱 브레이크포인트 별로 폰트 family 도 함께 전환.
+- **다크 hover 는 라이트 hover 를 그대로 못 재사용** — 라이트의 highlighter-yellow 배경은 forest-ink 텍스트에 최적. 다크의 흰 텍스트는 노란 배경에서 저대비. `dark:hover:*` 로 분기 명시.
+- **overflow 방어는 responsive 폰트만으론 부족** — 헤더에 40px 헤딩 + 컨트롤을 한 줄 배치하면 긴 email 페이지 제목이 컨트롤을 밀어낸다. flex-1 + min-w-0 + truncate + shrink-0 조합 필수.
+
+### 다음 세션에 이어갈 것
+
+v0.102 (토큰+shell) 완결. 다음 후보:
+- **(e1)** 버튼/카드 radius 6/12px 전면 적용 — 기존 `rounded-none` 을 순차 대체.
+- **(e2)** Super Admin dashboard hero (Bricolage headline + highlight-yellow wash + pastel accent 카드).
+- **(e3)** 참고 이미지의 좌측 사이드바 확장 — 아이콘 · 시간 표시 · bottom docs/live chat/sign out.
+- **(e4)** 개별 컴포넌트 (KPI 카드, 표, 다이얼로그) Say Briefly 명세 세부.
