@@ -190,6 +190,48 @@ describe('readAuditEntries unit tests', () => {
     expect(mockWhere).toHaveBeenCalledTimes(1);
   });
 
+  // v0.104b F39: dedup 은 callable 경계 책임으로 이동. readAudit 은 입력을 verbatim
+  // 그대로 in-where 에 전달 (callable audit log 와 query 가 같은 정규화 배열을 쓰도록).
+  it('v0.104b F39: filterActions 다중 → `in` where 에 verbatim 전달 (dedup 은 상위 계약)', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['users.update_role', 'users.read'],
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', 'in', [
+      'users.update_role',
+      'users.read',
+    ]);
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.104: filterActions 단일 원소 → `==` where 로 축약 (index 재사용)', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['users.read'],
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', '==', 'users.read');
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.104: filterActions 가 있으면 filterAction 은 무시', async () => {
+    mockGet.mockResolvedValueOnce({ docs: [] });
+
+    await readAuditEntries({
+      limit: 50,
+      filterActions: ['a', 'b'],
+      filterAction: 'unused',
+    });
+
+    expect(mockWhere).toHaveBeenCalledWith('action', 'in', ['a', 'b']);
+    expect(mockWhere).not.toHaveBeenCalledWith('action', '==', 'unused');
+  });
+
   it('does not apply any filter where clauses when no filters are provided', async () => {
     mockGet.mockResolvedValueOnce({ docs: [] });
 

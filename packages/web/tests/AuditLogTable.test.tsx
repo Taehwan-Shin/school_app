@@ -824,25 +824,88 @@ describe('AuditLogTable component', () => {
     expect(screen.getByText('unknown')).toBeDefined();
   });
 
-  // v0.101: filterAction dropdown 시나리오
-  it('v0.101: renders action filter dropdown with known audit actions and forwards selection to hook', () => {
+  // v0.101 (v0.104 갱신): filterAction 단일 값 URL 은 이전과 호환.
+  it('v0.101/v0.104: single action URL sets filterAction (backward-compat single)', () => {
     mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
 
     renderWithRouter(<AuditLogTable />, ['/super_admin/audit?action=users.update_role']);
 
-    const select = screen.getByTestId('audit-log-filter-action-select') as HTMLSelectElement;
-    expect(select).toBeDefined();
-    expect(select.value).toBe('users.update_role');
+    const summary = screen.getByTestId('audit-log-filter-action-multi').querySelector('summary');
+    expect(summary).not.toBeNull();
+    expect(summary!.textContent).toContain('users.update_role');
 
-    // 최소 몇 개 알려진 옵션이 목록에 있는지.
-    const optionValues = Array.from(select.querySelectorAll('option')).map((o) => o.value);
-    expect(optionValues).toContain('users.update_role');
-    expect(optionValues).toContain('classroom.create');
-    expect(optionValues).toContain('audit.read');
-
-    // hook 에 filterAction 이 전달됐는지.
+    // hook 은 filterAction (단일) 로 전달.
     const lastCall = mockUseAuditLogList.mock.calls.at(-1);
     expect(lastCall?.[1]).toMatchObject({ filterAction: 'users.update_role' });
+    expect(lastCall?.[1].filterActions).toBeUndefined();
+  });
+
+  // v0.104: 콤마 구분 다중 액션 URL → filterActions 배열 · summary 는 "N개 선택됨".
+  it('v0.104: comma-separated action URL forwards filterActions to hook', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />, [
+      '/super_admin/audit?action=users.update_role,users.read,audit.read',
+    ]);
+
+    const summary = screen.getByTestId('audit-log-filter-action-multi').querySelector('summary');
+    expect(summary!.textContent).toContain('3개');
+
+    const lastCall = mockUseAuditLogList.mock.calls.at(-1);
+    expect(lastCall?.[1]).toMatchObject({
+      filterActions: ['users.update_role', 'users.read', 'audit.read'],
+    });
+    // 단일이 아니므로 filterAction 은 undefined.
+    expect(lastCall?.[1].filterAction).toBeUndefined();
+  });
+
+  // v0.104: 체크박스 토글 시 URL 이 콤마 구분으로 갱신.
+  it('v0.104: toggling a checkbox updates URL action param (comma joined)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />, ['/super_admin/audit?action=users.read']);
+
+    // users.update_role 체크박스 토글.
+    const cb = screen.getByTestId('audit-log-filter-action-cb-users.update_role') as HTMLInputElement;
+    expect(cb.checked).toBe(false);
+    fireEvent.click(cb);
+
+    // 리렌더 후 훅 인자 확인.
+    const lastCall = mockUseAuditLogList.mock.calls.at(-1);
+    expect(lastCall?.[1]).toMatchObject({
+      filterActions: ['users.read', 'users.update_role'],
+    });
+  });
+
+  // v0.104b F40: WAI-ARIA — checkbox 컨테이너는 role=listbox 가 아닌 role=group.
+  it('v0.104b F40: action multi popover 컨테이너는 role=group (aria-multiselectable 없음)', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />);
+
+    const groupEl = screen.getByRole('group', { name: /액션 다중 선택/ });
+    expect(groupEl).toBeDefined();
+    expect(groupEl.getAttribute('role')).toBe('group');
+    // listbox 로 오인식되지 않아야.
+    expect(groupEl.getAttribute('aria-multiselectable')).toBeNull();
+    // listbox 는 존재하면 안 됨.
+    expect(screen.queryByRole('listbox', { name: /액션 다중 선택/ })).toBeNull();
+  });
+
+  // v0.104: 전체 해제 버튼 → URL action 파라미터 삭제.
+  it('v0.104: clear-all button removes action param', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+
+    renderWithRouter(<AuditLogTable />, [
+      '/super_admin/audit?action=users.read,users.update_role',
+    ]);
+
+    const clearBtn = screen.getByTestId('audit-log-filter-action-clear');
+    fireEvent.click(clearBtn);
+
+    const lastCall = mockUseAuditLogList.mock.calls.at(-1);
+    expect(lastCall?.[1].filterAction).toBeUndefined();
+    expect(lastCall?.[1].filterActions).toBeUndefined();
   });
 
   // v0.101: 메시지 substring 검색이 message 필드도 매치하는지 (role_split 등 탐색).

@@ -37,7 +37,11 @@ export function AuditLogTable() {
     return raw === 'ok' || raw === 'error' || raw === 'denied' ? raw : 'all';
   })();
   const actionSearch = searchParams.get('q') ?? '';
-  const actionFilter = searchParams.get('action') ?? '';
+  // v0.104: URL `action` 은 콤마 구분 다중 값 (backward-compat: 단일 값도 그대로 배열 원소로).
+  const actionParam = searchParams.get('action') ?? '';
+  const actionList = actionParam
+    ? Array.from(new Set(actionParam.split(',').map((s) => s.trim()).filter((s) => s.length > 0)))
+    : [];
   const actorFilter = searchParams.get('actor') ?? '';
   const atMinMs = (() => {
     const raw = searchParams.get('atMin');
@@ -55,7 +59,9 @@ export function AuditLogTable() {
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
     filterActor: actorFilter || undefined,
     filterResult: resultFilter !== 'all' ? resultFilter : undefined,
-    filterAction: actionFilter || undefined,
+    // v0.104: 다중이면 filterActions, 단일이면 filterAction (Firestore in vs == index 재사용).
+    filterAction: actionList.length === 1 ? actionList[0] : undefined,
+    filterActions: actionList.length > 1 ? actionList : undefined,
     atMin: atMinMs,
     atMax: atMaxMs,
   });
@@ -199,25 +205,70 @@ export function AuditLogTable() {
             data-testid="audit-log-filter-atmax"
             className="border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
-          <select
-            value={actionFilter}
-            onChange={(e) => {
-              const next = new URLSearchParams(searchParams);
-              const v = e.target.value;
-              if (v) next.set('action', v); else next.delete('action');
-              setSearchParams(next, { replace: true });
-            }}
-            data-testid="audit-log-filter-action-select"
-            className="border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary focus:outline-none focus:border-border-strong"
-            title="서버측 액션 정확 매치 필터"
-          >
-            <option value="">전체 액션</option>
-            {AUDIT_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {action}
-              </option>
-            ))}
-          </select>
+          <details className="relative" data-testid="audit-log-filter-action-multi">
+            <summary
+              className="cursor-pointer list-none border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary hover:bg-elevated focus:outline-none focus:border-border-strong"
+              title="서버측 액션 정확 매치 필터 (다중 선택)"
+            >
+              {actionList.length === 0
+                ? '전체 액션'
+                : actionList.length === 1
+                  ? actionList[0]
+                  : `${actionList.length}개 액션 선택됨`}
+            </summary>
+            {/* F40: WAI-ARIA listbox 는 role=option 자식을 요구. 여기 자식은 native checkbox
+                이므로 checkbox pattern 에 맞춰 role=group 컨테이너로 변경. */}
+            <div
+              className="absolute z-20 mt-1 right-0 md:right-auto md:left-0 w-64 max-h-72 overflow-y-auto border border-border-subtle bg-canvas shadow-md p-2 space-y-1"
+              role="group"
+              aria-label="액션 다중 선택"
+            >
+              <div className="flex justify-between items-center pb-1 mb-1 border-b border-border-subtle">
+                <span className="text-micro text-fg-muted uppercase tracking-wide">
+                  선택된 {actionList.length}개
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.delete('action');
+                    setSearchParams(next, { replace: true });
+                  }}
+                  disabled={actionList.length === 0}
+                  data-testid="audit-log-filter-action-clear"
+                  className="text-small text-fg-secondary underline decoration-transparent hover:decoration-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  전체 해제
+                </button>
+              </div>
+              {AUDIT_ACTIONS.map((action) => {
+                const checked = actionList.includes(action);
+                return (
+                  <label
+                    key={action}
+                    className="flex items-center gap-2 text-small text-fg-primary cursor-pointer px-2 py-1 hover:bg-elevated"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const next = new URLSearchParams(searchParams);
+                        const nextSet = new Set(actionList);
+                        if (checked) nextSet.delete(action);
+                        else nextSet.add(action);
+                        if (nextSet.size === 0) next.delete('action');
+                        else next.set('action', Array.from(nextSet).join(','));
+                        setSearchParams(next, { replace: true });
+                      }}
+                      data-testid={`audit-log-filter-action-cb-${action}`}
+                      className="accent-fg-primary cursor-pointer"
+                    />
+                    <span className="font-mono">{action}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </details>
           <input
             type="text"
             value={actionSearch}

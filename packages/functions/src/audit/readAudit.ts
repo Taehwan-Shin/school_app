@@ -23,7 +23,8 @@ export interface ReadAuditEntriesOptions {
   filterActor?: string; // 정확 매치
   filterTarget?: string; // 정확 매치
   filterResult?: 'ok' | 'error' | 'denied';
-  filterAction?: string; // 정확 매치 (예: 'users.update_role')
+  filterAction?: string; // 정확 매치 (예: 'users.update_role') — v0.101 단일. v0.104 이후 filterActions 우선.
+  filterActions?: string[]; // v0.104: 다중 액션 (Firestore `in` 최대 30).
 }
 
 export interface ReadAuditEntriesResult {
@@ -35,7 +36,17 @@ export async function readAuditEntries(
   options: ReadAuditEntriesOptions,
 ): Promise<ReadAuditEntriesResult> {
   const db = getFirestore();
-  const { limit, before, atMin, atMax, filterActor, filterTarget, filterResult, filterAction } = options;
+  const {
+    limit,
+    before,
+    atMin,
+    atMax,
+    filterActor,
+    filterTarget,
+    filterResult,
+    filterAction,
+    filterActions,
+  } = options;
 
   let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
   if (before !== undefined) {
@@ -56,7 +67,18 @@ export async function readAuditEntries(
   if (filterResult) {
     query = query.where('result', '==', filterResult);
   }
-  if (filterAction) {
+  // v0.104: filterActions (다중) 우선, 없으면 filterAction (단일) 사용.
+  // 다중 배열 입력이 1개면 == 로 축약 (Firestore `in` 대신 == 로 index 재사용).
+  // v0.104b F39: 계약 — 호출자 (callable/audit/list.ts) 가 이미 dedup + 30 개 초과 fail-closed
+  // 했다는 것을 신뢰. 내부에서 조용히 slice 하지 않는다. 초과 배열이 오면 Firestore in-query
+  // 가 자연스럽게 실패해 콜스택 상위로 전파 (dead-code path).
+  if (filterActions && filterActions.length > 0) {
+    if (filterActions.length === 1) {
+      query = query.where('action', '==', filterActions[0]);
+    } else {
+      query = query.where('action', 'in', filterActions);
+    }
+  } else if (filterAction) {
     query = query.where('action', '==', filterAction);
   }
   query = query.limit(limit);

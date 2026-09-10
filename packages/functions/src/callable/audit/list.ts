@@ -14,6 +14,7 @@ export interface AuditLogListRequest {
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
   filterAction?: string;
+  filterActions?: string[]; // v0.104: 다중 액션 (Firestore `in`)
 }
 
 export interface AuditLogListResponse {
@@ -108,6 +109,24 @@ export const auditLogList = onCall(
         typeof data?.filterAction === 'string' && data.filterAction.length > 0
           ? data.filterAction
           : undefined;
+      // v0.104: filterActions 다중. 값이 문자열 배열이고 비어있지 않을 때만 통과.
+      // v0.104b F39: 경계에서 dedup + 30개 초과 fail-closed. 이전엔 readAudit 이 조용히
+      // slice(0,30) 로 잘라서 감사 log 는 원본 전체가 적용된 것처럼 남았음. 이제 callable
+      // 이 하나의 정규화 배열을 만들어 readAudit·감사 log 모두에 동일하게 사용.
+      const filterActionsRaw = Array.isArray(data?.filterActions)
+        ? (data!.filterActions as unknown[]).filter(
+            (v): v is string => typeof v === 'string' && v.length > 0,
+          )
+        : undefined;
+      const filterActionsClean = filterActionsRaw && filterActionsRaw.length > 0
+        ? Array.from(new Set(filterActionsRaw))
+        : undefined;
+      if (filterActionsClean && filterActionsClean.length > 30) {
+        throw new HttpsError(
+          'invalid-argument',
+          `filterActions_too_many: ${filterActionsClean.length} (max 30 per Firestore in-query)`,
+        );
+      }
 
       const result = await readAuditEntries({
         limit,
@@ -118,13 +137,15 @@ export const auditLogList = onCall(
         filterTarget,
         filterResult,
         filterAction,
+        filterActions: filterActionsClean,
       });
 
       const filters = [];
       if (filterActor) filters.push(`actor=${filterActor}`);
       if (filterTarget) filters.push(`target=${filterTarget}`);
       if (filterResult) filters.push(`result=${filterResult}`);
-      if (filterAction) filters.push(`action=${filterAction}`);
+      if (filterActionsClean) filters.push(`actions=${filterActionsClean.join(',')}`);
+      else if (filterAction) filters.push(`action=${filterAction}`);
       if (atMin) filters.push(`atMin=${new Date(atMin).toISOString()}`);
       if (atMax) filters.push(`atMax=${new Date(atMax).toISOString()}`);
       const filterStr = filters.length > 0 ? ` [${filters.join(', ')}]` : '';
