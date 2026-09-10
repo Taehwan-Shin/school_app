@@ -37,6 +37,13 @@ export function BulkArchiveClassroomDialog({
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ id: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState('');
+  // v0.115b F73: confirm 시점에 대상 목록·방향을 snapshot 으로 고정한다.
+  // 진행/완료 phase 에서 부모의 `courses` prop 이 list invalidation 결과로
+  // 재계산돼 빈 배열로 바뀌어도 running/done 화면의 총량·성공 수가 유지된다.
+  const [snapshot, setSnapshot] = useState<{
+    courses: { id: string; name?: string }[];
+    direction: BulkArchiveDirection;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -44,6 +51,7 @@ export function BulkArchiveClassroomDialog({
       setProgress(0);
       setFailures([]);
       setConfirmText('');
+      setSnapshot(null);
     }
   }, [open]);
 
@@ -56,16 +64,24 @@ export function BulkArchiveClassroomDialog({
     onOpenChange(newOpen);
   };
 
-  const targetState: 'ARCHIVED' | 'ACTIVE' = direction === 'archive' ? 'ARCHIVED' : 'ACTIVE';
-  const actionLabel = direction === 'archive' ? '아카이브' : '복구';
+  // running/done phase 는 snapshot 을 원본으로 삼는다 (F73). confirm phase 는
+  // 부모 prop 을 그대로 반영해서 선택이 바뀌면 즉시 반영되도록 한다.
+  const activeCourses = snapshot?.courses ?? courses;
+  const activeDirection = snapshot?.direction ?? direction;
+  const actionLabel = activeDirection === 'archive' ? '아카이브' : '복구';
 
   const handleConfirm = async () => {
+    const frozenCourses = courses.map((c) => ({ id: c.id, name: c.name }));
+    const frozenDirection = direction;
+    setSnapshot({ courses: frozenCourses, direction: frozenDirection });
     setPhase('running');
     const localFailures: { id: string; message: string }[] = [];
-    for (let i = 0; i < courses.length; i++) {
-      const c = courses[i];
+    const frozenTargetState: 'ARCHIVED' | 'ACTIVE' =
+      frozenDirection === 'archive' ? 'ARCHIVED' : 'ACTIVE';
+    for (let i = 0; i < frozenCourses.length; i++) {
+      const c = frozenCourses[i];
       try {
-        await callClassroomPatch({ id: c.id, courseState: targetState });
+        await callClassroomPatch({ id: c.id, courseState: frozenTargetState });
       } catch (e) {
         localFailures.push({ id: c.id, message: (e as Error).message });
       }
@@ -147,13 +163,13 @@ export function BulkArchiveClassroomDialog({
             >
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{courses.length}</strong>
+                <strong className="font-mono">{activeCourses.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${courses.length > 0 ? (progress / courses.length) * 100 : 0}%`,
+                    width: `${activeCourses.length > 0 ? (progress / activeCourses.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -171,7 +187,7 @@ export function BulkArchiveClassroomDialog({
               <p className="text-body text-fg-primary">
                 완료:{' '}
                 <strong className="text-state-success font-mono">
-                  {courses.length - failures.length}
+                  {activeCourses.length - failures.length}
                 </strong>
                 개 성공
                 {failures.length > 0 && (

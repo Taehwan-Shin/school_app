@@ -176,6 +176,58 @@ describe('BulkArchiveClassroomDialog component', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  // v0.115b F73: confirm 시점에 courses·direction 을 snapshot 으로 고정.
+  // 완료 후 부모의 list invalidation 으로 courses 가 빈 배열로 재계산돼도
+  // done 화면의 성공 수·총 대상 수는 원본 값을 유지해야 한다.
+  it('F73: confirm 시 대상을 snapshot 으로 고정 (완료 후 courses=[] 로 바뀌어도 성공 수 유지)', async () => {
+    const initialCourses = [
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+    ];
+    mockCallClassroomPatch.mockResolvedValue({ course: { id: 'x' } });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <BulkArchiveClassroomDialog
+            open={true}
+            onOpenChange={vi.fn()}
+            courses={initialCourses}
+            direction="archive"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByTestId('bulk-archive-classroom-confirm-input'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByTestId('bulk-archive-classroom-confirm-btn'));
+
+    // list invalidation 시뮬레이션: 부모가 courses=[] 로 rerender.
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <BulkArchiveClassroomDialog
+            open={true}
+            onOpenChange={vi.fn()}
+            courses={[]}
+            direction="archive"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bulk-archive-classroom-done')).toBeDefined();
+    });
+    // snapshot 원본 (2건) 기준으로 성공 수가 표시돼야 한다.
+    const done = screen.getByTestId('bulk-archive-classroom-done');
+    expect(done.textContent).toContain('2');
+    expect(done.textContent).toContain('성공');
+    // patch 는 snapshot 상 2건 순차 호출 (부모 rerender 전에 실행 시작).
+    expect(mockCallClassroomPatch).toHaveBeenCalledTimes(2);
+  });
+
   it('open toggle 상태 초기화 (open false → true 시 confirm 필드 비었음)', () => {
     const courses = [{ id: 'a' }];
     const { rerender } = renderWithClient(
