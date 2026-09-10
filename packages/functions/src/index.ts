@@ -38,6 +38,7 @@ export { chatMembersAdd } from './callable/chat/membersAdd.js';
 export { chatMembersDelete } from './callable/chat/membersDelete.js';
 export { classroomList } from './callable/classroom/list.js';
 export { classroomPatch } from './callable/classroom/patch.js';
+export { classroomTransferOwnership } from './callable/classroom/transferOwnership.js';
 export { classroomDelete } from './callable/classroom/delete.js';
 export { classroomTeachersList } from './callable/classroom/teachersList.js';
 export { classroomStudentsList } from './callable/classroom/studentsList.js';
