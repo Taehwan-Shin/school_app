@@ -1,6 +1,7 @@
-# UI_SYSTEM v1.0 (Designer)
+# UI_SYSTEM v1.1 (Designer)
 
-> **봉인**: 2026-08-31, 사용자 승인 (Buzz DM `d44e17f244bf`) — 컬러/타이포 그대로 · 사이드바 아이콘 없음 · Pretendard 폰트 확정.
+> **재봉인**: 2026-09-10, 사용자 지시 (channel event `bddf1bf29de591a5…`) — v0.102 Say Briefly 실험 폐기, v1.0 masstige.io 모노크롬 복원. **v1.1 차이**: 사이드바·주요 액션에 아이콘 허용 (lucide-react) · 가독성 상향 (body 16px · small 14px · muted/border AA 대비 · state 색 상향).
+> **원 봉인 (v1.0)**: 2026-08-31, 사용자 승인 (Buzz DM `d44e17f244bf`) — 컬러/타이포 그대로 · Pretendard 폰트.
 > **소유**: Designer (헤드가 UI 슬라이스에서 쓰는 페르소나 — `AGENTS.md` §2)
 > **범위**: 이 문서는 컬러·타이포·간격·컴포넌트·상태·반응형·접근성·다크모드의 **값**을 정의한다. Antigravity 는 이 값들을 그대로 코드에 옮긴다. 값이 아닌 것 (「부드러운 회색」, 「크게」) 은 여기에 존재하지 않는다.
 
@@ -124,10 +125,10 @@ masstige.io 특성:
 - **teacher**: 대시보드 · 내 클래스룸
 
 각 항목:
-- `px-4 py-2`, `text-body`, `text-fg-secondary`
+- `px-4 py-2.5`, `text-body`, `text-fg-secondary`
 - Hover: `bg-elevated`, `text-fg-primary`
-- Active: `bg-elevated`, `text-fg-primary`, `border-l-2 border-strong`
-- 아이콘 없음 (미니멀 톤 유지). 필요하면 lucide-react 얇은 선 아이콘.
+- Active: `bg-elevated`, `text-fg-primary`, `border-l-2 border-strong`, `font-semibold`
+- **v1.1**: lucide-react 얇은 선 아이콘 (w-4 h-4, strokeWidth 2, active 는 2.25). 아이콘 색은 텍스트 색을 따라간다.
 
 ### 4.3 KPI 카드
 
