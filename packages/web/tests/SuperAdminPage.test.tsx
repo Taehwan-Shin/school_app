@@ -51,6 +51,36 @@ vi.mock('../src/api/auditLogList', () => ({
   useAuditLogList: (...args: any[]) => mockUseAuditLogList(...args),
 }));
 
+// v0.107c: server aggregation callable hook mock.
+const mockUseUnresolvedRoleSplits = vi.fn();
+vi.mock('../src/api/auditLogUnresolvedRoleSplits', () => ({
+  useAuditLogUnresolvedRoleSplits: (...args: any[]) => mockUseUnresolvedRoleSplits(...args),
+}));
+
+// v0.107: role_split 자동 복구 hook mock.
+const mockResolveMutate = vi.fn();
+const mockUseUsersResolveRoleSplit = vi.fn();
+vi.mock('../src/api/usersResolveRoleSplit', () => ({
+  useUsersResolveRoleSplit: () => mockUseUsersResolveRoleSplit(),
+}));
+
+// v0.107f F51: 상태 재확인 hook mock.
+const mockRecheckMutate = vi.fn();
+const mockUseUsersRecheckRoleSplit = vi.fn();
+vi.mock('../src/api/usersRecheckRoleSplit', () => ({
+  useUsersRecheckRoleSplit: () => mockUseUsersRecheckRoleSplit(),
+}));
+
+// react-query useQueryClient stub — reloadUnresolved 은 invalidateQueries 호출.
+const mockInvalidateQueries = vi.fn();
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
+  return {
+    ...actual,
+    useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+  };
+});
+
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin']) {
   return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 }
@@ -71,6 +101,31 @@ describe('SuperAdminPage', () => {
       hasMore: false,
       loadMore: vi.fn(),
       reload: vi.fn(),
+    });
+    mockUseUnresolvedRoleSplits.mockReturnValue({
+      data: {
+        entries: [],
+        scannedDetected: 0,
+        scannedResolved: 0,
+        detectedHasMore: false,
+        resolvedHasMore: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    mockInvalidateQueries.mockReset();
+    mockResolveMutate.mockReset();
+    mockUseUsersResolveRoleSplit.mockReturnValue({
+      mutate: mockResolveMutate,
+      isPending: false,
+      error: null,
+    });
+    mockRecheckMutate.mockReset();
+    mockUseUsersRecheckRoleSplit.mockReturnValue({
+      mutate: mockRecheckMutate,
+      isPending: false,
+      error: null,
     });
   });
 
@@ -574,149 +629,276 @@ describe('SuperAdminPage', () => {
     expect(screen.queryByText('오늘 이벤트를 불러오지 못했습니다.')).toBeNull();
   });
 
-  // v0.106: server-side action 필터 · trigger-scope caveat.
-  it('v0.106: empty state → trigger-scope caveat + strong 강조, ** 노출 없음', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    renderWithRouter(<SuperAdminPage />);
+  // v0.107c: server aggregation callable 로 전환. detected/resolved 두 feed reconcile 을
+  // 서버에서 처리 → client 는 단일 unresolved 리스트만 렌더.
+  describe('v0.107c: role_split (server aggregation)', () => {
+    const roleSplitEntry: AuditLogEntryRead = {
+      id: 'log-rs-x',
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'system.role_split_detected',
+      target: 'users/uid-target-1',
+      request_id: 'req-1',
+      result: 'error',
+      at: 1725150000000,
+      message: 'role_split: auth=admin firestore=teacher',
+    };
 
-    const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section).toBeDefined();
-    // 서버가 이미 action 필터로 정확히 셌으므로 「감사 이벤트 없음」 이 확정 상태.
-    expect(section.textContent).toContain('role_split 감사 이벤트 없음');
-    // trigger-scope caveat: 편집 대화상자 열림 시에만 감지.
-    const strong = section.querySelector('strong');
-    expect(strong).not.toBeNull();
-    expect(strong!.textContent).toContain('역할 편집 대화상자를 열어본 계정에서만 감지');
-    // 화면에 raw ** 이 노출되면 안 됨.
-    expect(section.textContent).not.toContain('**');
-    // v0.105 의 sample-scope 문구 는 v0.106 에서 사라져야 (server 필터가 정확 매치).
-    expect(section.textContent).not.toContain('전수 대조가 아니라 최근 조회 sample 안에서만');
-    // 이전 「동기 상태」 단정 표현도 계속 없어야.
-    expect(section.textContent).not.toContain('동기 상태');
-    expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
-  });
+    function mockUnresolved(opts: {
+      entries?: AuditLogEntryRead[];
+      isLoading?: boolean;
+      isError?: boolean;
+      detectedHasMore?: boolean;
+      resolvedHasMore?: boolean;
+    }) {
+      mockUseUnresolvedRoleSplits.mockReturnValue({
+        data: opts.isError
+          ? undefined
+          : {
+              entries: opts.entries ?? [],
+              scannedDetected: opts.entries?.length ?? 0,
+              scannedResolved: 0,
+              detectedHasMore: opts.detectedHasMore ?? false,
+              resolvedHasMore: opts.resolvedHasMore ?? false,
+            },
+        isLoading: opts.isLoading ?? false,
+        isError: opts.isError ?? false,
+        error: opts.isError ? new Error('boom') : null,
+      });
+    }
 
-  // v0.105b (v0.106 유지): hasMore=true 시 pagination 안내 문구.
-  it('v0.106: hasMore=true → 표시 상한 초과 안내 (loading/error 아닌 경우만)', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
-      error: null,
-      hasMore: true,
-      loadMore: vi.fn(),
-      reload: vi.fn(),
+    beforeEach(() => {
+      mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
+      mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
     });
-    renderWithRouter(<SuperAdminPage />);
 
-    const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('표시 상한 초과');
-  });
+    it('v0.107c: empty state → trigger-scope caveat + strong 강조, raw ** 없음', () => {
+      mockUnresolved({ entries: [] });
+      renderWithRouter(<SuperAdminPage />);
 
-  // v0.106b F38: useAuditLogList 초기 cursor undefined → hasMore=true 로 떨어지므로,
-  // loading 중에는 pagination 안내를 렌더하면 안 됨 (실제 데이터 없이 존재하지 않는 pagination
-  // 을 사용자에게 안내하게 됨).
-  it('v0.106b F38: loading=true + hasMore=true → pagination 안내 없음', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: true,
-      error: null,
-      hasMore: true,
-      loadMore: vi.fn(),
-      reload: vi.fn(),
+      const section = screen.getByTestId('super-admin-role-split-section');
+      expect(section.textContent).toContain('미해결 role_split 없음');
+      const strong = section.querySelector('strong');
+      expect(strong).not.toBeNull();
+      expect(strong!.textContent).toContain('역할 편집 대화상자를 열어본 계정에서만 감지');
+      expect(section.textContent).not.toContain('**');
+      expect(section.textContent).not.toContain('동기 상태');
+      expect(screen.queryByTestId('super-admin-role-split-list')).toBeNull();
     });
-    renderWithRouter(<SuperAdminPage />);
 
-    const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('불러오는 중');
-    expect(section.textContent).not.toContain('표시 상한 초과');
-  });
-
-  it('v0.106b F38: error + hasMore=true → pagination 안내 없음', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    mockUseAuditLogList.mockReturnValue({
-      entries: [],
-      loading: false,
-      error: new Error('boom'),
-      hasMore: true,
-      loadMore: vi.fn(),
-      reload: vi.fn(),
+    it('v0.107c: loading=true → 「불러오는 중」 표시, 스캔 warning 없음', () => {
+      mockUnresolved({ isLoading: true, detectedHasMore: true });
+      renderWithRouter(<SuperAdminPage />);
+      const section = screen.getByTestId('super-admin-role-split-section');
+      expect(section.textContent).toContain('불러오는 중');
+      expect(screen.queryByTestId('super-admin-role-split-scan-incomplete')).toBeNull();
     });
-    renderWithRouter(<SuperAdminPage />);
 
-    const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('감시 데이터를 불러오지 못했습니다');
-    expect(section.textContent).not.toContain('표시 상한 초과');
-  });
+    it('v0.107c: isError=true → 에러 문구, 스캔 warning 없음', () => {
+      mockUnresolved({ isError: true, detectedHasMore: true });
+      renderWithRouter(<SuperAdminPage />);
+      const section = screen.getByTestId('super-admin-role-split-section');
+      expect(section.textContent).toContain('감시 데이터를 불러오지 못했습니다');
+      expect(screen.queryByTestId('super-admin-role-split-scan-incomplete')).toBeNull();
+    });
 
-  it('v0.106: role_split entries → count + 최근 3건 표시, "전체 보기" 링크', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
+    it('v0.107c F44: detectedHasMore=true → 스캔 초과 warning 표시', () => {
+      mockUnresolved({ entries: [], detectedHasMore: true });
+      renderWithRouter(<SuperAdminPage />);
+      const warn = screen.getByTestId('super-admin-role-split-scan-incomplete');
+      expect(warn.textContent).toContain('스캔 window 초과');
+    });
 
-    // v0.106: server 가 action=system.role_split_detected 로 정확히 필터해서 넘김.
-    const entries: AuditLogEntryRead[] = [
-      {
-        id: 'log-rs-1',
-        actor: 'super@cam.hs.kr',
-        role: 'super_admin',
-        action: 'system.role_split_detected',
-        target: 'users/uid-A',
-        request_id: 'req-1',
-        result: 'error',
-        at: 1725150000000,
-        message: 'role_split: auth=admin firestore=teacher',
-      },
-      {
+    it('v0.107c F44: resolvedHasMore=true → 스캔 초과 warning 표시', () => {
+      mockUnresolved({ entries: [], resolvedHasMore: true });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-role-split-scan-incomplete')).toBeDefined();
+    });
+
+    it('v0.107c: entries 표시 + count + 전체 보기 링크', () => {
+      const e1 = { ...roleSplitEntry, id: 'log-rs-1', target: 'users/uid-A' };
+      const e2 = {
+        ...roleSplitEntry,
         id: 'log-rs-2',
-        actor: 'super@cam.hs.kr',
-        role: 'super_admin',
-        action: 'system.role_split_detected',
         target: 'users/uid-B',
-        request_id: 'req-2',
-        result: 'error',
-        at: 1725149000000,
         message: 'role_split: auth=null firestore=admin',
-      },
-    ];
-    mockUseAuditLogList.mockReturnValue({
-      entries,
-      loading: false,
-      error: null,
-      hasMore: false,
-      loadMore: vi.fn(),
-      reload: vi.fn(),
+      };
+      mockUnresolved({ entries: [e1, e2] });
+      renderWithRouter(<SuperAdminPage />);
+
+      const section = screen.getByTestId('super-admin-role-split-section');
+      expect(section.textContent).toContain('미해결 role_split 2건');
+      const link = screen.getByTestId('super-admin-role-split-link');
+      expect(link.getAttribute('href')).toContain('/super_admin/audit');
+      expect(link.getAttribute('href')).toContain('action=system.role_split_detected');
+      expect(screen.getByTestId('super-admin-role-split-item-log-rs-1')).toBeDefined();
+      expect(screen.getByTestId('super-admin-role-split-item-log-rs-2')).toBeDefined();
     });
 
-    renderWithRouter(<SuperAdminPage />);
-
-    const section = screen.getByTestId('super-admin-role-split-section');
-    expect(section.textContent).toContain('role_split 감사 이벤트 2건');
-    // "전체 보기" 링크는 v0.106 전용 action 필터로 이동 (q=role_split 대신).
-    const link = screen.getByTestId('super-admin-role-split-link');
-    expect(link.getAttribute('href')).toContain('/super_admin/audit');
-    expect(link.getAttribute('href')).toContain('action=system.role_split_detected');
-    // role_split 항목 2개 표시.
-    expect(screen.getByTestId('super-admin-role-split-item-log-rs-1')).toBeDefined();
-    expect(screen.getByTestId('super-admin-role-split-item-log-rs-2')).toBeDefined();
-  });
-
-  it('v0.106: hook 호출 인자는 filterAction=system.role_split_detected (result 필터 없음)', () => {
-    mockUseUsersList.mockReturnValue({ data: { users: [] }, isLoading: false, isError: false });
-    mockUseGroupsList.mockReturnValue({ data: { groups: [] }, isLoading: false, isError: false });
-    renderWithRouter(<SuperAdminPage />);
-
-    const call = mockUseAuditLogList.mock.calls.at(-1);
-    expect(call).toBeDefined();
-    // (pageSize, filters) 시그니처.
-    expect(call![1]).toMatchObject({
-      filterAction: 'system.role_split_detected',
+    it('v0.107c: hook 호출 인자 (scanLimit=500)', () => {
+      renderWithRouter(<SuperAdminPage />);
+      const call = mockUseUnresolvedRoleSplits.mock.calls.at(-1);
+      expect(call).toBeDefined();
+      expect(call![0]).toMatchObject({ scanLimit: 500 });
     });
-    // v0.106 부터 client 는 filterResult 를 지정하지 않는다 (전용 action 이므로 불필요).
-    expect(call![1].filterResult).toBeUndefined();
+
+    // v0.107 resolve button subset — reuses new mockUnresolved.
+    it('v0.107c: 복구 버튼 클릭 → confirm 통과 시 mutate CAS 기대치 포함', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      const btn = screen.getByTestId('super-admin-role-split-resolve-log-rs-x');
+      fireEvent.click(btn);
+      expect(mockResolveMutate).toHaveBeenCalledTimes(1);
+      expect(mockResolveMutate.mock.calls[0][0]).toEqual({
+        uid: 'uid-target-1',
+        expectedAuthRole: 'admin',
+        expectedFirestoreRole: 'teacher',
+      });
+    });
+
+    it('v0.107c: confirm 거부 시 mutate 호출 안 함', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-x'));
+      expect(mockResolveMutate).not.toHaveBeenCalled();
+    });
+
+    it('v0.107c: pending 중 버튼 disabled', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      mockResolveMutate.mockImplementation(() => {});
+      mockUseUsersResolveRoleSplit.mockReturnValue({
+        mutate: mockResolveMutate,
+        isPending: true,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const btn = screen.getByTestId('super-admin-role-split-resolve-log-rs-x') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('v0.107c: mutate 성공 시 unresolvedRoleSplits query invalidate', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      mockResolveMutate.mockImplementation((_vars: any, opts: any) => {
+        opts?.onSuccess?.();
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-x'));
+      expect(mockInvalidateQueries).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['audit', 'unresolvedRoleSplits'] }),
+      );
+    });
+
+    it('v0.107c: mutate 실패 시 error 문구', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      mockResolveMutate.mockImplementation((_vars: any, opts: any) => {
+        opts?.onError?.(new Error('boom'));
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-x'));
+      const err = screen.getByTestId('super-admin-role-split-resolve-error');
+      expect(err.textContent).toContain('복구 실패');
+      expect(err.textContent).toContain('boom');
+    });
+
+    it('v0.107e F49: mutate 실패 시에도 unresolvedRoleSplits query invalidate (aborted → 새 detected)', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({ entries: [roleSplitEntry] });
+      mockResolveMutate.mockImplementation((_vars: any, opts: any) => {
+        opts?.onError?.(new Error('aborted: ...'));
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-x'));
+      expect(mockInvalidateQueries).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['audit', 'unresolvedRoleSplits'] }),
+      );
+    });
+
+    it('v0.107c: raw uid target 안전 slice', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({
+        entries: [{ ...roleSplitEntry, id: 'log-rs-raw', target: 'raw-uid-abc' }],
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-raw'));
+      expect(mockResolveMutate).toHaveBeenCalledWith(
+        { uid: 'raw-uid-abc', expectedAuthRole: 'admin', expectedFirestoreRole: 'teacher' },
+        expect.anything(),
+      );
+    });
+
+    it('v0.107c: message 파싱 실패 → mutate 호출 안 함 + error', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockUnresolved({
+        entries: [{ ...roleSplitEntry, id: 'log-rs-mal', message: 'no matching pattern' }],
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-resolve-log-rs-mal'));
+      expect(mockResolveMutate).not.toHaveBeenCalled();
+      expect(screen.getByTestId('super-admin-role-split-resolve-error').textContent).toContain(
+        '파싱할 수 없음',
+      );
+    });
+
+    // v0.107f F51: auth=unknown row 는 recheck button 으로 분기.
+    it('v0.107f F51: auth=unknown row → 「상태 재확인」 버튼 표시, 복구 버튼 없음', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        message: 'role_split: auth=unknown firestore=admin (post_write_auth_recheck_failed: network unreachable)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown')).toBeDefined();
+      expect(screen.queryByTestId('super-admin-role-split-resolve-log-rs-unknown')).toBeNull();
+    });
+
+    it('v0.107f F51: recheck 버튼 클릭 → recheckMutation.mutate({ uid }) 호출 (confirm 없이)', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        target: 'users/uid-target-1',
+        message: 'role_split: auth=unknown firestore=admin (post_write_auth_recheck_failed)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown'));
+      expect(mockRecheckMutate).toHaveBeenCalledTimes(1);
+      expect(mockRecheckMutate.mock.calls[0][0]).toEqual({ uid: 'uid-target-1' });
+      // resolveMutation 은 호출 안 됨.
+      expect(mockResolveMutate).not.toHaveBeenCalled();
+    });
+
+    it('v0.107f F51: recheck pending 중 버튼 disabled', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-unknown',
+        message: 'role_split: auth=unknown firestore=admin',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      mockUseUsersRecheckRoleSplit.mockReturnValue({
+        mutate: mockRecheckMutate,
+        isPending: true,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const btn = screen.getByTestId('super-admin-role-split-recheck-log-rs-unknown') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('v0.107f F51: firestore=unknown row 도 recheck 로 분기', () => {
+      const unknownEntry: AuditLogEntryRead = {
+        ...roleSplitEntry,
+        id: 'log-rs-fu',
+        message: 'role_split: auth=admin firestore=unknown (some_hypothetical_reason)',
+      };
+      mockUnresolved({ entries: [unknownEntry] });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-role-split-recheck-log-rs-fu')).toBeDefined();
+    });
   });
 });

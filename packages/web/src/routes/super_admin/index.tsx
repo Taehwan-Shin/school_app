@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
@@ -5,7 +6,11 @@ import { KpiCard } from '../../components/dashboard/KpiCard';
 import { useUsersList } from '../../api/usersList';
 import { useGroupsList } from '../../api/groupsList';
 import { useAuditLogSummary } from '../../api/auditLogSummary';
-import { useAuditLogList } from '../../api/auditLogList';
+import { useAuditLogUnresolvedRoleSplits } from '../../api/auditLogUnresolvedRoleSplits';
+import { useUsersResolveRoleSplit } from '../../api/usersResolveRoleSplit';
+import { useUsersRecheckRoleSplit } from '../../api/usersRecheckRoleSplit';
+import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '../../components/ui/button';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -35,12 +40,101 @@ export function SuperAdminPage() {
   // 남은 제약 — getRole 은 EditUserRoleDialog 열 때만 호출되므로, 아직 조회된 적 없는
   // 계정은 이 카드에서 감지되지 않는다. 이는 sample-scope (표시 최대 N건) 와 다른, 트리거
   // 범위의 제약이다. hasMore 는 감지된 splits 자체가 N건을 초과할 때만 나타난다.
-  const ROLE_SPLIT_SAMPLE_SIZE = 50;
-  const roleSplitFeed = useAuditLogList(ROLE_SPLIT_SAMPLE_SIZE, {
-    filterAction: 'system.role_split_detected',
-  });
-  const roleSplitEntries = roleSplitFeed.entries;
-  const roleSplitHasMore = roleSplitFeed.hasMore;
+  // v0.107c F44: 서버 aggregation callable 로 target 별 최신 상태 집계 (result=ok resolved 만
+  // 인정 · 두 feed pagination 결함 소거). client 는 자체 reconcile 하지 않고 결과만 렌더.
+  const unresolvedQuery = useAuditLogUnresolvedRoleSplits({ scanLimit: 500 });
+  const roleSplitEntries = unresolvedQuery.data?.entries ?? [];
+  // hasMore 는 서버가 detected/resolved 두 window 중 하나라도 초과했다고 알린 경우.
+  const scanIncomplete =
+    (unresolvedQuery.data?.detectedHasMore ?? false) ||
+    (unresolvedQuery.data?.resolvedHasMore ?? false);
+  const qc = useQueryClient();
+  // reload 헬퍼: 서버 aggregation query 무효화 → refetch.
+  const reloadUnresolved = () =>
+    qc.invalidateQueries({ queryKey: ['audit', 'unresolvedRoleSplits'] });
+
+  // v0.107: 감지된 split 을 super_admin 이 한 클릭으로 Firestore = Auth 로 동기화.
+  // v0.107b F42: message 에서 auth/firestore 기대치 파싱 → CAS 로 서버가 stale write 방지.
+  // v0.107f F51: auth=unknown row 는 recheck mutation 으로 대체 (parsable role 로 재기록).
+  const resolveMutation = useUsersResolveRoleSplit();
+  const recheckMutation = useUsersRecheckRoleSplit();
+  const [resolvingUid, setResolvingUid] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const parseSplitMessage = (
+    message: string | undefined,
+  ): { auth: 'super_admin' | 'admin' | 'teacher' | 'null'; firestore: 'super_admin' | 'admin' | 'teacher' | 'null' } | null => {
+    if (!message) return null;
+    const m = message.match(/role_split:\s*auth=(\S+)\s+firestore=(\S+)/);
+    if (!m) return null;
+    const valid = (v: string): v is 'super_admin' | 'admin' | 'teacher' | 'null' =>
+      v === 'super_admin' || v === 'admin' || v === 'teacher' || v === 'null';
+    if (!valid(m[1]) || !valid(m[2])) return null;
+    return { auth: m[1], firestore: m[2] };
+  };
+
+  // v0.107f F51: message 에 unknown 마커 (auth=unknown 또는 firestore=unknown) 있으면
+  // recheck 흐름으로 분기. resolve 는 parsable role 만 지원.
+  const isRecheckNeeded = (message: string | undefined): boolean => {
+    if (!message) return false;
+    return /(?:auth|firestore)=unknown/.test(message);
+  };
+
+  const handleResolve = (entry: { target: string; message: string }) => {
+    const uid = entry.target.startsWith('users/') ? entry.target.slice(6) : entry.target;
+    if (!uid) return;
+    const parsed = parseSplitMessage(entry.message);
+    if (!parsed) {
+      setResolveError('감사 메시지에서 auth/firestore role 을 파싱할 수 없음 — 옛 형식 이벤트일 수 있음');
+      return;
+    }
+    if (
+      !window.confirm(
+        `Firestore role 을 Auth 원본으로 덮어씁니다.\nuid=${uid}\nauth=${parsed.auth}, firestore=${parsed.firestore}\n\n계속하시겠습니까?`,
+      )
+    ) {
+      return;
+    }
+    setResolvingUid(uid);
+    setResolveError(null);
+    resolveMutation.mutate(
+      { uid, expectedAuthRole: parsed.auth, expectedFirestoreRole: parsed.firestore },
+      {
+        onSuccess: () => {
+          setResolvingUid(null);
+          reloadUnresolved();
+        },
+        onError: (err) => {
+          setResolvingUid(null);
+          setResolveError(err.message);
+          // v0.107e F49: 서버가 aborted 로 새 detected 를 기록했을 수 있음. 클라이언트도
+          // unresolved cache 를 즉시 무효화해서 옛 CAS row 를 재시도하지 않도록.
+          reloadUnresolved();
+        },
+      },
+    );
+  };
+
+  // v0.107f F51: 상태 재확인 handler. 서버가 Auth/Firestore 재조회 후 새 감사 이벤트 기록.
+  const handleRecheck = (entryTarget: string) => {
+    const uid = entryTarget.startsWith('users/') ? entryTarget.slice(6) : entryTarget;
+    if (!uid) return;
+    setResolvingUid(uid);
+    setResolveError(null);
+    recheckMutation.mutate(
+      { uid },
+      {
+        onSuccess: () => {
+          setResolvingUid(null);
+          // onSettled 에서 invalidate 하므로 별도 reload 호출 불필요.
+        },
+        onError: (err) => {
+          setResolvingUid(null);
+          setResolveError(err.message);
+        },
+      },
+    );
+  };
 
   return (
     <AppShell role={role} pageTitle="슈퍼 관리자">
@@ -161,29 +255,28 @@ export function SuperAdminPage() {
               <div className="min-w-0">
                 <h2 className="text-h2 font-semibold text-fg-primary">역할 불일치 감시</h2>
                 <p className="text-small text-fg-secondary mt-1">
-                  {roleSplitFeed.loading ? (
+                  {unresolvedQuery.isLoading ? (
                     '불러오는 중...'
-                  ) : roleSplitFeed.error ? (
+                  ) : unresolvedQuery.isError ? (
                     '감시 데이터를 불러오지 못했습니다.'
                   ) : roleSplitEntries.length > 0 ? (
                     <>
-                      최근 role_split 감사 이벤트 {roleSplitEntries.length}건 (표시 최대{' '}
-                      {ROLE_SPLIT_SAMPLE_SIZE}) — Auth 클레임과 Firestore role 이 다른 계정.
+                      미해결 role_split {roleSplitEntries.length}건 — Auth 클레임과 Firestore role 이 다른 계정.
                     </>
                   ) : (
                     <>
-                      role_split 감사 이벤트 없음.{' '}
+                      미해결 role_split 없음.{' '}
                       <strong className="font-semibold text-fg-primary">
                         역할 편집 대화상자를 열어본 계정에서만 감지
                       </strong>{' '}
                       — 아직 조회된 적 없는 계정은 확인되지 않는다.
                     </>
                   )}
-                  {/* F38: hasMore 는 useAuditLogList 초기·오류 cursor undefined 일 때 true 로
-                      떨어지므로, 실제 데이터 로딩이 끝난 상태에서만 pagination 안내. */}
-                  {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitHasMore && (
-                    <span className="ml-1 text-fg-muted">
-                      (표시 상한 초과. 「전체 보기」 로 감사 페이지에서 pagination.)
+                  {/* v0.107c F44: 서버 aggregation 이 detected/resolved 두 스캔 window 중 하나
+                      라도 초과했음을 알린 경우 — 결과 신뢰성 저하 경고. */}
+                  {!unresolvedQuery.isLoading && !unresolvedQuery.isError && scanIncomplete && (
+                    <span className="ml-1 text-state-warning" data-testid="super-admin-role-split-scan-incomplete">
+                      (스캔 window 초과 · 일부 상태 반영 안 됐을 수 있음. 감사 페이지에서 target 별 pagination 로 검증 권장.)
                     </span>
                   )}
                 </p>
@@ -197,27 +290,66 @@ export function SuperAdminPage() {
               전체 보기 →
             </Link>
           </div>
-          {!roleSplitFeed.loading && !roleSplitFeed.error && roleSplitEntries.length > 0 && (
+          {!unresolvedQuery.isLoading && !unresolvedQuery.isError && roleSplitEntries.length > 0 && (
             <ul
               className="space-y-2 text-small"
               data-testid="super-admin-role-split-list"
             >
-              {roleSplitEntries.slice(0, 3).map((e) => (
+              {roleSplitEntries.slice(0, 3).map((e) => {
+                const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
+                const isThisRowResolving = resolvingUid === uid;
+                // v0.107f F51: unknown 마커 있으면 recheck 흐름으로 분기.
+                const needsRecheck = isRecheckNeeded(e.message);
+                const pending =
+                  isThisRowResolving || resolveMutation.isPending || recheckMutation.isPending;
+                return (
+                  <li
+                    key={e.id}
+                    className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
+                    data-testid={`super-admin-role-split-item-${e.id}`}
+                  >
+                    <span className="font-mono text-fg-secondary w-40 shrink-0">
+                      {new Date(e.at).toLocaleString('ko-KR')}
+                    </span>
+                    <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
+                    <span className="text-fg-secondary">·</span>
+                    <span className="text-state-warning font-mono truncate flex-1" title={e.message}>
+                      {e.message}
+                    </span>
+                    {needsRecheck ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleRecheck(e.target)}
+                        disabled={pending}
+                        data-testid={`super-admin-role-split-recheck-${e.id}`}
+                        title="Auth/Firestore 재조회로 실제 상태를 새 감사 이벤트로 기록"
+                      >
+                        {isThisRowResolving ? '확인 중...' : '상태 재확인'}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleResolve({ target: e.target, message: e.message ?? '' })}
+                        disabled={pending}
+                        data-testid={`super-admin-role-split-resolve-${e.id}`}
+                        title="Firestore role 을 Auth 원본으로 덮어씀"
+                      >
+                        {isThisRowResolving ? '동기화 중...' : '복구'}
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+              {resolveError && (
                 <li
-                  key={e.id}
-                  className="flex items-center gap-3 p-2 -mx-2 hover:bg-surface transition-colors"
-                  data-testid={`super-admin-role-split-item-${e.id}`}
+                  className="text-small text-state-danger px-2"
+                  data-testid="super-admin-role-split-resolve-error"
                 >
-                  <span className="font-mono text-fg-secondary w-40 shrink-0">
-                    {new Date(e.at).toLocaleString('ko-KR')}
-                  </span>
-                  <span className="font-mono text-fg-primary shrink-0">{e.target}</span>
-                  <span className="text-fg-secondary">·</span>
-                  <span className="text-state-warning font-mono truncate" title={e.message}>
-                    {e.message}
-                  </span>
+                  복구 실패: {resolveError}
                 </li>
-              ))}
+              )}
             </ul>
           )}
         </section>
