@@ -23,6 +23,7 @@ export interface ReadAuditEntriesOptions {
   filterActor?: string; // 정확 매치
   filterTarget?: string; // 정확 매치
   filterResult?: 'ok' | 'error' | 'denied';
+  filterAction?: string; // 정확 매치 (예: 'users.update_role')
 }
 
 export interface ReadAuditEntriesResult {
@@ -34,7 +35,7 @@ export async function readAuditEntries(
   options: ReadAuditEntriesOptions,
 ): Promise<ReadAuditEntriesResult> {
   const db = getFirestore();
-  const { limit, before, atMin, atMax, filterActor, filterTarget, filterResult } = options;
+  const { limit, before, atMin, atMax, filterActor, filterTarget, filterResult, filterAction } = options;
 
   let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
   if (before !== undefined) {
@@ -54,6 +55,9 @@ export async function readAuditEntries(
   }
   if (filterResult) {
     query = query.where('result', '==', filterResult);
+  }
+  if (filterAction) {
+    query = query.where('action', '==', filterAction);
   }
   query = query.limit(limit);
 

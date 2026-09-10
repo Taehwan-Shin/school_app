@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
+import { AUDIT_ACTIONS } from '@school-app/shared';
 import {
   Table,
   TableBody,
@@ -36,6 +37,7 @@ export function AuditLogTable() {
     return raw === 'ok' || raw === 'error' || raw === 'denied' ? raw : 'all';
   })();
   const actionSearch = searchParams.get('q') ?? '';
+  const actionFilter = searchParams.get('action') ?? '';
   const actorFilter = searchParams.get('actor') ?? '';
   const atMinMs = (() => {
     const raw = searchParams.get('atMin');
@@ -53,6 +55,7 @@ export function AuditLogTable() {
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
     filterActor: actorFilter || undefined,
     filterResult: resultFilter !== 'all' ? resultFilter : undefined,
+    filterAction: actionFilter || undefined,
     atMin: atMinMs,
     atMax: atMaxMs,
   });
@@ -62,7 +65,11 @@ export function AuditLogTable() {
     if (!q) {
       return entries;
     }
-    return entries.filter((e) => e.action.toLowerCase().includes(q));
+    return entries.filter((e) => {
+      const inAction = e.action.toLowerCase().includes(q);
+      const inMessage = (e.message ?? '').toLowerCase().includes(q);
+      return inAction || inMessage;
+    });
   }, [entries, actionSearch]);
 
   const handleExportCsv = () => {
@@ -192,6 +199,25 @@ export function AuditLogTable() {
             data-testid="audit-log-filter-atmax"
             className="border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          <select
+            value={actionFilter}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('action', v); else next.delete('action');
+              setSearchParams(next, { replace: true });
+            }}
+            data-testid="audit-log-filter-action-select"
+            className="border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary focus:outline-none focus:border-border-strong"
+            title="서버측 액션 정확 매치 필터"
+          >
+            <option value="">전체 액션</option>
+            {AUDIT_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {action}
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             value={actionSearch}
@@ -201,8 +227,9 @@ export function AuditLogTable() {
               if (v) next.set('q', v); else next.delete('q');
               setSearchParams(next, { replace: true });
             }}
-            placeholder="액션 검색"
+            placeholder="메시지·액션 부분 검색"
             data-testid="audit-log-filter-action"
+            title="현재 페이지 내 메시지·액션 부분 문자열 검색 (클라이언트)"
             className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
           />
           <Button
