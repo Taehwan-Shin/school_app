@@ -1,28 +1,22 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **지금 이 파일에 열린 오더 없음.** v0.102 (Say Briefly 디자인 첫 슬라이스) 병합 완료 (`2b12361`).
-> UI_SYSTEM v2.0 (Say Briefly) 이 유일한 시각 원본. 다음 UI 슬라이스 준비 대기.
+> **지금 이 파일에 열린 오더 없음.** v0.103 (Say Briefly revert + 아이콘 + 가독성) 병합 완료 (`eca8056`).
+> UI_SYSTEM v1.1 (masstige.io 모노크롬 + 아이콘) 이 시각 원본. 다음 슬라이스 준비 중.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
-- `2b12361` v0.102 — Say Briefly 디자인 첫 슬라이스 (토큰 + Google Fonts + shell).
+- `eca8056` v0.103 — Say Briefly revert + 아이콘 + 가독성 (masstige.io 복원, lucide-react, AA 대비).
+- `2b12361` v0.102 — Say Briefly 실험 (v0.103 에서 revert).
 - `bb5a8f5` v0.101 — audit log filterAction.
 - `2324255` v0.100 — role management UI.
 - `1a5b0e0` v0.99 — capability matrix.
-- `142fa23` v0.98 — classroom+chat pair 통합.
 
-## 다음 후보 (Head 검토 중)
+## 다음 후보 (Head 자율 실행 예정)
 
-STATUS.md 참조. UI 후속:
-- **(e1) radius 전면 적용** — 기존 `rounded-none` → `rounded-buttons` (6px) / `rounded-cards` (12px).
-- **(e2) Super Admin dashboard hero** — Bricolage 40px+ headline + highlight-yellow wash + pastel accent 카드.
-- **(e3) 사이드바 확장** — 참고 이미지의 아이콘 · 시간 · bottom docs/live chat/sign out.
-- **(e4) 개별 컴포넌트 세부** — KPI 카드 · 표 · 다이얼로그 Say Briefly 명세.
-
-제품 후속:
-- **(c) 실 Workspace 확인 workflow** — 판정불가 소거.
-- **(b4) 감사 로그 다중 필터**.
+STATUS.md 참조:
+- **(b4) 감사 로그 다중 액션·행위자 필터** — 현 단일 select 를 checkbox 다중 선택으로 확장.
+- **(c) 실 Workspace 확인 workflow** — v0.94~v0.101 판정불가 소거.
 - **(d)** 사용자 지시 그 외.
 
 ## 상설 규약 (변하지 않음)
@@ -39,5 +33,4 @@ STATUS.md 참조. UI 후속:
 
 ## UI 슬라이스 원본
 
-- **디자인 명세**: `docs/design/UI_SYSTEM.md` (v2.0, Say Briefly).
-- 팔레트·타이포·스페이싱·컴포넌트 규칙·AA 대비·이관 순서 모두 이 문서 기준.
+- **디자인 명세**: `docs/design/UI_SYSTEM.md` (v1.1, masstige.io 복원 + 아이콘 · AA 상향).

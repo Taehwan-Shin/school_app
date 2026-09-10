@@ -945,3 +945,45 @@ v0.102 (토큰+shell) 완결. 다음 후보:
 - **(e2)** Super Admin dashboard hero (Bricolage headline + highlight-yellow wash + pastel accent 카드).
 - **(e3)** 참고 이미지의 좌측 사이드바 확장 — 아이콘 · 시간 표시 · bottom docs/live chat/sign out.
 - **(e4)** 개별 컴포넌트 (KPI 카드, 표, 다이얼로그) Say Briefly 명세 세부.
+
+## 2026-09-10 · v0.103 Say Briefly revert + 아이콘 + 가독성 (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+사용자 지시 (channel event `bddf1bf29de591a5…`) — v0.102 Say Briefly 실험이 마음에 안 들어 되돌리기 + 사이드바 아이콘 + 가독성. Codex 3 라운드 감사에서 UI_SYSTEM 정합, 아이콘/overflow 회귀 시나리오, SVG stroke-width 대조 assert 지적 순차 해결.
+
+### 커밋 이력 (feat/revert-saybriefly-v103)
+
+| 커밋 | 요약 |
+|---|---|
+| `435dbe8` | Revert v0.102 Say Briefly merge (전체 되돌리기) |
+| `1699c7a` | feat: lucide-react 아이콘 (Sidebar 각 항목 · Topbar 로그아웃) · body 15→16px · small 13→14px · fg-muted #A3A3A3→#6B7280 (AA 4.83:1) · state 색 상향 · Sidebar 활성 항목 semibold |
+| `59c6822` | fix: UI_SYSTEM v1.1 재봉인 (색 표·타입·Topbar·아이콘 정책 실제 구현과 정합) · Topbar overflow + Sidebar 아이콘 SVG aria-hidden 회귀 시나리오 4건 |
+| `c0d3b7b` | fix: active/inactive SVG stroke-width 대조 assert (활성 2.25, 비활성 2) |
+
+### v0.103 → v0.103b → v0.103c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.103 | `1699c7a` | 7/3/2 | F30 UI_SYSTEM 색·타입 표 옛 값 · F31 Topbar/무아이콘 문구 옛 값 · F32 아이콘/overflow 회귀 부재 |
+| v0.103b | `59c6822` | 8/1/2 | F33 stroke-width 대조 assert 부재 |
+| v0.103c | `c0d3b7b` | **5/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `eca8056` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 397 + web 592 = 1016 unit.
+
+### 배운 것
+
+- **디자인 방향 변경 때 문서 재봉인이 필수** — v0.102 Say Briefly 봉인을 폐기하고 v1.1 masstige.io+아이콘 을 재봉인. UI_SYSTEM 색·타입 표를 실제 CSS/Tailwind 값에 맞추지 않으면 Codex 는 「문서와 코드 반대」 로 판정 (F30). 디자인 커밋 = 문서 커밋 함께 진행 원칙.
+- **회귀 시나리오는 「존재」 뿐만 아니라 「대조」 도 검사** — F33: 「두꺼운 stroke」 라고 명시했지만 값 대조가 없으면 회귀 방어 부족. active vs inactive 대조 assert 로 명확히.
+- **revert 는 필요한 개선까지 되돌린다** — Topbar overflow 방어 (min-w-0/truncate) 는 디자인 색과 무관한 순수 개선. revert 후 재적용. 개선 계층은 별도 커밋으로 분리해두면 revert 부담이 줄어든다 (교훈: 안정 계층과 디자인 계층 분리).
+
+### 다음 세션에 이어갈 것
+
+디자인 안정화. v0.104 후보:
+- (b4) 감사 로그 다중 액션·행위자 필터.
+- (c) 실 Workspace 확인 workflow.
+- (d) 사용자 지시 그 외.
