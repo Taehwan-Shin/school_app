@@ -1,6 +1,6 @@
 # ROADMAP — school_app 개발 로드맵
 
-> 2026-09-11 기준 · v0.112 배포 완료 · 다음 단계 계획.
+> 2026-09-11 기준 · v0.115 배포 완료 · 다음 단계 계획.
 > `NEXT.md` 는 「지금 열린 오더」 · `ROADMAP.md` 는 「전체 계획」. 두 파일을 함께 본다.
 
 ## 완료 (v0.93 baseline → v0.112)
@@ -46,12 +46,12 @@
 - **일괄 정지 / 삭제 / OU 이동** — `BulkSuspendDialog` · `BulkDeleteDialog` · `BulkMoveOuDialog`.
 - **Classroom + Chat 통합 생성** — v0.98 `ClassroomChatPairBulkCreateDialog`.
 - **Chat/Classroom bulk invite** — `ChatBulkInviteDialog` · `ClassroomBulkInviteDialog`.
+- **클래스룸 archived bulk 관리** — v0.115 다중 선택 + `BulkArchiveClassroomDialog` (ACTIVE ↔ ARCHIVED). teacher membership 검증 (F72) + confirm snapshot (F73).
 
 남은 후보:
 - **전입생 계정 개별 생성 UX 개선** — 기존 `CreateUserDialog` 는 있으나 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 흐름을 아직 안 감쌈.
 - **계정 삭제 안내 메일** — 원본 MailApp 기능. SendGrid 등 3rd party 이메일 서비스 필요 (미구현).
 - **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅. Classroom Courses.patch(ownerId) callable.
-- **클래스룸 archived 관리** — ACTIVE ↔ ARCHIVED 전환 (`classroomPatch` 확장) + bulk archive/delete UI.
 
 ### Phase 6 — 통합·자동화
 - **감사 로그 배치 export** — 전체 페이지 순회 (hasMore 소진까지) 통합 JSON/CSV. 대량 export.
