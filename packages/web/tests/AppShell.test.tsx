@@ -170,6 +170,51 @@ describe('AppShell', () => {
     expect(screen.queryByText('시스템 설정')).toBeNull();
   });
 
+  // v0.103: 사이드바 각 나비 항목이 lucide-react 아이콘을 SVG 로 렌더 (aria-hidden).
+  it('v0.103: sidebar nav items render lucide icons as aria-hidden SVG next to labels', () => {
+    render(
+      <MemoryRouter initialEntries={['/super_admin']}>
+        <AppShell role="super_admin" pageTitle="슈퍼 관리자">
+          <div>내용</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    // 대시보드 · 감사 로그 등 active/inactive 각각 아이콘 존재.
+    const auditLogLink = screen.getByText('감사 로그').closest('a');
+    expect(auditLogLink).not.toBeNull();
+    const auditSvg = auditLogLink!.querySelector('svg');
+    expect(auditSvg).not.toBeNull();
+    expect(auditSvg!.getAttribute('aria-hidden')).toBe('true');
+
+    // disabled 항목 (시스템 설정) 도 아이콘 렌더.
+    const settingsOuter = screen.getByText('시스템 설정').closest('[aria-disabled]');
+    expect(settingsOuter).not.toBeNull();
+    const settingsSvg = (settingsOuter as HTMLElement).querySelector('svg');
+    expect(settingsSvg).not.toBeNull();
+    expect(settingsSvg!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  // v0.103: 활성 항목은 `aria-current="page"` + 폰트 semibold + 두꺼운 아이콘 stroke.
+  it('v0.103: active nav item marks aria-current=page and thicker font weight', () => {
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AppShell role="super_admin" pageTitle="관리자">
+          <div>내용</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    const auditLink = screen.getByText('감사 로그').closest('a');
+    expect(auditLink).not.toBeNull();
+    expect(auditLink!.getAttribute('aria-current')).toBe('page');
+    expect(auditLink!.className).toContain('font-semibold');
+
+    // 비활성 항목은 aria-current 없음.
+    const groupLink = screen.getByText('그룹').closest('a');
+    expect(groupLink!.getAttribute('aria-current')).toBeNull();
+  });
+
   it('calls signOut when logout button is clicked in Topbar', () => {
     render(
       <MemoryRouter initialEntries={['/admin']}>

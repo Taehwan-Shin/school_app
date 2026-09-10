@@ -24,39 +24,39 @@ masstige.io 특성:
 
 ## 1. 컬러 시스템
 
-### 라이트 (기본)
-| 토큰 | 값 | 용도 |
-|---|---|---|
-| `--bg-canvas` | `#FFFFFF` | 페이지 배경 |
-| `--bg-surface` | `#FAFAFA` | 카드·사이드바 배경 |
-| `--bg-elevated` | `#FFFFFF` | 다이얼로그·팝오버 |
-| `--fg-primary` | `#0A0A0A` | 본문·헤드라인 |
-| `--fg-secondary` | `#525252` | 서브텍스트·설명 |
-| `--fg-muted` | `#A3A3A3` | 라벨·비활성 |
-| `--border-subtle` | `#E5E5E5` | 카드·표 테두리 |
-| `--border-strong` | `#0A0A0A` | 포커스 링·강조 테두리 |
-| `--accent-primary` | `#0A0A0A` | 주 버튼 배경 (검정) |
-| `--accent-on-primary` | `#FFFFFF` | 주 버튼 텍스트 |
-| `--state-danger` | `#DC2626` | 삭제·오류 |
-| `--state-success` | `#16A34A` | 성공·완료 |
-| `--state-warning` | `#CA8A04` | 경고 |
+### 라이트 (기본) — v1.1 값 (WCAG AA 4.5:1 통과)
+| 토큰 | 값 | 대비 (on canvas) | 용도 |
+|---|---|---|---|
+| `--bg-canvas` | `#FFFFFF` | — | 페이지 배경 |
+| `--bg-surface` | `#FAFAFA` | — | 카드·사이드바 배경 |
+| `--bg-elevated` | `#FFFFFF` | — | 다이얼로그·팝오버 |
+| `--fg-primary` | `#0A0A0A` | ~19:1 ✓ | 본문·헤드라인 |
+| `--fg-secondary` | `#3F3F46` (zinc-700) | ~11:1 ✓ | 서브텍스트 (v1.1 상향) |
+| `--fg-muted` | `#6B7280` (gray-500) | ~4.83:1 ✓ | 라벨·비활성 (v1.1 상향) |
+| `--border-subtle` | `#D4D4D8` (zinc-300) | — | 카드·표 테두리 (v1.1 더 선명) |
+| `--border-strong` | `#0A0A0A` | — | 포커스 링·강조 테두리 |
+| `--accent-primary` | `#0A0A0A` | — | 주 버튼 배경 (검정) |
+| `--accent-on-primary` | `#FFFFFF` | — | 주 버튼 텍스트 |
+| `--state-danger` | `#B91C1C` (red-700) | ~6.3:1 ✓ | 삭제·오류 (v1.1 상향) |
+| `--state-success` | `#15803D` (green-700) | ~5.6:1 ✓ | 성공·완료 (v1.1 상향) |
+| `--state-warning` | `#B45309` (amber-700) | ~5.2:1 ✓ | 경고 (v1.1 상향) |
 
-### 다크
-| 토큰 | 값 |
-|---|---|
-| `--bg-canvas` | `#0A0A0A` |
-| `--bg-surface` | `#171717` |
-| `--bg-elevated` | `#262626` |
-| `--fg-primary` | `#FAFAFA` |
-| `--fg-secondary` | `#A3A3A3` |
-| `--fg-muted` | `#737373` |
-| `--border-subtle` | `#262626` |
-| `--border-strong` | `#FAFAFA` |
-| `--accent-primary` | `#FAFAFA` |
-| `--accent-on-primary` | `#0A0A0A` |
-| `--state-danger` | `#EF4444` |
-| `--state-success` | `#22C55E` |
-| `--state-warning` | `#EAB308` |
+### 다크 — v1.1 값 (AA 통과)
+| 토큰 | 값 | 대비 (on canvas) |
+|---|---|---|
+| `--bg-canvas` | `#0A0A0A` | — |
+| `--bg-surface` | `#171717` | — |
+| `--bg-elevated` | `#262626` | — |
+| `--fg-primary` | `#FAFAFA` | ~19:1 ✓ |
+| `--fg-secondary` | `#D4D4D8` (zinc-300) | ~14:1 ✓ (v1.1) |
+| `--fg-muted` | `#9CA3AF` (gray-400) | ~7.8:1 ✓ (v1.1) |
+| `--border-subtle` | `#3F3F46` (zinc-700) | — (v1.1 더 선명) |
+| `--border-strong` | `#FAFAFA` | — |
+| `--accent-primary` | `#FAFAFA` | — |
+| `--accent-on-primary` | `#0A0A0A` | — |
+| `--state-danger` | `#F87171` (red-400) | ~5.8:1 ✓ (v1.1) |
+| `--state-success` | `#4ADE80` (green-400) | ~7.5:1 ✓ (v1.1) |
+| `--state-warning` | `#FBBF24` (amber-400) | ~9:1 ✓ (v1.1) |
 
 **구현** — Tailwind config 의 `theme.extend.colors` + CSS custom properties. 다크 모드는 `class` 전략 (`html.dark`), OS 감지 + 사용자 토글.
 
@@ -74,8 +74,8 @@ masstige.io 특성:
 | `text-h1` | `32px / 40px / 700` | 페이지 제목 |
 | `text-h2` | `24px / 32px / 600` | 섹션 제목 |
 | `text-h3` | `18px / 28px / 600` | 카드 제목 |
-| `text-body` | `15px / 24px / 400` | 본문 |
-| `text-small` | `13px / 20px / 400` | 표 · 라벨 · 설명 |
+| `text-body` | `16px / 24px / 400` | 본문 (v1.1 15→16) |
+| `text-small` | `14px / 20px / 400` | 표 · 라벨 · 설명 (v1.1 13→14) |
 | `text-micro` | `11px / 16px / 500 uppercase tracking-wide` | 카테고리 라벨 · 상태 뱃지 |
 
 **원칙** — 「크게」 · 「작게」 없음. 위 7 개 스케일 안에서만 결정. 이탤릭 금지 (모노크롬 미학).
@@ -114,7 +114,7 @@ masstige.io 특성:
 ```
 
 - **Sidebar**: `bg-surface`, `border-r border-subtle`, 좌측 고정 240px. 모바일 (< md) 에서는 상단 햄버거로 접힘.
-- **Topbar**: 56px 높이, `border-b border-subtle`. 좌측: 현재 페이지 제목 (`text-h3`). 우측: 알림 아이콘 · 사용자 아바타 (역할 뱃지) · 다크 모드 토글.
+- **Topbar (v1.1)**: `min-h-14 py-3`, `border-b border-subtle`. 좌측: 현재 페이지 제목 `text-h2 md:text-h1 font-semibold flex-1 min-w-0 truncate` (긴 이메일/그룹 이름 overflow 방어) + `title={pageTitle}` (tooltip). 우측 `shrink-0`: 다크 모드 토글 · 로그아웃 버튼 (LogOut 아이콘 + 「로그아웃」). 알림/아바타는 후속 슬라이스.
 - **Main**: `bg-canvas`, `p-6 md:p-8 lg:p-12`, `max-w-7xl mx-auto`.
 
 ### 4.2 사이드바 나비 항목
@@ -243,4 +243,4 @@ Tailwind 기본:
 - **로고** — 아직 없음. v0.1 은 텍스트 "학교" 로 대체. 사용자 로고 자료 오면 반영.
 - **폰트 라이선스** — Pretendard Variable 오픈 라이선스 확인. 못 쓰면 시스템 폰트 폴백.
 - **알림 인프라** — Topbar 알림 아이콘은 v0.1 에서 껍데기 (「0 개」). 실 알림 시스템은 별도 슬라이스.
-- **아이콘 세트** — lucide-react 필요한 곳만 (사이드바는 무 아이콘 유지). Antigravity 가 판단.
+- **아이콘 세트 (v1.1)** — lucide-react 채택. 사이드바 각 나비 항목 · Topbar 로그아웃 등 명시 대응 아이콘 있음. w-4 h-4 shrink-0, strokeWidth 2 (활성 2.25), aria-hidden. 문서·라이브챗·사인아웃 하단 링크는 아직 미도입.
