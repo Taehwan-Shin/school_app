@@ -15,14 +15,8 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="w-60 min-h-screen bg-surface border-r border-border-subtle flex flex-col justify-between hidden md:flex shrink-0">
       <div>
-        <div className="px-6 py-5 border-b border-border-subtle flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="flex items-center justify-center w-9 h-9 rounded-buttons bg-highlighter-yellow text-forest-ink font-sans font-bold text-body-sm leading-none"
-          >
-            학
-          </span>
-          <span className="text-h3 font-bold text-fg-primary tracking-tight">학교</span>
+        <div className="px-6 py-4 border-b border-border-subtle">
+          <span className="text-h2 font-bold text-fg-primary tracking-tight">학교</span>
         </div>
 
         <nav className="py-4 space-y-1">
