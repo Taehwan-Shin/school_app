@@ -1210,6 +1210,132 @@ describe('AuditLogTable component', () => {
     expect(btn.disabled).toBe(true);
   });
 
+  // v0.114: 필터 preset 저장 UI.
+  it('v0.114: preset 없을 때 「아직 없음」 + 저장 버튼', () => {
+    localStorage.clear();
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('audit-log-presets-empty')).toBeDefined();
+    expect(screen.getByTestId('audit-log-preset-save-btn')).toBeDefined();
+  });
+
+  it('v0.114: 저장된 preset 은 chip 형태로 렌더', () => {
+    localStorage.clear();
+    localStorage.setItem(
+      'audit_filter_presets_v1',
+      JSON.stringify([{ name: '에러만', params: 'result=error' }]),
+    );
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('audit-log-preset-saved-에러만')).toBeDefined();
+    expect(screen.getByTestId('audit-log-preset-saved-delete-에러만')).toBeDefined();
+    expect(screen.queryByTestId('audit-log-presets-empty')).toBeNull();
+  });
+
+  it('v0.114: preset 클릭 → URL search 갱신', () => {
+    localStorage.clear();
+    localStorage.setItem(
+      'audit_filter_presets_v1',
+      JSON.stringify([{ name: 'test', params: 'action=users.read' }]),
+    );
+    let capturedSearch = '';
+    function LocationSpy() {
+      const location = useLocation();
+      capturedSearch = location.search;
+      return null;
+    }
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <LocationSpy />
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByTestId('audit-log-preset-saved-test').querySelector('button')!,
+    );
+    expect(capturedSearch).toBe('?action=users.read');
+  });
+
+  it('v0.114: preset 삭제 → localStorage 에서 제거', () => {
+    localStorage.clear();
+    localStorage.setItem(
+      'audit_filter_presets_v1',
+      JSON.stringify([
+        { name: 'a', params: 'q=1' },
+        { name: 'b', params: 'q=2' },
+      ]),
+    );
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-preset-saved-delete-a'));
+    expect(screen.queryByTestId('audit-log-preset-saved-a')).toBeNull();
+    expect(screen.getByTestId('audit-log-preset-saved-b')).toBeDefined();
+    const stored = JSON.parse(localStorage.getItem('audit_filter_presets_v1') ?? '[]');
+    expect(stored).toEqual([{ name: 'b', params: 'q=2' }]);
+  });
+
+  it('v0.114: 「현재 필터 저장」 → prompt → localStorage 저장', () => {
+    localStorage.clear();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('내 필터');
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?result=error']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-preset-save-btn'));
+    expect(promptSpy).toHaveBeenCalled();
+    expect(screen.getByTestId('audit-log-preset-saved-내 필터')).toBeDefined();
+    const stored = JSON.parse(localStorage.getItem('audit_filter_presets_v1') ?? '[]');
+    expect(stored).toEqual([{ name: '내 필터', params: 'result=error' }]);
+    promptSpy.mockRestore();
+  });
+
+  it('v0.114: prompt cancel (null) → 저장 안 함', () => {
+    localStorage.clear();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?result=error']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-preset-save-btn'));
+    expect(localStorage.getItem('audit_filter_presets_v1')).toBeNull();
+    expect(screen.queryByTestId('audit-log-preset-error')).toBeNull();
+    promptSpy.mockRestore();
+  });
+
+  it('v0.114: 빈 이름 → error 표시 · 저장 안 함', () => {
+    localStorage.clear();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('   ');
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('audit-log-preset-save-btn'));
+    expect(screen.getByTestId('audit-log-preset-error').textContent).toContain(
+      '이름을 입력',
+    );
+    expect(localStorage.getItem('audit_filter_presets_v1')).toBeNull();
+    promptSpy.mockRestore();
+  });
+
   // v0.111b F63: aria-pressed 접근성.
   it('v0.111b F63: role_split preset 비활성 상태 aria-pressed=false', () => {
     render(

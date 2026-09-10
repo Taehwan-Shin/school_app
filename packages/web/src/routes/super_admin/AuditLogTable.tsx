@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
+import { listPresets, savePreset, deletePreset, type AuditFilterPreset } from './filterPresets';
 
 const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
 
@@ -206,6 +207,41 @@ export function AuditLogTable() {
     if (check(30)) return 30;
     return null;
   })();
+
+  // v0.114: 필터 preset 저장·불러오기·삭제. localStorage 기반.
+  const [presets, setPresets] = useState<AuditFilterPreset[]>(() => listPresets());
+  const [presetError, setPresetError] = useState<string | null>(null);
+
+  const handleSavePreset = () => {
+    setPresetError(null);
+    const raw = window.prompt('preset 이름을 입력하세요 (최대 60자):');
+    if (raw === null) return;
+    const name = raw.trim();
+    if (!name) {
+      setPresetError('이름을 입력해야 합니다.');
+      return;
+    }
+    const params = searchParams.toString();
+    const next = savePreset(name, params);
+    // MAX_PRESETS 초과면 savePreset 이 그대로 반환. 동일 이름이 없으면 상한 도달.
+    if (
+      next.length === presets.length &&
+      !next.some((p) => p.name === name)
+    ) {
+      setPresetError('저장 가능한 preset 수 (20) 를 초과했습니다.');
+      return;
+    }
+    setPresets(next);
+  };
+
+  const handleLoadPreset = (params: string) => {
+    setSearchParams(new URLSearchParams(params), { replace: false });
+  };
+
+  const handleDeletePreset = (name: string) => {
+    setPresetError(null);
+    setPresets(deletePreset(name));
+  };
 
   return (
     <div className="space-y-4">
@@ -459,6 +495,63 @@ export function AuditLogTable() {
             );
           })()}
         </div>
+      </div>
+
+      {/* v0.114: 저장된 필터 preset. localStorage 기반. 현재 URL 저장 · 저장된 것 불러오기
+          · 삭제. */}
+      <div
+        className="flex justify-end flex-wrap gap-2 items-center"
+        role="group"
+        aria-label="저장된 필터 preset"
+      >
+        <span className="text-small text-fg-secondary mr-1">저장된 필터:</span>
+        {presets.length === 0 && (
+          <span className="text-small text-fg-muted" data-testid="audit-log-presets-empty">
+            아직 없음
+          </span>
+        )}
+        {presets.map((p) => (
+          <span
+            key={p.name}
+            className="inline-flex items-center border border-border-subtle bg-canvas text-small"
+            data-testid={`audit-log-preset-saved-${p.name}`}
+          >
+            <button
+              type="button"
+              onClick={() => handleLoadPreset(p.params)}
+              className="px-3 py-1 text-fg-primary hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+              title={`?${p.params}`}
+            >
+              {p.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeletePreset(p.name)}
+              aria-label={`preset ${p.name} 삭제`}
+              data-testid={`audit-log-preset-saved-delete-${p.name}`}
+              className="px-2 py-1 border-l border-border-subtle text-fg-secondary hover:text-state-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleSavePreset}
+          data-testid="audit-log-preset-save-btn"
+          title="현재 필터 조건을 preset 으로 저장"
+        >
+          현재 필터 저장
+        </Button>
+        {presetError && (
+          <span
+            className="text-small text-state-danger"
+            data-testid="audit-log-preset-error"
+          >
+            {presetError}
+          </span>
+        )}
       </div>
 
       {loading && entries.length === 0 && (
