@@ -1262,3 +1262,47 @@ v0.110 후보:
 - 감사 로그 배치 export (전체 페이지 순회 후 통합 JSON/CSV).
 - 감사 로그 필터 preset 저장 (자주 쓰는 필터 조합).
 - (d) 사용자 지시 그 외.
+
+---
+
+## 2026-09-10 · v0.110 미해결 role_split KPI 카드 (3 라운드 감사 · 병합)
+
+### 진행 요약
+
+SuperAdminPage KPI 로우에 5번째 카드 「미해결 role_split」 추가. server aggregation callable 반환값을 count 로 표시, 클릭 시 role_split section anchor scroll. Codex 3 라운드에서 scanIncomplete 방향성 (`+`/`?`) · 반응형 grid 를 순차 강화.
+
+### 커밋 이력
+
+| 커밋 | 요약 |
+|---|---|
+| `53f2c60` | feat: KPI 5번째 카드 + role-split-section id + smooth scroll |
+| `39c8434` | fix: F59 scanIncomplete → `N+` · F60 grid md:2 lg:3 xl:5 |
+| `4af9a35` | fix: F61 resolvedHasMore → `N?` (방향 불확실), detectedHasMore → `N+` (하한) 분리 |
+
+### v0.110 → v0.110c
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.110 | `53f2c60` | 6/2/2 | F59 scanIncomplete 은닉 · F60 md 폭 부족 |
+| v0.110b | `39c8434` | 6/1/2 | F61 resolvedHasMore 시 `N+` 는 하한 의미가 거짓 |
+| v0.110c | `4af9a35` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `7b7a9bd` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 445 + web 638 = 1110 unit.
+
+### 배운 것
+
+- **partial 집계의 방향 (over vs under) 을 UI 에 명확히** — `hasMore` 는 단순히 「완전 아님」 이 아니라 방향 (과대 vs 과소) 정보를 담아야 함. detected 미완성 = 미해결이 더 있을 수 있음 (N+ 하한). resolved 미완성 = 현재 N 이 실제 해결된 것을 놓쳤을 수 있음 (N? 방향 불확실). 두 신호를 같은 접미어로 표시하면 사용자를 오도.
+- **반응형 grid 는 실제 container 폭에서 검증해야** — Tailwind `md:` breakpoint (768px) 는 window 폭 기준이지만 실제 카드는 sidebar + padding 뺀 main container 폭에서 놓임. `xl:` (1280px) 는 5열 감당하지만 그 이하는 3열/2열 로 fallback 해야. Codex 는 sidebar 폭 + padding 을 계산 근거로 제시.
+- **hook return 계약을 그대로 UI 로 매핑하면 실수** — server aggregation callable 이 두 hasMore 플래그를 각각 반환하는데 이를 하나의 `scanIncomplete = a || b` 로 합치면 방향 정보 유실. 두 플래그를 각각 UI 문구로 매핑해야 진실 보존.
+
+### 다음 세션에 이어갈 것
+
+v0.111 후보:
+- (c) 실 Workspace 확인 workflow — 판정불가 소거.
+- 감사 로그 배치 export.
+- 필터 preset 저장.
+- (d) 사용자 지시 그 외.
