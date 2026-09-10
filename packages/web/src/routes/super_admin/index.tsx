@@ -143,22 +143,30 @@ export function SuperAdminPage() {
   // 트리거. session-scoped Set (useRef) 로 무한 루프 방지 — 같은 uid 를 한 번 이상 auto-recheck
   // 하지 않음. Recheck 후에도 여전히 unknown 이면 수동 버튼으로 재시도.
   //
-  // v0.109b F56: 한 mount 당 batch limit 로 처리량 상한 (N unknown 이 있어도 최대 5개만
-  // 자동 trigger). batch 전체 settle 후 한 번만 invalidate 해서 Functions 증폭 · aggregation
-  // refetch 폭주 방지. 초과분은 수동 버튼으로.
+  // v0.109b F56: 한 mount 당 처리량 상한 (N unknown 이 있어도 최대 5개만 자동 trigger).
+  // batch 전체 settle 후 한 번만 invalidate 해서 Functions 증폭 · aggregation refetch 폭주
+  // 방지. 초과분은 수동 버튼으로.
   //
   // v0.109c F57: TanStack Query 는 같은 mutation observer 에 consecutive `mutate` 호출 시
-  // 마지막 per-call callback 만 실행 (공식 문서). pending 카운터 방식이 실패. `mutateAsync`
-  // 로 Promise 를 받아 `Promise.allSettled` 로 batch 완료를 기다린 뒤 한 번만 invalidate.
+  // 마지막 per-call callback 만 실행 (공식 문서). `mutateAsync` + `Promise.allSettled` 로
+  // batch 완료를 기다린 뒤 한 번만 invalidate.
   // 참고: https://tanstack.com/query/latest/docs/framework/react/guides/mutations#consecutive-mutations
+  //
+  // v0.109d F58: `autoRecheckedUids` Set 만으로는 「mount 당 최대 5개」 계약을 못 지켰음.
+  // invalidate → refetch → useEffect 재실행 시 Set 에 없는 다음 5개 UID 가 발화. 예:
+  // 10 unknown → 첫 batch 5개 → invalidate → 나머지 5개 UID 가 다음 사이클에 발화.
+  // 이제 mount-scoped `autoRecheckBudget` (useRef<number>) 로 총량 상한: 한 mount 동안 최대
+  // AUTO_RECHECK_BATCH_LIMIT 회 발화. 초과분은 수동 버튼 유지.
   const AUTO_RECHECK_BATCH_LIMIT = 5;
   const autoRecheckedUids = useRef<Set<string>>(new Set());
+  const autoRecheckBudget = useRef<number>(AUTO_RECHECK_BATCH_LIMIT);
   useEffect(() => {
     if (unresolvedQuery.isLoading || unresolvedQuery.isError) return;
-    // batch 대상 uid 수집 (LIMIT 상한).
+    if (autoRecheckBudget.current <= 0) return;
+    // batch 대상 uid 수집 (남은 budget 만큼).
     const targets: string[] = [];
     for (const e of roleSplitEntries) {
-      if (targets.length >= AUTO_RECHECK_BATCH_LIMIT) break;
+      if (targets.length >= autoRecheckBudget.current) break;
       if (!isRecheckNeeded(e.message)) continue;
       const uid = e.target.startsWith('users/') ? e.target.slice(6) : e.target;
       if (!uid || autoRecheckedUids.current.has(uid)) continue;
@@ -166,6 +174,7 @@ export function SuperAdminPage() {
       targets.push(uid);
     }
     if (targets.length === 0) return;
+    autoRecheckBudget.current -= targets.length;
     Promise.allSettled(
       targets.map((uid) => recheckMutation.mutateAsync({ uid })),
     ).then(() => {

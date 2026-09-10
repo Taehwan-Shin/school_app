@@ -1056,5 +1056,52 @@ describe('SuperAdminPage', () => {
       );
       expect(invalidateCalls.length).toBe(1);
     });
+
+    // v0.109d F58: mount 당 최대 5회. 첫 batch 후 invalidate → refetch 로 entries 가 갱신돼도
+    // budget 소진돼 있으므로 추가 발화 안 함.
+    it('v0.109d F58: 첫 batch 5회 이후 entries 재갱신 (invalidate 시뮬) 로도 추가 발화 없음', async () => {
+      const initial: AuditLogEntryRead[] = Array.from({ length: 10 }, (_, i) => ({
+        ...roleSplitEntry,
+        id: `log-rs-mount-${i}`,
+        target: `users/uid-mount-${i}`,
+        message: 'role_split: auth=unknown firestore=admin',
+      }));
+      // 리렌더 사이에 entries 자체를 새 array reference 로 리턴 (invalidate→refetch 시뮬).
+      let round = 0;
+      mockUseUnresolvedRoleSplits.mockImplementation(() => {
+        round += 1;
+        // 매 render 마다 새 array reference (하지만 내용 동일) → useEffect 재실행.
+        return {
+          data: {
+            entries: initial.map((e) => ({ ...e })),
+            scannedDetected: 10,
+            scannedResolved: 0,
+            detectedHasMore: false,
+            resolvedHasMore: false,
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        };
+      });
+      mockRecheckMutateAsync.mockResolvedValue({});
+
+      const { rerender } = renderWithRouter(<SuperAdminPage />);
+      // 첫 batch: 5회.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      // batch 완료 대기 (Promise.allSettled → invalidate).
+      await Promise.resolve();
+      await Promise.resolve();
+      // 강제 rerender — 실제 invalidate→refetch 시나리오 시뮬.
+      rerender(
+        <MemoryRouter>
+          <SuperAdminPage />
+        </MemoryRouter>,
+      );
+      // budget 이 0 이 되었으므로 추가 mutateAsync 호출 없음.
+      expect(mockRecheckMutateAsync).toHaveBeenCalledTimes(5);
+      // useUnresolvedRoleSplits 는 여러 번 호출됐지만 mutateAsync 는 5회 고정.
+      expect(round).toBeGreaterThan(1);
+    });
   });
 });
