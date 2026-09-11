@@ -178,6 +178,27 @@ export function AccountsTable() {
             data-testid="accounts-search-input"
             className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          {/* v0.125 / v0.125b F101: 필터 초기화 — v0.112 AuditLogTable 대칭.
+              활성 판정은 「실제 필터 적용 규칙」 기준: q 는 trim 후 non-empty,
+              kpiFilter 는 allowlist (admin/suspended/normal), sortColumn 은 이미
+              normalize 된 non-null, dir 는 sort 가 있을 때만 유효. 이렇게 하면
+              URL 의 공백-only q · 잘못된 filter · dir 단독 등 효과 없는 param
+              에서는 disabled 유지. */}
+          <Button
+            variant="secondary"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={
+              searchQuery.trim().length === 0 &&
+              kpiFilter !== 'admin' &&
+              kpiFilter !== 'suspended' &&
+              kpiFilter !== 'normal' &&
+              sortColumn === null
+            }
+            data-testid="accounts-clear-filters-btn"
+            title="검색·필터·정렬 초기화"
+          >
+            필터 초기화
+          </Button>
           <Button
             variant="secondary"
             onClick={handleExportCsv}
