@@ -348,7 +348,19 @@ export function SuperAdminPage() {
             </div>
           )}
           {!summaryQuery.isLoading && !summaryQuery.isError && (() => {
-            const actionCounts = summaryQuery.data?.actionCounts ?? {};
+            // v0.120b F97: 구 Functions 응답 (필드 미제공) 과 실제 빈 집계 ({})
+            // 를 구분한다. undefined 이면 「집계 미제공」 안내로 노출.
+            const actionCounts = summaryQuery.data?.actionCounts;
+            if (actionCounts === undefined) {
+              return (
+                <p
+                  className="text-small text-fg-muted"
+                  data-testid="super-admin-breakdown-unavailable"
+                >
+                  집계 정보를 아직 제공하지 않는 서버 버전입니다. 잠시 후 새로고침하세요.
+                </p>
+              );
+            }
             const sortedActions = Object.entries(actionCounts).sort((a, b) => b[1] - a[1]);
             const maxCount = sortedActions[0]?.[1] ?? 0;
             const sampleTruncated = summaryQuery.data?.sampleTruncated ?? false;

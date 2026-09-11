@@ -1410,6 +1410,28 @@ describe('SuperAdminPage', () => {
       expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
     });
 
+    // v0.120b F97: 구 Functions 응답 (actionCounts 필드 없음) 은 「집계 미제공」
+    // 으로 표시하고 「이벤트 없음」 (count=0 empty) 과 구분한다.
+    it('v0.120b F97: 구 응답 (actionCounts=undefined) 은 unavailable 안내 · empty 안내 미노출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 42, // 구 서버라 count 만 있고 actionCounts 없음
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          // actionCounts, sampleSize, sampleTruncated 없음 (backward-compat).
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-breakdown-unavailable')).toBeDefined();
+      // empty 안내는 뜨지 않아야.
+      expect(screen.queryByTestId('super-admin-breakdown-empty')).toBeNull();
+      expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
+    });
+
     it('오류 상태 → breakdown-error 배너 · list 미노출', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: undefined,
