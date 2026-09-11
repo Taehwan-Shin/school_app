@@ -189,6 +189,19 @@ describe("AccountsTable component", () => {
     expect(screen.getByText("Google Workspace 계정 추가")).toBeDefined();
   });
 
+  // v0.132: BatchCreateUsersDialog 진입 회귀.
+  it("v0.132: opens BatchCreateUsersDialog when clicking + 전입생 일괄 추가 button", () => {
+    mockUseUsersList.mockReturnValue({
+      data: { users: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderWithRouter(<AccountsTable />);
+    fireEvent.click(screen.getByTestId("add-batch-accounts-btn"));
+    expect(screen.getByText("전입생 일괄 계정 추가")).toBeDefined();
+  });
+
   it("opens DeleteUserDialog when clicking 삭제 button on another user", () => {
     const mockUsers = [
       {

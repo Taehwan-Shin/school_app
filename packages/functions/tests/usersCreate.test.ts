@@ -140,6 +140,8 @@ describe("usersCreate unit tests", () => {
     );
   });
 
+  // v0.132c F110: validation 실패는 result="error" (roles.md 66-76 규약 준수 ·
+  // usersUpdate/resetPassword 와 동일). 세 서버 게이트만 denied.
   it("rejects invalid email domain with invalid-argument and writes error audit", async () => {
     const req = createRequest({
       data: {
@@ -253,5 +255,39 @@ describe("usersCreate unit tests", () => {
         result: "denied",
       }),
     );
+  });
+
+  // v0.132b F106 (== v0.121b F98 대칭): Directory 계정 생성이 이미 성공했으나
+  // writeAudit 이 실패하면 callable 은 성공 응답 (primaryEmail + uid) 을 반환해야
+  // 재시도 시 중복 충돌을 피한다. Cloud Logging fallback 은 console.error 로 남는다.
+  it("F106: insert 성공 후 writeAudit 실패 → 성공 응답 반환 · Cloud Logging fallback", async () => {
+    mockDirectoryUsersInsert.mockResolvedValueOnce({
+      data: {
+        id: "created-user-uid-777",
+        primaryEmail: "newstudent@cam.hs.kr",
+      },
+    });
+    // ok 감사 3회 재시도 모두 실패.
+    mockWriteAudit.mockRejectedValue(new Error("firestore_unavailable"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const req = createRequest({ email: "admin@cam.hs.kr", role: "admin" });
+    const result = await usersCreate.run(req);
+
+    expect(result).toEqual({
+      primaryEmail: "newstudent@cam.hs.kr",
+      uid: "created-user-uid-777",
+    });
+    // ok 감사가 3회 시도.
+    const okCalls = mockWriteAudit.mock.calls.filter(
+      (c: any[]) => c[0]?.result === "ok",
+    );
+    expect(okCalls.length).toBe(3);
+    // Cloud Logging fallback.
+    const logged = errSpy.mock.calls.find(
+      (c: any[]) => typeof c[0] === "string" && c[0].includes("users_create_audit_write_failed"),
+    );
+    expect(logged).toBeDefined();
+    errSpy.mockRestore();
   });
 });

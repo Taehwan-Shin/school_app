@@ -30,6 +30,35 @@ function readHeader(request: any, key: string): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
+// v0.132b F106 (== v0.121b F98 대칭): Directory users.insert 성공 뒤 감사
+// 쓰기가 실패해도 이미 생성된 계정 상태를 client 에 반환해야 재시도 409/duplicate
+// 를 피할 수 있다. 3회 재시도 + Cloud Logging fallback + throw 안 함.
+type AuditEntry = Parameters<typeof writeAudit>[0];
+async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
+  const maxAttempts = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await writeAudit(entry);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+      }
+    }
+  }
+  console.error(
+    JSON.stringify({
+      severity: "ERROR",
+      message: "users_create_audit_write_failed",
+      request_id: requestId,
+      audit_entry: entry,
+      final_error: (lastErr as Error)?.message ?? String(lastErr),
+    }),
+  );
+}
+
 export const usersCreate = onCall(
   { region: "asia-northeast3", cors: true },
   async (request): Promise<UsersCreateResponse> => {
@@ -75,6 +104,15 @@ export const usersCreate = onCall(
       throw err;
     }
 
+    // v0.132b F106: 입력 검증 · Directory 호출까지는 실패 시 감사 후 throw.
+    // 성공 후 audit 실패는 non-throwing 으로 격리 (F98/orgunitsCreate 대칭).
+    let trimmedEmail = "";
+    let givenName = "";
+    let familyName = "";
+    let password = "";
+    let formattedOrgUnit = "/";
+    let changePasswordAtNextLogin = true;
+
     try {
       if (!data) {
         throw new HttpsError("invalid-argument", "missing_request_data");
@@ -82,70 +120,72 @@ export const usersCreate = onCall(
 
       const {
         primaryEmail,
-        givenName,
-        familyName,
-        password,
+        givenName: givenNameRaw,
+        familyName: familyNameRaw,
+        password: passwordRaw,
         orgUnitPath = "/",
-        changePasswordAtNextLogin = true,
+        changePasswordAtNextLogin: changePwRaw = true,
       } = data;
 
       if (!primaryEmail || typeof primaryEmail !== "string") {
         throw new HttpsError("invalid-argument", "email_required");
       }
 
-      const trimmedEmail = primaryEmail.trim();
+      trimmedEmail = primaryEmail.trim();
       const domain = trimmedEmail.split("@")[1];
       if (domain !== ALLOWED_DOMAIN) {
         throw new HttpsError("invalid-argument", "invalid_email_domain");
       }
 
-      if (!givenName || typeof givenName !== "string" || !givenName.trim()) {
+      if (!givenNameRaw || typeof givenNameRaw !== "string" || !givenNameRaw.trim()) {
         throw new HttpsError("invalid-argument", "given_name_required");
       }
+      givenName = givenNameRaw.trim();
 
-      if (!familyName || typeof familyName !== "string" || !familyName.trim()) {
+      if (!familyNameRaw || typeof familyNameRaw !== "string" || !familyNameRaw.trim()) {
         throw new HttpsError("invalid-argument", "family_name_required");
       }
+      familyName = familyNameRaw.trim();
 
-      if (!password || typeof password !== "string" || password.length < 8) {
+      if (!passwordRaw || typeof passwordRaw !== "string" || passwordRaw.length < 8) {
         throw new HttpsError("invalid-argument", "password_too_short");
       }
+      password = passwordRaw;
 
-      const formattedOrgUnit =
+      formattedOrgUnit =
         typeof orgUnitPath === "string" && orgUnitPath.trim()
           ? (orgUnitPath.trim().startsWith("/") ? orgUnitPath.trim() : "/" + orgUnitPath.trim())
           : "/";
-
-      const directory = getDirectoryClient(user.googleAccessToken);
-      const res = await directory.users.insert({
-        requestBody: {
-          primaryEmail: trimmedEmail,
-          name: {
-            givenName: givenName.trim(),
-            familyName: familyName.trim(),
-          },
-          password,
-          orgUnitPath: formattedOrgUnit,
-          changePasswordAtNextLogin: Boolean(changePasswordAtNextLogin),
-        },
-      });
-
-      const uid = (res.data?.id as string) ?? "";
-
+      changePasswordAtNextLogin = Boolean(changePwRaw);
+    } catch (err) {
+      // v0.132c F110: validation 실패는 result="error" (기존 계약 · roles.md 66-76:
+      // 세 서버 게이트 [permission-denied, unauthenticated, failed-precondition] 만
+      // denied). usersUpdate/resetPassword 도 동일 분류.
       await writeAudit({
         actor: user.email,
         role: user.role,
         action: "users.write",
-        target: trimmedEmail,
+        target: targetEmail,
         request_id: requestId,
-        result: "ok",
-        message: "created user",
+        result: "error",
+        message: (err as Error).message,
       });
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError("unknown", (err as Error).message);
+    }
 
-      return {
-        primaryEmail: trimmedEmail,
-        uid,
-      };
+    let res: Awaited<ReturnType<ReturnType<typeof getDirectoryClient>["users"]["insert"]>>;
+    try {
+      const directory = getDirectoryClient(user.googleAccessToken);
+      res = await directory.users.insert({
+        requestBody: {
+          primaryEmail: trimmedEmail,
+          name: { givenName, familyName },
+          password,
+          orgUnitPath: formattedOrgUnit,
+          changePasswordAtNextLogin,
+        },
+      });
     } catch (err) {
       await writeAudit({
         actor: user.email,
@@ -156,11 +196,30 @@ export const usersCreate = onCall(
         result: "error",
         message: (err as Error).message,
       });
-
-      if (err instanceof HttpsError) {
-        throw err;
-      }
+      if (err instanceof HttpsError) throw err;
       throw new HttpsError("unknown", (err as Error).message);
     }
+
+    const uid = (res.data?.id as string) ?? "";
+
+    // F106: Directory insert 이 이미 성공 — audit 실패해도 client 는 성공 응답을
+    // 받아야 재시도 시 중복 충돌을 피한다. writeAuditWithBackup 은 throw 안 함.
+    await writeAuditWithBackup(
+      {
+        actor: user.email,
+        role: user.role,
+        action: "users.write",
+        target: trimmedEmail,
+        request_id: requestId,
+        result: "ok",
+        message: "created user",
+      },
+      requestId,
+    );
+
+    return {
+      primaryEmail: trimmedEmail,
+      uid,
+    };
   }
 );

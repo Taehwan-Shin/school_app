@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { BatchCreateUsersDialog } from "./BatchCreateUsersDialog";
 import { EditUserDialog, type EditUserTarget } from "./EditUserDialog";
 import { EditUserRoleDialog, type EditUserRoleTarget } from "./EditUserRoleDialog";
 import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
@@ -35,6 +36,7 @@ export function AccountsTable() {
   const kpiFilter = searchParams.get('filter');
   const searchQuery = searchParams.get('q') ?? '';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBatchCreateOpen, setIsBatchCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteUserTarget | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<SuspendUserTarget | null>(null);
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
@@ -212,6 +214,13 @@ export function AccountsTable() {
             data-testid="add-account-btn"
           >
             + 계정 추가
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsBatchCreateOpen(true)}
+            data-testid="add-batch-accounts-btn"
+          >
+            + 전입생 일괄 추가
           </Button>
         </div>
       </div>
@@ -568,6 +577,11 @@ export function AccountsTable() {
       <CreateUserDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
+      />
+
+      <BatchCreateUsersDialog
+        open={isBatchCreateOpen}
+        onOpenChange={setIsBatchCreateOpen}
       />
 
       <EditUserDialog
