@@ -140,7 +140,9 @@ describe("usersCreate unit tests", () => {
     );
   });
 
-  it("rejects invalid email domain with invalid-argument and writes error audit", async () => {
+  // v0.132b F106: 입력 검증 실패는 이제 result="denied" (orgunitsCreate 대칭).
+  // 이전 result="error" 는 upstream 실패와 구분 안 됐던 취급이었음.
+  it("rejects invalid email domain with invalid-argument and writes denied audit", async () => {
     const req = createRequest({
       data: {
         primaryEmail: "other@gmail.com",
@@ -161,7 +163,7 @@ describe("usersCreate unit tests", () => {
         role: "admin",
         action: "users.write",
         target: "other@gmail.com",
-        result: "error",
+        result: "denied",
       }),
     );
   });
@@ -253,5 +255,39 @@ describe("usersCreate unit tests", () => {
         result: "denied",
       }),
     );
+  });
+
+  // v0.132b F106 (== v0.121b F98 대칭): Directory 계정 생성이 이미 성공했으나
+  // writeAudit 이 실패하면 callable 은 성공 응답 (primaryEmail + uid) 을 반환해야
+  // 재시도 시 중복 충돌을 피한다. Cloud Logging fallback 은 console.error 로 남는다.
+  it("F106: insert 성공 후 writeAudit 실패 → 성공 응답 반환 · Cloud Logging fallback", async () => {
+    mockDirectoryUsersInsert.mockResolvedValueOnce({
+      data: {
+        id: "created-user-uid-777",
+        primaryEmail: "newstudent@cam.hs.kr",
+      },
+    });
+    // ok 감사 3회 재시도 모두 실패.
+    mockWriteAudit.mockRejectedValue(new Error("firestore_unavailable"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const req = createRequest({ email: "admin@cam.hs.kr", role: "admin" });
+    const result = await usersCreate.run(req);
+
+    expect(result).toEqual({
+      primaryEmail: "newstudent@cam.hs.kr",
+      uid: "created-user-uid-777",
+    });
+    // ok 감사가 3회 시도.
+    const okCalls = mockWriteAudit.mock.calls.filter(
+      (c: any[]) => c[0]?.result === "ok",
+    );
+    expect(okCalls.length).toBe(3);
+    // Cloud Logging fallback.
+    const logged = errSpy.mock.calls.find(
+      (c: any[]) => typeof c[0] === "string" && c[0].includes("users_create_audit_write_failed"),
+    );
+    expect(logged).toBeDefined();
+    errSpy.mockRestore();
   });
 });

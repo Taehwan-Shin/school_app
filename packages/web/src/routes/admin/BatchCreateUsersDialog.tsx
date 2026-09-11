@@ -100,7 +100,9 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       givenName: r.givenName.trim(),
     }))
     .filter((r) => r.id !== "" || r.familyName !== "" || r.givenName !== "")
-    .map((r) => ({ ...r, primaryEmail: `${r.id}@${DOMAIN}` }));
+    // v0.132b F107: primaryEmail 은 lower-case canonical. Google Workspace 는
+    // 이메일을 lower-case 로 저장하며, 서버·AccountsTable 도 lower 비교 사용.
+    .map((r) => ({ ...r, primaryEmail: `${r.id.toLowerCase()}@${DOMAIN}` }));
 
   const handleConfirm = async () => {
     setValidationError(null);
@@ -118,12 +120,15 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       if (!r.familyName) return setValidationError(`「${r.id}」 의 성을 입력해주세요.`);
       if (!r.givenName) return setValidationError(`「${r.id}」 의 이름을 입력해주세요.`);
     }
-    // 중복 아이디 검사.
+    // v0.132b F107: 중복 아이디 검사는 lower-case canonical 로. Google
+    // Workspace 이메일 비교는 대소문자 무시 (`Hong1@` == `hong1@`), 앱의
+    // AccountsTable 도 lower 비교라 여기서도 대소문자 무시로 통일.
     const idSet = new Set<string>();
     for (const r of filledRows) {
-      if (idSet.has(r.id))
-        return setValidationError(`아이디 「${r.id}」 가 중복됩니다.`);
-      idSet.add(r.id);
+      const canonical = r.id.toLowerCase();
+      if (idSet.has(canonical))
+        return setValidationError(`아이디 「${r.id}」 가 중복됩니다 (대소문자 무시).`);
+      idSet.add(canonical);
     }
     if (!initialPassword || initialPassword.length < 8)
       return setValidationError("초기 비밀번호는 최소 8자 이상이어야 합니다.");
@@ -265,28 +270,34 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
 
             {/* 10 rows */}
             <div className="border border-border-subtle overflow-hidden" data-testid="batch-create-users-rows">
+              {/* v0.132b F108: scope="col" 로 th 정확 마크. 각 input 은 row
+                  번호 포함 aria-label 로 프로그램적 접근 이름 부여
+                  (row 1 아이디, row 1 성, row 1 이름 …). UI_SYSTEM.md 208 라인
+                  label semantics 규약 준수. */}
               <table className="w-full text-small">
                 <thead className="bg-elevated text-fg-secondary">
                   <tr>
-                    <th className="p-2 text-left font-normal w-8">#</th>
-                    <th className="p-2 text-left font-normal">아이디</th>
-                    <th className="p-2 text-left font-normal">성</th>
-                    <th className="p-2 text-left font-normal">이름</th>
-                    <th className="p-2 text-left font-normal">이메일 미리보기</th>
+                    <th scope="col" className="p-2 text-left font-normal w-8">#</th>
+                    <th scope="col" className="p-2 text-left font-normal">아이디</th>
+                    <th scope="col" className="p-2 text-left font-normal">성</th>
+                    <th scope="col" className="p-2 text-left font-normal">이름</th>
+                    <th scope="col" className="p-2 text-left font-normal">이메일 미리보기</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, i) => {
-                    const preview = row.id.trim() ? `${row.id.trim()}@${DOMAIN}` : "";
+                    const preview = row.id.trim() ? `${row.id.trim().toLowerCase()}@${DOMAIN}` : "";
+                    const rowNum = i + 1;
                     return (
                       <tr key={i} className="border-t border-border-subtle">
-                        <td className="p-2 text-fg-muted">{i + 1}</td>
+                        <td className="p-2 text-fg-muted">{rowNum}</td>
                         <td className="p-1">
                           <input
                             type="text"
                             value={row.id}
                             onChange={(e) => updateRow(i, { id: e.target.value })}
                             placeholder="hong1"
+                            aria-label={`${rowNum}번째 행 아이디`}
                             data-testid={`batch-create-users-row-${i}-id`}
                             className="w-full border border-border-subtle bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                           />
@@ -297,6 +308,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                             value={row.familyName}
                             onChange={(e) => updateRow(i, { familyName: e.target.value })}
                             placeholder="홍"
+                            aria-label={`${rowNum}번째 행 성`}
                             data-testid={`batch-create-users-row-${i}-family`}
                             className="w-full border border-border-subtle bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                           />
@@ -307,6 +319,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                             value={row.givenName}
                             onChange={(e) => updateRow(i, { givenName: e.target.value })}
                             placeholder="길동"
+                            aria-label={`${rowNum}번째 행 이름`}
                             data-testid={`batch-create-users-row-${i}-given`}
                             className="w-full border border-border-subtle bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                           />
