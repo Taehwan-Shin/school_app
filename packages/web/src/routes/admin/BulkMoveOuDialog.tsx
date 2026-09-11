@@ -31,6 +31,8 @@ export function BulkMoveOuDialog({
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [targetOu, setTargetOu] = useState("");
+  // v0.129 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정.
+  const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -38,6 +40,7 @@ export function BulkMoveOuDialog({
       setProgress(0);
       setFailures([]);
       setTargetOu("");
+      setRunEmails(null);
     }
   }, [open]);
 
@@ -52,10 +55,13 @@ export function BulkMoveOuDialog({
   const handleConfirm = async () => {
     const trimmed = targetOu.trim();
     if (!trimmed) return;
+    // F99: snapshot 을 phase 전환과 동시에 확정.
+    const snapshot = [...emails];
+    setRunEmails(snapshot);
     setPhase("running");
     const localFailures: { email: string; message: string }[] = [];
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
+    for (let i = 0; i < snapshot.length; i++) {
+      const email = snapshot[i];
       try {
         await callUsersUpdate({ primaryEmail: email, orgUnitPath: trimmed });
       } catch (e) {
@@ -67,6 +73,8 @@ export function BulkMoveOuDialog({
     setPhase("done");
     queryClient.invalidateQueries({ queryKey: ["users", "list"] });
   };
+
+  const displayEmails = runEmails ?? emails;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -90,10 +98,15 @@ export function BulkMoveOuDialog({
               )}
             </ul>
             <div>
-              <label className="text-small text-fg-primary">
+              {/* v0.129 (== v0.124 F100 대칭): htmlFor/id 로 프로그램적 연결. */}
+              <label
+                htmlFor="bulk-move-ou-input"
+                className="text-small text-fg-primary"
+              >
                 대상 조직 단위 경로:
               </label>
               <input
+                id="bulk-move-ou-input"
                 type="text"
                 value={targetOu}
                 onChange={(e) => setTargetOu(e.target.value)}
@@ -127,13 +140,13 @@ export function BulkMoveOuDialog({
             <div className="py-8 text-center space-y-3" data-testid="bulk-move-ou-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{emails.length}</strong>
+                <strong className="font-mono">{displayEmails.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${emails.length > 0 ? (progress / emails.length) * 100 : 0}%`,
+                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -151,7 +164,7 @@ export function BulkMoveOuDialog({
               <p className="text-body text-fg-primary">
                 완료:{" "}
                 <strong className="text-state-success font-mono">
-                  {emails.length - failures.length}
+                  {displayEmails.length - failures.length}
                 </strong>
                 명 성공
                 {failures.length > 0 && (
