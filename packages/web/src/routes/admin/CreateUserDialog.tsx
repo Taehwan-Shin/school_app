@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,70 +6,101 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../components/ui/dialog";
-import { Button } from "../../components/ui/button";
-import { useCreateUser } from "../../api/usersCreate";
+} from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { useCreateUser } from '../../api/usersCreate';
+import { useOrgunitsList } from '../../api/orgunitsList';
+import { useClassroomList } from '../../api/classroomList';
+import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
+import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 
 export interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
-  const [primaryEmail, setPrimaryEmail] = useState("");
-  const [familyName, setFamilyName] = useState("");
-  const [givenName, setGivenName] = useState("");
-  const [password, setPassword] = useState("");
-  const [orgUnitPath, setOrgUnitPath] = useState("/");
-  const [validationError, setValidationError] = useState<string | null>(null);
+type ClassroomRole = 'teacher' | 'student';
 
-  const { mutateAsync: createUser, isPending, error: mutationError } = useCreateUser();
+interface ClassroomAssignResult {
+  courseId: string;
+  courseName?: string;
+  ok: boolean;
+  message?: string;
+}
+
+// v0.119: 계정 생성 시 (1) 기존 OU 를 드롭다운으로 선택 + 직접 입력 (HTML5
+// datalist 로 native combobox) (2) 기존 클래스룸을 체크박스로 골라 role 별
+// (teacher/student) 로 자동 배정. 클래스룸 배정 부분 실패는 계정 생성 자체는
+// 성공한 상태에서 alert 로 남기고 dialog 는 닫지 않음.
+export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+  const [primaryEmail, setPrimaryEmail] = useState('');
+  const [familyName, setFamilyName] = useState('');
+  const [givenName, setGivenName] = useState('');
+  const [password, setPassword] = useState('');
+  const [orgUnitPath, setOrgUnitPath] = useState('/');
+  const [classroomRole, setClassroomRole] = useState<ClassroomRole>('student');
+  const [selectedClassroomIds, setSelectedClassroomIds] = useState<Set<string>>(new Set());
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [assignResults, setAssignResults] = useState<ClassroomAssignResult[] | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const { mutateAsync: createUser, isPending: isCreating, error: mutationError } = useCreateUser();
+  const orgunitsQuery = useOrgunitsList(open);
+  const classroomsQuery = useClassroomList();
+
+  const activeClassrooms =
+    classroomsQuery.data?.courses?.filter((c) => c.courseState === 'ACTIVE') ?? [];
 
   const resetForm = () => {
-    setPrimaryEmail("");
-    setFamilyName("");
-    setGivenName("");
-    setPassword("");
-    setOrgUnitPath("/");
+    setPrimaryEmail('');
+    setFamilyName('');
+    setGivenName('');
+    setPassword('');
+    setOrgUnitPath('/');
+    setClassroomRole('student');
+    setSelectedClassroomIds(new Set());
     setValidationError(null);
+    setAssignResults(null);
+    setIsAssigning(false);
   };
 
-  const handleClose = (newOpen: boolean) => {
-    if (!newOpen) {
-      resetForm();
+  useEffect(() => {
+    if (open) {
+      // 여는 순간마다 이전 결과 초기화.
+      setValidationError(null);
+      setAssignResults(null);
     }
+  }, [open]);
+
+  const handleClose = (newOpen: boolean) => {
+    if (!newOpen) resetForm();
     onOpenChange(newOpen);
   };
+
+  const toggleClassroom = (id: string, checked: boolean) => {
+    setSelectedClassroomIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const isBusy = isCreating || isAssigning;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setValidationError(null);
+    setAssignResults(null);
 
     const trimmedEmail = primaryEmail.trim();
-    if (!trimmedEmail) {
-      setValidationError("이메일을 입력해주세요.");
-      return;
-    }
-
-    if (!trimmedEmail.endsWith("@cam.hs.kr")) {
-      setValidationError("이메일은 @cam.hs.kr 도메인이어야 합니다.");
-      return;
-    }
-
-    if (!familyName.trim()) {
-      setValidationError("성을 입력해주세요.");
-      return;
-    }
-
-    if (!givenName.trim()) {
-      setValidationError("이름을 입력해주세요.");
-      return;
-    }
-
-    if (!password || password.length < 8) {
-      setValidationError("비밀번호는 최소 8자 이상이어야 합니다.");
-      return;
-    }
+    if (!trimmedEmail) return setValidationError('이메일을 입력해주세요.');
+    if (!trimmedEmail.endsWith('@cam.hs.kr'))
+      return setValidationError('이메일은 @cam.hs.kr 도메인이어야 합니다.');
+    if (!familyName.trim()) return setValidationError('성을 입력해주세요.');
+    if (!givenName.trim()) return setValidationError('이름을 입력해주세요.');
+    if (!password || password.length < 8)
+      return setValidationError('비밀번호는 최소 8자 이상이어야 합니다.');
 
     try {
       await createUser({
@@ -77,23 +108,58 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         familyName: familyName.trim(),
         givenName: givenName.trim(),
         password,
-        orgUnitPath: orgUnitPath.trim() || "/",
+        orgUnitPath: orgUnitPath.trim() || '/',
         changePasswordAtNextLogin: true,
       });
-      handleClose(false);
     } catch {
-      // Mutation error handled below
+      // Mutation error rendered below; do NOT proceed to classroom assign.
+      return;
+    }
+
+    // 계정 생성 성공. 이제 선택된 클래스룸에 순차 add.
+    const selected = Array.from(selectedClassroomIds);
+    if (selected.length === 0) {
+      handleClose(false);
+      return;
+    }
+
+    setIsAssigning(true);
+    const results: ClassroomAssignResult[] = [];
+    const addFn =
+      classroomRole === 'teacher' ? callClassroomTeachersAdd : callClassroomStudentsAdd;
+    for (const courseId of selected) {
+      const course = activeClassrooms.find((c) => c.id === courseId);
+      try {
+        await addFn({ courseId, userId: trimmedEmail });
+        results.push({ courseId, courseName: course?.name, ok: true });
+      } catch (err) {
+        results.push({
+          courseId,
+          courseName: course?.name,
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    setIsAssigning(false);
+    const anyFail = results.some((r) => !r.ok);
+    if (anyFail) {
+      // 계정 자체는 이미 생성됐고 일부 클래스룸만 실패. dialog 를 열어두고
+      // 사용자가 결과를 확인 후 닫도록.
+      setAssignResults(results);
+    } else {
+      handleClose(false);
     }
   };
 
   const errorMessage =
     validationError ||
     (mutationError
-      ? mutationError.message.includes("permission-denied")
-        ? "계정 생성 권한이 없거나 스코프가 부족합니다."
-        : mutationError.message.includes("invalid_email_domain")
-        ? "허용되지 않는 이메일 도메인입니다."
-        : `계정 생성 실패: ${mutationError.message}`
+      ? mutationError.message.includes('permission-denied')
+        ? '계정 생성 권한이 없거나 스코프가 부족합니다.'
+        : mutationError.message.includes('invalid_email_domain')
+          ? '허용되지 않는 이메일 도메인입니다.'
+          : `계정 생성 실패: ${mutationError.message}`
       : null);
 
   return (
@@ -103,7 +169,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           <DialogHeader>
             <DialogTitle>Google Workspace 계정 추가</DialogTitle>
             <DialogDescription>
-              새 사용자의 기본 정보를 입력하여 Google Workspace 계정을 생성합니다.
+              새 사용자의 기본 정보를 입력하여 Google Workspace 계정을 생성합니다. 아래에서
+              기존 클래스룸을 선택하면 계정 생성 후 자동으로 배정합니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -113,6 +180,26 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               data-testid="create-user-error"
             >
               {errorMessage}
+            </div>
+          )}
+
+          {assignResults && (
+            <div
+              className="border border-state-warning p-3 text-small text-fg-primary space-y-1"
+              data-testid="create-user-assign-results"
+            >
+              <p>
+                계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다. 필요 시 클래스룸 상세
+                페이지에서 직접 추가해 주세요.
+              </p>
+              <ul className="pl-4 list-disc space-y-1">
+                {assignResults.map((r) => (
+                  <li key={r.courseId} className={r.ok ? 'text-state-success' : 'text-state-danger'}>
+                    <span className="font-mono">{r.courseName || r.courseId}</span>:{' '}
+                    {r.ok ? '성공' : `실패 — ${r.message}`}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -178,18 +265,133 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               />
             </div>
 
+            {/* v0.119: OU combobox — datalist 기반. 기존 OU 를 dropdown 으로
+                선택하되 목록에 없는 새 OU 도 자유 입력 가능. */}
             <div>
               <label htmlFor="orgUnitPath" className="text-small text-fg-secondary mb-1 block">
                 조직 단위
+                {orgunitsQuery.isLoading && (
+                  <span className="text-fg-muted ml-2">불러오는 중...</span>
+                )}
+                {orgunitsQuery.isError && (
+                  <span
+                    className="text-state-danger ml-2"
+                    data-testid="create-user-orgunits-error"
+                  >
+                    OU 목록 로드 실패 (직접 입력 가능)
+                  </span>
+                )}
               </label>
               <input
                 id="orgUnitPath"
                 type="text"
                 value={orgUnitPath}
                 onChange={(e) => setOrgUnitPath(e.target.value)}
-                placeholder="/학생/1학년"
+                placeholder="/학생/1학년 (기존 목록에서 선택하거나 직접 입력)"
+                list="create-user-orgunits-list"
+                data-testid="create-user-orgunit-input"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <datalist id="create-user-orgunits-list" data-testid="create-user-orgunits-datalist">
+                {(orgunitsQuery.data?.orgUnits ?? []).map((ou) => (
+                  <option key={ou.orgUnitPath} value={ou.orgUnitPath}>
+                    {ou.name ? `${ou.orgUnitPath} — ${ou.name}` : ou.orgUnitPath}
+                  </option>
+                ))}
+              </datalist>
+            </div>
+
+            {/* v0.119: 클래스룸 자동 배정. */}
+            <div className="space-y-2 border border-border-subtle p-3 bg-elevated">
+              <p className="text-small text-fg-primary font-medium">
+                클래스룸 자동 배정 (선택)
+              </p>
+              <p className="text-small text-fg-secondary">
+                계정 생성 후 아래에서 체크한 클래스룸에 지정한 역할로 자동 추가합니다.
+              </p>
+
+              <div
+                className="flex items-center gap-4"
+                role="group"
+                aria-label="클래스룸 배정 역할"
+              >
+                <label className="flex items-center gap-2 text-small text-fg-primary cursor-pointer">
+                  <input
+                    type="radio"
+                    name="classroom-role"
+                    value="student"
+                    checked={classroomRole === 'student'}
+                    onChange={() => setClassroomRole('student')}
+                    data-testid="create-user-classroom-role-student"
+                  />
+                  학생
+                </label>
+                <label className="flex items-center gap-2 text-small text-fg-primary cursor-pointer">
+                  <input
+                    type="radio"
+                    name="classroom-role"
+                    value="teacher"
+                    checked={classroomRole === 'teacher'}
+                    onChange={() => setClassroomRole('teacher')}
+                    data-testid="create-user-classroom-role-teacher"
+                  />
+                  교사
+                </label>
+              </div>
+
+              {classroomsQuery.isLoading && (
+                <p className="text-small text-fg-muted" data-testid="create-user-classrooms-loading">
+                  클래스룸 목록 불러오는 중...
+                </p>
+              )}
+              {classroomsQuery.isError && (
+                <p
+                  className="text-small text-state-danger"
+                  data-testid="create-user-classrooms-error"
+                >
+                  클래스룸 목록 로드 실패: {classroomsQuery.error?.message || '알 수 없는 오류'}
+                </p>
+              )}
+              {!classroomsQuery.isLoading && !classroomsQuery.isError && activeClassrooms.length === 0 && (
+                <p
+                  className="text-small text-fg-muted"
+                  data-testid="create-user-classrooms-empty"
+                >
+                  ACTIVE 상태의 클래스룸이 없습니다.
+                </p>
+              )}
+              {activeClassrooms.length > 0 && (
+                <div
+                  className="max-h-40 overflow-y-auto border border-border-subtle bg-canvas p-2 space-y-1"
+                  data-testid="create-user-classrooms-list"
+                >
+                  {activeClassrooms.map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex items-center gap-2 text-small text-fg-primary cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClassroomIds.has(c.id)}
+                        onChange={(e) => toggleClassroom(c.id, e.target.checked)}
+                        data-testid={`create-user-classroom-cb-${c.id}`}
+                      />
+                      <span>{c.name || c.id}</span>
+                      {c.section && (
+                        <span className="text-fg-muted text-micro">({c.section})</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {selectedClassroomIds.size > 0 && (
+                <p
+                  className="text-small text-fg-secondary"
+                  data-testid="create-user-classrooms-selected"
+                >
+                  선택됨: {selectedClassroomIds.size}개
+                </p>
+              )}
             </div>
           </div>
 
@@ -198,17 +400,29 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               type="button"
               variant="secondary"
               onClick={() => handleClose(false)}
-              disabled={isPending}
+              disabled={isBusy}
             >
-              취소
+              {assignResults ? '닫기' : '취소'}
             </Button>
-            <Button type="submit" variant="default" disabled={isPending} data-testid="create-user-submit">
-              {isPending ? "생성 중..." : "저장"}
-            </Button>
+            {!assignResults && (
+              <Button
+                type="submit"
+                variant="default"
+                disabled={isBusy}
+                data-testid="create-user-submit"
+              >
+                {isCreating
+                  ? '생성 중...'
+                  : isAssigning
+                    ? `클래스룸 배정 중... (${selectedClassroomIds.size}개)`
+                    : selectedClassroomIds.size > 0
+                      ? `계정 생성 + ${selectedClassroomIds.size}개 배정`
+                      : '저장'}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
-

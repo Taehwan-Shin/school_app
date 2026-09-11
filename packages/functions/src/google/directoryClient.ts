@@ -22,6 +22,12 @@ export interface DirectoryClient {
       delete: (params: { groupKey: string; memberKey: string }) => Promise<{ data: any }>;
     };
   };
+  // v0.119: OU 목록 조회. Directory API `orgunits.list` (customerId=my_customer).
+  orgunits: {
+    list: (params: { customerId: string; type?: 'all' | 'children' }) => Promise<{
+      data: { organizationUnits?: Array<{ orgUnitPath?: string; name?: string; description?: string; parentOrgUnitPath?: string }> };
+    }>;
+  };
 }
 
 /**
@@ -224,6 +230,15 @@ function getStubClient(): DirectoryClient {
           }
           return { data: {} };
         },
+      },
+    },
+    orgunits: {
+      list: async () => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.orgunitsList) {
+          return { data: stub.data.orgunitsList };
+        }
+        return { data: { organizationUnits: [] } };
       },
     },
   };
