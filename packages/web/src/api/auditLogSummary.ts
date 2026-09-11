@@ -8,6 +8,11 @@ export interface AuditLogSummaryResponse {
   entries: AuditLogEntryRead[];
   snapshotAt: number;
   generatedAt: number;
+  // v0.120: 대시보드 위젯 — action 별 카운트. sampleTruncated=true 이면 최신
+  // sampleSize 건만 반영 (정확 count 는 `count` 필드).
+  actionCounts?: Record<string, number>;
+  sampleSize?: number;
+  sampleTruncated?: boolean;
 }
 
 export interface UseAuditLogSummaryOptions {

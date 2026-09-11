@@ -316,6 +316,102 @@ export function SuperAdminPage() {
           )}
         </section>
 
+        {/* v0.120: 오늘 액션별 breakdown 위젯. auditLogSummary sample (최대 500)
+            기준 in-memory grouping — sampleTruncated=true 이면 최신 sample 만 반영 */}
+        <section
+          className="bg-elevated p-8 border border-border-subtle space-y-4"
+          data-testid="super-admin-action-breakdown"
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-h2 font-semibold text-fg-primary">오늘 액션별</h2>
+              <p className="text-small text-fg-secondary mt-1">
+                오늘 감사 이벤트를 액션 종류별로 집계했습니다. 클릭하면 감사 로그에서
+                해당 액션만 필터링해 볼 수 있습니다.
+              </p>
+            </div>
+          </div>
+          {summaryQuery.isLoading && (
+            <div
+              className="py-4 text-center text-small text-fg-secondary"
+              data-testid="super-admin-breakdown-loading"
+            >
+              불러오는 중...
+            </div>
+          )}
+          {summaryQuery.isError && (
+            <div
+              className="border border-state-danger p-4 text-small text-state-danger"
+              data-testid="super-admin-breakdown-error"
+            >
+              집계를 불러오지 못했습니다: {summaryQuery.error?.message}
+            </div>
+          )}
+          {!summaryQuery.isLoading && !summaryQuery.isError && (() => {
+            const actionCounts = summaryQuery.data?.actionCounts ?? {};
+            const sortedActions = Object.entries(actionCounts).sort((a, b) => b[1] - a[1]);
+            const maxCount = sortedActions[0]?.[1] ?? 0;
+            const sampleTruncated = summaryQuery.data?.sampleTruncated ?? false;
+            const sampleSize = summaryQuery.data?.sampleSize ?? 0;
+
+            if (sortedActions.length === 0) {
+              return (
+                <p
+                  className="text-small text-fg-muted"
+                  data-testid="super-admin-breakdown-empty"
+                >
+                  오늘 기록된 이벤트가 없습니다.
+                </p>
+              );
+            }
+
+            return (
+              <>
+                {sampleTruncated && (
+                  <p
+                    className="text-small text-state-warning"
+                    data-testid="super-admin-breakdown-truncated"
+                  >
+                    ⚠︎ 오늘 이벤트 <strong>{todayCount}</strong>건 중 최신{' '}
+                    <strong>{sampleSize}</strong>건만 집계에 반영. 전체 합계와 다를 수
+                    있음.
+                  </p>
+                )}
+                <ul className="space-y-2" data-testid="super-admin-breakdown-list">
+                  {sortedActions.map(([action, count]) => {
+                    const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+                    return (
+                      <li key={action}>
+                        <Link
+                          to={`/super_admin/audit?action=${encodeURIComponent(action)}&atMin=${todayIso}`}
+                          className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
+                          data-testid={`super-admin-breakdown-row-${action}`}
+                        >
+                          <span className="font-mono text-fg-primary w-48 shrink-0">
+                            {action}
+                          </span>
+                          <span
+                            className="flex-1 bg-canvas h-2 border border-border-subtle relative"
+                            aria-hidden="true"
+                          >
+                            <span
+                              className="absolute inset-y-0 left-0 bg-fg-primary"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </span>
+                          <span className="font-mono text-fg-primary w-12 text-right">
+                            {count}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            );
+          })()}
+        </section>
+
         {/* v0.106: role_split 경고 (Auth claim ≠ Firestore role) — server-side action 필터 */}
         <section
           id="role-split-section"

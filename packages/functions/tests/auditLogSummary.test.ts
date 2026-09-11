@@ -20,6 +20,11 @@ describe('auditLogSummary callable unit tests', () => {
     vi.clearAllMocks();
     mockWriteAudit.mockResolvedValue(undefined);
     process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
+    // v0.120: summary 는 이제 readAuditEntries 를 2 회 호출 (preview + sample).
+    // 각 test 가 개별 mockResolvedValueOnce 를 override 하지 않는 한 기본으로 빈
+    // 결과를 돌려주도록 default 지정.
+    mockReadAuditEntries.mockResolvedValue({ entries: [], nextCursor: null });
+    mockCountAuditEntries.mockResolvedValue(0);
   });
 
   function createRequest(
@@ -137,21 +142,31 @@ describe('auditLogSummary callable unit tests', () => {
       atMin: undefined,
       atMax: result.snapshotAt,
     });
+    // v0.120: readAuditEntries 는 2 회 호출 (preview limit=5, sample limit=500).
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 5,
       atMin: undefined,
       atMax: result.snapshotAt,
     });
-
-    expect(mockWriteAudit).toHaveBeenCalledWith({
-      actor: 'super@cam.hs.kr',
-      role: 'super_admin',
-      action: 'audit.read',
-      target: 'dashboard:super_admin',
-      request_id: 'req-summary-123',
-      result: 'ok',
-      message: `summarized 42 entries [snapshot=${new Date(result.snapshotAt).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
+    expect(mockReadAuditEntries).toHaveBeenCalledWith({
+      limit: 500,
+      atMin: undefined,
+      atMax: result.snapshotAt,
     });
+
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'super@cam.hs.kr',
+        role: 'super_admin',
+        action: 'audit.read',
+        target: 'dashboard:super_admin',
+        request_id: 'req-summary-123',
+        result: 'ok',
+        message: expect.stringMatching(
+          /^summarized 42 entries \(sample=\d+, truncated=(true|false)\) \[snapshot=.*, generated=.*\]$/,
+        ),
+      }),
+    );
   });
 
   it('4. applies atMin filter and passes identical effectiveAtMax to both count and read helpers', async () => {
@@ -306,7 +321,9 @@ describe('auditLogSummary callable unit tests', () => {
     });
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: `summarized 3 entries [snapshot=${new Date(result.snapshotAt).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
+        message: expect.stringMatching(
+          /^summarized 3 entries \(sample=\d+, truncated=(true|false)\) \[snapshot=.*, generated=.*\]$/,
+        ),
       }),
     );
   });
@@ -342,8 +359,70 @@ describe('auditLogSummary callable unit tests', () => {
     });
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: `summarized 2 entries [snapshot=${new Date(pastAtMax).toISOString()}, generated=${new Date(result.generatedAt).toISOString()}]`,
+        message: expect.stringMatching(
+          /^summarized 2 entries \(sample=\d+, truncated=(true|false)\) \[snapshot=.*, generated=.*\]$/,
+        ),
       }),
     );
+  });
+
+  // v0.120: action breakdown 신규 회귀.
+  it('v0.120: actionCounts 는 sample 을 in-memory grouping. sampleTruncated=false 시 count === sampleSize', async () => {
+    const sampleEntries: AuditLogEntryRead[] = [
+      { id: 'a', actor: 'x@cam.hs.kr', role: 'admin', action: 'users.read', target: '*', request_id: 'r1', result: 'ok', at: 1 },
+      { id: 'b', actor: 'x@cam.hs.kr', role: 'admin', action: 'users.read', target: '*', request_id: 'r2', result: 'ok', at: 2 },
+      { id: 'c', actor: 'x@cam.hs.kr', role: 'admin', action: 'users.write', target: '*', request_id: 'r3', result: 'ok', at: 3 },
+    ];
+    mockCountAuditEntries.mockResolvedValueOnce(3);
+    // preview + sample 을 순서대로 반환.
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: sampleEntries.slice(0, 5), nextCursor: null })
+      .mockResolvedValueOnce({ entries: sampleEntries, nextCursor: null });
+
+    const result = await auditLogSummary.run(
+      createRequest({ email: 'super@cam.hs.kr', role: 'super_admin' }),
+    );
+    expect(result.actionCounts).toEqual({ 'users.read': 2, 'users.write': 1 });
+    expect(result.sampleSize).toBe(3);
+    expect(result.sampleTruncated).toBe(false);
+  });
+
+  it('v0.120: count > sampleSize 이면 sampleTruncated=true', async () => {
+    const sampleEntries: AuditLogEntryRead[] = Array.from({ length: 500 }, (_, i) => ({
+      id: `log-${i}`,
+      actor: 'x@cam.hs.kr',
+      role: 'admin' as const,
+      action: i % 2 === 0 ? 'users.read' : 'users.write',
+      target: '*',
+      request_id: `r-${i}`,
+      result: 'ok' as const,
+      at: i,
+    }));
+    mockCountAuditEntries.mockResolvedValueOnce(1234);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: sampleEntries.slice(0, 5), nextCursor: null })
+      .mockResolvedValueOnce({ entries: sampleEntries, nextCursor: { at: 0 } as any });
+
+    const result = await auditLogSummary.run(
+      createRequest({ email: 'super@cam.hs.kr', role: 'super_admin' }),
+    );
+    expect(result.count).toBe(1234);
+    expect(result.sampleSize).toBe(500);
+    expect(result.sampleTruncated).toBe(true);
+    expect(result.actionCounts).toEqual({ 'users.read': 250, 'users.write': 250 });
+  });
+
+  it('v0.120: 빈 결과 → actionCounts={} · sampleTruncated=false', async () => {
+    mockCountAuditEntries.mockResolvedValueOnce(0);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: [], nextCursor: null })
+      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+
+    const result = await auditLogSummary.run(
+      createRequest({ email: 'super@cam.hs.kr', role: 'super_admin' }),
+    );
+    expect(result.actionCounts).toEqual({});
+    expect(result.sampleSize).toBe(0);
+    expect(result.sampleTruncated).toBe(false);
   });
 });
