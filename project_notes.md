@@ -1733,3 +1733,44 @@ v0.121 후보:
 - 이번 주/월 window breakdown (v0.120 은 「오늘」만).
 - 전입생 계정 개별 생성 UX 세부 (Phase 5).
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.121 orgunits.insert 신규 OU 생성 UI (2 라운드 Codex 감사)
+
+**슬라이스** — v0.119 잔재였던 「신규 OU 생성」 완료. `admin.directory.orgunit` (read/write) scope 를 별도로 요구하는 `orgunitsCreate` callable 신설, CreateUserDialog 안에 「+ 새 OU 만들기」 인라인 폼 (name/parent/description) 추가. 성공 시 폼 접힘 + orgUnitPath 자동 채움 + orgunits list 캐시 invalidate. bliss00 자율 진행 지시 (2026-09-11) 하에 Head 단독 실행.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `c3feb12` | feat: orgunitsCreate callable + DirectoryClient orgunits.insert + CreateUserDialog 인라인 폼 + 서버 12/클라 7 회귀 |
+| `e373632` | fix: F98 (insert 성공 후 audit 실패 시 성공 응답 보존 — writeAuditWithBackup + 회귀 2건) |
+
+### v0.121 → v0.121b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.121 | `c3feb12` | 8/1/2 | F98 성공 후 `writeAudit` 실패 시 이미 생성된 외부 OU 를 일반 실패로 반환 → client `orgUnitPath` 유실 → 재시도 409 |
+| v0.121b | `e373632` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `5aef31f` (main). PR 없이 fast-forward merge (non-fast-forward `--no-ff` merge commit).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`. 새 함수 `orgunitsCreate` 첫 배포 자동 (Workspace 정책 override 이후 firebase-tools 가 `allUsers` invoker IAM 자동 부여, 2026-09-02 발견).
+- 로컬 관문: shared 27 + functions 501 + web 757 = 1,285 unit. TypeScript · lint · Vite build 통과.
+
+### 배운 것
+
+- **Google API 성공 뒤 감사 실패는 성공 응답을 뒤엎지 말 것** — v0.116 F78 (transferOwnership) 에서 이미 확립된 원칙이지만 v0.121 초기 작성에서 놓쳤다. 외부 자원 (OU, classroom owner 등) 이 이미 변경된 상태에서 감사 write 실패로 error throw 하면, client 는 새 자원 식별자를 못 받고 재시도 시 중복 오류 (409 already-exists). 원칙: **외부 side-effect 성공 후의 감사는 `writeAuditWithBackup` 로 격리하고 성공 응답을 그대로 반환** — 감사 유실은 Cloud Logging fallback (structured JSON, severity=ERROR) 로 재구성 가능.
+- **성공 경로 재구조화 시 mapUpstreamError 의 범위 축소** — 기존 하나의 try/catch 안에 validation · Google 호출 · orgUnitPath 검증 · audit 를 모두 포함하면 audit 실패도 mapUpstreamError 를 거쳐 「unknown」 으로 감쌈. 각 단계를 별도 try 경계로 분리해야 audit-only 실패를 응답 반환으로 전환할 수 있다.
+- **TypeScript `Awaited<ReturnType<...>>` 두 단계** — `insert` 는 함수 필드라 `ReturnType` 을 두 번 씌워야 반환 값을 얻는다: `Awaited<ReturnType<ReturnType<typeof getDirectoryClient>['orgunits']['insert']>>`. 첫 build 에서 하나만 쓰면 「함수 타입」 을 대입하려 해서 TS2322.
+- **bliss00 자율 진행 지시가 있으면 하이브리드 위임 skip 가능** — 「내가 중요한 의사결정을 해야하는 상황이 생기기 전까지 작업 진행을 계속 해줘」 (2026-09-11) 지시 하에서, 병합/배포/문서/공지 사이클도 Head 가 직접 실행. Antigravity 위임의 오버헤드 (오더 작성 · 응답 대기) 를 회피하는 것이 자율 진행 지시와 부합.
+
+### 다음 세션에 이어갈 것
+
+v0.122 후보:
+- 이번 주/월 window breakdown (v0.120 은 「오늘」만).
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅).
+- 클래스룸 소유자 이관 UI (v0.116 서버는 있으나 UI 미완).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).

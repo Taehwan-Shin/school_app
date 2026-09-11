@@ -1,15 +1,15 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.121 병합 대기** — orgunitsCreate callable + CreateUserDialog 인라인 「+ 새 OU 만들기」 UI · Codex 감사 요청 예정.
+> **v0.121 병합 완료** (`5aef31f`) — orgunitsCreate + CreateUserDialog 인라인 새 OU 생성 + F98 hotfix · 2 라운드 Codex 감사.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `5aef31f` v0.121 — orgunits.insert 신규 OU 생성 UI (F98 audit backup + Cloud Logging fallback).
 - `6be9db7` v0.120 — super_admin 대시보드 「오늘 액션별」 위젯 (auditLogSummary 확장 + F97).
 - `cb743e5` v0.119 — CreateUserDialog OU 드롭다운 + 클래스룸 자동 배정 (F91~F96).
 - `4a00f85` v0.118 — 감사 로그 배치 export (전체 JSON, compound cursor, AbortSignal).
 - `c44f73f` v0.117 — classroom 상세 페이지 (`/admin/classrooms/:id`) + F80/F81.
-- `70fac11` v0.116 — 클래스룸 소유자 이관 (transferOwnership callable + Dialog + F72~F79).
 
 ## 다음 후보 (Head 자율 실행 예정)
 

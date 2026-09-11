@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.121+) | 사용자 | 답 대기 | v0.104~v0.120 병합 완료. 후보: orgunits.insert (신규 OU 생성 UI) · 이번 주 window breakdown · 전입생 계정 UX 세부 · audit sink 인프라 · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.122+) | 사용자 | 답 대기 | v0.104~v0.121 병합 완료. 후보: 이번 주/월 window breakdown · 전입생 계정 UX 세부 · 클래스룸 소유자 이관 UI · audit sink 인프라 · (d) 그 외 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.121 | `5aef31f` (main) | orgunits.insert 신규 OU 생성 UI — 신규 `orgunitsCreate` callable (users.write cap · `admin.directory.orgunit` rw scope · 이름 100자·슬래시 금지·부모 절대경로 검증 · 409 → already-exists) + `useOrgunitsCreate` 훅 (성공 시 orgunits list 캐시 invalidate). CreateUserDialog 안에 「+ 새 OU 만들기」 인라인 폼 (name/parent/description) · 성공 시 폼 접힘 + orgUnitPath 자동 채움 · busy 게이트 확장 (isCreatingOu 포함). F98 성공 후 audit 실패 시 응답 보존 — writeAuditWithBackup (3회 재시도 + Cloud Logging fallback + throw 안 함) 로 격리. 서버 14 · 클라 25 회귀. 2 라운드 Codex 감사 |
 | v0.120 | `6be9db7` (main) | super_admin 대시보드 「오늘 액션별」 위젯 — `auditLogSummary` 확장 (actionCounts / sampleSize / sampleTruncated, SAMPLE_LIMIT=500 in-memory grouping). SuperAdminPage 정렬 bar-list + truncated 배너 + 액션 클릭 시 `audit?action=<>&atMin=today` 링크. F97 `actionCounts=undefined` 구 응답 backward-compat 「집계 미제공」 안내 분리 · 2 라운드 Codex 감사 |
 | v0.119 | `cb743e5` (main) | CreateUserDialog OU 드롭다운 + 클래스룸 자동 배정 — bliss00 지시. 신규 `orgunitsList` callable (users.write cap · orgunit.readonly scope) + `useOrgunitsList` 훅. HTML5 datalist 기반 OU combobox (기존 목록 자동완성 + 자유 입력). ACTIVE 클래스룸 체크박스 + role 라디오 (student/teacher). 계정 생성 성공 후 순차 add. F91 OU 안내 정정 (「기존 OU 만 사용 가능」) · F92 submit snapshot + busy lock · F93 password 즉시 clear · F94 open gate · F95 handleClose busy 차단 · F96 event-based 회귀 · 4 라운드 Codex 감사 |
 | v0.118 | `4a00f85` (main) | 감사 로그 배치 export — 「전체 JSON」 버튼 (hasMore=false 까지 서버 pagination 순회) · fetchAllAuditLog helper (pageSize=100, maxPages=100, AbortSignal 취소, onProgress) · F82 compound cursor `{seconds, nanoseconds, id}` + `orderBy(at DESC, __name__ DESC).startAfter` (ties 안전) · F83 fetch signal forward + await 뒤 abort 재검사 · F84 batch 에도 q filter 적용 (serverCount vs count 분리) · F85 error banner + dismiss · F86 Timestamp full precision · F87 AbortError 흡수 · F88 legacy 숫자 cursor 명시 거부 · F89/F90 정수·상한 검증 (`Number.isInteger`, nanoseconds 0..999_999_999, seconds ≤ 253_402_300_799) · 5 라운드 Codex 감사 |
