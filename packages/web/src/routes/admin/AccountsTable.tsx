@@ -178,6 +178,23 @@ export function AccountsTable() {
             data-testid="accounts-search-input"
             className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          {/* v0.125: 필터 초기화 — v0.112 AuditLogTable 대칭. 활성 필터 (q,
+              filter, sort, dir) 중 하나라도 있으면 활성, 클릭 시 모든 URL param
+              을 한 번에 clear. 개별 필터/정렬을 하나씩 되돌리는 것보다 빠름. */}
+          <Button
+            variant="secondary"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={
+              !searchQuery &&
+              !kpiFilter &&
+              !sortColumn &&
+              searchParams.get('dir') === null
+            }
+            data-testid="accounts-clear-filters-btn"
+            title="검색·필터·정렬 초기화"
+          >
+            필터 초기화
+          </Button>
           <Button
             variant="secondary"
             onClick={handleExportCsv}

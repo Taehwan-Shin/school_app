@@ -1266,6 +1266,78 @@ describe("AccountsTable component", () => {
     fireEvent.click(moveOuBtn);
     expect(screen.getByText("일괄 조직 이동 확인")).toBeDefined();
   });
+
+  // v0.125: 「필터 초기화」 버튼 — v0.112 AuditLogTable 대칭.
+  describe("v0.125 clear filters button", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "김",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "user2@cam.hs.kr",
+        firstName: "이",
+        lastName: "박",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: true,
+      },
+    ];
+
+    beforeEach(() => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it("v0.125: 필터 없으면 disabled", () => {
+      renderWithRouter(<AccountsTable />);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn).toBeDefined();
+      expect(btn.disabled).toBe(true);
+    });
+
+    it("v0.125: q 있으면 enabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?q=user1']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it("v0.125: filter=suspended 있으면 enabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?filter=suspended']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it("v0.125: sort=email 있으면 enabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?sort=email']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it("v0.125: 클릭 시 q/filter/sort/dir 모두 clear · 리스트 unfiltered", () => {
+      renderWithRouter(<AccountsTable />, [
+        '/admin?q=박&filter=suspended&sort=email&dir=desc',
+      ]);
+      // 필터 적용된 상태: suspended (user2 김 아님) + q=박 → user2 만.
+      const search = screen.getByTestId("accounts-search-input") as HTMLInputElement;
+      expect(search.value).toBe('박');
+      const btn = screen.getByTestId("accounts-clear-filters-btn");
+      fireEvent.click(btn);
+      // q 값이 비어야.
+      const searchAfter = screen.getByTestId("accounts-search-input") as HTMLInputElement;
+      expect(searchAfter.value).toBe('');
+      // 버튼도 다시 disabled.
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
 });
 
 
