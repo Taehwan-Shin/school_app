@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.118+) | 사용자 | 답 대기 | v0.104~v0.117 병합 완료. 후보: 감사 배치 export · admin/users 검색 필터 · 대시보드 위젯 · audit sink 인프라 (v0.116 F78 잔재) · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.119+) | 사용자 | 답 대기 | v0.104~v0.118 병합 완료. 후보: super_admin 대시보드 위젯 · 전입생 계정 개별 생성 UX · audit sink 인프라 (v0.116 F78 잔재) · (d) 그 외 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.118 | `4a00f85` (main) | 감사 로그 배치 export — 「전체 JSON」 버튼 (hasMore=false 까지 서버 pagination 순회) · fetchAllAuditLog helper (pageSize=100, maxPages=100, AbortSignal 취소, onProgress) · F82 compound cursor `{seconds, nanoseconds, id}` + `orderBy(at DESC, __name__ DESC).startAfter` (ties 안전) · F83 fetch signal forward + await 뒤 abort 재검사 · F84 batch 에도 q filter 적용 (serverCount vs count 분리) · F85 error banner + dismiss · F86 Timestamp full precision · F87 AbortError 흡수 · F88 legacy 숫자 cursor 명시 거부 · F89/F90 정수·상한 검증 (`Number.isInteger`, nanoseconds 0..999_999_999, seconds ≤ 253_402_300_799) · 5 라운드 Codex 감사 |
 | v0.117 | `c44f73f` (main) | classroom 상세 페이지 — 신규 라우트 `/admin/classrooms/:id` (딥링크·URL 공유) · CourseMembersDialog → CourseMembersPanel 리팩터 (dialog 제거) · ClassroomTable 이름 컬럼 Link 전환 · 상세 페이지 inline actions (아카이브/복구·소유자 이관·삭제) · super_admin 감사 링크 · F80 audit target URL param 서버 필터 (`?target=courses/<id>`) · F81 멤버 pending 중 코스 mutation disabled · 2 라운드 Codex 감사 |
 | v0.116 | `70fac11` (main) | 클래스룸 소유자 이관 — classroomTransferOwnership callable (`classroom.transfer_owner` cap, super_admin/admin 전용) · teachers.get 404 시 teachers.create 자동 추가 후 patch(ownerId) · F74 ALLOWED_DOMAIN 서버 강제 · F75 add-then-patch 실패 시 4xx 보상 삭제 + rollback=ok/failed/skipped 감사 · F76 patch try 범위 축소 (audit 실패 오분류 방지) · F77 partial HttpsError.details wire (UI rollback 별 안내) · F79 partial audit 실패 시 details 유실 방지 · writeAuditWithBackup helper (3x retry + Cloud Logging fallback) · TransferClassroomOwnerDialog · 4 라운드 Codex 감사 (F78 durable sink 인프라 잔재는 별도 슬라이스로 분리) |
 | v0.115 | `2da65ca` (main) | 클래스룸 archived bulk 관리 — ClassroomTable 다중 선택 (Set) + bulk actions bar (아카이브/복구, 방향별 disabled) · BulkArchiveClassroomDialog (BulkSuspend 3-phase, 순차 patch, 개별 실패 수집, 진행률) · F72 classroomPatch teacher membership 사전 검증 (기존 helper 재사용) · F73 confirm 시점 courses·direction snapshot 고정 (list invalidation 대비) · 2 라운드 Codex 감사 |

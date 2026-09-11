@@ -1596,3 +1596,51 @@ v0.118 후보 (ROADMAP Phase 6 남은 항목):
 - admin/users 검색 필터.
 - super_admin 대시보드 위젯.
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.118 감사 로그 배치 export (5 라운드 Codex 감사)
+
+**슬라이스** — 기존 JSON export (v0.108) 은 현재 페이지 `filteredEntries` 만 밀어냈고 `hasMore=true` 여도 partial 로 표시하고 끝. 이번 슬라이스는 서버 pagination 을 hasMore=false 까지 순회해 하나의 통합 payload 로 저장. 「전체 JSON」 버튼 · progress banner + 취소 · 서버 cursor 안정화 · client-side q 필터 반영 · 오류 UI.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `6a585a1` | feat: fetchAllAuditLog helper + AuditLogTable 「전체 JSON」 버튼 + progress/cancel + 9 회귀 |
+| `65e6556` | fix: F82 compound cursor + F83 abort race + F84 q filter + F85 error UI |
+| `11ac027` | fix: F86 Timestamp full precision + F87 AbortError 흡수 + F88 legacy cursor 명시 거부 |
+| `f75ea68` | fix: F89 cursor 정수/범위 검증 (Number.isInteger, nanoseconds 0..999_999_999) |
+| `12af002` | fix: F90 seconds 상한 (253_402_300_799 = 9999-12-31T23:59:59Z) |
+
+### v0.118 → v0.118e Codex 5 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.118 | `6a585a1` | 6/4/2 | F82 서버 cursor ties · F83 abort race · F84 q filter 미적용 · F85 error UI 부재 |
+| v0.118b | `65e6556` | 7/3/2 | F86 ms 정밀도 · F87 AbortError · F88 legacy cursor 조용히 drop |
+| v0.118c | `11ac027` | 7/1/2 | F89 정수/범위 검증 부족 |
+| v0.118d | `f75ea68` | 6/1/2 | F90 seconds 상한 (Timestamp MAX) |
+| v0.118e | `12af002` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `4a00f85` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 477 + web 732 = 1236 unit.
+
+### 배운 것
+
+- **Firestore pagination cursor 는 (Timestamp, docId) compound 로 안정화 필수** — `at < before` 단일 필드 cursor 는 같은 timestamp 이벤트가 여러 개일 때 (batch write, serverTimestamp 동시성) 페이지 경계에서 유실 발생. `orderBy(at DESC, __name__ DESC).startAfter(atTs, docId)` 로 tiebreak. Firestore composite index 는 __name__ 을 암묵적으로 포함하므로 별도 index 없이 동작.
+- **Timestamp precision 은 ms 로 truncate 하면 안 됨** — Firestore Timestamp 는 microsecond (nanoseconds/1000) 정밀도. cursor 를 `{seconds, nanoseconds, id}` 로 full precision 보존해야 sub-ms ties 도 안전. `Timestamp.fromMillis(ms).toMillis()` 왕복은 nanoseconds 를 항상 0 으로 만든다.
+- **AbortSignal 은 wire 까지 전파 + AbortError 는 정상 취소로 흡수** — `AbortController.abort()` 은 fetch 를 즉시 취소 (in-flight 도) 하려면 signal 을 `fetch(url, {signal})` 로 forward 해야. 그리고 fetch reject 시 발생하는 `AbortError` (DOMException 또는 Error.name === 'AbortError') 는 정상 취소로 흡수해서 UI 에 「실패」로 표시 안 되게. 여러 브라우저 호환성 위해 `signal.aborted` 상태와 이름 둘 다 확인.
+- **Rolling deploy 중 legacy wire 는 조용히 drop 하지 말고 명시 거부** — 서버 wire protocol 변경 (숫자 cursor → object cursor) 시 legacy input 을 undefined 로 조용히 drop 하면 old client 가 loadMore 시 첫 페이지를 다시 받아 dedup 없이 중복 append. `invalid-argument` 로 명시 거부해 refresh 유도.
+- **Input validation 은 constructor 예외를 catch 하지 말고 사전 판정** — `new Timestamp(seconds, nanoseconds)` 는 non-integer 나 out-of-range 시 RangeError. 이걸 catch 하지 않으면 최종 `unknown` HttpsError 로 변환되어 「명시 거부」 계약 미달. `Number.isInteger` + 범위 (0..999_999_999, 1..253_402_300_799) 를 constructor 앞에 확인.
+- **Codex 5 라운드 반복 지적의 패턴** — 각 라운드마다 이전 fix 의 「edge case」를 파고 든다. F82 ties → F86 microsecond → F89 정수/범위 → F90 상한. 처음부터 「Timestamp full precision + Number.isInteger + range」 를 다 갖췄으면 5 라운드가 1~2 라운드로 줄었을 것. **wire protocol 변경 시 constructor 계약을 처음부터 완전히 반영하는 게 라운드 수 감소**. Codex 는 이 부분에 대해 상세하고 신뢰할 만한 catch 를 제공한다.
+
+### 다음 세션에 이어갈 것
+
+v0.119 후보 (ROADMAP Phase 5/6):
+- super_admin 대시보드 위젯 (Phase 6, 앱-only 슬라이스).
+- 전입생 계정 개별 생성 UX 개선 (Phase 5, `laterAccountSetup` 포팅).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
