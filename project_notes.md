@@ -1851,3 +1851,39 @@ v0.124 후보:
 - **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. Firestore `count()` aggregation 으로 각 action 별 정확 count 구할 수 있을지 검토.
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.124 BulkSuspendDialog F99/F100 대칭 적용 (1 라운드 Codex 감사)
+
+**슬라이스** — v0.123b 감사에서 BulkRestoreDialog 만 고쳤던 두 갭 (F99 emails prop live reference · F100 label htmlFor 누락) 을 BulkSuspendDialog 에도 적용. v0.123 에서 스코프 유지를 위해 pre-existing BulkSuspendDialog 는 별도 슬라이스로 분리해 두었던 항목.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `ae751d4` | feat: BulkSuspendDialog 에 F99/F100 대칭 적용 + 회귀 2건 |
+
+### Codex 감사
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.124 | `ae751d4` | **6/0/2** 통과 | 없음 (판정불가: 브라우저 시각 흐름 · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `963495c` (main).
+- 배포: `firebase deploy --only hosting --project school-app-5a636` (functions 변경 없음).
+- 로컬 관문: shared 27 + functions 501 + web 772 = **1,300 unit** (첫 1300 넘김).
+
+### 배운 것
+
+- **동일 패턴을 두 파일에 clone 했을 때는 두 파일 모두 감사 한 사이클 안에 통과시켜야 규율이 유지된다** — v0.123 에서 「스코프 유지」 라는 명분으로 pre-existing BulkSuspendDialog 를 남겨뒀는데, 결과적으로 v0.124 라는 한 슬라이스 더 소비. AGENTS.md 「opportunistic refactor 금지」 는 「같은 문제를 이미 알고 고치는 중」 인 경우와는 구분되어야. 앞으로 같은 패턴 clone 슬라이스는 audit 제안된 fix 를 쌍둥이 파일에도 함께 적용하는 것이 규율에 더 부합.
+- **대칭 slice 는 Codex 감사도 매우 빠르게 통과** — 이미 v0.123b 에서 통과 확인된 fix 패턴이라 Codex 도 첫 라운드에 clean 통과. 이런 mechanical slice 는 병합/배포/문서 사이클을 빠르게 돌릴 수 있음.
+
+### 다음 세션에 이어갈 것
+
+v0.125 후보:
+- **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. `count()` aggregation 으로 각 action 별 정확 count 구할 수 있을지 검토.
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
