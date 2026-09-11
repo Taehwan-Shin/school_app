@@ -217,10 +217,13 @@ describe('SuperAdminPage', () => {
     expect(eventCard.textContent).toContain('8');
 
     // v0.122: 상단 「오늘 이벤트」 KpiCard/preview 용 + breakdown 용 두 번 호출.
-    // 기본 window=today 일 땐 두 호출 모두 같은 atMin=todayStartMs 를 전달.
+    // v0.126: breakdown 호출은 exact 파라미터도 함께 전달 (기본 false).
     expect(mockUseAuditLogSummary).toHaveBeenCalledTimes(2);
     expect(mockUseAuditLogSummary).toHaveBeenNthCalledWith(1, { atMin: expect.any(Number) });
-    expect(mockUseAuditLogSummary).toHaveBeenNthCalledWith(2, { atMin: expect.any(Number) });
+    expect(mockUseAuditLogSummary).toHaveBeenNthCalledWith(2, {
+      atMin: expect.any(Number),
+      exact: false,
+    });
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -1614,6 +1617,113 @@ describe('SuperAdminPage', () => {
       fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
       const empty = screen.getByTestId('super-admin-breakdown-empty');
       expect(empty.textContent).toContain('이번 달');
+    });
+
+    // v0.126: exact aggregation toggle.
+    it('v0.126: sampleTruncated=true 이면 「정확 카운트 보기」 버튼 노출 · 클릭 시 exact=true 로 재호출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 300, 'users.write': 200 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const btn = screen.getByTestId('super-admin-breakdown-exact-btn') as HTMLButtonElement;
+      expect(btn).toBeDefined();
+      // 초기 호출은 exact=false.
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      fireEvent.click(btn);
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
+      const exactTrueCall = afterCalls.find((c: any[]) => c[0]?.exact === true);
+      expect(exactTrueCall).toBeDefined();
+    });
+
+    it('v0.126: exactActionCounts 응답 → sample-scope 대신 exact 렌더 · truncated 배너 숨김 · 성공 배너 노출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          // sample 은 users.read 만 500 반영 (truncated).
+          actionCounts: { 'users.read': 500 },
+          sampleSize: 500,
+          sampleTruncated: true,
+          // 실제 정확 count 는 users.read=800, users.write=434.
+          exactActionCounts: { 'users.read': 800, 'users.write': 434 },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // truncated 배너 숨김 · 「정확 카운트 보기」 버튼도 숨김.
+      expect(screen.queryByTestId('super-admin-breakdown-truncated')).toBeNull();
+      expect(screen.queryByTestId('super-admin-breakdown-exact-btn')).toBeNull();
+      // 성공 배너 노출.
+      const successBanner = screen.getByTestId('super-admin-breakdown-exact-on');
+      expect(successBanner.textContent).toContain('1234');
+      // 리스트는 exact 기준 (users.write 도 렌더, count 800/434).
+      expect(screen.getByTestId('super-admin-breakdown-row-users.read')).toBeDefined();
+      expect(screen.getByTestId('super-admin-breakdown-row-users.write')).toBeDefined();
+      const readRow = screen.getByTestId('super-admin-breakdown-row-users.read');
+      expect(readRow.textContent).toContain('800');
+    });
+
+    it('v0.126: sampleTruncated=false 이면 「정확 카운트」 버튼 노출 안 함', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 6 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.queryByTestId('super-admin-breakdown-exact-btn')).toBeNull();
+    });
+
+    it('v0.126: window 전환 시 exact 상태 리셋 (서버 부담 방어)', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 500 },
+          sampleSize: 500,
+          sampleTruncated: true,
+          exactActionCounts: { 'users.read': 800 },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 초기 exactActionCounts 있으므로 exact-on 배너 노출 상태.
+      // 이후 이번 달 클릭 → useAuditLogSummary 는 exact=false 로 다시 호출.
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
+      // 새 호출 중 하나는 exact=false (breakdown query).
+      const resetCall = afterCalls.find(
+        (c: any[]) => c[0] && c[0].exact === false && typeof c[0].atMin === 'number',
+      );
+      expect(resetCall).toBeDefined();
     });
   });
 });

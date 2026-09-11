@@ -13,11 +13,17 @@ export interface AuditLogSummaryResponse {
   actionCounts?: Record<string, number>;
   sampleSize?: number;
   sampleTruncated?: boolean;
+  // v0.126: exact=true 요청 시 AUDIT_ACTIONS 각각을 Firestore count()
+  // aggregation 으로 조회한 정확 값. 0 인 action 제외. 미요청 시 undefined —
+  // 렌더는 exactActionCounts ?? actionCounts 우선순위.
+  exactActionCounts?: Record<string, number>;
 }
 
 export interface UseAuditLogSummaryOptions {
   atMin?: number;
   atMax?: number;
+  // v0.126: 정확 count aggregation on/off.
+  exact?: boolean;
 }
 
 export async function callAuditLogSummary(
@@ -66,7 +72,9 @@ export async function callAuditLogSummary(
 
 export function useAuditLogSummary(options?: UseAuditLogSummaryOptions, enabled = true) {
   return useQuery<AuditLogSummaryResponse, Error>({
-    queryKey: ['audit', 'summary', options?.atMin, options?.atMax],
+    // v0.126: exact 도 queryKey 에 포함해서 sample-only 응답과 exact 응답이
+    // 별도 cache 로 저장되게. exact=true 는 서버 부담이 커서 사용자 요청 시만.
+    queryKey: ['audit', 'summary', options?.atMin, options?.atMax, options?.exact === true],
     queryFn: () => callAuditLogSummary(options ?? {}),
     enabled,
     staleTime: 60_000,

@@ -60,9 +60,20 @@ export function SuperAdminPage() {
   const breakdownLabel =
     breakdownWindow === 'today' ? '오늘' : breakdownWindow === 'week' ? '이번 주' : '이번 달';
 
+  // v0.126: exact aggregation toggle. 기본 false — sampleTruncated=true 상황
+  // 에서 사용자가 「정확 카운트」 버튼 눌러야 서버 count() 28 aggregation.
+  // window 바꾸면 다시 sample-only 로 리셋 (서버 부담 관점에서 안전).
+  const [exactAggregation, setExactAggregation] = useState(false);
+  useEffect(() => {
+    setExactAggregation(false);
+  }, [breakdownWindow]);
+
   // window=today 인 경우 상단 summaryQuery 를 재사용해 network 절약 (React Query
   // 는 같은 queryKey 를 공유). 다른 window 는 별도 query.
-  const breakdownSummaryQuery = useAuditLogSummary({ atMin: breakdownAtMin });
+  const breakdownSummaryQuery = useAuditLogSummary({
+    atMin: breakdownAtMin,
+    exact: exactAggregation,
+  });
 
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
@@ -413,8 +424,12 @@ export function SuperAdminPage() {
           {!breakdownSummaryQuery.isLoading && !breakdownSummaryQuery.isError && (() => {
             // v0.120b F97: 구 Functions 응답 (필드 미제공) 과 실제 빈 집계 ({})
             // 를 구분한다. undefined 이면 「집계 미제공」 안내로 노출.
-            const actionCounts = breakdownSummaryQuery.data?.actionCounts;
-            if (actionCounts === undefined) {
+            // v0.126: exactActionCounts (요청 시 서버 count() aggregation) 가 오면
+            // 우선. 없으면 sample-scope actionCounts.
+            const sampleActionCounts = breakdownSummaryQuery.data?.actionCounts;
+            const exactActionCounts = breakdownSummaryQuery.data?.exactActionCounts;
+            const displayCounts = exactActionCounts ?? sampleActionCounts;
+            if (displayCounts === undefined) {
               return (
                 <p
                   className="text-small text-fg-muted"
@@ -424,11 +439,13 @@ export function SuperAdminPage() {
                 </p>
               );
             }
-            const sortedActions = Object.entries(actionCounts).sort((a, b) => b[1] - a[1]);
+            const sortedActions = Object.entries(displayCounts).sort((a, b) => b[1] - a[1]);
             const maxCount = sortedActions[0]?.[1] ?? 0;
             const sampleTruncated = breakdownSummaryQuery.data?.sampleTruncated ?? false;
             const sampleSize = breakdownSummaryQuery.data?.sampleSize ?? 0;
             const breakdownCount = breakdownSummaryQuery.data?.count ?? 0;
+            // v0.126: exactActionCounts 응답이 온 경우 sample-scope 경고는 무의미.
+            const showTruncatedBanner = sampleTruncated && exactActionCounts === undefined;
 
             if (sortedActions.length === 0) {
               return (
@@ -443,14 +460,37 @@ export function SuperAdminPage() {
 
             return (
               <>
-                {sampleTruncated && (
-                  <p
-                    className="text-small text-state-warning"
-                    data-testid="super-admin-breakdown-truncated"
+                {showTruncatedBanner && (
+                  <div
+                    className="flex items-center justify-between gap-3 flex-wrap text-small"
+                    data-testid="super-admin-breakdown-truncated-row"
                   >
-                    ⚠︎ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 중 최신{' '}
-                    <strong>{sampleSize}</strong>건만 집계에 반영. 전체 합계와 다를 수
-                    있음.
+                    <p
+                      className="text-state-warning"
+                      data-testid="super-admin-breakdown-truncated"
+                    >
+                      ⚠︎ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 중 최신{' '}
+                      <strong>{sampleSize}</strong>건만 집계에 반영. 전체 합계와 다를 수
+                      있음.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setExactAggregation(true)}
+                      data-testid="super-admin-breakdown-exact-btn"
+                      className="text-fg-primary underline underline-offset-2 hover:text-fg-secondary"
+                      title="Firestore count() aggregation 으로 각 action 을 정확히 재조회 (추가 서버 부담)"
+                    >
+                      정확 카운트 보기
+                    </button>
+                  </div>
+                )}
+                {exactActionCounts !== undefined && (
+                  <p
+                    className="text-small text-state-success"
+                    data-testid="super-admin-breakdown-exact-on"
+                  >
+                    ✓ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 전부를
+                    action 별로 정확히 집계했습니다.
                   </p>
                 )}
                 <ul className="space-y-2" data-testid="super-admin-breakdown-list">

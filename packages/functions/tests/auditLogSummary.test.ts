@@ -425,4 +425,100 @@ describe('auditLogSummary callable unit tests', () => {
     expect(result.sampleSize).toBe(0);
     expect(result.sampleTruncated).toBe(false);
   });
+
+  // v0.126: exact aggregation
+  it('v0.126: exact=false 기본 → exactActionCounts undefined + count() 은 total 1회만', async () => {
+    mockCountAuditEntries.mockResolvedValueOnce(3);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: [], nextCursor: null })
+      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+
+    const result = await auditLogSummary.run(
+      createRequest({ email: 'super@cam.hs.kr', role: 'super_admin' }),
+    );
+    expect(result.exactActionCounts).toBeUndefined();
+    // exact 미요청이면 count() 는 총 count 1 회만 호출.
+    expect(mockCountAuditEntries).toHaveBeenCalledTimes(1);
+    expect(mockCountAuditEntries).toHaveBeenCalledWith({
+      atMin: undefined,
+      atMax: expect.any(Number),
+    });
+  });
+
+  it('v0.126: exact=true → AUDIT_ACTIONS 각각 filterAction 으로 병렬 조회 · 0 인 action 제외', async () => {
+    const { AUDIT_ACTIONS } = await import('@school-app/shared');
+    // total count.
+    mockCountAuditEntries.mockResolvedValueOnce(42);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: [], nextCursor: null })
+      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+    // per-action count: 각 AUDIT_ACTIONS 를 위한 mock. users.read=10, users.write=5,
+    // 나머지는 0.
+    for (const action of AUDIT_ACTIONS) {
+      if (action === 'users.read') mockCountAuditEntries.mockResolvedValueOnce(10);
+      else if (action === 'users.write') mockCountAuditEntries.mockResolvedValueOnce(5);
+      else mockCountAuditEntries.mockResolvedValueOnce(0);
+    }
+
+    const result = await auditLogSummary.run(
+      createRequest({
+        email: 'super@cam.hs.kr',
+        role: 'super_admin',
+        data: { exact: true },
+      }),
+    );
+    expect(result.exactActionCounts).toEqual({
+      'users.read': 10,
+      'users.write': 5,
+    });
+    // total(1) + per-action(28) = 29 회 호출.
+    expect(mockCountAuditEntries).toHaveBeenCalledTimes(1 + AUDIT_ACTIONS.length);
+    // 각 per-action 호출이 filterAction 을 그대로 전달.
+    for (const action of AUDIT_ACTIONS) {
+      expect(mockCountAuditEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ filterAction: action }),
+      );
+    }
+  });
+
+  it('v0.126: exact=false (falsy 값) 은 exact 요청 안 된 것으로 취급', async () => {
+    mockCountAuditEntries.mockResolvedValueOnce(3);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: [], nextCursor: null })
+      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+
+    // exact 를 명시 false 로.
+    const result = await auditLogSummary.run(
+      createRequest({
+        email: 'super@cam.hs.kr',
+        role: 'super_admin',
+        data: { exact: false },
+      }),
+    );
+    expect(result.exactActionCounts).toBeUndefined();
+    expect(mockCountAuditEntries).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.126: exact=true audit message 에 exact=on 표기', async () => {
+    const { AUDIT_ACTIONS } = await import('@school-app/shared');
+    mockCountAuditEntries.mockResolvedValueOnce(0);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: [], nextCursor: null })
+      .mockResolvedValueOnce({ entries: [], nextCursor: null });
+    for (let i = 0; i < AUDIT_ACTIONS.length; i++) {
+      mockCountAuditEntries.mockResolvedValueOnce(0);
+    }
+    await auditLogSummary.run(
+      createRequest({
+        email: 'super@cam.hs.kr',
+        role: 'super_admin',
+        data: { exact: true },
+      }),
+    );
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('exact=on'),
+      }),
+    );
+  });
 });
