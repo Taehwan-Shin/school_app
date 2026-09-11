@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.123+) | 사용자 | 답 대기 | v0.104~v0.122 병합 완료. 후보: 전입생 계정 UX 세부 · 클래스룸 소유자 이관 UI · audit sink 인프라 · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.124+) | 사용자 | 답 대기 | v0.104~v0.123 병합 완료. 후보: 전입생 계정 UX 세부 · audit sink 인프라 · 감사 액션별 위젯 정확 count aggregation · (d) 그 외 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.123 | `75eac51` (main) | BulkRestoreDialog (AccountsTable 「선택 복구」) — BulkSuspend 대칭 UI. 3-phase confirm/running/done · 대상 개수 확인 입력 · 실패 목록. usersUpdate({suspended:false}) 순차 호출, 이미 정상 계정도 no-op 성공. F99 confirm 시 emails snapshot 확정 · running/done 은 snapshot 렌더 (부모 selection 변경 방어). F100 label htmlFor + input id 연결. 웹 770 unit (+7). 2 라운드 Codex 감사 |
 | v0.122 | `6f925f8` (main) | SuperAdminPage 액션별 위젯 window breakdown — 오늘/이번 주/이번 달 segmented control (role=group, aria-pressed). 주 시작=월요일 00:00, 월 시작=1일 00:00. 별도 breakdownSummaryQuery 로 breakdown 만 선택 window 적용, 상단 「오늘 이벤트」 KpiCard 와 preview 는 headline metric 안정성 유지 (항상 today). 위젯 제목/설명/링크 atMin/empty·truncated 메시지 label 이 선택 window 반영. 서버 변경 없음. 웹 763 unit (+6). Codex 1 라운드 통과 |
 | v0.121 | `5aef31f` (main) | orgunits.insert 신규 OU 생성 UI — 신규 `orgunitsCreate` callable (users.write cap · `admin.directory.orgunit` rw scope · 이름 100자·슬래시 금지·부모 절대경로 검증 · 409 → already-exists) + `useOrgunitsCreate` 훅 (성공 시 orgunits list 캐시 invalidate). CreateUserDialog 안에 「+ 새 OU 만들기」 인라인 폼 (name/parent/description) · 성공 시 폼 접힘 + orgUnitPath 자동 채움 · busy 게이트 확장 (isCreatingOu 포함). F98 성공 후 audit 실패 시 응답 보존 — writeAuditWithBackup (3회 재시도 + Cloud Logging fallback + throw 안 함) 로 격리. 서버 14 · 클라 25 회귀. 2 라운드 Codex 감사 |
 | v0.120 | `6be9db7` (main) | super_admin 대시보드 「오늘 액션별」 위젯 — `auditLogSummary` 확장 (actionCounts / sampleSize / sampleTruncated, SAMPLE_LIMIT=500 in-memory grouping). SuperAdminPage 정렬 bar-list + truncated 배너 + 액션 클릭 시 `audit?action=<>&atMin=today` 링크. F97 `actionCounts=undefined` 구 응답 backward-compat 「집계 미제공」 안내 분리 · 2 라운드 Codex 감사 |

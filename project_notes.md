@@ -1811,3 +1811,43 @@ v0.123 후보:
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅).
 - 클래스룸 소유자 이관 UI (v0.116 서버는 있으나 UI 미완).
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.123 BulkRestoreDialog — AccountsTable 「선택 복구」 (2 라운드 Codex 감사)
+
+**슬라이스** — BulkSuspendDialog 는 있으나 「일괄 복구 (bulk unsuspend)」 UI 가 없어 정지된 계정을 하나씩 개별 「복구」 버튼으로만 되돌릴 수 있었다. BulkSuspend 와 대칭인 UI 를 추가. 서버 API 는 `callUsersUpdate({suspended:false})` 재사용.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `3f63988` | feat: BulkRestoreDialog + AccountsTable 「선택 복구」 버튼 + 5건 회귀 |
+| `c251481` | fix: F99 (confirm 시 emails snapshot 확정) + F100 (label htmlFor 연결) + 회귀 2건 |
+
+### v0.123 → v0.123b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.123 | `3f63988` | 6/2/2 | F99 emails prop live reference, F100 label htmlFor 누락 |
+| v0.123b | `c251481` | **6/0/2** 통과 | 없음 (판정불가: 브라우저 close 시각 흐름 · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `75eac51` (main).
+- 배포: `firebase deploy --only hosting --project school-app-5a636` (functions 변경 없음).
+- 로컬 관문: shared 27 + functions 501 + web 770 = **1,298 unit**.
+
+### 배운 것
+
+- **비동기 실행 도중 부모 prop 변경 방어 = confirm-time snapshot 패턴** — 다이얼로그가 confirm 순간 부모의 selection state 를 승인 대상으로 삼았지만 live prop 을 그대로 순회하면, 실행 중 부모가 selection 을 clear/변경하면 실제 처리 대상이나 완료 집계가 달라진다. 해결: `useState<string[] | null>(null)` snapshot 을 phase 전환과 동시에 확정하고, 이후 렌더/순회는 `displayEmails = runEmails ?? emails` 로 phase 별 소스 분기.
+- **label semantics 는 htmlFor + id 가 primary source of truth** — 시각적으로 label 이 input 위에 있어 사용자는 관계를 짐작할 수 있어도, 스크린리더는 프로그램적 연결 (`htmlFor` ↔ `id`) 로만 인식. testing-library 의 `getByLabelText` 도 이 연결을 파싱하므로 회귀 테스트로도 계약을 고정 가능. v0.99 UI_SYSTEM.md 208 라인 label semantics 가 이미 문서화.
+- **BulkSuspendDialog 에도 동일 버그 존재하지만 범위 유지** — v0.123 감사는 BulkRestoreDialog 신규 파일만 대상. 같은 패턴을 그대로 clone 했기 때문에 BulkSuspendDialog 에도 F99/F100 동일. 이번 슬라이스에서는 스코프 유지하고 별도 후속 슬라이스로 분리 예정 (AGENTS.md 규약: opportunistic refactor 금지).
+
+### 다음 세션에 이어갈 것
+
+v0.124 후보:
+- **BulkSuspendDialog 도 F99/F100 적용** (opportunistic refactor 아니라 명시적 accountability + a11y 슬라이스).
+- **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. Firestore `count()` aggregation 으로 각 action 별 정확 count 구할 수 있을지 검토.
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
