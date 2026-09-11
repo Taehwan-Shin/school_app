@@ -1774,3 +1774,40 @@ v0.122 후보:
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅).
 - 클래스룸 소유자 이관 UI (v0.116 서버는 있으나 UI 미완).
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.122 SuperAdminPage 액션별 위젯 window breakdown (1 라운드 Codex 감사)
+
+**슬라이스** — v0.120 위젯은 「오늘」만 지원했으나 사용자가 이번 주/이번 달 도 볼 수 있도록 segmented control 추가. auditLogSummary 는 이미 `atMin`/`atMax` 를 받으므로 서버 변경 없이 UI 만 확장. bliss00 자율 진행 지시 하에 Head 단독 실행.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `d8b1348` | feat: SuperAdminPage 액션별 위젯에 오늘/이번 주/이번 달 segmented control + 회귀 6건 |
+
+### Codex 감사
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.122 | `d8b1348` | **7/0/2** 통과 | 없음 (판정불가: 브라우저 timezone 실행 · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `6f925f8` (main).
+- 배포: `firebase deploy --only hosting --project school-app-5a636` (functions 변경 없음).
+- 로컬 관문: shared 27 + functions 501 + web 763 = **1,291 unit**.
+
+### 배운 것
+
+- **Headline metric 안정성 vs. 인터랙티브 위젯 분리** — 대시보드에 window selector 를 추가할 때, 「오늘 이벤트」 KpiCard 나 preview 처럼 headline metric 은 항상 「오늘」 을 유지하고 breakdown 위젯만 별도 query 로 전환하는 것이 UX 명확성에 유리. 하나의 selector 가 페이지 전체 view 를 뒤집으면 사용자가 「지금 보는 게 뭐지」 라는 혼란을 겪는다.
+- **date-fns 없이도 이번 주/이번 달 경계 계산은 표준 Date API 로 충분** — 월요일 offset = (day+6)%7, 월 시작 = `new Date(y, m, 1, 0, 0, 0, 0)`. dependency 추가 없이 짧게 처리. 사용자의 로컬 timezone 을 그대로 따르므로 「이번 주 = 사용자가 살고 있는 이번 주」 로 일치.
+- **1 라운드 통과 슬라이스도 판정불가는 명시** — 브라우저 timezone 이나 emulator Java 처럼 로컬 환경에서 실행 불가한 케이스는 판정불가로 남긴다. F# 라벨을 열지 않아도 「무엇을 안 봤나」 는 감사 원본에 명시.
+
+### 다음 세션에 이어갈 것
+
+v0.123 후보:
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅).
+- 클래스룸 소유자 이관 UI (v0.116 서버는 있으나 UI 미완).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
