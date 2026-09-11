@@ -30,6 +30,40 @@ export function SuperAdminPage() {
   const todayCount = summaryQuery.data?.count ?? 0;
   const previewEntries = summaryQuery.data?.entries ?? [];
 
+  // v0.122: 액션별 breakdown 위젯의 window 를 사용자 선택 (오늘 / 이번 주 / 이번 달).
+  // 「오늘 이벤트」 KpiCard 와 「오늘 감사 이벤트」 preview 는 항상 today 지표로
+  // 유지 (headline metric 안정성). breakdown 만 별도 query 로 전환.
+  type BreakdownWindow = 'today' | 'week' | 'month';
+  const [breakdownWindow, setBreakdownWindow] = useState<BreakdownWindow>('today');
+
+  // 주 시작 = 이번 주 월요일 00:00 (ISO 8601). Sunday=0 이라 (day+6)%7 로 월요일 offset.
+  const weekStart = new Date(todayStart);
+  const dayOfWeek = weekStart.getDay();
+  const mondayOffset = (dayOfWeek + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - mondayOffset);
+  const weekStartMs = weekStart.getTime();
+  const weekIso = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+
+  // 월 시작 = 이번 달 1일 00:00.
+  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1, 0, 0, 0, 0);
+  const monthStartMs = monthStart.getTime();
+  const monthIso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-01`;
+
+  const breakdownAtMin =
+    breakdownWindow === 'today'
+      ? todayStartMs
+      : breakdownWindow === 'week'
+        ? weekStartMs
+        : monthStartMs;
+  const breakdownAtIso =
+    breakdownWindow === 'today' ? todayIso : breakdownWindow === 'week' ? weekIso : monthIso;
+  const breakdownLabel =
+    breakdownWindow === 'today' ? '오늘' : breakdownWindow === 'week' ? '이번 주' : '이번 달';
+
+  // window=today 인 경우 상단 summaryQuery 를 재사용해 network 절약 (React Query
+  // 는 같은 queryKey 를 공유). 다른 window 는 별도 query.
+  const breakdownSummaryQuery = useAuditLogSummary({ atMin: breakdownAtMin });
+
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
   // v0.106: role_split 감사 감시 — server 필터로 전환.
@@ -316,22 +350,51 @@ export function SuperAdminPage() {
           )}
         </section>
 
-        {/* v0.120: 오늘 액션별 breakdown 위젯. auditLogSummary sample (최대 500)
-            기준 in-memory grouping — sampleTruncated=true 이면 최신 sample 만 반영 */}
+        {/* v0.120/v0.122: 액션별 breakdown 위젯. auditLogSummary sample (최대 500)
+            기준 in-memory grouping — sampleTruncated=true 이면 최신 sample 만 반영.
+            v0.122: 사용자가 오늘/이번 주/이번 달 window 를 선택. */}
         <section
           className="bg-elevated p-8 border border-border-subtle space-y-4"
           data-testid="super-admin-action-breakdown"
         >
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-start gap-4 flex-wrap">
             <div>
-              <h2 className="text-h2 font-semibold text-fg-primary">오늘 액션별</h2>
+              <h2 className="text-h2 font-semibold text-fg-primary">{breakdownLabel} 액션별</h2>
               <p className="text-small text-fg-secondary mt-1">
-                오늘 감사 이벤트를 액션 종류별로 집계했습니다. 클릭하면 감사 로그에서
-                해당 액션만 필터링해 볼 수 있습니다.
+                {breakdownLabel} 감사 이벤트를 액션 종류별로 집계했습니다. 클릭하면 감사
+                로그에서 해당 액션만 필터링해 볼 수 있습니다.
               </p>
             </div>
+            <div
+              className="flex border border-border-subtle"
+              role="group"
+              aria-label="breakdown window 선택"
+              data-testid="super-admin-breakdown-window"
+            >
+              {(['today', 'week', 'month'] as BreakdownWindow[]).map((w) => {
+                const label = w === 'today' ? '오늘' : w === 'week' ? '이번 주' : '이번 달';
+                const active = breakdownWindow === w;
+                return (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setBreakdownWindow(w)}
+                    aria-pressed={active}
+                    data-testid={`super-admin-breakdown-window-${w}`}
+                    className={
+                      'px-3 py-1 text-small border-r last:border-r-0 border-border-subtle transition-colors ' +
+                      (active
+                        ? 'bg-fg-primary text-canvas'
+                        : 'bg-canvas text-fg-primary hover:bg-surface')
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          {summaryQuery.isLoading && (
+          {breakdownSummaryQuery.isLoading && (
             <div
               className="py-4 text-center text-small text-fg-secondary"
               data-testid="super-admin-breakdown-loading"
@@ -339,18 +402,18 @@ export function SuperAdminPage() {
               불러오는 중...
             </div>
           )}
-          {summaryQuery.isError && (
+          {breakdownSummaryQuery.isError && (
             <div
               className="border border-state-danger p-4 text-small text-state-danger"
               data-testid="super-admin-breakdown-error"
             >
-              집계를 불러오지 못했습니다: {summaryQuery.error?.message}
+              집계를 불러오지 못했습니다: {breakdownSummaryQuery.error?.message}
             </div>
           )}
-          {!summaryQuery.isLoading && !summaryQuery.isError && (() => {
+          {!breakdownSummaryQuery.isLoading && !breakdownSummaryQuery.isError && (() => {
             // v0.120b F97: 구 Functions 응답 (필드 미제공) 과 실제 빈 집계 ({})
             // 를 구분한다. undefined 이면 「집계 미제공」 안내로 노출.
-            const actionCounts = summaryQuery.data?.actionCounts;
+            const actionCounts = breakdownSummaryQuery.data?.actionCounts;
             if (actionCounts === undefined) {
               return (
                 <p
@@ -363,8 +426,9 @@ export function SuperAdminPage() {
             }
             const sortedActions = Object.entries(actionCounts).sort((a, b) => b[1] - a[1]);
             const maxCount = sortedActions[0]?.[1] ?? 0;
-            const sampleTruncated = summaryQuery.data?.sampleTruncated ?? false;
-            const sampleSize = summaryQuery.data?.sampleSize ?? 0;
+            const sampleTruncated = breakdownSummaryQuery.data?.sampleTruncated ?? false;
+            const sampleSize = breakdownSummaryQuery.data?.sampleSize ?? 0;
+            const breakdownCount = breakdownSummaryQuery.data?.count ?? 0;
 
             if (sortedActions.length === 0) {
               return (
@@ -372,7 +436,7 @@ export function SuperAdminPage() {
                   className="text-small text-fg-muted"
                   data-testid="super-admin-breakdown-empty"
                 >
-                  오늘 기록된 이벤트가 없습니다.
+                  {breakdownLabel} 기록된 이벤트가 없습니다.
                 </p>
               );
             }
@@ -384,7 +448,7 @@ export function SuperAdminPage() {
                     className="text-small text-state-warning"
                     data-testid="super-admin-breakdown-truncated"
                   >
-                    ⚠︎ 오늘 이벤트 <strong>{todayCount}</strong>건 중 최신{' '}
+                    ⚠︎ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 중 최신{' '}
                     <strong>{sampleSize}</strong>건만 집계에 반영. 전체 합계와 다를 수
                     있음.
                   </p>
@@ -395,7 +459,7 @@ export function SuperAdminPage() {
                     return (
                       <li key={action}>
                         <Link
-                          to={`/super_admin/audit?action=${encodeURIComponent(action)}&atMin=${todayIso}`}
+                          to={`/super_admin/audit?action=${encodeURIComponent(action)}&atMin=${breakdownAtIso}`}
                           className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
                           data-testid={`super-admin-breakdown-row-${action}`}
                         >
