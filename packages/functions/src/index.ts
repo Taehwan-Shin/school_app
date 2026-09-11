@@ -9,6 +9,7 @@ export { getMe } from './callable/getMe.js';
 export { usersList } from './callable/users/list.js';
 export { usersCreate } from './callable/users/create.js';
 export { orgunitsList } from './callable/users/orgunitsList.js';
+export { orgunitsCreate } from './callable/users/orgunitsCreate.js';
 export { usersDelete } from './callable/users/delete.js';
 export { usersUpdate } from './callable/users/update.js';
 export { auditLogList } from './callable/audit/list.js';

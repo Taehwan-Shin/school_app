@@ -22,10 +22,21 @@ export interface DirectoryClient {
       delete: (params: { groupKey: string; memberKey: string }) => Promise<{ data: any }>;
     };
   };
-  // v0.119: OU 목록 조회. Directory API `orgunits.list` (customerId=my_customer).
+  // v0.119: OU 목록 조회. v0.121: OU 생성.
   orgunits: {
     list: (params: { customerId: string; type?: 'all' | 'children' }) => Promise<{
       data: { organizationUnits?: Array<{ orgUnitPath?: string; name?: string; description?: string; parentOrgUnitPath?: string }> };
+    }>;
+    insert: (params: {
+      customerId: string;
+      requestBody: {
+        name: string;
+        parentOrgUnitPath: string;
+        description?: string;
+        blockInheritance?: boolean;
+      };
+    }) => Promise<{
+      data: { orgUnitPath?: string; name?: string; description?: string; parentOrgUnitPath?: string };
     }>;
   };
 }
@@ -239,6 +250,30 @@ function getStubClient(): DirectoryClient {
           return { data: stub.data.orgunitsList };
         }
         return { data: { organizationUnits: [] } };
+      },
+      insert: async (params: {
+        customerId: string;
+        requestBody: {
+          name: string;
+          parentOrgUnitPath: string;
+          description?: string;
+          blockInheritance?: boolean;
+        };
+      }) => {
+        const stub = readStubResponse();
+        if (stub.data && stub.data.orgunitsInsert) {
+          return { data: stub.data.orgunitsInsert };
+        }
+        const parent = params.requestBody.parentOrgUnitPath;
+        const normalizedParent = parent.endsWith('/') ? parent.slice(0, -1) : parent;
+        return {
+          data: {
+            orgUnitPath: `${normalizedParent}/${params.requestBody.name}`,
+            name: params.requestBody.name,
+            description: params.requestBody.description,
+            parentOrgUnitPath: params.requestBody.parentOrgUnitPath,
+          },
+        };
       },
     },
   };
