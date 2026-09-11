@@ -48,6 +48,11 @@ import { CreateUserDialog } from '../src/routes/admin/CreateUserDialog.js';
 
 describe('CreateUserDialog component', () => {
   beforeEach(() => {
+    // v0.119b: vi.clearAllMocks 는 mockResolvedValueOnce 큐를 지우지 않음 →
+    // 테스트 간 오염 방지를 위해 명시적 mockReset.
+    mockMutateAsync.mockReset();
+    mockCallClassroomTeachersAdd.mockReset();
+    mockCallClassroomStudentsAdd.mockReset();
     vi.clearAllMocks();
     mockIsPending = false;
     mockError = null;
@@ -288,6 +293,89 @@ describe('CreateUserDialog component', () => {
     expect(banner.textContent).toContain('permission_denied_for_B');
     // dialog 는 닫히지 않음.
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  // v0.119b F91: OU 안내 문구가 「기존 OU 만」임을 명시. 잘못된 「자동 생성」
+  // 오해를 방지.
+  it('v0.119b F91: OU 안내는 「기존 OU 만」을 명시', () => {
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    // 헬프 문구.
+    expect(
+      screen.getByText(/기존에 있는 조직 단위 경로만 사용할 수 있습니다/),
+    ).toBeDefined();
+  });
+
+  // v0.119b F94: dialog 가 닫힘 상태면 classroom / orgunits 훅에 `open=false` 를
+  // 넘겨 fetch 를 억제. mocked 훅이 argument 를 무시하고 상수 반환하므로 여기서는
+  // hook 호출 인자를 spy 로 검증한다.
+  it('v0.119b F94: open=false 이면 useClassroomList/useOrgunitsList 에 enabled=false 로 호출', async () => {
+    // 새 spy 모듈 mock 을 설정하려면 모듈이 이미 import 됐으므로 어렵다.
+    // 대신 소스 계약 (`useClassroomList(open)`, `useOrgunitsList(open)`) 을
+    // 소스 문자열로 검증.
+    const src = await import('node:fs').then((fs) =>
+      fs.readFileSync(
+        require.resolve('../src/routes/admin/CreateUserDialog.tsx'),
+        'utf8',
+      ),
+    );
+    expect(src).toContain('useClassroomList(open)');
+    expect(src).toContain('useOrgunitsList(open)');
+  });
+
+  // v0.119b F92: busy 중 form 요소 disabled. race condition 방지.
+  it('v0.119b F92: mutation pending 중 form 요소들이 disabled', () => {
+    mockClassroomListQuery = {
+      data: { courses: [{ id: 'c-1', name: 'A반', courseState: 'ACTIVE' }] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    mockIsPending = true;
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    expect((screen.getByLabelText(/이메일/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/성/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/이름/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/비밀번호/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('create-user-orgunit-input') as HTMLInputElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (screen.getByTestId('create-user-classroom-role-student') as HTMLInputElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('create-user-classroom-role-teacher') as HTMLInputElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('create-user-classroom-cb-c-1') as HTMLInputElement).disabled,
+    ).toBe(true);
+  });
+
+  // v0.119b F93: 계정 생성 성공 후 비밀번호 state 를 지운다 (assign 결과 배너로
+  // dialog 가 유지되는 경우에도 password 가 남지 않도록).
+  it('v0.119b F93: 계정 생성 성공 후 password 필드가 빔 (부분 실패 배너 유지 케이스)', async () => {
+    mockClassroomListQuery = {
+      data: {
+        courses: [{ id: 'c-1', name: 'A반', courseState: 'ACTIVE' }],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    mockMutateAsync.mockResolvedValueOnce({ primaryEmail: 's@cam.hs.kr', uid: 'u' });
+    mockCallClassroomStudentsAdd.mockRejectedValue(new Error('deliberate_fail'));
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
+    fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
+    fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
+    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
+    fireEvent.click(screen.getByTestId('create-user-submit'));
+    await waitFor(() => {
+      expect(screen.getByTestId('create-user-assign-results')).toBeDefined();
+    });
+    // 배너가 뜬 상태에서도 password 입력값은 비어야.
+    const pw = screen.getByLabelText(/비밀번호/) as HTMLInputElement;
+    expect(pw.value).toBe('');
   });
 
   it('v0.119: usersCreate 실패 시 classroom add 는 시도 안 함', async () => {

@@ -46,7 +46,10 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
   const { mutateAsync: createUser, isPending: isCreating, error: mutationError } = useCreateUser();
   const orgunitsQuery = useOrgunitsList(open);
-  const classroomsQuery = useClassroomList();
+  // v0.119b F94: dialog 닫힌 상태에서는 classroom API/감사 호출 안 나게 `open` gate.
+  // AccountsTable 은 CreateUserDialog 를 항상 mount 하므로 훅 자체가 실행되지 않게
+  // enabled=open 으로 gate.
+  const classroomsQuery = useClassroomList(open);
 
   const activeClassrooms =
     classroomsQuery.data?.courses?.filter((c) => c.courseState === 'ACTIVE') ?? [];
@@ -102,6 +105,17 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     if (!password || password.length < 8)
       return setValidationError('비밀번호는 최소 8자 이상이어야 합니다.');
 
+    // v0.119b F92: submit 시점의 role/classrooms/course-name 을 snapshot 으로
+    // 고정. 실행 중 사용자가 값을 바꿔도 원래 선택한 대로 배정. busy 중에는
+    // 아래 render 에서 input/radio/checkbox 도 disabled 처리.
+    const roleSnapshot: ClassroomRole = classroomRole;
+    const classroomSnapshot: Array<{ id: string; name?: string }> = Array.from(
+      selectedClassroomIds,
+    ).map((id) => {
+      const course = activeClassrooms.find((c) => c.id === id);
+      return { id, name: course?.name };
+    });
+
     try {
       await createUser({
         primaryEmail: trimmedEmail,
@@ -116,9 +130,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       return;
     }
 
-    // 계정 생성 성공. 이제 선택된 클래스룸에 순차 add.
-    const selected = Array.from(selectedClassroomIds);
-    if (selected.length === 0) {
+    // v0.119b F93: 계정 생성 성공. 초기 비밀번호는 메모리에서 즉시 제거.
+    // dialog 가 assign-results 배너로 유지될 경우에도 password state 는 안 남음.
+    setPassword('');
+
+    // 계정 생성 성공. 이제 snapshot 기준으로 순차 add.
+    if (classroomSnapshot.length === 0) {
       handleClose(false);
       return;
     }
@@ -126,16 +143,15 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     setIsAssigning(true);
     const results: ClassroomAssignResult[] = [];
     const addFn =
-      classroomRole === 'teacher' ? callClassroomTeachersAdd : callClassroomStudentsAdd;
-    for (const courseId of selected) {
-      const course = activeClassrooms.find((c) => c.id === courseId);
+      roleSnapshot === 'teacher' ? callClassroomTeachersAdd : callClassroomStudentsAdd;
+    for (const { id: courseId, name } of classroomSnapshot) {
       try {
         await addFn({ courseId, userId: trimmedEmail });
-        results.push({ courseId, courseName: course?.name, ok: true });
+        results.push({ courseId, courseName: name, ok: true });
       } catch (err) {
         results.push({
           courseId,
-          courseName: course?.name,
+          courseName: name,
           ok: false,
           message: err instanceof Error ? err.message : String(err),
         });
@@ -215,7 +231,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={primaryEmail}
                 onChange={(e) => setPrimaryEmail(e.target.value)}
                 placeholder="user@cam.hs.kr"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                disabled={isBusy}
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -230,7 +247,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={familyName}
                 onChange={(e) => setFamilyName(e.target.value)}
                 placeholder="홍"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                disabled={isBusy}
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -245,7 +263,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={givenName}
                 onChange={(e) => setGivenName(e.target.value)}
                 placeholder="길동"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                disabled={isBusy}
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -261,12 +280,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="8자 이상"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                disabled={isBusy}
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* v0.119: OU combobox — datalist 기반. 기존 OU 를 dropdown 으로
-                선택하되 목록에 없는 새 OU 도 자유 입력 가능. */}
+            {/* v0.119 / v0.119b F91: OU combobox — datalist 기반. 기존 OU 를
+                dropdown 으로 선택. 직접 입력은 「이미 존재하는 OU 경로」를 대상
+                으로 하며 (자동완성 없이 정확히 타이핑), 신규 OU 생성은 이 슬라이스
+                범위 외 (Directory API `orgunits.insert` 별도 필요). 존재하지
+                않는 경로를 주면 Google API 가 users.insert 를 400 으로 거절. */}
             <div>
               <label htmlFor="orgUnitPath" className="text-small text-fg-secondary mb-1 block">
                 조직 단위
@@ -278,7 +301,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     className="text-state-danger ml-2"
                     data-testid="create-user-orgunits-error"
                   >
-                    OU 목록 로드 실패 (직접 입력 가능)
+                    OU 목록 로드 실패
                   </span>
                 )}
               </label>
@@ -287,11 +310,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 type="text"
                 value={orgUnitPath}
                 onChange={(e) => setOrgUnitPath(e.target.value)}
-                placeholder="/학생/1학년 (기존 목록에서 선택하거나 직접 입력)"
+                placeholder="/학생/1학년 (기존 OU 목록에서 선택)"
                 list="create-user-orgunits-list"
                 data-testid="create-user-orgunit-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                disabled={isBusy}
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
+              <p className="mt-1 text-micro text-fg-muted">
+                기존에 있는 조직 단위 경로만 사용할 수 있습니다. 새 OU 는 Google
+                Workspace 관리 콘솔에서 먼저 만든 뒤 여기서 선택하세요.
+              </p>
               <datalist id="create-user-orgunits-list" data-testid="create-user-orgunits-datalist">
                 {(orgunitsQuery.data?.orgUnits ?? []).map((ou) => (
                   <option key={ou.orgUnitPath} value={ou.orgUnitPath}>
@@ -322,6 +350,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     value="student"
                     checked={classroomRole === 'student'}
                     onChange={() => setClassroomRole('student')}
+                    disabled={isBusy}
                     data-testid="create-user-classroom-role-student"
                   />
                   학생
@@ -333,6 +362,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     value="teacher"
                     checked={classroomRole === 'teacher'}
                     onChange={() => setClassroomRole('teacher')}
+                    disabled={isBusy}
                     data-testid="create-user-classroom-role-teacher"
                   />
                   교사
@@ -374,6 +404,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         type="checkbox"
                         checked={selectedClassroomIds.has(c.id)}
                         onChange={(e) => toggleClassroom(c.id, e.target.checked)}
+                        disabled={isBusy}
                         data-testid={`create-user-classroom-cb-${c.id}`}
                       />
                       <span>{c.name || c.id}</span>
