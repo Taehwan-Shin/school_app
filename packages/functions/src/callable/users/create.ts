@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import type { Role } from "@school-app/shared";
 import { authenticateRequest, assertHasCap, assertHasScopes } from "../../authz/middleware.js";
 import { writeAudit } from "../../audit/writeAudit.js";
+import { writeAuditWithBackup } from "../../audit/writeAuditWithBackup.js";
 import { getDirectoryClient } from "../../google/directoryClient.js";
 import { ALLOWED_DOMAIN } from "../../auth/onUserCreate.js";
 
@@ -32,32 +33,7 @@ function readHeader(request: any, key: string): string | undefined {
 
 // v0.132b F106 (== v0.121b F98 대칭): Directory users.insert 성공 뒤 감사
 // 쓰기가 실패해도 이미 생성된 계정 상태를 client 에 반환해야 재시도 409/duplicate
-// 를 피할 수 있다. 3회 재시도 + Cloud Logging fallback + throw 안 함.
-type AuditEntry = Parameters<typeof writeAudit>[0];
-async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
-  const maxAttempts = 3;
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await writeAudit(entry);
-      return;
-    } catch (err) {
-      lastErr = err;
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-      }
-    }
-  }
-  console.error(
-    JSON.stringify({
-      severity: "ERROR",
-      message: "users_create_audit_write_failed",
-      request_id: requestId,
-      audit_entry: entry,
-      final_error: (lastErr as Error)?.message ?? String(lastErr),
-    }),
-  );
-}
+// 를 피할 수 있다. v0.133: shared writeAuditWithBackup util 로 통합.
 
 export const usersCreate = onCall(
   { region: "asia-northeast3", cors: true },
@@ -215,6 +191,7 @@ export const usersCreate = onCall(
         message: "created user",
       },
       requestId,
+      "users_create",
     );
 
     return {

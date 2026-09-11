@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
+import { writeAuditWithBackup } from '../../audit/writeAuditWithBackup.js';
 import { getDirectoryClient } from '../../google/directoryClient.js';
 
 // v0.121: 신규 OU 생성. v0.119 의 `orgunitsList` 옵션 (`orgunits.readonly` scope) 만
@@ -35,33 +36,7 @@ const PARENT_PATH_RE = /^\/[^\s\\](?:.*[^\s\\])?$|^\/$/;
 
 // v0.121b F98: Google `orgunits.insert` 성공 뒤 감사 쓰기가 실패해도 이미
 // 생성된 OU 상태를 client 에 반환해야 재시도 409 를 피할 수 있다.
-// v0.116 `transferOwnership` 의 helper 와 동일 패턴 — 재시도 3 회 + Cloud
-// Logging fallback + throw 하지 않음. 호출자가 성공 응답을 그대로 리턴하도록.
-type AuditEntry = Parameters<typeof writeAudit>[0];
-async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
-  const maxAttempts = 3;
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await writeAudit(entry);
-      return;
-    } catch (err) {
-      lastErr = err;
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-      }
-    }
-  }
-  console.error(
-    JSON.stringify({
-      severity: 'ERROR',
-      message: 'orgunits_create_audit_write_failed',
-      request_id: requestId,
-      audit_entry: entry,
-      final_error: (lastErr as Error)?.message ?? String(lastErr),
-    }),
-  );
-}
+// v0.133: shared writeAuditWithBackup util 로 통합 (audit/writeAuditWithBackup.ts).
 
 function readHeader(request: any, key: string): string | undefined {
   const raw =
@@ -232,6 +207,7 @@ export const orgunitsCreate = onCall(
           message: 'orgunit_created_but_path_missing',
         },
         requestId,
+        'orgunits_create',
       );
       throw new HttpsError('internal', 'orgunit_created_but_path_missing');
     }
@@ -250,6 +226,7 @@ export const orgunitsCreate = onCall(
         message: `created orgunit name=${name} parent=${parentOrgUnitPath}`,
       },
       requestId,
+      'orgunits_create',
     );
 
     return {
