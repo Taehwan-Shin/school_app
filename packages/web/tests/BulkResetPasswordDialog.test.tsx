@@ -254,4 +254,59 @@ describe('BulkResetPasswordDialog component', () => {
     const input = screen.getByTestId('bulk-reset-password-new') as HTMLInputElement;
     expect(input.value).toBe('');
   });
+
+  // v0.130 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정.
+  it('v0.130 F99: confirm 시 emails snapshot 확정 · 실행 중 prop 변경 무시', async () => {
+    const initial = ['user1@cam.hs.kr', 'user2@cam.hs.kr'];
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockCallUsersResetPassword.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; }),
+    );
+    mockCallUsersResetPassword.mockResolvedValue({ primaryEmail: 'test', reset: true });
+
+    const onOpenChange = vi.fn();
+    const { rerender } = renderWithClient(
+      <BulkResetPasswordDialog open={true} onOpenChange={onOpenChange} emails={initial} />
+    );
+    fireEvent.change(screen.getByTestId('bulk-reset-password-new'), {
+      target: { value: 'longpass1' },
+    });
+    fireEvent.change(screen.getByTestId('bulk-reset-password-confirm'), {
+      target: { value: 'longpass1' },
+    });
+    fireEvent.click(screen.getByTestId('bulk-reset-password-confirm-btn'));
+
+    // 첫 API 호출 pending 중 부모가 emails 를 바꿔 rerender.
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <BulkResetPasswordDialog
+            open={true}
+            onOpenChange={onOpenChange}
+            emails={['completely-different@cam.hs.kr']}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId('bulk-reset-password-running').textContent).toContain('2');
+
+    resolveFirst!({ primaryEmail: 'user1@cam.hs.kr', reset: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bulk-reset-password-done')).toBeDefined();
+    });
+    // 원래 2개만 처리.
+    expect(mockCallUsersResetPassword).toHaveBeenCalledTimes(2);
+    expect(mockCallUsersResetPassword).toHaveBeenNthCalledWith(1, {
+      primaryEmail: 'user1@cam.hs.kr',
+      newPassword: 'longpass1',
+      changePasswordAtNextLogin: true,
+    });
+    expect(mockCallUsersResetPassword).toHaveBeenNthCalledWith(2, {
+      primaryEmail: 'user2@cam.hs.kr',
+      newPassword: 'longpass1',
+      changePasswordAtNextLogin: true,
+    });
+    expect(screen.getByTestId('bulk-reset-password-done').textContent).toContain('2명 성공');
+  });
 });

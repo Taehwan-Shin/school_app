@@ -36,6 +36,10 @@ export function BulkResetPasswordDialog({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changePasswordAtNextLogin, setChangePasswordAtNextLogin] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // v0.130 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정. F65
+  // 는 이미 password 평문을 local 변수로 고정하지만 emails 는 여전히 live
+  // prop 이라 실행 중 부모 selection 변경 시 처리 대상이 달라질 수 있음.
+  const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -46,6 +50,7 @@ export function BulkResetPasswordDialog({
       setConfirmPassword('');
       setChangePasswordAtNextLogin(true);
       setValidationError(null);
+      setRunEmails(null);
     }
   }, [open]);
 
@@ -83,13 +88,16 @@ export function BulkResetPasswordDialog({
     // v0.113b F65: 실행용 평문 비밀번호를 local 변수로 고정 후 state 는 즉시 clear.
     // done phase 에 도달했을 때 이미 state 는 비어있게 해서 dialog 가 열린 채로 남아도
     // 평문이 메모리 (React state) 에 남지 않게. changePasswordAtNextLogin 도 로컬로.
+    // v0.130 F99: emails 도 snapshot 으로 고정 — 부모 selection 변경 방어.
     const passwordForRun = newPassword;
     const forceChangeForRun = changePasswordAtNextLogin;
+    const snapshot = [...emails];
+    setRunEmails(snapshot);
     clearSensitiveState();
     setPhase('running');
     const localFailures: { email: string; message: string }[] = [];
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
+    for (let i = 0; i < snapshot.length; i++) {
+      const email = snapshot[i];
       try {
         await callUsersResetPassword({
           primaryEmail: email,
@@ -105,6 +113,8 @@ export function BulkResetPasswordDialog({
     setPhase('done');
     // users list 무효화 불필요 (필드 무변화).
   };
+
+  const displayEmails = runEmails ?? emails;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -215,13 +225,13 @@ export function BulkResetPasswordDialog({
             <div className="py-8 text-center space-y-3" data-testid="bulk-reset-password-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{emails.length}</strong>
+                <strong className="font-mono">{displayEmails.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${emails.length > 0 ? (progress / emails.length) * 100 : 0}%`,
+                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -239,7 +249,7 @@ export function BulkResetPasswordDialog({
               <p className="text-body text-fg-primary">
                 완료:{' '}
                 <strong className="text-state-success font-mono">
-                  {emails.length - failures.length}
+                  {displayEmails.length - failures.length}
                 </strong>
                 명 성공
                 {failures.length > 0 && (
