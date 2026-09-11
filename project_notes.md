@@ -2003,3 +2003,39 @@ v0.128 후보 (남은 후보 모두 사용자 조치 필요):
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
 - audit_log durable sink 인프라 (v0.116 F78 잔재) — Firebase console 조치 필요.
 - 소소한 UX slice (필요 시): CreateGroupDialog · CreateClassroomDialog 인라인 검증 강화, 감사 로그 필터 quick preset 확장 등.
+
+---
+
+## 2026-09-11 · Bulk 하드닝 시리즈 완주 (v0.123~v0.131)
+
+### 완주 표
+
+| # | 슬라이스 | 발견 | 시리즈 커밋 | 병합 커밋 |
+|---|---|---|---|---|
+| 1 | BulkRestoreDialog (신규) | v0.123 Codex F99/F100 | `c251481` | `75eac51` |
+| 2 | BulkSuspendDialog | v0.123 clone → v0.124 대칭 | `ae751d4` | `963495c` |
+| 3 | BulkDeleteDialog | 자체 진단 (v0.128) | `77a4c28` | `a914fc9` |
+| 4 | BulkMoveOuDialog | 자체 진단 (v0.129) | `89edb4c` | `25f1722` |
+| 5 | BulkResetPasswordDialog | 자체 진단 (v0.130, F100 이미 v0.113b) | `a483136` | `00501e9` |
+| 6 | BulkRemoveMembersDialog | 자체 진단 (v0.131) | `82e0d06` | `33aebd7` |
+
+### 규범화된 패턴
+
+모든 파괴적 bulk dialog 가 이제 다음 두 계약을 만족:
+
+**F99 (accountability)**: 사용자가 confirm 을 누른 순간의 emails prop 을 `[...emails]` 로 snapshot. running/done phase 는 `displayEmails = runEmails ?? emails` 로 snapshot 을 우선 사용. 실행 중 부모 selection 이 바뀌어도 승인 대상 == 처리 대상 == 완료 집계.
+
+**F100 (a11y)**: confirmation input 의 label 은 `htmlFor="bulk-{action}-confirm-input"` + input `id` 매칭. `getByLabelText` 로 접근 가능. UI_SYSTEM label semantics 규약 준수.
+
+### 배운 것 (시리즈 전체)
+
+- **Codex 감사가 첫 파일 (BulkRestoreDialog) 에서 F99/F100 을 발견한 뒤, 시리즈 완주로 모든 유사 파일에 확산** — 원래 v0.123 Codex 감사가 「BulkSuspend 대칭 신규 파일」 하나만 검토했지만, 발견된 패턴이 여섯 다이얼로그 전부에 존재. 이 원리는 「같은 패턴 여러 파일이면 clone slice 감사 때 발견된 fix 는 쌍둥이에도」 (v0.124 배운 것) 를 시리즈 규모로 실증.
+- **소소한 mechanical slice 는 audit 도 빠르게 통과** — v0.129~v0.131 각 1 라운드 통과. 이런 반복형 hotfix 는 audit 사이클 오버헤드가 작고, 시간이 지날수록 slice 하나당 20~30분에 완료.
+- **패턴 완주 자체가 문서 (project_notes) 로 남기 좋은 마일스톤** — 여섯 slice 를 개별로 둘러보면 아래 규범 계약을 읽기 어렵지만, 완주 표로 한 곳에 모으면 「이제 이 패턴은 codebase 전반에서 강제」 라는 상태를 명시할 수 있음.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.132+):
+- **전입생 계정 UX 세부** (Phase 5) — 도메인 규칙 필요 (사용자 조치).
+- **audit_log durable sink 인프라** (v0.116 F78 잔재) — Firebase console 조치 필요.
+- 다른 소소한 UX 개선.
