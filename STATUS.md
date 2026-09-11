@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.130+) | 사용자 | 답 대기 | v0.104~v0.129 병합 완료. 후보: 전입생 계정 UX 세부 (도메인 규칙 필요) · audit sink 인프라 (사용자 조치) · 남은 Bulk dialog 하드닝 (BulkResetPassword F99만 · BulkRemoveMembers) · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.131+) | 사용자 | 답 대기 | v0.104~v0.130 병합 완료. 후보: 전입생 계정 UX 세부 (도메인 규칙 필요) · audit sink 인프라 (사용자 조치) · BulkRemoveMembers F99 (Bulk 하드닝 마지막 6/6) · (d) 그 외 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.130 | `00501e9` (main) | BulkResetPasswordDialog 에 F99 (emails snapshot) 적용 (v0.124 시리즈 5/6). v0.113b F65 (password 평문 snapshot) + F66 (label htmlFor) 는 이미 완료됐고 이번에 emails snapshot 만 추가. 웹 800 unit (+1, 첫 800 넘김). 1 라운드 Codex 감사 |
 | v0.129 | `25f1722` (main) | BulkMoveOuDialog 에 F99/F100 대칭 적용 (v0.124 시리즈 4/6). runEmails snapshot + displayEmails · label htmlFor/id 연결. 웹 799 unit (+2). 1 라운드 Codex 감사 |
 | v0.128 | `a914fc9` (main) | BulkDeleteDialog 에 F99/F100 대칭 적용 (v0.124 시리즈 3/4). runEmails snapshot state + displayEmails · label htmlFor/id 연결. Bulk dialog 하드닝 시리즈 (v0.123b BulkRestore → v0.124 BulkSuspend → v0.128 BulkDelete) 세 번째. 남은 것: BulkMoveOu, BulkResetPassword, BulkRemoveMembers. 웹 797 unit (+2). 1 라운드 Codex 감사 |
 | v0.127 | `5d8b083` (main) | GroupsTable 「필터 초기화」 button (v0.125 AccountsTable · v0.112 AuditLogTable 대칭 세 번째). 검색·KPI·정렬 원자적 clear. 정규화 대칭 (q trim · kpiFilter allowlist · sortColumn non-null · dir 단독 제외). F105 fail-closed → fail-open 정정 (allowlist 밖 filter 는 무시, 목록 유지). 웹 795 unit (+9). 2 라운드 Codex 감사 |
