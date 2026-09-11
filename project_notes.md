@@ -1926,3 +1926,41 @@ v0.126 후보:
 - **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. Firestore `count()` aggregation 으로 각 action 별 정확 count 검토.
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.126 감사 액션별 위젯 정확 count aggregation (2 라운드 Codex 감사)
+
+**슬라이스** — v0.120/v0.122 위젯의 breakdown 은 sample-scope (최신 500) 라 count > 500 시 truncated. 사용자가 「정확 카운트 보기」 를 누르면 서버가 `AUDIT_ACTIONS` 28 개를 Firestore `count()` aggregation 으로 병렬 조회 → 전체 window 의 정확 per-action count 반환. v0.101b 의 `(action, at DESC)` 복합 인덱스 재사용, 추가 인덱스 배포 불필요.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `4572939` | feat: server `auditLogSummary.exact?` + `exactActionCounts?` + Promise.all count() 병렬 + 클라이언트 toggle |
+| `7445a7c` | fix: F103 (합계 불변식 + `_other` bucket) + F104 (handleWindowChange 원자적) + 회귀 강화 |
+
+### v0.126 → v0.126b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.126 | `4572939` | 6/2/2 | F103 AUDIT_ACTIONS 비강제 카탈로그로 미등록 action 누락 · F104 window 전환 시 exact=true 중간 render leak |
+| v0.126b | `7445a7c` | **7/0/2** 통과 | 없음 (판정불가: 실 Firestore aggregation · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `c2832fb` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 506 + web 786 = **1,319 unit**.
+
+### 배운 것
+
+- **합계 불변식 (invariant) 은 catalog-free 시스템의 정확성 보증에 필수** — `AUDIT_ACTIONS` 는 UI 필터 드롭다운 편의를 위한 카탈로그일 뿐, 서버는 임의 action 문자열 저장을 허용한다 (auditActions.ts 주석). 이 상태에서 「카탈로그만 세면 정확」 이라고 가정하면 미등록 action 이 누락되고 UI 는 「전부 정확 집계」 오표기. **해결**: 서버가 `total count` 와 `sum(catalog counts)` 를 비교해 차이를 `_other` bucket 으로 명시적으로 보존. 합계 불변식 `sum(all keys, including _other) === total count` 를 코드와 테스트로 고정. 이 패턴은 앞으로 catalog-free 필드를 집계할 때 재사용 가능.
+- **여러 setter 를 useEffect 로 조율하는 대신 event handler 안에서 함께 호출** — React batched update 는 같은 event handler 안의 setState 를 한 번의 render 로 묶는다. 반면 useEffect 로 파생 state 를 리셋하면 첫 render 는 「전환 중」 상태 (새 window + 이전 exact=true) 로 나타나 부작용 (React Query 새 요청) 이 발화 가능. **원칙**: 「A 를 바꾸면 B 도 리셋」 이 필요하면 handleXChange 함수를 만들어 A + B 를 같은 이벤트에서 함께 갱신. useEffect 는 진짜 파생 계산 (외부 API sync 등) 에만.
+- **판정불가 항목 (실 Firestore) 을 성능/비용 관점에서 명시** — v0.126 은 28 개 count() 병렬. Firestore aggregation 은 조건에 매치되는 doc 개수 상관없이 read 1 로 과금. 즉 exact 요청 1 회 = 총 29 reads (total + 28 per-action). sampleTruncated 시에만 사용자가 명시적으로 요청하도록 UI 게이팅 → 서버 비용 최소.
+
+### 다음 세션에 이어갈 것
+
+v0.127 후보:
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).

@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.126+) | 사용자 | 답 대기 | v0.104~v0.125 병합 완료. 후보: 감사 액션별 위젯 정확 count aggregation · 전입생 계정 UX 세부 · audit sink 인프라 · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.127+) | 사용자 | 답 대기 | v0.104~v0.126 병합 완료. 후보: 전입생 계정 UX 세부 · audit sink 인프라 · (d) 그 외 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.126 | `c2832fb` (main) | 감사 액션별 위젯 정확 count aggregation — auditLogSummary 에 `exact?: boolean` + `exactActionCounts?: Record<string, number>` 응답. AUDIT_ACTIONS 28 개를 Promise.all count() 병렬 (v0.101b 복합 인덱스 재사용). countAuditEntries 에 filterAction 추가. SuperAdminPage 위젯 「정확 카운트 보기」 toggle · exact 응답 시 sample 대신 렌더 + 성공 배너. F103 합계 불변식 (`_other` bucket 으로 미등록 action 잔여). F104 handleWindowChange 원자적 (exact=true 중간 leak 방지). 웹 786 · functions 506 = 1,319 unit. 2 라운드 Codex 감사 |
 | v0.125 | `6025fe1` (main) | AccountsTable 「필터 초기화」 button (v0.112 AuditLogTable 대칭) — 검색 input 옆 버튼 · onClick 은 `setSearchParams(new URLSearchParams())` 로 URL param 전부 원자적 clear. F101 활성 판정을 실제 필터 규칙 기준으로 정규화 (q trim non-empty · kpiFilter allowlist · sortColumn non-null · dir 단독 제외). F102 LocationSpy 회귀 (URL search === '' + DOM 사용자 복원) + boundary 4건. 웹 781 unit (+9). 2 라운드 Codex 감사 |
 | v0.124 | `963495c` (main) | BulkSuspendDialog 에 F99/F100 대칭 적용 — v0.123b 의 accountability + a11y 패턴을 pre-existing 대칭 다이얼로그에도 마무리. runEmails snapshot state · displayEmails 도입 · label htmlFor/id 연결. 웹 772 unit (+2). 1 라운드 Codex 감사 |
 | v0.123 | `75eac51` (main) | BulkRestoreDialog (AccountsTable 「선택 복구」) — BulkSuspend 대칭 UI. 3-phase confirm/running/done · 대상 개수 확인 입력 · 실패 목록. usersUpdate({suspended:false}) 순차 호출, 이미 정상 계정도 no-op 성공. F99 confirm 시 emails snapshot 확정 · running/done 은 snapshot 렌더 (부모 selection 변경 방어). F100 label htmlFor + input id 연결. 웹 770 unit (+7). 2 라운드 Codex 감사 |
