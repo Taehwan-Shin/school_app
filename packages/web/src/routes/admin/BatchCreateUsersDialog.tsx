@@ -49,6 +49,29 @@ function makeInitialRows(): RowInput[] {
   return Array.from({ length: MAX_ROWS }, emptyRow);
 }
 
+// v0.132c F109: snapshot 구성을 순수 함수로 분리해서 직접 회귀 가능.
+// (input rows 배열을 mutation 해도 반환값이 영향받지 않음을 검증.)
+export interface RunRowSnapshot {
+  primaryEmail: string;
+  givenName: string;
+  familyName: string;
+}
+
+export function buildRunRowsSnapshot(rows: RowInput[], domain: string): RunRowSnapshot[] {
+  return rows
+    .map((r) => ({
+      id: r.id.trim(),
+      familyName: r.familyName.trim(),
+      givenName: r.givenName.trim(),
+    }))
+    .filter((r) => r.id !== "" || r.familyName !== "" || r.givenName !== "")
+    .map((r) => ({
+      primaryEmail: `${r.id.toLowerCase()}@${domain}`,
+      givenName: r.givenName,
+      familyName: r.familyName,
+    }));
+}
+
 export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersDialogProps) {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>("confirm");
@@ -60,11 +83,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
   const [results, setResults] = useState<RowResult[]>([]);
   // v0.132 (== v0.124 F99 대칭): confirm 시점 snapshot. 실행 중 사용자가 위 폼
   // 을 조작해도 원래 승인 대상 == 처리 대상.
-  const [runRows, setRunRows] = useState<Array<{
-    primaryEmail: string;
-    givenName: string;
-    familyName: string;
-  }> | null>(null);
+  const [runRows, setRunRows] = useState<RunRowSnapshot[] | null>(null);
 
   const orgunitsQuery = useOrgunitsList(open);
 
@@ -134,12 +153,10 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       return setValidationError("초기 비밀번호는 최소 8자 이상이어야 합니다.");
     const orgu = orgUnitPath.trim() || "/";
 
-    // F99: snapshot 확정 (id 는 UI 표시 용이라 primaryEmail + names 만 저장).
-    const snapshot = filledRows.map((r) => ({
-      primaryEmail: r.primaryEmail,
-      givenName: r.givenName,
-      familyName: r.familyName,
-    }));
+    // F99 / v0.132c F109: snapshot 은 buildRunRowsSnapshot 로 확정. rows 인풋을
+    // 직접 spread 해서 정규화 · 필터 · lower-case 정규화를 한 번에 (순수 함수라
+    // 별도 회귀 가능).
+    const snapshot = buildRunRowsSnapshot(rows, DOMAIN);
     setRunRows(snapshot);
     setPhase("running");
     setProgress(0);

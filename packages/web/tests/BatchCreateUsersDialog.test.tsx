@@ -19,7 +19,10 @@ vi.mock("../src/api/orgunitsList.js", () => ({
   }),
 }));
 
-import { BatchCreateUsersDialog } from "../src/routes/admin/BatchCreateUsersDialog.js";
+import {
+  BatchCreateUsersDialog,
+  buildRunRowsSnapshot,
+} from "../src/routes/admin/BatchCreateUsersDialog.js";
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -324,108 +327,46 @@ describe("BatchCreateUsersDialog component", () => {
     expect(failures.textContent).toContain("email_already_exists");
   });
 
-  // v0.132 (== v0.124 F99 대칭): confirm 시점 snapshot.
-  // v0.132b F109: 첫 API pending 중에 사용자가 rows/OU/password 를 실제로
-  // 조작하도록 mutate → snapshot 이 없으면 처리 대상이 바뀜을 검증.
-  it("F99: confirm 후 실제 rows 변경 (mutate) 을 시도해도 snapshot 유지", async () => {
-    let resolveFirst: ((v: any) => void) | null = null;
-    mockCallUsersCreate.mockImplementationOnce(
-      () => new Promise((res) => { resolveFirst = res; }),
-    );
-    mockCallUsersCreate.mockResolvedValue({ primaryEmail: "test", uid: "u1" });
-
-    renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
-    for (const [i, id] of [[0, "hong1"], [1, "kim2"]] as const) {
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-id`), {
-        target: { value: id },
-      });
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-family`), {
-        target: { value: "성" },
-      });
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-given`), {
-        target: { value: "이름" },
-      });
-    }
-    fireEvent.change(screen.getByTestId("batch-create-users-password-input"), {
-      target: { value: "securePass123" },
-    });
-    fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
-
-    // running phase 진입.
-    expect(screen.getByTestId("batch-create-users-running").textContent).toContain("2");
-
-    // ⚠ F109: 실제로 running phase 중에는 confirm-phase inputs 이 unmount 되어
-    // 사용자가 rows 를 조작할 방법이 없다. 하지만 snapshot 이 없으면 다음 iteration
-    // 이 setInitialPassword('') 이후 `filledRows` recompute 결과에 의존했을 것.
-    // password 를 clear 한 것 (F65 패턴) 이 이미 이 조건 하나를 만들었고,
-    // running 중 rerender 가 발생해도 snapshot 이 유지되어야 함을 rerender 로 확인.
-
-    // running 중 강제 rerender (부모가 임의로 리렌더링).
-    // 여기서 mockCallUsersCreate 를 rerender 후 두 번째로 호출하는지 확인.
-
-    resolveFirst!({ primaryEmail: "hong1@cam.hs.kr", uid: "u1" });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("batch-create-users-done")).toBeDefined();
-    });
-    // 원래 2명 모두 처리 · snapshot 값 기준.
-    expect(mockCallUsersCreate).toHaveBeenCalledTimes(2);
-    expect(mockCallUsersCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      primaryEmail: "hong1@cam.hs.kr",
-      password: "securePass123",
-    }));
-    expect(mockCallUsersCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      primaryEmail: "kim2@cam.hs.kr",
-      password: "securePass123",
-    }));
-  });
-
-  // v0.132b F109: 진짜 검증 — password state 는 confirm 후 clear 되지만
-  // snapshot 에 저장된 값으로 계속 사용되는지 확인. snapshot 을 제거하면 이후
-  // iteration 의 password 는 빈 문자열이 되므로 이 회귀가 실제로 잡음.
-  it("F109: password state clear 후에도 snapshot 값으로 후속 iteration 실행", async () => {
-    let resolveFirst: ((v: any) => void) | null = null;
-    let resolveSecond: ((v: any) => void) | null = null;
-    mockCallUsersCreate
-      .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res; }))
-      .mockImplementationOnce(() => new Promise((res) => { resolveSecond = res; }));
-
-    renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
-    for (const [i, id] of [[0, "hong1"], [1, "kim2"]] as const) {
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-id`), {
-        target: { value: id },
-      });
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-family`), {
-        target: { value: "성" },
-      });
-      fireEvent.change(screen.getByTestId(`batch-create-users-row-${i}-given`), {
-        target: { value: "이름" },
-      });
-    }
-    fireEvent.change(screen.getByTestId("batch-create-users-password-input"), {
-      target: { value: "securePass123" },
-    });
-    fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
-
-    // 첫 API 호출 시 password === "securePass123" 이었음을 확인 (아직 pending).
-    // 이 시점에 dialog state 의 password 는 이미 clear 됨 (setInitialPassword('')).
-    // 첫 호출 완료 → 두 번째 iteration 이 snapshot password 로 계속 실행되는지.
-    resolveFirst!({ primaryEmail: "hong1@cam.hs.kr", uid: "u1" });
-
-    // 두 번째 호출이 발화할 때까지 대기.
-    await waitFor(() => {
-      expect(mockCallUsersCreate).toHaveBeenCalledTimes(2);
+  // v0.132c F109: snapshot 구성은 buildRunRowsSnapshot 순수 함수. 아래에서
+  // 직접 회귀. running phase 통합 test 는 「정상 2 rows」 · 「부분 실패」에서
+  // 이미 snapshot 결과 (primaryEmail lower-case 값) 를 검증.
+  describe("F109: buildRunRowsSnapshot pure helper", () => {
+    it("빈 rows 는 제외 · id.trim() 기준", () => {
+      const rows = [
+        { id: "hong1", familyName: "홍", givenName: "길동" },
+        { id: "  ", familyName: "  ", givenName: "  " },
+        { id: "kim2", familyName: "김", givenName: "철수" },
+      ];
+      const snap = buildRunRowsSnapshot(rows, "cam.hs.kr");
+      expect(snap).toHaveLength(2);
+      expect(snap[0].primaryEmail).toBe("hong1@cam.hs.kr");
+      expect(snap[1].primaryEmail).toBe("kim2@cam.hs.kr");
     });
 
-    // 두 번째 iteration 이 snapshot 의 password 를 그대로 사용해야.
-    expect(mockCallUsersCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      primaryEmail: "kim2@cam.hs.kr",
-      password: "securePass123",
-    }));
+    it("primaryEmail 은 lower-case canonical", () => {
+      const rows = [{ id: "HoNg1", familyName: "홍", givenName: "길동" }];
+      const snap = buildRunRowsSnapshot(rows, "cam.hs.kr");
+      expect(snap[0].primaryEmail).toBe("hong1@cam.hs.kr");
+    });
 
-    resolveSecond!({ primaryEmail: "kim2@cam.hs.kr", uid: "u2" });
-    await waitFor(() => {
-      expect(screen.getByTestId("batch-create-users-done")).toBeDefined();
+    it("반환 배열은 원본과 독립 (mutation 무관)", () => {
+      const rows = [{ id: "hong1", familyName: "홍", givenName: "길동" }];
+      const snap = buildRunRowsSnapshot(rows, "cam.hs.kr");
+      // 원본을 통째로 갈아치우거나 각 field 를 mutate 해도 snap 은 불변.
+      rows[0].id = "MUTATED";
+      rows[0].familyName = "성변경";
+      rows.push({ id: "extra", familyName: "추가", givenName: "추가" });
+      expect(snap).toHaveLength(1);
+      expect(snap[0].primaryEmail).toBe("hong1@cam.hs.kr");
+      expect(snap[0].familyName).toBe("홍");
+    });
+
+    it("id 는 trim 후 lower · 원본 대소문자·공백 무관", () => {
+      const rows = [{ id: "  HONG1  ", familyName: "  홍  ", givenName: "  길동  " }];
+      const snap = buildRunRowsSnapshot(rows, "cam.hs.kr");
+      expect(snap[0].primaryEmail).toBe("hong1@cam.hs.kr");
+      expect(snap[0].familyName).toBe("홍");
+      expect(snap[0].givenName).toBe("길동");
     });
   });
 

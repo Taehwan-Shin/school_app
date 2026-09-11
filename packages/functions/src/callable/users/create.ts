@@ -158,13 +158,16 @@ export const usersCreate = onCall(
           : "/";
       changePasswordAtNextLogin = Boolean(changePwRaw);
     } catch (err) {
+      // v0.132c F110: validation 실패는 result="error" (기존 계약 · roles.md 66-76:
+      // 세 서버 게이트 [permission-denied, unauthenticated, failed-precondition] 만
+      // denied). usersUpdate/resetPassword 도 동일 분류.
       await writeAudit({
         actor: user.email,
         role: user.role,
         action: "users.write",
         target: targetEmail,
         request_id: requestId,
-        result: "denied",
+        result: "error",
         message: (err as Error).message,
       });
       if (err instanceof HttpsError) throw err;

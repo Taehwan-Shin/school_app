@@ -140,9 +140,9 @@ describe("usersCreate unit tests", () => {
     );
   });
 
-  // v0.132b F106: 입력 검증 실패는 이제 result="denied" (orgunitsCreate 대칭).
-  // 이전 result="error" 는 upstream 실패와 구분 안 됐던 취급이었음.
-  it("rejects invalid email domain with invalid-argument and writes denied audit", async () => {
+  // v0.132c F110: validation 실패는 result="error" (roles.md 66-76 규약 준수 ·
+  // usersUpdate/resetPassword 와 동일). 세 서버 게이트만 denied.
+  it("rejects invalid email domain with invalid-argument and writes error audit", async () => {
     const req = createRequest({
       data: {
         primaryEmail: "other@gmail.com",
@@ -163,7 +163,7 @@ describe("usersCreate unit tests", () => {
         role: "admin",
         action: "users.write",
         target: "other@gmail.com",
-        result: "denied",
+        result: "error",
       }),
     );
   });
