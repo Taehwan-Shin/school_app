@@ -229,4 +229,59 @@ describe('orgunitsCreate unit tests', () => {
       }),
     );
   });
+
+  // v0.121b F98: Google OU 생성은 성공했으나 감사 쓰기가 실패해도 callable
+  // 은 성공 응답을 반환해야 한다 (재시도 시 409 중복 방지). Cloud Logging
+  // fallback 은 console.error 로 남는다.
+  it('F98: insert 성공 후 writeAudit 실패 → 성공 응답 반환 · Cloud Logging fallback', async () => {
+    mockOrgunitsInsert.mockResolvedValueOnce({
+      data: {
+        orgUnitPath: '/학생/3학년',
+        name: '3학년',
+        parentOrgUnitPath: '/학생',
+      },
+    });
+    // ok 감사 3회 재시도 모두 실패.
+    mockWriteAudit.mockRejectedValue(new Error('firestore_unavailable'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const res = await orgunitsCreate.run(
+      createRequest({ data: { name: '3학년', parentOrgUnitPath: '/학생' } }),
+    );
+    expect(res).toEqual({
+      orgUnitPath: '/학생/3학년',
+      name: '3학년',
+      description: undefined,
+      parentOrgUnitPath: '/학생',
+    });
+    // ok 감사가 3회 시도됐어야.
+    const okCalls = mockWriteAudit.mock.calls.filter(
+      (c: any[]) => c[0]?.result === 'ok',
+    );
+    expect(okCalls.length).toBe(3);
+    // Cloud Logging fallback (structured JSON, severity=ERROR).
+    const logged = errSpy.mock.calls.find(
+      (c: any[]) => typeof c[0] === 'string' && c[0].includes('orgunits_create_audit_write_failed'),
+    );
+    expect(logged).toBeDefined();
+    errSpy.mockRestore();
+  });
+
+  it('F98: insert 성공 후 writeAudit 1회 실패 · 2회차 성공 → 정상 반환 (Cloud Logging 없음)', async () => {
+    mockOrgunitsInsert.mockResolvedValueOnce({
+      data: { orgUnitPath: '/학생/3학년', name: '3학년', parentOrgUnitPath: '/학생' },
+    });
+    mockWriteAudit
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce(undefined);
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const res = await orgunitsCreate.run(createRequest());
+    expect(res.orgUnitPath).toBe('/학생/3학년');
+    const logged = errSpy.mock.calls.find(
+      (c: any[]) => typeof c[0] === 'string' && c[0].includes('orgunits_create_audit_write_failed'),
+    );
+    expect(logged).toBeUndefined();
+    errSpy.mockRestore();
+  });
 });

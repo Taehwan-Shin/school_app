@@ -33,6 +33,36 @@ const NAME_MAX = 100;
 // 부모 경로: 절대 경로 (「/」 시작), 최상위는 「/」 자체.
 const PARENT_PATH_RE = /^\/[^\s\\](?:.*[^\s\\])?$|^\/$/;
 
+// v0.121b F98: Google `orgunits.insert` 성공 뒤 감사 쓰기가 실패해도 이미
+// 생성된 OU 상태를 client 에 반환해야 재시도 409 를 피할 수 있다.
+// v0.116 `transferOwnership` 의 helper 와 동일 패턴 — 재시도 3 회 + Cloud
+// Logging fallback + throw 하지 않음. 호출자가 성공 응답을 그대로 리턴하도록.
+type AuditEntry = Parameters<typeof writeAudit>[0];
+async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
+  const maxAttempts = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await writeAudit(entry);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+      }
+    }
+  }
+  console.error(
+    JSON.stringify({
+      severity: 'ERROR',
+      message: 'orgunits_create_audit_write_failed',
+      request_id: requestId,
+      audit_entry: entry,
+      final_error: (lastErr as Error)?.message ?? String(lastErr),
+    }),
+  );
+}
+
 function readHeader(request: any, key: string): string | undefined {
   const raw =
     request.rawRequest?.headers?.[key] ?? request.rawRequest?.headers?.[key.toLowerCase()];
@@ -112,9 +142,17 @@ export const orgunitsCreate = onCall(
       throw err;
     }
 
+    // v0.121b F98: 입력 검증·Google 호출 · 그리고 insert 후 orgUnitPath 검증까지
+    // 는 실패 시 감사 (denied/error) 를 남기고 throw. `orgunits.insert` 가
+    // 성공하고 orgUnitPath 도 확보되면 그 시점부터 감사 실패는 성공 응답을
+    // 뒤엎지 않도록 별도 처리 (writeAuditWithBackup).
+    let name = '';
+    let parentOrgUnitPath = '';
+    let description: string | undefined;
+    let blockInheritance: boolean | undefined;
+
     try {
-      // 입력 검증.
-      const name = typeof data?.name === 'string' ? data.name.trim() : '';
+      name = typeof data?.name === 'string' ? data.name.trim() : '';
       if (!name) {
         throw new HttpsError('invalid-argument', 'name_required');
       }
@@ -124,18 +162,36 @@ export const orgunitsCreate = onCall(
       if (!NAME_RE.test(name)) {
         throw new HttpsError('invalid-argument', 'name_invalid_chars');
       }
-      const parentOrgUnitPath =
+      parentOrgUnitPath =
         typeof data?.parentOrgUnitPath === 'string' ? data.parentOrgUnitPath.trim() : '';
       if (!parentOrgUnitPath || !PARENT_PATH_RE.test(parentOrgUnitPath)) {
         throw new HttpsError('invalid-argument', 'invalid_parent_path');
       }
-      const description =
+      description =
         typeof data?.description === 'string' ? data.description.trim() : undefined;
-      const blockInheritance =
+      blockInheritance =
         typeof data?.blockInheritance === 'boolean' ? data.blockInheritance : undefined;
+    } catch (err) {
+      const mapped = mapUpstreamError(err);
+      await writeAudit({
+        actor: user.email,
+        role: user.role,
+        action: 'users.write',
+        target: preTarget,
+        request_id: requestId,
+        result: 'denied',
+        message: mapped.message,
+      });
+      throw mapped;
+    }
 
+    type OrgunitInsertResult = Awaited<
+      ReturnType<ReturnType<typeof getDirectoryClient>['orgunits']['insert']>
+    >;
+    let res: OrgunitInsertResult;
+    try {
       const directory = getDirectoryClient(user.googleAccessToken);
-      const res = await directory.orgunits.insert({
+      res = await directory.orgunits.insert({
         customerId: 'my_customer',
         requestBody: {
           name,
@@ -144,31 +200,6 @@ export const orgunitsCreate = onCall(
           ...(blockInheritance !== undefined ? { blockInheritance } : {}),
         },
       });
-
-      const orgUnitPath = res.data?.orgUnitPath;
-      if (!orgUnitPath || typeof orgUnitPath !== 'string') {
-        // Google API 가 orgUnitPath 를 안 돌려주는 케이스는 관측되지 않았지만,
-        // client 가 필드 없이 응답을 받으면 orgunits list refetch 로 대체 가능하도록
-        // 명시 에러 대신 defensive 로 parent+name 조합을 계산.
-        throw new HttpsError('internal', 'orgunit_created_but_path_missing');
-      }
-
-      await writeAudit({
-        actor: user.email,
-        role: user.role,
-        action: 'users.write',
-        target: `orgunits${orgUnitPath}`,
-        request_id: requestId,
-        result: 'ok',
-        message: `created orgunit name=${name} parent=${parentOrgUnitPath}`,
-      });
-
-      return {
-        orgUnitPath,
-        name: res.data.name ?? name,
-        description: res.data.description ?? description,
-        parentOrgUnitPath: res.data.parentOrgUnitPath ?? parentOrgUnitPath,
-      };
     } catch (err) {
       const mapped = mapUpstreamError(err);
       const isDenied =
@@ -184,5 +215,48 @@ export const orgunitsCreate = onCall(
       });
       throw mapped;
     }
+
+    const orgUnitPath = res.data?.orgUnitPath;
+    if (!orgUnitPath || typeof orgUnitPath !== 'string') {
+      // Google API 가 orgUnitPath 를 안 돌려주면 client 가 참조할 자원이 없어
+      // 재시도해도 409 만 반복. UI 는 orgunits list refetch 로 대체할 수밖에.
+      // 이 케이스는 관측되지 않았으나 방어적으로 error 감사.
+      await writeAuditWithBackup(
+        {
+          actor: user.email,
+          role: user.role,
+          action: 'users.write',
+          target: preTarget,
+          request_id: requestId,
+          result: 'error',
+          message: 'orgunit_created_but_path_missing',
+        },
+        requestId,
+      );
+      throw new HttpsError('internal', 'orgunit_created_but_path_missing');
+    }
+
+    // 여기부터는 「Google 쪽 OU 이미 생성됨」 이 확정. 감사 실패해도 client 는
+    // orgUnitPath 를 받아야 재시도 409 를 피한다. writeAuditWithBackup 은 throw
+    // 하지 않음 — 최종 실패 시 Cloud Logging 로 남기고 성공 응답을 반환.
+    await writeAuditWithBackup(
+      {
+        actor: user.email,
+        role: user.role,
+        action: 'users.write',
+        target: `orgunits${orgUnitPath}`,
+        request_id: requestId,
+        result: 'ok',
+        message: `created orgunit name=${name} parent=${parentOrgUnitPath}`,
+      },
+      requestId,
+    );
+
+    return {
+      orgUnitPath,
+      name: res.data.name ?? name,
+      description: res.data.description ?? description,
+      parentOrgUnitPath: res.data.parentOrgUnitPath ?? parentOrgUnitPath,
+    };
   },
 );
