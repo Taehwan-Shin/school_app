@@ -181,5 +181,75 @@ describe("BulkRemoveMembersDialog component", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
+
+  // v0.131 (== v0.124 F99 대칭): confirm 시점의 memberEmails snapshot 확정.
+  it("v0.131 F99: confirm 시 memberEmails snapshot 확정 · 실행 중 prop 변경 무시", async () => {
+    const initial = ["m1@cam.hs.kr", "m2@cam.hs.kr"];
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockCallGroupsMembersDelete.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; }),
+    );
+    mockCallGroupsMembersDelete.mockResolvedValue({ deleted: true });
+
+    const onOpenChange = vi.fn();
+    const { rerender } = renderWithClient(
+      <BulkRemoveMembersDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        groupEmail={groupEmail}
+        memberEmails={initial}
+      />
+    );
+    fireEvent.change(screen.getByTestId("bulk-remove-confirm-input"), {
+      target: { value: "제거 2" },
+    });
+    fireEvent.click(screen.getByTestId("bulk-remove-confirm-btn"));
+
+    // 첫 API 호출 pending 중 부모가 memberEmails 를 바꿔 rerender.
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <BulkRemoveMembersDialog
+            open={true}
+            onOpenChange={onOpenChange}
+            groupEmail={groupEmail}
+            memberEmails={["completely-different@cam.hs.kr"]}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId("bulk-remove-running").textContent).toContain("2");
+
+    resolveFirst!({ deleted: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-remove-done")).toBeDefined();
+    });
+    expect(mockCallGroupsMembersDelete).toHaveBeenCalledTimes(2);
+    expect(mockCallGroupsMembersDelete).toHaveBeenNthCalledWith(1, {
+      groupEmail,
+      memberEmail: "m1@cam.hs.kr",
+    });
+    expect(mockCallGroupsMembersDelete).toHaveBeenNthCalledWith(2, {
+      groupEmail,
+      memberEmail: "m2@cam.hs.kr",
+    });
+    expect(screen.getByTestId("bulk-remove-done").textContent).toContain("2명 성공");
+  });
+
+  // v0.131 (== v0.124 F100 대칭): label htmlFor 로 프로그램적 연결.
+  it("v0.131 F100: confirm input 은 label htmlFor 로 프로그램적 연결", () => {
+    renderWithClient(
+      <BulkRemoveMembersDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        groupEmail={groupEmail}
+        memberEmails={["m@cam.hs.kr"]}
+      />
+    );
+    const input = screen.getByLabelText(/실행하려면 아래 문구/);
+    expect(input).toBeDefined();
+    expect((input as HTMLInputElement).id).toBe("bulk-remove-confirm-input");
+  });
 });
 

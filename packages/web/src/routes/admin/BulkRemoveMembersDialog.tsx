@@ -33,6 +33,8 @@ export function BulkRemoveMembersDialog({
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
+  // v0.131 (== v0.124 F99 대칭): confirm 시점의 memberEmails snapshot 확정.
+  const [runMemberEmails, setRunMemberEmails] = useState<string[] | null>(null);
 
   const requiredPhrase = `제거 ${memberEmails.length}`;
 
@@ -42,6 +44,7 @@ export function BulkRemoveMembersDialog({
       setProgress(0);
       setFailures([]);
       setConfirmText("");
+      setRunMemberEmails(null);
     }
   }, [open]);
 
@@ -54,10 +57,13 @@ export function BulkRemoveMembersDialog({
   };
 
   const handleConfirm = async () => {
+    // F99: snapshot 을 phase 전환과 동시에 확정.
+    const snapshot = [...memberEmails];
+    setRunMemberEmails(snapshot);
     setPhase("running");
     const localFailures: { email: string; message: string }[] = [];
-    for (let i = 0; i < memberEmails.length; i++) {
-      const memberEmail = memberEmails[i];
+    for (let i = 0; i < snapshot.length; i++) {
+      const memberEmail = snapshot[i];
       try {
         await callGroupsMembersDelete({ groupEmail, memberEmail });
       } catch (e) {
@@ -70,6 +76,8 @@ export function BulkRemoveMembersDialog({
     queryClient?.invalidateQueries({ queryKey: ["groups", "members", groupEmail] });
     queryClient?.invalidateQueries({ queryKey: [`groups/members/${groupEmail}`] });
   };
+
+  const displayEmails = runMemberEmails ?? memberEmails;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -93,10 +101,15 @@ export function BulkRemoveMembersDialog({
               )}
             </ul>
             <div>
-              <label className="text-small text-fg-primary">
+              {/* v0.131 (== v0.124 F100 대칭): htmlFor/id 로 프로그램적 연결. */}
+              <label
+                htmlFor="bulk-remove-confirm-input"
+                className="text-small text-fg-primary"
+              >
                 실행하려면 아래 문구를 정확히 입력하세요: <strong className="font-mono">{requiredPhrase}</strong>
               </label>
               <input
+                id="bulk-remove-confirm-input"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
@@ -129,13 +142,13 @@ export function BulkRemoveMembersDialog({
             <div className="py-8 text-center space-y-3" data-testid="bulk-remove-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{memberEmails.length}</strong>
+                <strong className="font-mono">{displayEmails.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${memberEmails.length > 0 ? (progress / memberEmails.length) * 100 : 0}%`,
+                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -153,7 +166,7 @@ export function BulkRemoveMembersDialog({
               <p className="text-body text-fg-primary">
                 완료:{" "}
                 <strong className="text-state-success font-mono">
-                  {memberEmails.length - failures.length}
+                  {displayEmails.length - failures.length}
                 </strong>
                 명 성공
                 {failures.length > 0 && (
