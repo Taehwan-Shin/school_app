@@ -1,6 +1,6 @@
 # ROADMAP — school_app 개발 로드맵
 
-> 2026-09-11 기준 · v0.119 배포 완료 · 다음 단계 계획.
+> 2026-09-11 기준 · v0.120 배포 완료 · 다음 단계 계획.
 > `NEXT.md` 는 「지금 열린 오더」 · `ROADMAP.md` 는 「전체 계획」. 두 파일을 함께 본다.
 
 ## 완료 (v0.93 baseline → v0.112)
@@ -61,9 +61,10 @@
 - **classroom 상세 페이지** — v0.117 완료 (`/admin/classrooms/:id` · CourseMembersPanel · inline actions · super_admin 감사 링크는 서버 target 필터).
 - **감사 로그 배치 export** — v0.118 완료 (전체 JSON 순회 · compound cursor · AbortSignal · q filter 반영).
 - **admin/users 검색 필터** — 이미 구현됨 (`AccountsTable` `q` URL param + 이메일/이름 검색).
+- **super_admin 대시보드 위젯** — v0.120 완료 (「오늘 액션별」 bar-list · SAMPLE_LIMIT=500 · truncated 배너).
 
 남은 후보:
-- **super_admin 대시보드 위젯** — 최근 활동 요약 (오늘/이번주 action 별 breakdown).
+- **이번 주/월 window breakdown** — v0.120 은 「오늘」만. 사용자 선택 window.
 
 ### Phase 7 — 배포·운영 gate (사용자 조치 대기)
 - **Identity Platform 업그레이드** — Firebase Console → Authentication → Settings.

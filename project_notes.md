@@ -1693,3 +1693,43 @@ v0.120 후보 (ROADMAP Phase 5/6):
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
 
 **하이브리드 위임 시작** (bliss00 승인 2026-09-11) — v0.120 마무리 사이클부터 안티그래비티에 「병합 + 배포 + 4 문서 갱신 + 채널 공지」 위임. 오더 template 은 `docs/handoff/NEXT.md` 「안티그래비티 위임 template」 섹션. Head 는 신규 슬라이스 구현 · Codex 감사 응답 · hotfix 담당.
+
+---
+
+## 2026-09-11 · v0.120 super_admin 대시보드 「오늘 액션별」 위젯 (2 라운드 Codex 감사)
+
+**슬라이스** — SuperAdminPage 에 오늘 감사 이벤트를 action 종류별로 집계하는 위젯 신설. `auditLogSummary` 를 확장해 서버가 500 개 sample 을 in-memory 그룹핑, top action 은 count 내림차순 bar-list. 각 row 는 audit filter 링크 (action + atMin=today). sample truncated 시 배너로 명시.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `20e6ce7` | feat: auditLogSummary 확장 + SuperAdminPage 「오늘 액션별」 위젯 + 3+4 회귀 |
+| `0b76820` | fix: F97 `actionCounts=undefined` (구 응답 backward-compat) 구분 |
+
+### v0.120 → v0.120b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.120 | `20e6ce7` | 7/1/2 | F97 구 응답 (actionCounts 필드 없음) 이 `count>0` 이어도 「이벤트 없음」 오표시 |
+| v0.120b | `0b76820` | **5/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `6be9db7` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 487 + web 750 = 1264 unit.
+
+### 배운 것
+
+- **Response schema 확장은 optional 필드 + undefined vs {} 구분** — 신규 필드를 optional 로 추가하는 것은 backward-compat 하지만, 클라이언트가 `?? {}` 로 통일해서 처리하면 「구 서버 응답 (필드 부재)」 과 「신규 서버 응답 + 실제 빈 집계」를 못 구분한다. 실제 UX 로 「이벤트 없음」 오표시로 이어짐. `undefined` 분기와 `{}` 분기를 명시.
+- **Sample-scope caveat 은 UI 에도 반영** — 500 sample 상한으로 in-memory 그룹핑하면 `count > sampleSize` 일 때 전체와 다를 수 있음. Codex 는 v0.105 에서 이미 표본 범위 caveat 을 요구했고, v0.120 도 같은 패턴 (`sampleTruncated` 배너로 명시). 이 caveat 이 없으면 사용자가 partial 집계를 정확한 것처럼 오해.
+- **가벼운 위젯 슬라이스도 test isolation 이슈에 주의** — `auditLogSummary` 를 확장하면서 `readAuditEntries` 를 두 번 호출하게 되면, 기존 tests 의 `mockResolvedValueOnce` 큐가 부족. `beforeEach` 에 default `mockResolvedValue` 지정으로 해결.
+
+### 다음 세션에 이어갈 것
+
+v0.121 후보:
+- orgunits.insert 신규 OU 생성 UI (v0.119 잔재).
+- 이번 주/월 window breakdown (v0.120 은 「오늘」만).
+- 전입생 계정 개별 생성 UX 세부 (Phase 5).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
