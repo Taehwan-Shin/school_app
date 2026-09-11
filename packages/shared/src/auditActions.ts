@@ -19,6 +19,9 @@ export const AUDIT_ACTIONS: readonly string[] = [
   'classroom.write',
   'classroom.create',
   'classroom.delete',
+  // v0.116: classroom 소유자 이관 (transferClassroomOwnership callable). patch(ownerId)
+  // 는 courseState 변경과 구분되는 auth-sensitive workflow 라 별도 action 으로 기록.
+  'classroom.transfer_owner',
   'classroom.teachers.add',
   'classroom.teachers.delete',
   'classroom.students.add',

@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
+import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
+import { useAuth } from '../../lib/auth';
 import {
   Table,
   TableBody,
@@ -24,6 +26,10 @@ import {
   BulkArchiveClassroomDialog,
   type BulkArchiveDirection,
 } from './BulkArchiveClassroomDialog';
+import {
+  TransferClassroomOwnerDialog,
+  type TransferClassroomOwnerTarget,
+} from './TransferClassroomOwnerDialog';
 import { Button } from '../../components/ui/button';
 
 export function translateCourseState(s?: string): string {
@@ -38,6 +44,8 @@ export function translateCourseState(s?: string): string {
 }
 
 export function ClassroomTable() {
+  const { role: currentRole } = useAuth();
+  const canTransferOwner = userHasCap(currentRole, 'classroom.transfer_owner');
   const { data, isLoading, isError, error } = useClassroomList();
   const [membersTarget, setMembersTarget] = useState<{ id: string; name?: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
@@ -48,6 +56,8 @@ export function ClassroomTable() {
   // v0.115: 다중 선택 + bulk archive/restore.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDirection, setBulkDirection] = useState<BulkArchiveDirection | null>(null);
+  // v0.116: 소유자 이관.
+  const [transferTarget, setTransferTarget] = useState<TransferClassroomOwnerTarget | null>(null);
 
   const courses = data?.courses ?? [];
   const eligibleIds = useMemo(
@@ -249,6 +259,23 @@ export function ClassroomTable() {
                           {c.courseState === 'ACTIVE' ? '아카이브' : '복구'}
                         </button>
                       )}
+                      {canTransferOwner && c.courseState === 'ACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTransferTarget({
+                              id: c.id,
+                              name: c.name,
+                              currentOwnerId: c.ownerId,
+                            })
+                          }
+                          data-testid={`classroom-transfer-owner-btn-${c.id}`}
+                          title="소유자 이관 (admin/super_admin 전용)"
+                          className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
+                        >
+                          소유자 이관
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
@@ -300,6 +327,13 @@ export function ClassroomTable() {
           courses={bulkTargetCourses}
           direction={bulkDirection}
           onDone={() => setSelectedIds(new Set())}
+        />
+      )}
+      {transferTarget && (
+        <TransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={(o) => !o && setTransferTarget(null)}
+          target={transferTarget}
         />
       )}
     </div>

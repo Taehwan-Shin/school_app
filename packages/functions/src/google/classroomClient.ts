@@ -67,7 +67,7 @@ export interface ClassroomClient {
     patch: (params: {
       id: string;
       updateMask: string;
-      requestBody: Partial<Pick<ClassroomCourse, 'courseState' | 'name' | 'section'>>;
+      requestBody: Partial<Pick<ClassroomCourse, 'courseState' | 'name' | 'section' | 'ownerId'>>;
     }) => Promise<{ data: ClassroomCourse }>;
     create: (params: {
       requestBody: {
