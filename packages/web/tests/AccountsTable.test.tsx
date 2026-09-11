@@ -1195,13 +1195,44 @@ describe("AccountsTable component", () => {
 
     const suspendBtn = screen.getByTestId("bulk-suspend-btn");
     const deleteBtn = screen.getByTestId("bulk-delete-btn");
+    // v0.123: 「선택 복구」 버튼 추가.
+    const restoreBtn = screen.getByTestId("bulk-restore-btn");
 
     expect(suspendBtn).toBeDefined();
     expect(deleteBtn).toBeDefined();
+    expect(restoreBtn).toBeDefined();
+    expect(restoreBtn.textContent).toContain("선택 복구");
     expect(deleteBtn.textContent).toContain("선택 삭제");
 
     fireEvent.click(deleteBtn);
     expect(screen.getByText("일괄 삭제 확인")).toBeDefined();
+  });
+
+  // v0.123: bulk-restore-btn 클릭 시 BulkRestoreDialog 오픈.
+  it("v0.123: bulk-restore-btn 클릭 → BulkRestoreDialog 오픈", () => {
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: true,
+      },
+    ];
+
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<AccountsTable />);
+    const check = screen.getByTestId("bulk-check-user1@cam.hs.kr") as HTMLInputElement;
+    fireEvent.click(check);
+    fireEvent.click(screen.getByTestId("bulk-restore-btn"));
+    expect(screen.getByText("일괄 복구 확인")).toBeDefined();
   });
 
   it("renders bulk-move-ou-btn in bulk-action-bar when selection > 0 and opens BulkMoveOuDialog", () => {
