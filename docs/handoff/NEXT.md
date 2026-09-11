@@ -1,15 +1,15 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.125 병합 대기** — AccountsTable 「필터 초기화」 button (v0.112 AuditLogTable 대칭) · Codex 감사 요청 예정.
+> **v0.125 병합 완료** (`6025fe1`) — AccountsTable 「필터 초기화」 button + F101/F102 · 2 라운드 Codex 감사.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `6025fe1` v0.125 — AccountsTable 「필터 초기화」 button (v0.112 대칭) + F101/F102.
 - `963495c` v0.124 — BulkSuspendDialog F99/F100 대칭 적용 (v0.123b 마무리).
 - `75eac51` v0.123 — BulkRestoreDialog (AccountsTable 「선택 복구」, BulkSuspend 대칭) + F99/F100.
 - `6f925f8` v0.122 — SuperAdminPage 액션별 위젯 window breakdown (오늘/이번 주/이번 달).
 - `5aef31f` v0.121 — orgunits.insert 신규 OU 생성 UI (F98 audit backup + Cloud Logging fallback).
-- `6be9db7` v0.120 — super_admin 대시보드 「오늘 액션별」 위젯 (auditLogSummary 확장 + F97).
 
 ## 다음 후보 (Head 자율 실행 예정)
 

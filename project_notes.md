@@ -1887,3 +1887,42 @@ v0.125 후보:
 - **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. `count()` aggregation 으로 각 action 별 정확 count 구할 수 있을지 검토.
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.125 AccountsTable 「필터 초기화」 button + F101/F102 (2 라운드 Codex 감사)
+
+**슬라이스** — v0.112 에서 AuditLogTable 에 도입했던 「필터 초기화」 버튼 패턴을 AccountsTable 에도 적용. 검색 · KPI 필터 · 정렬을 한 번에 원자적 clear. 개별 필터를 하나씩 되돌리는 것보다 UX 훨씬 빠름.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `5e26ee6` | feat: AccountsTable 「필터 초기화」 button + 5건 회귀 (기본 disabled · q/filter/sort enabled · clear 후 disabled 복원) |
+| `d31720e` | fix: F101 (raw vs normalized 혼용) + F102 (URL/DOM 검증 부실) + 4건 boundary 회귀 |
+
+### v0.125 → v0.125b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.125 | `5e26ee6` | 4/2/2 | F101 raw vs normalized 혼용 · F102 test 부실 |
+| v0.125b | `d31720e` | **6/0/2** 통과 | 없음 (판정불가: 브라우저 좁은 화면 배치 · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `6025fe1` (main).
+- 배포: `firebase deploy --only hosting --project school-app-5a636` (functions 변경 없음).
+- 로컬 관문: shared 27 + functions 501 + web 781 = **1,309 unit**.
+
+### 배운 것
+
+- **활성 판정은 실제 적용 규칙 기준으로 정규화** — URL param 존재 (raw) 와 실제 필터 적용 (normalized) 는 다를 수 있다. 예: `?q=%20` 는 URL 에 존재하지만 trim 후 미적용, `?filter=weird` 는 존재하지만 allowlist 밖이라 미적용, `?dir=desc` 단독은 sort 없이 무의미. 「필터 초기화」 버튼의 활성 판정을 raw 로 하면 disabled/enabled 표시와 실제 필터 상태가 어긋난다. **정규화 파이프라인 (`searchQuery.trim()`, `sortColumn` normalized non-null, kpiFilter allowlist) 을 그대로 판정에도 사용**해야 UX 일관성 유지.
+- **정확한 활성 판정은 「인터랙션 무효」 방지에도 도움** — dir 단독 URL 에서 초기화 버튼을 활성으로 표시하면 사용자가 클릭했을 때 URL 은 비어지지만 표시된 데이터는 변화 없음 → 사용자는 「버튼이 동작 안 함」 이라고 느낀다. 활성 조건을 「실제 필터 규칙」 기준으로 좁히면 이런 경험 회피.
+- **UI 버튼 activation UT 는 disabled 뿐 아니라 side-effect 검증도 필요** — 첫 라운드 테스트는 「필터 없으면 disabled · 필터 있으면 enabled」 만 확인해서 F101 을 놓쳤다. LocationSpy 로 URL search 값 자체 · DOM 사용자 복원 · boundary case (공백-only q · 잘못된 filter · dir 단독) 를 함께 검증해야 정규화 대칭 보장.
+
+### 다음 세션에 이어갈 것
+
+v0.126 후보:
+- **감사 액션별 위젯 정확 count aggregation** — v0.120/v0.122 는 sample-scope (max 500) breakdown. Firestore `count()` aggregation 으로 각 action 별 정확 count 검토.
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
