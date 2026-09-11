@@ -1,6 +1,11 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+function renderWithRouter(node: React.ReactElement) {
+  return render(<MemoryRouter>{node}</MemoryRouter>);
+}
 
 const mockUseClassroomList = vi.fn();
 
@@ -107,7 +112,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     expect(screen.getByTestId('classroom-list-loading')).toBeDefined();
     expect(screen.getByText('클래스룸 코스 목록을 불러오는 중...')).toBeDefined();
   });
@@ -120,7 +125,7 @@ describe('ClassroomTable component', () => {
       error: new Error('network_failure'),
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     expect(screen.getByTestId('classroom-list-error')).toBeDefined();
     expect(
       screen.getByText('클래스룸 코스 목록을 불러오지 못했습니다: network_failure'),
@@ -135,7 +140,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     expect(screen.getByTestId('classroom-list-empty')).toBeDefined();
     expect(screen.getByText('표시할 클래스룸 코스가 없습니다.')).toBeDefined();
   });
@@ -172,7 +177,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
 
     expect(screen.getByText('3개 코스')).toBeDefined();
 
@@ -214,10 +219,14 @@ describe('ClassroomTable component', () => {
     // PROVISIONED: 아카이브/복구 버튼 없음
     expect(screen.queryByTestId('classroom-archive-btn-c-103')).toBeNull();
 
-    // 모든 행에 멤버 버튼 있음
-    expect(screen.getByTestId('classroom-members-btn-c-101')).toBeDefined();
-    expect(screen.getByTestId('classroom-members-btn-c-102')).toBeDefined();
-    expect(screen.getByTestId('classroom-members-btn-c-103')).toBeDefined();
+    // 모든 행에 상세 링크 있음 (이름 → /admin/classrooms/:id)
+    const detailLink1 = screen.getByTestId('classroom-detail-link-c-101');
+    expect(detailLink1.getAttribute('href')).toBe('/admin/classrooms/c-101');
+    expect(screen.getByTestId('classroom-detail-link-c-102')).toBeDefined();
+    expect(screen.getByTestId('classroom-detail-link-c-103')).toBeDefined();
+
+    // 「멤버」 다이얼로그 버튼은 상세 페이지 이관 이후 제거됨
+    expect(screen.queryByTestId('classroom-members-btn-c-101')).toBeNull();
 
     // 모든 행에 삭제 버튼 있음
     expect(screen.getByTestId('classroom-delete-btn-c-101')).toBeDefined();
@@ -225,7 +234,7 @@ describe('ClassroomTable component', () => {
     expect(screen.getByTestId('classroom-delete-btn-c-103')).toBeDefined();
   });
 
-  it('scenario 5: opens CourseMembersDialog, ArchiveClassroomDialog and DeleteClassroomDialog on button clicks', () => {
+  it('scenario 5: 이름 링크는 상세 페이지로 이동하고 아카이브·삭제 다이얼로그가 열린다', () => {
     const mockCourses = [
       {
         id: 'c-101',
@@ -242,16 +251,11 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
 
-    // 멤버 버튼 클릭 시 CourseMembersDialog 표시
-    const membersBtn = screen.getByTestId('classroom-members-btn-c-101');
-    fireEvent.click(membersBtn);
-    expect(screen.getByText('1학년 1반 수학 멤버')).toBeDefined();
-
-    // 닫기 클릭
-    const closeBtns = screen.getAllByRole('button', { name: '닫기' });
-    fireEvent.click(closeBtns[0]);
+    // 이름 클릭 = 상세 페이지 링크 (dialog 아님)
+    const detailLink = screen.getByTestId('classroom-detail-link-c-101');
+    expect(detailLink.getAttribute('href')).toBe('/admin/classrooms/c-101');
 
     // 아카이브 버튼 클릭 시 다이얼로그 표시
     const archiveBtn = screen.getByTestId('classroom-archive-btn-c-101');
@@ -285,7 +289,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     const createBtn = screen.getByTestId('classroom-create-btn');
     expect(createBtn).toBeDefined();
     expect(createBtn.textContent).toContain('코스 추가');
@@ -304,7 +308,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     const batchBtn = screen.getByTestId('classroom-batch-create-btn');
     expect(batchBtn).toBeDefined();
     expect(batchBtn.textContent).toContain('학년/반 일괄 생성');
@@ -318,7 +322,7 @@ describe('ClassroomTable component', () => {
       error: null,
     });
 
-    render(<ClassroomTable />);
+    renderWithRouter(<ClassroomTable />);
     const batchBtn = screen.getByTestId('classroom-batch-create-btn');
     expect(screen.queryByTestId('bulk-create-year-input')).toBeNull();
 

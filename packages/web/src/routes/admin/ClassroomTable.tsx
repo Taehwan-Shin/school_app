@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
@@ -18,7 +19,6 @@ import {
   DeleteClassroomDialog,
   type DeleteClassroomTarget,
 } from './DeleteClassroomDialog';
-import { CourseMembersDialog } from './CourseMembersDialog';
 import { CreateClassroomDialog } from './CreateClassroomDialog';
 import { CourseBulkCreateDialog } from './CourseBulkCreateDialog';
 import { ClassroomChatPairBulkCreateDialog } from './ClassroomChatPairBulkCreateDialog';
@@ -47,7 +47,6 @@ export function ClassroomTable() {
   const { role: currentRole } = useAuth();
   const canTransferOwner = userHasCap(currentRole, 'classroom.transfer_owner');
   const { data, isLoading, isError, error } = useClassroomList();
-  const [membersTarget, setMembersTarget] = useState<{ id: string; name?: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -220,7 +219,13 @@ export function ClassroomTable() {
                       />
                     </TableCell>
                     <TableCell className="text-fg-primary">
-                      {c.name || <span className="text-fg-muted">(무제)</span>}
+                      <Link
+                        to={`/admin/classrooms/${encodeURIComponent(c.id)}`}
+                        data-testid={`classroom-detail-link-${c.id}`}
+                        className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                      >
+                        {c.name || <span className="text-fg-muted">(무제)</span>}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-small text-fg-secondary">{c.section || '-'}</TableCell>
                     <TableCell className="text-small text-fg-secondary">{translateCourseState(c.courseState)}</TableCell>
@@ -241,14 +246,6 @@ export function ClassroomTable() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => setMembersTarget({ id: c.id, name: c.name })}
-                        data-testid={`classroom-members-btn-${c.id}`}
-                        className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong mr-3"
-                      >
-                        멤버
-                      </button>
                       {canSelect && (
                         <button
                           type="button"
@@ -292,12 +289,6 @@ export function ClassroomTable() {
           </Table>
         </div>
       )}
-      <CourseMembersDialog
-        open={!!membersTarget}
-        onOpenChange={(o) => !o && setMembersTarget(null)}
-        courseId={membersTarget?.id ?? null}
-        courseName={membersTarget?.name}
-      />
       <ArchiveClassroomDialog
         open={!!archiveTarget}
         onOpenChange={(o) => !o && setArchiveTarget(null)}
