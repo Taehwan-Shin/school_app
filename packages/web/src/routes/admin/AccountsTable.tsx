@@ -18,6 +18,7 @@ import { DeleteUserDialog, type DeleteUserTarget } from "./DeleteUserDialog";
 import { SuspendUserDialog, type SuspendUserTarget } from "./SuspendUserDialog";
 import { ResetPasswordDialog, type ResetPasswordTarget } from "./ResetPasswordDialog";
 import { BulkSuspendDialog } from "./BulkSuspendDialog";
+import { BulkRestoreDialog } from "./BulkRestoreDialog";
 import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
@@ -50,6 +51,7 @@ export function AccountsTable() {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);
   const [isBulkSuspendOpen, setIsBulkSuspendOpen] = useState(false);
+  const [isBulkRestoreOpen, setIsBulkRestoreOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkResetPasswordOpen, setIsBulkResetPasswordOpen] = useState(false);
 
@@ -232,6 +234,13 @@ export function AccountsTable() {
               data-testid="bulk-suspend-btn"
             >
               선택 정지
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkRestoreOpen(true)}
+              data-testid="bulk-restore-btn"
+            >
+              선택 복구
             </Button>
             <Button
               variant="secondary"
@@ -596,6 +605,13 @@ export function AccountsTable() {
       <BulkSuspendDialog
         open={isBulkSuspendOpen}
         onOpenChange={setIsBulkSuspendOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
+      />
+
+      <BulkRestoreDialog
+        open={isBulkRestoreOpen}
+        onOpenChange={setIsBulkRestoreOpen}
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />
