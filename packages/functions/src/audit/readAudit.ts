@@ -1,4 +1,4 @@
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldPath } from 'firebase-admin/firestore';
 import type { Role } from '@school-app/shared';
 
 export interface AuditLogEntryRead {
@@ -15,9 +15,17 @@ export interface AuditLogEntryRead {
   message?: string;
 }
 
+// v0.118b F82: 같은 timestamp 이벤트가 페이지 경계에서 유실되지 않도록 (at, docId)
+// compound cursor 로 안정화. Firestore serverTimestamp() 는 ms 단위라 같은 batch 나
+// 동시 쓰기에서 동률 발생 가능.
+export interface ReadAuditCursor {
+  at: number;
+  id: string;
+}
+
 export interface ReadAuditEntriesOptions {
   limit: number; // 1..200
-  before?: number; // ms since epoch, exclusive
+  before?: ReadAuditCursor; // v0.118b F82: compound cursor.
   atMin?: number; // ms since epoch, inclusive (at >= atMin)
   atMax?: number; // ms since epoch, inclusive (at <= atMax)
   filterActor?: string; // 정확 매치
@@ -29,7 +37,7 @@ export interface ReadAuditEntriesOptions {
 
 export interface ReadAuditEntriesResult {
   entries: AuditLogEntryRead[];
-  nextCursor: number | null; // 마지막 항목의 at (ms), 페이지가 꽉 찼을 때만. 아니면 null.
+  nextCursor: ReadAuditCursor | null;
 }
 
 export async function readAuditEntries(
@@ -48,9 +56,16 @@ export async function readAuditEntries(
     filterActions,
   } = options;
 
-  let query: FirebaseFirestore.Query = db.collection('audit_log').orderBy('at', 'desc');
+  // v0.118b F82: orderBy(at DESC, __name__ DESC) 로 tie-breaker 확보. 기존 audit_log
+  // 복합 인덱스는 [<filter>, at DESC] 로 정의됐지만 Firestore 는 모든 composite index
+  // 에 __name__ 을 암묵적으로 포함하므로 별도 index 추가 없이 orderBy 확장 가능.
+  let query: FirebaseFirestore.Query = db
+    .collection('audit_log')
+    .orderBy('at', 'desc')
+    .orderBy(FieldPath.documentId(), 'desc');
   if (before !== undefined) {
-    query = query.where('at', '<', Timestamp.fromMillis(before));
+    // startAfter 는 orderBy 필드 순서와 정확히 일치해야 한다.
+    query = query.startAfter(Timestamp.fromMillis(before.at), before.id);
   }
   if (atMin !== undefined) {
     query = query.where('at', '>=', Timestamp.fromMillis(atMin));
@@ -103,8 +118,10 @@ export async function readAuditEntries(
     };
   });
 
-  const nextCursor =
-    entries.length === limit ? entries[entries.length - 1].at : null;
+  const nextCursor: ReadAuditCursor | null =
+    entries.length === limit
+      ? { at: entries[entries.length - 1].at, id: entries[entries.length - 1].id }
+      : null;
 
   return { entries, nextCursor };
 }

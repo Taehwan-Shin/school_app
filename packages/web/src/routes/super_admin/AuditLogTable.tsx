@@ -187,12 +187,14 @@ export function AuditLogTable() {
   // v0.118: 전체 페이지 순회 JSON export. 서버 pagination 을 hasMore=false 또는
   // maxPages 상한까지 순회해 하나의 통합 payload 생성. 진행률 · 취소 지원.
   const [batchProgress, setBatchProgress] = useState<AuditBatchExportProgress | null>(null);
+  const [batchError, setBatchError] = useState<Error | null>(null);
   const batchAbortRef = useRef<AbortController | null>(null);
 
   const handleExportAllJson = async () => {
     if (batchProgress) return; // 이미 진행 중이면 노-op
     const controller = new AbortController();
     batchAbortRef.current = controller;
+    setBatchError(null);
     setBatchProgress({ page: 0, fetched: 0, hasMore: true });
     try {
       const result = await fetchAllAuditLog(
@@ -215,9 +217,18 @@ export function AuditLogTable() {
       // 취소 시엔 파일을 만들지 않는다 — 사용자 의도는 「멈춤」.
       if (result.aborted) return;
 
-      // 로컬 q 검색은 서버 필터가 아니라 client-side action/message 부분 문자열 검색.
-      // batch 는 서버 paginate 결과 전체를 담고, 파일 metadata 에 q 를 표기해서
-      // 사용자가 필요 시 별도 tool 로 후처리 (기존 handleExportJson 도 이 방식이었음).
+      // v0.118b F84: `q` 는 client-side action/message substring 필터. 서버 batch
+      // 결과에도 화면 (`filteredEntries`) 와 같은 규칙으로 적용해야 「현재 필터
+      // 조건」 export 의 count/entries 가 사용자 기대와 일치.
+      const q = actionSearch.trim().toLowerCase();
+      const filteredBatchEntries = q
+        ? result.entries.filter((e) => {
+            const inAction = e.action.toLowerCase().includes(q);
+            const inMessage = (e.message ?? '').toLowerCase().includes(q);
+            return inAction || inMessage;
+          })
+        : result.entries;
+
       const payload = {
         exportedAt: new Date().toISOString(),
         // v0.118: batch 표식.
@@ -237,8 +248,10 @@ export function AuditLogTable() {
         partial: result.hitCap,
         hitCap: result.hitCap,
         pages: result.pages,
-        count: result.entries.length,
-        entries: result.entries.map((e) => ({
+        // v0.118b F84: server 가 돌려준 전체 count 와 q 필터링 후 count 를 구분.
+        serverCount: result.entries.length,
+        count: filteredBatchEntries.length,
+        entries: filteredBatchEntries.map((e) => ({
           id: e.id,
           at: e.at,
           atIso: new Date(e.at).toISOString(),
@@ -257,6 +270,10 @@ export function AuditLogTable() {
       const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
       const dateStr = new Date().toISOString().split('T')[0];
       downloadBlob(blob, `audit-log-${dateStr}-all${filterSummaryForFilename()}.json`);
+    } catch (err) {
+      // v0.118b F85: fetch 실패를 UI 로 보존. progress banner 는 사라지지만
+      // 별도 error banner 로 원인·재시도 안내.
+      setBatchError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       batchAbortRef.current = null;
       setBatchProgress(null);
@@ -584,6 +601,26 @@ export function AuditLogTable() {
             data-testid="audit-log-batch-cancel"
           >
             취소
+          </button>
+        </div>
+      )}
+      {batchError && !batchProgress && (
+        <div
+          className="flex items-center justify-between border border-state-danger p-3 text-small text-state-danger"
+          data-testid="audit-log-batch-error"
+        >
+          <span>
+            전체 JSON 실패: {batchError.message}
+            <span className="text-fg-secondary"> · 재시도해 주세요.</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setBatchError(null)}
+            className="text-fg-secondary hover:text-fg-primary cursor-pointer"
+            data-testid="audit-log-batch-error-dismiss"
+            aria-label="배치 오류 닫기"
+          >
+            ×
           </button>
         </div>
       )}

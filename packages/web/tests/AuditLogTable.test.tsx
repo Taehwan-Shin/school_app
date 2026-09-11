@@ -1701,6 +1701,80 @@ describe('AuditLogTable component', () => {
         expect(screen.queryByTestId('audit-log-batch-progress')).toBeNull();
       });
     });
+
+    // v0.118b F84: batch 결과에 q (action/message substring) 필터 적용해서
+    // 「현재 필터 조건」 export 의 count/entries 가 화면과 일치.
+    it('F84: batch 결과에 q filter 적용 · count/entries 반영', async () => {
+      const { waitFor } = await import('@testing-library/react');
+      const createObjectURLSpy = URL.createObjectURL as ReturnType<typeof vi.fn>;
+      let capturedBlob: Blob | null = null;
+      // createObjectURL 을 spy 로 재정의해서 blob 을 캡처.
+      createObjectURLSpy.mockImplementation((blob: Blob) => {
+        capturedBlob = blob;
+        return 'blob:mock';
+      });
+      mockFetchAllAuditLog.mockResolvedValueOnce({
+        entries: [
+          {
+            id: 'e1',
+            actor: 'admin@cam.hs.kr',
+            role: 'admin',
+            action: 'users.read',
+            target: 'users/*',
+            request_id: 'req-1',
+            result: 'ok',
+            at: 1_700_000_000_000,
+            message: 'role_split detected',
+          },
+          {
+            id: 'e2',
+            actor: 'admin@cam.hs.kr',
+            role: 'admin',
+            action: 'users.write',
+            target: 'users/x',
+            request_id: 'req-2',
+            result: 'ok',
+            at: 1_700_000_001_000,
+            message: 'normal update',
+          },
+        ],
+        pages: 1,
+        hitCap: false,
+        aborted: false,
+      });
+      mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+      renderWithRouter(<AuditLogTable />, ['/super_admin/audit?q=role_split']);
+      fireEvent.click(screen.getByTestId('audit-log-export-all'));
+      await waitFor(() => {
+        expect(capturedBlob).not.toBeNull();
+      });
+      const text = await capturedBlob!.text();
+      const payload = JSON.parse(text);
+      // q 는 「role_split」 → e1 만 매칭. e2 는 제외.
+      expect(payload.count).toBe(1);
+      expect(payload.serverCount).toBe(2);
+      expect(payload.entries).toHaveLength(1);
+      expect(payload.entries[0].id).toBe('e1');
+      expect(payload.filter.q).toBe('role_split');
+    });
+
+    // v0.118b F85: fetch 실패 시 error banner 로 원인 보존.
+    it('F85: fetch 실패 → error banner 노출 · dismiss 가능', async () => {
+      const { waitFor } = await import('@testing-library/react');
+      mockFetchAllAuditLog.mockRejectedValueOnce(new Error('network_failure'));
+      mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-export-all'));
+      await waitFor(() => {
+        expect(screen.getByTestId('audit-log-batch-error')).toBeDefined();
+      });
+      expect(screen.getByTestId('audit-log-batch-error').textContent).toContain('network_failure');
+      // dismiss.
+      fireEvent.click(screen.getByTestId('audit-log-batch-error-dismiss'));
+      await waitFor(() => {
+        expect(screen.queryByTestId('audit-log-batch-error')).toBeNull();
+      });
+    });
   });
 });
 

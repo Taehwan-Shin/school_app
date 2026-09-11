@@ -172,7 +172,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mock500Entries,
-      nextCursor: 1700000000499,
+      nextCursor: { at: 1700000000499, id: 'doc-499' },
     });
 
     const req = createRequest({
@@ -208,7 +208,7 @@ describe('auditLogList unit tests', () => {
     });
   });
 
-  it('passes before cursor timestamp to readAuditEntries and records in audit log message', async () => {
+  it('v0.118b F82: compound before cursor {at, id} 를 readAuditEntries 로 전달 + audit 메시지 반영', async () => {
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: [],
       nextCursor: null,
@@ -217,24 +217,39 @@ describe('auditLogList unit tests', () => {
     const req = createRequest({
       email: 'super@cam.hs.kr',
       role: 'super_admin',
-      data: { limit: 50, before: 1700000000000 },
+      data: { limit: 50, before: { at: 1700000000000, id: 'doc-cursor' } },
     });
     await auditLogList.run(req);
 
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 50,
-      before: 1700000000000,
+      before: { at: 1700000000000, id: 'doc-cursor' },
     });
 
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'ok',
-        message: 'read 0 entries (limit 50, before 1700000000000)',
+        message: 'read 0 entries (limit 50, before 1700000000000#doc-cursor)',
       }),
     );
   });
 
-  it('returns nextCursor when page is full (entries.length === limit)', async () => {
+  // 하위 호환성 검증: 불완전한 before (숫자만 · id 없이 등) 는 drop.
+  it('v0.118b F82: 비정상 before shape 은 undefined 로 drop', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      // 숫자만 (구 버전 클라이언트).
+      data: { limit: 20, before: 1700000000000 as any },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ before: undefined }),
+    );
+  });
+
+  it('v0.118b F82: returns nextCursor {at, id} when page is full', async () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
         id: 'doc-1',
@@ -260,7 +275,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mockEntries,
-      nextCursor: 1700000001000,
+      nextCursor: { at: 1700000001000, id: 'doc-2' },
     });
 
     const req = createRequest({
@@ -270,7 +285,7 @@ describe('auditLogList unit tests', () => {
     });
     const result = await auditLogList.run(req);
 
-    expect(result.nextCursor).toBe(1700000001000);
+    expect(result.nextCursor).toEqual({ at: 1700000001000, id: 'doc-2' });
     expect(result.entries).toHaveLength(2);
   });
 

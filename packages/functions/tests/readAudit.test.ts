@@ -5,6 +5,8 @@ const mockGet = vi.fn();
 const mockLimit = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
+// v0.118b F82: compound cursor 를 위해 startAfter 도 mock 대상.
+const mockStartAfter = vi.fn();
 const mockCountGet = vi.fn();
 const mockCount = vi.fn(() => ({ get: mockCountGet }));
 const mockCollection = vi.fn();
@@ -22,12 +24,16 @@ import { readAuditEntries, countAuditEntries } from '../src/audit/readAudit.js';
 
 describe('readAuditEntries unit tests', () => {
   beforeEach(() => {
+    // vi.clearAllMocks 는 호출 이력만 지우고 mockResolvedValueOnce 큐는 남긴다.
+    // 테스트 간 오염 방지를 위해 mockGet 은 명시적으로 mockReset.
+    mockGet.mockReset();
     vi.clearAllMocks();
 
     const queryMock: any = {};
     queryMock.orderBy = mockOrderBy.mockReturnValue(queryMock);
     queryMock.where = mockWhere.mockReturnValue(queryMock);
     queryMock.limit = mockLimit.mockReturnValue(queryMock);
+    queryMock.startAfter = mockStartAfter.mockReturnValue(queryMock);
     queryMock.get = mockGet;
     queryMock.count = mockCount.mockReturnValue({ get: mockCountGet });
     mockCountGet.mockResolvedValue({ data: () => ({ count: 0 }) });
@@ -81,15 +87,20 @@ describe('readAuditEntries unit tests', () => {
     });
   });
 
-  it('applies before filter when before cursor timestamp is provided', async () => {
+  it('v0.118b F82: compound before cursor → startAfter(atTs, docId)', async () => {
     mockGet.mockResolvedValueOnce({
       docs: [],
     });
 
-    await readAuditEntries({ limit: 20, before: 1700000005000 });
+    await readAuditEntries({
+      limit: 20,
+      before: { at: 1700000005000, id: 'doc-last' },
+    });
 
-    expect(mockWhere).toHaveBeenCalledWith('at', '<', expect.any(Timestamp));
+    expect(mockStartAfter).toHaveBeenCalledWith(expect.any(Timestamp), 'doc-last');
     expect(mockLimit).toHaveBeenCalledWith(20);
+    // 기존 where('at', '<', ...) 는 더 이상 쓰이지 않는다.
+    expect(mockWhere).not.toHaveBeenCalledWith('at', '<', expect.anything());
   });
 
   it('sets nextCursor to last item timestamp when docs count equals limit', async () => {
@@ -124,7 +135,8 @@ describe('readAuditEntries unit tests', () => {
 
     const result = await readAuditEntries({ limit: 2 });
 
-    expect(result.nextCursor).toBe(1700000001000);
+    // v0.118b F82: compound cursor { at, id } — 마지막 entry 기준.
+    expect(result.nextCursor).toEqual({ at: 1700000001000, id: 'doc-2' });
     expect(result.entries).toHaveLength(2);
   });
 

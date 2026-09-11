@@ -3,11 +3,16 @@ import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
-import { readAuditEntries, type AuditLogEntryRead } from '../../audit/readAudit.js';
+import {
+  readAuditEntries,
+  type AuditLogEntryRead,
+  type ReadAuditCursor,
+} from '../../audit/readAudit.js';
 
 export interface AuditLogListRequest {
   limit?: number;
-  before?: number;
+  // v0.118b F82: compound cursor { at, id } for stable pagination across timestamp ties.
+  before?: ReadAuditCursor;
   atMin?: number;
   atMax?: number;
   filterActor?: string;
@@ -19,7 +24,7 @@ export interface AuditLogListRequest {
 
 export interface AuditLogListResponse {
   entries: AuditLogEntryRead[];
-  nextCursor: number | null;
+  nextCursor: ReadAuditCursor | null;
 }
 
 const MAX_LIMIT = 500;
@@ -80,9 +85,17 @@ export const auditLogList = onCall(
           ? data.limit
           : DEFAULT_LIMIT;
       const limit = Math.max(1, Math.min(MAX_LIMIT, Math.floor(rawLimit)));
-      const before =
-        typeof data?.before === 'number' && Number.isFinite(data.before) && data.before > 0
-          ? data.before
+      // v0.118b F82: before 는 이제 { at: number, id: string } 객체. wire 검증 후
+      // readAuditEntries 로 전달. 잘못된 shape 은 조용히 drop (백워드 호환).
+      const before: ReadAuditCursor | undefined =
+        data?.before &&
+        typeof data.before === 'object' &&
+        typeof (data.before as any).at === 'number' &&
+        Number.isFinite((data.before as any).at) &&
+        (data.before as any).at > 0 &&
+        typeof (data.before as any).id === 'string' &&
+        (data.before as any).id.length > 0
+          ? { at: (data.before as any).at, id: (data.before as any).id }
           : undefined;
       const atMin =
         typeof data?.atMin === 'number' && Number.isFinite(data.atMin) && data.atMin > 0
@@ -157,7 +170,7 @@ export const auditLogList = onCall(
         target: '*',
         request_id: requestId,
         result: 'ok',
-        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})${filterStr}`,
+        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before.at}#${before.id}` : ''})${filterStr}`,
       });
 
       return result;

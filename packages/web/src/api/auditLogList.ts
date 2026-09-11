@@ -16,9 +16,16 @@ export interface AuditLogEntryRead {
   message?: string;
 }
 
+// v0.118b F82: compound cursor { at, id } — 같은 timestamp 이벤트가 동시에 여러 개
+// 있을 때 페이지 경계에서 유실되지 않도록 documentId 로 tiebreak.
+export interface AuditLogCursor {
+  at: number;
+  id: string;
+}
+
 export interface AuditLogListRequest {
   limit?: number;
-  before?: number;
+  before?: AuditLogCursor;
   atMin?: number;
   atMax?: number;
   filterActor?: string;
@@ -26,11 +33,13 @@ export interface AuditLogListRequest {
   filterResult?: 'ok' | 'error' | 'denied';
   filterAction?: string;
   filterActions?: string[]; // v0.104: 다중 액션
+  // v0.118b F83: fetch 취소용. callAuditLogList 은 이 signal 을 fetch 로 forward.
+  signal?: AbortSignal;
 }
 
 export interface AuditLogListResponse {
   entries: AuditLogEntryRead[];
-  nextCursor: number | null;
+  nextCursor: AuditLogCursor | null;
 }
 
 export async function callAuditLogList(
@@ -55,6 +64,7 @@ export async function callAuditLogList(
       ? crypto.randomUUID()
       : Math.random().toString(36).substring(2);
 
+  const { signal, ...rest } = data;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -64,7 +74,9 @@ export async function callAuditLogList(
       'X-Google-Scopes': '',
       'X-Request-Id': requestId,
     },
-    body: JSON.stringify({ data: { ...data, _googleAccessToken: googleAccessToken } }),
+    body: JSON.stringify({ data: { ...rest, _googleAccessToken: googleAccessToken } }),
+    // v0.118b F83: fetch 취소를 여기까지 전파. 네트워크 in-flight 를 실제로 취소.
+    signal,
   });
 
   if (!res.ok) {
@@ -105,7 +117,7 @@ export function useAuditLogList(
   const [entries, setEntries] = useState<AuditLogEntryRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [cursor, setCursor] = useState<number | null | undefined>(undefined);
+  const [cursor, setCursor] = useState<AuditLogCursor | null | undefined>(undefined);
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const cursorRef = useRef(cursor);
@@ -114,7 +126,7 @@ export function useAuditLogList(
   loadingRef.current = loading;
 
   const fetchPage = useCallback(
-    async (targetCursor?: number, isReload = false) => {
+    async (targetCursor?: AuditLogCursor, isReload = false) => {
       setLoading(true);
       setError(null);
       try {

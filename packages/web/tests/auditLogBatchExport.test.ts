@@ -32,7 +32,7 @@ describe('fetchAllAuditLog', () => {
   it('단일 페이지 (nextCursor=null) 는 한 번만 호출하고 반환', async () => {
     mockCallAuditLogList.mockResolvedValueOnce({
       entries: [entry('a', 3), entry('b', 2), entry('c', 1)],
-      nextCursor: null,
+      nextCursor: null as null,
     });
     const progress: any[] = [];
     const result = await fetchAllAuditLog(
@@ -50,11 +50,11 @@ describe('fetchAllAuditLog', () => {
     expect(progress).toEqual([{ page: 1, fetched: 3, hasMore: false }]);
   });
 
-  it('다중 페이지 - nextCursor 를 before 로 전달하며 순회', async () => {
+  it('다중 페이지 - nextCursor 를 before 로 전달하며 순회 (v0.118b F82: compound cursor)', async () => {
     mockCallAuditLogList
       .mockResolvedValueOnce({
         entries: [entry('a', 3), entry('b', 2)],
-        nextCursor: 2,
+        nextCursor: { at: 2, id: 'b' },
       })
       .mockResolvedValueOnce({
         entries: [entry('c', 1)],
@@ -67,10 +67,10 @@ describe('fetchAllAuditLog', () => {
       1,
       expect.not.objectContaining({ before: expect.anything() }),
     );
-    // 두 번째 요청은 before=2.
+    // 두 번째 요청은 compound before={at, id}.
     expect(mockCallAuditLogList).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ before: 2, limit: 2 }),
+      expect.objectContaining({ before: { at: 2, id: 'b' }, limit: 2 }),
     );
     expect(result.entries.map((e) => e.id)).toEqual(['a', 'b', 'c']);
     expect(result.hitCap).toBe(false);
@@ -78,8 +78,8 @@ describe('fetchAllAuditLog', () => {
 
   it('maxPages 상한 도달 → hitCap=true · 이후 페이지 미시도', async () => {
     mockCallAuditLogList
-      .mockResolvedValueOnce({ entries: [entry('a', 3)], nextCursor: 3 })
-      .mockResolvedValueOnce({ entries: [entry('b', 2)], nextCursor: 2 });
+      .mockResolvedValueOnce({ entries: [entry('a', 3)], nextCursor: { at: 3, id: 'a' } })
+      .mockResolvedValueOnce({ entries: [entry('b', 2)], nextCursor: { at: 2, id: 'b' } });
     const result = await fetchAllAuditLog({}, { pageSize: 1, maxPages: 2 });
     expect(mockCallAuditLogList).toHaveBeenCalledTimes(2);
     expect(result.pages).toBe(2);
@@ -87,13 +87,13 @@ describe('fetchAllAuditLog', () => {
     expect(result.entries).toHaveLength(2);
   });
 
-  it('signal.aborted 로 중도 취소 → aborted=true · 이후 페이지 미시도', async () => {
+  it('signal.aborted 로 loop 시작 시점 검사 → aborted=true · 이후 페이지 미시도', async () => {
     const controller = new AbortController();
     mockCallAuditLogList
       .mockImplementationOnce(async () => {
-        // 첫 페이지 후 취소.
+        // 첫 페이지 후 취소 (응답은 아직 반환하기 전).
         controller.abort();
-        return { entries: [entry('a', 2)], nextCursor: 2 };
+        return { entries: [entry('a', 2)], nextCursor: { at: 2, id: 'a' } };
       })
       .mockResolvedValue({ entries: [entry('b', 1)], nextCursor: null });
     const result = await fetchAllAuditLog(
@@ -102,7 +102,18 @@ describe('fetchAllAuditLog', () => {
     );
     expect(mockCallAuditLogList).toHaveBeenCalledTimes(1);
     expect(result.aborted).toBe(true);
-    expect(result.entries).toHaveLength(1);
+    // v0.118b F83: await 뒤 abort 재검사가 있으므로 entries 는 첫 응답을 담기 전에 끊긴다.
+    expect(result.entries).toHaveLength(0);
+  });
+
+  // v0.118b F83: fetch signal 을 request 로 forward 해야 네트워크 취소가 실제로 동작.
+  it('F83: signal 을 각 request 로 forward', async () => {
+    const controller = new AbortController();
+    mockCallAuditLogList.mockResolvedValue({ entries: [], nextCursor: null });
+    await fetchAllAuditLog({}, { signal: controller.signal });
+    expect(mockCallAuditLogList).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+    );
   });
 
   it('시작 전에 이미 abort 된 signal → 아무 페이지도 요청 안 함', async () => {
