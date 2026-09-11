@@ -134,11 +134,23 @@ export const auditLogSummary = onCall(
       const sampleTruncated = count > sampleSize;
 
       // v0.126: exactCountsList → { action: count } 로 변환. 0 인 action 제외.
+      // v0.126b F103: AUDIT_ACTIONS 는 비강제 카탈로그 — 서버는 임의 action 저장을
+      // 허용하므로 (writeAudit 참조), 28 개 catalog 로만 세면 미등록 action 이 total
+      // count 에서 누락. sum(exactActionCounts) < count 이면 차이를 `_other` 로 별도
+      // bucket 에 남겨 클라이언트가 「전부 정확 집계」 라는 오표기를 하지 않도록.
+      // 합계 불변식: Object.values(exactActionCounts).reduce((a,b)=>a+b, 0) === count.
       let exactActionCounts: Record<string, number> | undefined;
       if (exactCountsList) {
         exactActionCounts = {};
+        let knownSum = 0;
         for (const { action, count: c } of exactCountsList) {
-          if (c > 0) exactActionCounts[action] = c;
+          if (c > 0) {
+            exactActionCounts[action] = c;
+            knownSum += c;
+          }
+        }
+        if (count > knownSum) {
+          exactActionCounts._other = count - knownSum;
         }
       }
 

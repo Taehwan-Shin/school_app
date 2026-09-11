@@ -62,11 +62,15 @@ export function SuperAdminPage() {
 
   // v0.126: exact aggregation toggle. 기본 false — sampleTruncated=true 상황
   // 에서 사용자가 「정확 카운트」 버튼 눌러야 서버 count() 28 aggregation.
-  // window 바꾸면 다시 sample-only 로 리셋 (서버 부담 관점에서 안전).
+  // v0.126b F104: window 를 바꿀 때는 setBreakdownWindow 를 직접 호출하지 않고
+  // handleWindowChange 를 통해 exact=false 와 함께 원자적 (같은 event handler
+  // 안, React batched update) 으로 갱신 — 새 window 로 exact=true 요청이
+  // 발화하는 중간 상태 방지.
   const [exactAggregation, setExactAggregation] = useState(false);
-  useEffect(() => {
+  const handleWindowChange = (w: BreakdownWindow) => {
     setExactAggregation(false);
-  }, [breakdownWindow]);
+    setBreakdownWindow(w);
+  };
 
   // window=today 인 경우 상단 summaryQuery 를 재사용해 network 절약 (React Query
   // 는 같은 queryKey 를 공유). 다른 window 는 별도 query.
@@ -389,7 +393,7 @@ export function SuperAdminPage() {
                   <button
                     key={w}
                     type="button"
-                    onClick={() => setBreakdownWindow(w)}
+                    onClick={() => handleWindowChange(w)}
                     aria-pressed={active}
                     data-testid={`super-admin-breakdown-window-${w}`}
                     className={
@@ -484,41 +488,75 @@ export function SuperAdminPage() {
                     </button>
                   </div>
                 )}
-                {exactActionCounts !== undefined && (
-                  <p
-                    className="text-small text-state-success"
-                    data-testid="super-admin-breakdown-exact-on"
-                  >
-                    ✓ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 전부를
-                    action 별로 정확히 집계했습니다.
-                  </p>
-                )}
+                {exactActionCounts !== undefined && (() => {
+                  // v0.126b F103: 서버가 `_other` bucket 을 반환하면 카탈로그 밖
+                  // action 이 존재. 「전부」 대신 실제 상태를 안내.
+                  const otherCount = exactActionCounts._other ?? 0;
+                  return (
+                    <p
+                      className="text-small text-state-success"
+                      data-testid="super-admin-breakdown-exact-on"
+                    >
+                      ✓ {breakdownLabel} 이벤트 <strong>{breakdownCount}</strong>건 action
+                      별로 정확히 집계했습니다
+                      {otherCount > 0 && (
+                        <>
+                          {' '}
+                          (카탈로그 밖 action <strong>{otherCount}</strong>건은 「기타」로
+                          집계)
+                        </>
+                      )}
+                      .
+                    </p>
+                  );
+                })()}
                 <ul className="space-y-2" data-testid="super-admin-breakdown-list">
                   {sortedActions.map(([action, count]) => {
                     const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+                    // v0.126b F103: `_other` 는 catalog 밖 action 총합 — 액션
+                    // 필터 링크 대신 「기타」 label 로 표시하되 클릭은 비활성 (특정
+                    // action 을 지정할 수 없음).
+                    const isOther = action === '_other';
+                    const label = isOther ? '기타 (카탈로그 밖)' : action;
+                    const href = isOther
+                      ? undefined
+                      : `/super_admin/audit?action=${encodeURIComponent(action)}&atMin=${breakdownAtIso}`;
+                    const content = (
+                      <>
+                        <span className="font-mono text-fg-primary w-48 shrink-0">{label}</span>
+                        <span
+                          className="flex-1 bg-canvas h-2 border border-border-subtle relative"
+                          aria-hidden="true"
+                        >
+                          <span
+                            className="absolute inset-y-0 left-0 bg-fg-primary"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </span>
+                        <span className="font-mono text-fg-primary w-12 text-right">
+                          {count}
+                        </span>
+                      </>
+                    );
                     return (
                       <li key={action}>
-                        <Link
-                          to={`/super_admin/audit?action=${encodeURIComponent(action)}&atMin=${breakdownAtIso}`}
-                          className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
-                          data-testid={`super-admin-breakdown-row-${action}`}
-                        >
-                          <span className="font-mono text-fg-primary w-48 shrink-0">
-                            {action}
-                          </span>
-                          <span
-                            className="flex-1 bg-canvas h-2 border border-border-subtle relative"
-                            aria-hidden="true"
+                        {href ? (
+                          <Link
+                            to={href}
+                            className="flex items-center gap-3 text-small hover:bg-surface p-2 -mx-2 transition-colors"
+                            data-testid={`super-admin-breakdown-row-${action}`}
                           >
-                            <span
-                              className="absolute inset-y-0 left-0 bg-fg-primary"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </span>
-                          <span className="font-mono text-fg-primary w-12 text-right">
-                            {count}
-                          </span>
-                        </Link>
+                            {content}
+                          </Link>
+                        ) : (
+                          <div
+                            className="flex items-center gap-3 text-small p-2 -mx-2 text-fg-muted"
+                            data-testid={`super-admin-breakdown-row-${action}`}
+                            title="카탈로그 (AUDIT_ACTIONS) 밖 action 들의 총합 — 특정 action 필터로 연결 불가"
+                          >
+                            {content}
+                          </div>
+                        )}
                       </li>
                     );
                   })}

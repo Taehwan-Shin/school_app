@@ -1697,7 +1697,11 @@ describe('SuperAdminPage', () => {
       expect(screen.queryByTestId('super-admin-breakdown-exact-btn')).toBeNull();
     });
 
-    it('v0.126: window 전환 시 exact 상태 리셋 (서버 부담 방어)', () => {
+    // v0.126b F104: window 전환 시 exact=true 중간 호출 leak 방지. 사용자가
+    // 「정확 카운트 보기」 를 누른 상태 (exactAggregation=true) 에서 window 를
+    // 다른 값으로 바꾸면, 새 window + exact=true 로는 절대 호출되지 않아야 함
+    // — 서버 부담 (28 count() aggregation) 이 원하지 않는 시점에 발화하는 것을 방지.
+    it('v0.126b F104: exact=true 상태 → window 전환 시 (새 window, exact=true) 호출 없음', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 1234,
@@ -1707,23 +1711,74 @@ describe('SuperAdminPage', () => {
           actionCounts: { 'users.read': 500 },
           sampleSize: 500,
           sampleTruncated: true,
-          exactActionCounts: { 'users.read': 800 },
         },
         isLoading: false,
         isError: false,
         error: null,
       });
       renderWithRouter(<SuperAdminPage />);
-      // 초기 exactActionCounts 있으므로 exact-on 배너 노출 상태.
-      // 이후 이번 달 클릭 → useAuditLogSummary 는 exact=false 로 다시 호출.
-      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      // 「정확 카운트 보기」 버튼 눌러 exact=true 상태로.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
+      // 지금까지 호출 중에는 (today, exact=true) 는 존재해야.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayMs = today.getTime();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthMs = monthStart.getTime();
+      // window 전환 → 이번 달.
+      const beforeSwitchCallCount = mockUseAuditLogSummary.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
-      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
-      // 새 호출 중 하나는 exact=false (breakdown query).
-      const resetCall = afterCalls.find(
-        (c: any[]) => c[0] && c[0].exact === false && typeof c[0].atMin === 'number',
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(beforeSwitchCallCount);
+
+      // 새 window (monthMs) + exact=true 조합은 절대 발화하면 안 됨.
+      const leak = afterCalls.find(
+        (c: any[]) => c[0]?.atMin === monthMs && c[0]?.exact === true,
       );
-      expect(resetCall).toBeDefined();
+      expect(leak).toBeUndefined();
+      // 그리고 monthMs + exact=false 는 최소 1회 발화해야 (breakdown query).
+      const reset = afterCalls.find(
+        (c: any[]) => c[0]?.atMin === monthMs && c[0]?.exact === false,
+      );
+      expect(reset).toBeDefined();
+      // 참고: 상단 today query 는 계속 today atMin 으로 호출 (변경 없음).
+      const todayStill = afterCalls.find(
+        (c: any[]) => c[0]?.atMin === todayMs && c[0]?.exact === undefined,
+      );
+      expect(todayStill).toBeDefined();
+    });
+
+    // v0.126b F103: `_other` bucket 렌더 — success banner 에 카탈로그 밖 안내
+    // 포함, `_other` 행은 label 「기타 (카탈로그 밖)」 로 표시, 링크 없이 (div).
+    it('v0.126b F103: exactActionCounts._other 렌더 · 「기타」 label · 링크 없음', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 42,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: {},
+          sampleSize: 0,
+          sampleTruncated: true,
+          exactActionCounts: {
+            'users.read': 10,
+            'users.write': 5,
+            _other: 27,
+          },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 성공 배너에 「기타」 안내 포함.
+      const banner = screen.getByTestId('super-admin-breakdown-exact-on');
+      expect(banner.textContent).toContain('카탈로그 밖');
+      expect(banner.textContent).toContain('27');
+      // `_other` row 는 「기타」 label.
+      const otherRow = screen.getByTestId('super-admin-breakdown-row-_other');
+      expect(otherRow.textContent).toContain('기타');
+      // 링크 없음 — div 로 렌더 (a 태그 아님).
+      expect(otherRow.tagName.toLowerCase()).toBe('div');
     });
   });
 });
