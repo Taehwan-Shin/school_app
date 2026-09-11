@@ -41,10 +41,13 @@ vi.mock('../src/api/classroomStudentsList', () => ({
   }),
 }));
 
+const mockTeachersAddState = { isPending: false };
 vi.mock('../src/api/classroomTeachersAdd', () => ({
   useClassroomTeachersAdd: () => ({
     mutateAsync: vi.fn(),
-    isPending: false,
+    get isPending() {
+      return mockTeachersAddState.isPending;
+    },
     error: null,
     reset: vi.fn(),
   }),
@@ -130,6 +133,7 @@ function renderDetailPage(courseId = 'c-101') {
 describe('ClassroomDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTeachersAddState.isPending = false;
     mockUseAuth.mockReturnValue({
       user: { email: 'admin@cam.hs.kr' },
       role: 'admin',
@@ -280,7 +284,12 @@ describe('ClassroomDetailPage', () => {
     renderDetailPage('c-101');
 
     const auditLink = screen.getByTestId('classroom-detail-audit-link');
-    expect(auditLink.getAttribute('href')).toBe(`/super_admin/audit?q=${encodeURIComponent('c-101')}`);
+    // v0.117b F80: audit 링크는 서버 filterTarget 을 태우는 target 파라미터로
+    // `courses/<id>` 를 실어야 한다. 기존 q 파라미터는 message/action client 검색만
+    // 커버해서 target 이력을 제대로 찾지 못했다.
+    expect(auditLink.getAttribute('href')).toBe(
+      `/super_admin/audit?target=${encodeURIComponent('courses/c-101')}`,
+    );
   });
 
   it('scenario 8: teacher role does NOT see audit link (RoleGuard would block, this checks defensive UI)', () => {
@@ -337,5 +346,38 @@ describe('ClassroomDetailPage', () => {
     expect(screen.getByTestId('course-members-tab-teachers')).toBeDefined();
     expect(screen.getByTestId('course-members-tab-students')).toBeDefined();
     expect(screen.getByTestId('course-members-add-form')).toBeDefined();
+  });
+
+  // v0.117b F81: 멤버 add/delete pending 중에는 코스 단위 action (archive·restore·
+  // transfer_owner·delete) 를 disabled 로 잠근다. Panel 의 onPendingChange 가
+  // 부모 상태를 갱신 → 부모가 button.disabled 반영.
+  it('scenario 11: F81 — disables archive/transfer_owner/delete while members panel is pending', async () => {
+    mockTeachersAddState.isPending = true;
+    mockUseClassroomList.mockReturnValue({
+      data: {
+        courses: [
+          { id: 'c-101', name: '1학년 1반', courseState: 'ACTIVE', ownerId: 'owner@cam.hs.kr' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderDetailPage('c-101');
+
+    // panel onPendingChange 는 effect 로 흐르므로 다음 tick 을 기다린다.
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('classroom-detail-archive-btn') as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+    expect(
+      (screen.getByTestId('classroom-detail-transfer-owner-btn') as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('classroom-detail-delete-btn') as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

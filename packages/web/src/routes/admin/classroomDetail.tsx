@@ -31,9 +31,15 @@ export function ClassroomDetailPage() {
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
   const [transferTarget, setTransferTarget] = useState<TransferClassroomOwnerTarget | null>(null);
+  // v0.117b F81: 멤버 add/delete pending 중 코스 단위 mutation 을 잠근다.
+  // 반대로 코스 mutation dialog 가 열려 있을 때 멤버 조작도 잠글 수 있으나 dialog
+  // 자체가 modal 이라 backdrop 이 클릭을 차단 — 여기서는 편도만 처리.
+  const [membersPending, setMembersPending] = useState(false);
 
   const canManage = course && (course.courseState === 'ACTIVE' || course.courseState === 'ARCHIVED');
   const isActive = course?.courseState === 'ACTIVE';
+  // audit 링크 target 은 `courses/<id>` — 서버 writeAudit 이 사용하는 target 형식과 정확 일치.
+  const auditTarget = `courses/${courseId}`;
 
   return (
     <AppShell role={role} pageTitle={`클래스룸: ${course?.name || courseId}`}>
@@ -68,8 +74,9 @@ export function ClassroomDetailPage() {
                         currentState: course.courseState || '',
                       })
                     }
+                    disabled={membersPending}
                     data-testid={`classroom-detail-archive-btn`}
-                    className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                    className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                   >
                     {isActive ? '아카이브' : '복구'}
                   </button>
@@ -86,9 +93,14 @@ export function ClassroomDetailPage() {
                           currentOwnerId: course.ownerId,
                         })
                       }
+                      disabled={membersPending}
                       data-testid={`classroom-detail-transfer-owner-btn`}
-                      title="소유자 이관 (admin/super_admin 전용)"
-                      className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                      title={
+                        membersPending
+                          ? '멤버 변경이 진행 중입니다.'
+                          : '소유자 이관 (admin/super_admin 전용)'
+                      }
+                      className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                     >
                       소유자 이관
                     </button>
@@ -98,8 +110,9 @@ export function ClassroomDetailPage() {
                 <button
                   type="button"
                   onClick={() => setDeleteTarget({ id: course.id, name: course.name })}
+                  disabled={membersPending}
                   data-testid={`classroom-detail-delete-btn`}
-                  className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                  className="text-state-danger underline decoration-transparent hover:decoration-state-danger text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                 >
                   삭제
                 </button>
@@ -182,7 +195,11 @@ export function ClassroomDetailPage() {
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
           <h2 className="text-h2 font-semibold text-fg-primary">멤버 관리</h2>
           <p className="text-small text-fg-secondary">교사·학생 명단을 확인하고 관리합니다.</p>
-          <CourseMembersPanel courseId={course ? course.id : null} courseName={course?.name} />
+          <CourseMembersPanel
+            courseId={course ? course.id : null}
+            courseName={course?.name}
+            onPendingChange={setMembersPending}
+          />
         </section>
 
         {role === 'super_admin' && (
@@ -192,7 +209,7 @@ export function ClassroomDetailPage() {
               이 코스를 대상으로 발생한 감사 로그를 확인할 수 있습니다.
             </p>
             <Link
-              to={`/super_admin/audit?q=${encodeURIComponent(courseId)}`}
+              to={`/super_admin/audit?target=${encodeURIComponent(auditTarget)}`}
               data-testid="classroom-detail-audit-link"
               className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
             >

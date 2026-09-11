@@ -1210,6 +1210,29 @@ describe('AuditLogTable component', () => {
     expect(btn.disabled).toBe(true);
   });
 
+  // v0.117b F80: `target` URL param 을 서버 filterTarget 으로 흘려보내야 한다.
+  // classroom 상세 페이지 등에서 `?target=courses/<id>` 로 진입해 특정 대상
+  // 이력을 정확히 조회.
+  it('v0.117b F80: target URL param → filterTarget 인자 · 필터 초기화 대상', () => {
+    mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+    render(
+      <MemoryRouter initialEntries={['/super_admin/audit?target=courses%2Fc-101']}>
+        <AuditLogTable />
+      </MemoryRouter>,
+    );
+    // hook 이 filterTarget 을 그대로 받는다.
+    expect(mockUseAuditLogList).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({ filterTarget: 'courses/c-101' }),
+    );
+    // 필터가 활성이므로 「필터 초기화」 는 활성.
+    const clearBtn = screen.getByTestId('audit-log-clear-filters') as HTMLButtonElement;
+    expect(clearBtn.disabled).toBe(false);
+    // 대상 필터 입력 UI 도 노출되고 URL 값을 반영한다.
+    const targetInput = screen.getByTestId('audit-log-filter-target') as HTMLInputElement;
+    expect(targetInput.value).toBe('courses/c-101');
+  });
+
   // v0.114: 필터 preset 저장 UI.
   it('v0.114: preset 없을 때 「아직 없음」 + 저장 버튼', () => {
     localStorage.clear();
