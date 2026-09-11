@@ -1,15 +1,15 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.129 병합 대기** — BulkMoveOuDialog F99/F100 대칭 · Codex 감사 요청 예정.
+> **v0.129 병합 완료** (`25f1722`) — BulkMoveOuDialog F99/F100 대칭 · Codex 1 라운드 통과.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `25f1722` v0.129 — BulkMoveOuDialog F99/F100 대칭 (v0.124 시리즈 4/6).
 - `a914fc9` v0.128 — BulkDeleteDialog F99/F100 대칭 (v0.124 시리즈 3/4).
 - `5d8b083` v0.127 — GroupsTable 「필터 초기화」 button (v0.125 대칭) + F105 fail-open 정정.
 - `c2832fb` v0.126 — 감사 액션별 위젯 정확 count aggregation (count() 병렬 + `_other` bucket + 원자적 window 전환).
 - `6025fe1` v0.125 — AccountsTable 「필터 초기화」 button (v0.112 대칭) + F101/F102.
-- `963495c` v0.124 — BulkSuspendDialog F99/F100 대칭 적용 (v0.123b 마무리).
 
 ## 다음 후보 (Head 자율 실행 예정)
 
