@@ -266,6 +266,51 @@ describe('auditLogList unit tests', () => {
     });
   });
 
+  // v0.118d F89: seconds/nanoseconds 는 정수여야 하고 nanoseconds 는 0..999_999_999.
+  // 소수·경계 초과·음수 를 감시.
+  const invalidCursorCases: Array<[string, unknown]> = [
+    ['seconds 소수', { seconds: 1700000000.5, nanoseconds: 0, id: 'd' }],
+    ['nanoseconds 소수', { seconds: 1700000000, nanoseconds: 500.5, id: 'd' }],
+    ['nanoseconds 상한 초과', { seconds: 1700000000, nanoseconds: 1_000_000_000, id: 'd' }],
+    ['nanoseconds 음수', { seconds: 1700000000, nanoseconds: -1, id: 'd' }],
+    ['seconds 0', { seconds: 0, nanoseconds: 0, id: 'd' }],
+    ['seconds NaN', { seconds: NaN, nanoseconds: 0, id: 'd' }],
+    ['id empty string', { seconds: 1700000000, nanoseconds: 0, id: '' }],
+  ];
+  for (const [label, badCursor] of invalidCursorCases) {
+    it(`v0.118d F89: ${label} → invalid_before_cursor`, async () => {
+      const req = createRequest({
+        email: 'super@cam.hs.kr',
+        role: 'super_admin',
+        data: { limit: 20, before: badCursor as any },
+      });
+      await expect(auditLogList.run(req)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        message: expect.stringContaining('invalid_before_cursor'),
+      });
+      expect(mockReadAuditEntries).not.toHaveBeenCalled();
+    });
+  }
+
+  // v0.118d F89: 경계값은 정상 통과.
+  it('v0.118d F89: nanoseconds 경계 (0, 999_999_999) 는 정상 통과', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        limit: 20,
+        before: { seconds: 1700000000, nanoseconds: 999_999_999, id: 'edge' },
+      },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        before: { seconds: 1700000000, nanoseconds: 999_999_999, id: 'edge' },
+      }),
+    );
+  });
+
   it('v0.118b F82: returns nextCursor {at, id} when page is full', async () => {
     const mockEntries: AuditLogEntryRead[] = [
       {

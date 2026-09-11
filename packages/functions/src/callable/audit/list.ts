@@ -97,21 +97,31 @@ export const auditLogList = onCall(
             'legacy_cursor_number_deprecated: refresh page to use compound cursor',
           );
         }
+        // v0.118d F89: seconds/nanoseconds 는 반드시 정수, nanoseconds 는
+        // 0..999_999_999 범위. Timestamp constructor 는 정수·범위 위반 시
+        // RangeError 를 던지므로 callable 층에서 명시 거부해 감사에 정확한
+        // 사유가 남도록.
+        const beforeObj = data.before as {
+          seconds?: unknown;
+          nanoseconds?: unknown;
+          id?: unknown;
+        };
         if (
           typeof data.before === 'object' &&
-          typeof (data.before as any).seconds === 'number' &&
-          Number.isFinite((data.before as any).seconds) &&
-          (data.before as any).seconds > 0 &&
-          typeof (data.before as any).nanoseconds === 'number' &&
-          Number.isFinite((data.before as any).nanoseconds) &&
-          (data.before as any).nanoseconds >= 0 &&
-          typeof (data.before as any).id === 'string' &&
-          (data.before as any).id.length > 0
+          typeof beforeObj.seconds === 'number' &&
+          Number.isInteger(beforeObj.seconds) &&
+          beforeObj.seconds > 0 &&
+          typeof beforeObj.nanoseconds === 'number' &&
+          Number.isInteger(beforeObj.nanoseconds) &&
+          beforeObj.nanoseconds >= 0 &&
+          beforeObj.nanoseconds <= 999_999_999 &&
+          typeof beforeObj.id === 'string' &&
+          beforeObj.id.length > 0
         ) {
           before = {
-            seconds: (data.before as any).seconds,
-            nanoseconds: (data.before as any).nanoseconds,
-            id: (data.before as any).id,
+            seconds: beforeObj.seconds,
+            nanoseconds: beforeObj.nanoseconds,
+            id: beforeObj.id,
           };
         } else {
           throw new HttpsError('invalid-argument', 'invalid_before_cursor');
