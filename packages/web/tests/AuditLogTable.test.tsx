@@ -10,6 +10,12 @@ vi.mock('../src/api/auditLogList', () => ({
   useAuditLogList: (pageSize?: number, filters?: any) => mockUseAuditLogList(pageSize, filters),
 }));
 
+// v0.118: batch export helper mock — 페이지 순회 없이 controlled result 반환.
+const mockFetchAllAuditLog = vi.fn();
+vi.mock('../src/api/auditLogBatchExport', () => ({
+  fetchAllAuditLog: (...args: any[]) => mockFetchAllAuditLog(...args),
+}));
+
 function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/super_admin/audit']) {
   return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 }
@@ -1578,6 +1584,123 @@ describe('AuditLogTable component', () => {
 
     expect(screen.getByTestId('audit-log-row-log-split')).toBeDefined();
     expect(screen.queryByTestId('audit-log-row-log-other')).toBeNull();
+  });
+
+  // v0.118: 전체 페이지 순회 JSON export.
+  describe('v0.118 batch export', () => {
+    beforeEach(() => {
+      mockFetchAllAuditLog.mockReset();
+      // jsdom 은 URL.createObjectURL 미제공 — 다운로드 실행 경로 stub.
+      // @ts-expect-error - jsdom polyfill
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      // @ts-expect-error - jsdom polyfill
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    it('「전체 JSON」 버튼 클릭 → fetchAllAuditLog 를 현재 필터로 호출', async () => {
+      const { waitFor } = await import('@testing-library/react');
+      mockFetchAllAuditLog.mockResolvedValueOnce({
+        entries: [
+          {
+            id: 'e1',
+            actor: 'admin@cam.hs.kr',
+            role: 'admin',
+            action: 'users.read',
+            target: 'users/*',
+            request_id: 'req-1',
+            result: 'ok',
+            at: 1_700_000_000_000,
+          },
+        ],
+        pages: 1,
+        hitCap: false,
+        aborted: false,
+      });
+      mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+      renderWithRouter(<AuditLogTable />, [
+        '/super_admin/audit?actor=admin@cam.hs.kr&target=courses/c-101',
+      ]);
+      fireEvent.click(screen.getByTestId('audit-log-export-all'));
+      await waitFor(() => {
+        expect(mockFetchAllAuditLog).toHaveBeenCalledTimes(1);
+      });
+      expect(mockFetchAllAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filterActor: 'admin@cam.hs.kr',
+          filterTarget: 'courses/c-101',
+        }),
+        expect.objectContaining({
+          pageSize: 100,
+          maxPages: 100,
+          signal: expect.any(AbortSignal),
+          onProgress: expect.any(Function),
+        }),
+      );
+      // 진행 UI 는 완료 후 제거.
+      await waitFor(() => {
+        expect(screen.queryByTestId('audit-log-batch-progress')).toBeNull();
+      });
+    });
+
+    it('진행 중에는 progress banner + cancel 버튼 노출 · button disabled', async () => {
+      const { waitFor } = await import('@testing-library/react');
+      let onProgressCb: ((p: any) => void) | undefined;
+      let resolveFetch: ((v: any) => void) | undefined;
+      mockFetchAllAuditLog.mockImplementationOnce((_filters, opts) => {
+        onProgressCb = opts.onProgress;
+        return new Promise((res) => {
+          resolveFetch = res;
+        });
+      });
+      mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-export-all'));
+      await waitFor(() => {
+        expect(screen.getByTestId('audit-log-batch-progress')).toBeDefined();
+      });
+      // helper 가 progress 콜백을 부르면 banner 내용 갱신.
+      onProgressCb?.({ page: 3, fetched: 250, hasMore: true });
+      await waitFor(() => {
+        expect(screen.getByTestId('audit-log-batch-progress').textContent).toContain('3 페이지');
+      });
+      // 버튼은 진행 중 disabled.
+      expect(
+        (screen.getByTestId('audit-log-export-all') as HTMLButtonElement).disabled,
+      ).toBe(true);
+      // 취소 버튼 노출.
+      expect(screen.getByTestId('audit-log-batch-cancel')).toBeDefined();
+
+      // 마무리 (banner 사라짐 검증).
+      resolveFetch?.({ entries: [], pages: 3, hitCap: false, aborted: false });
+      await waitFor(() => {
+        expect(screen.queryByTestId('audit-log-batch-progress')).toBeNull();
+      });
+    });
+
+    it('취소 클릭 → AbortController.abort 로 signal 전달', async () => {
+      const { waitFor } = await import('@testing-library/react');
+      let capturedSignal: AbortSignal | undefined;
+      let resolveFetch: ((v: any) => void) | undefined;
+      mockFetchAllAuditLog.mockImplementationOnce((_filters, opts) => {
+        capturedSignal = opts.signal;
+        return new Promise((res) => {
+          resolveFetch = res;
+        });
+      });
+      mockUseAuditLogList.mockReturnValue({ ...defaultMockReturn });
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-export-all'));
+      await waitFor(() => {
+        expect(screen.getByTestId('audit-log-batch-cancel')).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId('audit-log-batch-cancel'));
+      expect(capturedSignal?.aborted).toBe(true);
+      // helper 가 aborted=true 로 반환하면 파일 다운로드 없이 banner 만 닫힘.
+      resolveFetch?.({ entries: [], pages: 1, hitCap: false, aborted: true });
+      await waitFor(() => {
+        expect(screen.queryByTestId('audit-log-batch-progress')).toBeNull();
+      });
+    });
   });
 });
 

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
+import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
 import { Button } from '../../components/ui/button';
 import { AUDIT_ACTIONS } from '@school-app/shared';
 import {
@@ -181,6 +182,89 @@ export function AuditLogTable() {
     const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
     const dateStr = new Date().toISOString().split('T')[0];
     downloadBlob(blob, `audit-log-${dateStr}${filterSummaryForFilename()}.json`);
+  };
+
+  // v0.118: 전체 페이지 순회 JSON export. 서버 pagination 을 hasMore=false 또는
+  // maxPages 상한까지 순회해 하나의 통합 payload 생성. 진행률 · 취소 지원.
+  const [batchProgress, setBatchProgress] = useState<AuditBatchExportProgress | null>(null);
+  const batchAbortRef = useRef<AbortController | null>(null);
+
+  const handleExportAllJson = async () => {
+    if (batchProgress) return; // 이미 진행 중이면 노-op
+    const controller = new AbortController();
+    batchAbortRef.current = controller;
+    setBatchProgress({ page: 0, fetched: 0, hasMore: true });
+    try {
+      const result = await fetchAllAuditLog(
+        {
+          filterActor: actorFilter || undefined,
+          filterTarget: targetFilter || undefined,
+          filterResult: resultFilter !== 'all' ? resultFilter : undefined,
+          filterAction: actionList.length === 1 ? actionList[0] : undefined,
+          filterActions: actionList.length > 1 ? actionList : undefined,
+          atMin: atMinMs,
+          atMax: atMaxMs,
+        },
+        {
+          pageSize: 100,
+          maxPages: 100,
+          signal: controller.signal,
+          onProgress: (p) => setBatchProgress(p),
+        },
+      );
+      // 취소 시엔 파일을 만들지 않는다 — 사용자 의도는 「멈춤」.
+      if (result.aborted) return;
+
+      // 로컬 q 검색은 서버 필터가 아니라 client-side action/message 부분 문자열 검색.
+      // batch 는 서버 paginate 결과 전체를 담고, 파일 metadata 에 q 를 표기해서
+      // 사용자가 필요 시 별도 tool 로 후처리 (기존 handleExportJson 도 이 방식이었음).
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        // v0.118: batch 표식.
+        exportKind: 'batch',
+        filter: {
+          actions: actionList.length > 0 ? actionList : null,
+          result: resultFilter !== 'all' ? resultFilter : null,
+          actor: actorFilter || null,
+          target: targetFilter || null,
+          q: actionSearch || null,
+          atMinMs: atMinMs ?? null,
+          atMinIso: atMinMs !== undefined ? new Date(atMinMs).toISOString() : null,
+          atMaxMs: atMaxMs ?? null,
+          atMaxIso: atMaxMs !== undefined ? new Date(atMaxMs).toISOString() : null,
+          pageSize: 100,
+        },
+        partial: result.hitCap,
+        hitCap: result.hitCap,
+        pages: result.pages,
+        count: result.entries.length,
+        entries: result.entries.map((e) => ({
+          id: e.id,
+          at: e.at,
+          atIso: new Date(e.at).toISOString(),
+          actor: e.actor,
+          role: e.role,
+          action: e.action,
+          target: e.target,
+          result: e.result,
+          requestId: e.request_id,
+          message: e.message ?? null,
+          before: e.before ?? null,
+          after: e.after ?? null,
+        })),
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadBlob(blob, `audit-log-${dateStr}-all${filterSummaryForFilename()}.json`);
+    } finally {
+      batchAbortRef.current = null;
+      setBatchProgress(null);
+    }
+  };
+
+  const handleCancelBatch = () => {
+    batchAbortRef.current?.abort();
   };
 
   const handlePreset = (days: number | null) => {
@@ -468,8 +552,41 @@ export function AuditLogTable() {
           >
             JSON 내보내기
           </Button>
+          {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
+              hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
+              도달 시 partial 표시. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportAllJson}
+            disabled={batchProgress !== null}
+            data-testid="audit-log-export-all"
+            title="현재 필터 조건으로 서버 페이지를 hasMore=false 까지 순회해 통합 JSON 파일로 저장 (최대 100 페이지)"
+          >
+            {batchProgress ? '전체 JSON 진행 중...' : '전체 JSON'}
+          </Button>
         </div>
       </div>
+      {batchProgress && (
+        <div
+          className="flex items-center justify-between border border-border-subtle bg-elevated px-4 py-2"
+          data-testid="audit-log-batch-progress"
+        >
+          <p className="text-small text-fg-primary">
+            전체 JSON 진행 중: {batchProgress.page} 페이지 · 누적{' '}
+            <strong className="font-mono">{batchProgress.fetched}</strong> 건
+            {batchProgress.hasMore ? ' · 다음 페이지 있음' : ' · 마지막 페이지'}
+          </p>
+          <button
+            type="button"
+            onClick={handleCancelBatch}
+            className="text-state-danger hover:underline text-small cursor-pointer"
+            data-testid="audit-log-batch-cancel"
+          >
+            취소
+          </button>
+        </div>
+      )}
 
       <div className="flex justify-end flex-wrap gap-4">
         <div className="flex items-center gap-2" role="group" aria-label="날짜 프리셋">
