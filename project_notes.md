@@ -1508,3 +1508,50 @@ v0.116 후보 (ROADMAP Phase 5/6 남음):
 - 클래스룸 소유자 이관 (Phase 5 남음, `transferClassroomOwnership` Apps Script 포팅).
 - classroom 상세 페이지 (Phase 6).
 - 감사 로그 배치 export (Phase 6).
+
+---
+
+## 2026-09-11 · v0.116 클래스룸 소유자 이관 (4 라운드 Codex 감사)
+
+**슬라이스** — 원본 Apps Script `transferClassroomOwnershipAndUpdateSheet` 포팅. `classroom.transfer_owner` cap (super_admin/admin 전용) 으로 gate 된 신규 callable. `teachers.get(courseId, newOwnerEmail)` → 404 시 `teachers.create` 로 자동 추가 후 `patch({ownerId, updateMask:"ownerId"})`. Dialog 는 이메일 입력 + rollback 상태별 UI 안내 (ok/failed/skipped).
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `52e91e9` | feat: transferOwnership callable + Dialog + ClassroomTable row gate + 9+7 회귀 |
+| `ba3268d` | fix: F74 ALLOWED_DOMAIN 서버 강제 + F75 add-then-patch 4xx 보상 삭제 (rollback=ok/failed/skipped) |
+| `07f1094` | fix: F76 patch try 좁히기 (성공 audit 실패 오분류 방지) + F77 partial HttpsError.details wire (UI rollback 별 안내) |
+| `311efd6` | fix: F78 writeAuditWithBackup helper (3x retry + Cloud Logging fallback) + F79 partial HttpsError 를 audit 앞에 구성 (details 유실 방지) |
+
+### v0.116 → v0.116d Codex 4 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.116 | `52e91e9` | 6/2/2 | F72 teacher 담당 외 (v0.115 잔재 아님, 새 경로) · F73 은 v0.115 fix — 여기선 F74/F75 |
+| v0.116b | `ba3268d` | 7/2/2 | F76 patch 성공 audit 오분류 · F77 client details 도달 불가 |
+| v0.116c | `07f1094` | 7/2/2 | F78 durable audit · F79 partial details 유실 |
+| v0.116d | `311efd6` | 7/1/2 | F78 durable audit sink 인프라 (배포 리소스 부재) |
+
+**F78 잔재** — Codex 4라운드는 Cloud Logging 기본 `_Default` 버킷 보존 30 일 + BigQuery/GCS sink 별도 구성 필요 + fallback→audit_log 복구 경로 미구현을 지적. bliss00 결정 (2026-09-11): **A 옵션 (지금 병합 + audit sink 는 별도 슬라이스)**. 이유: Cloud Logging fallback 은 practical 30일 durability 제공, 사람이 눈치채고 복구 가능. 완전 durable audit_log 는 사용자 조치 (BigQuery sink 배포 · 조직 정책) 요구되므로 별도 인프라 슬라이스로 분리.
+
+### 병합 · 배포
+
+- 병합 커밋: `70fac11` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 465 + web 708 = 1200 unit.
+
+### 배운 것
+
+- **teacher.create fallback + patch 는 partial fail 처리를 별도 설계 필요** — Google Classroom API 는 새 owner 가 course teacher 여야 patch 허용. 원본 flow 를 그대로 재현하면 「teacher.create 성공 → patch 실패」 시 orphan teacher 남음. 4xx 는 보상 삭제, 5xx/timeout 은 skip. rollback 상태를 감사 message + HttpsError.details 로 양쪽에 실어야 UI 가 사용자에게 「교사 남아 있음」 을 안내 가능.
+- **patch 성공 후 audit 실패는 성공을 뒤집으면 안 됨** — Google 상태는 이미 바뀐 상태에서 UI 를 실패 처리하면 재시도 → double transfer. audit 는 accountability side-effect 이며 patch 결과와 독립. narrow try/catch 로 patch 만 감싸고, audit 은 best-effort (retry + Cloud Logging fallback).
+- **HttpsError.details 는 Firebase callable protocol 로 wire 전달** — fetch 계층에서 body.error.details 를 Error.details 에 재부착하면 client mutation 이 그대로 소비 가능. 별도 audit union type 확장 없이 rollback 상태를 UI 로 전달.
+- **partial HttpsError 를 audit 호출 앞에 미리 구성** — audit 실패가 던져진 error 를 덮지 않도록 순서 중요. audit 은 non-throwing helper 로 처리.
+- **인프라와 앱 경계** — Codex 감사가 요구하는 「durable audit sink」 는 앱 코드가 아니라 GCP 인프라 (Cloud Logging sink → BigQuery/GCS 라우팅 + retention 정책) 문제. 앱은 3x retry + structured log fallback 까지가 최선. 인프라 슬라이스는 별도로 분리해 사용자 조치와 분리 가능하게.
+
+### 다음 세션에 이어갈 것
+
+v0.117 후보:
+- classroom 상세 페이지 (Phase 6, 앱-only 슬라이스).
+- 감사 로그 배치 export (Phase 6, 앱-only 슬라이스).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
