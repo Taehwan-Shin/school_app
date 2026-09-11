@@ -5,6 +5,8 @@ const mockGet = vi.fn();
 const mockLimit = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
+// v0.118b F82: compound cursor 를 위해 startAfter 도 mock 대상.
+const mockStartAfter = vi.fn();
 const mockCountGet = vi.fn();
 const mockCount = vi.fn(() => ({ get: mockCountGet }));
 const mockCollection = vi.fn();
@@ -22,12 +24,16 @@ import { readAuditEntries, countAuditEntries } from '../src/audit/readAudit.js';
 
 describe('readAuditEntries unit tests', () => {
   beforeEach(() => {
+    // vi.clearAllMocks 는 호출 이력만 지우고 mockResolvedValueOnce 큐는 남긴다.
+    // 테스트 간 오염 방지를 위해 mockGet 은 명시적으로 mockReset.
+    mockGet.mockReset();
     vi.clearAllMocks();
 
     const queryMock: any = {};
     queryMock.orderBy = mockOrderBy.mockReturnValue(queryMock);
     queryMock.where = mockWhere.mockReturnValue(queryMock);
     queryMock.limit = mockLimit.mockReturnValue(queryMock);
+    queryMock.startAfter = mockStartAfter.mockReturnValue(queryMock);
     queryMock.get = mockGet;
     queryMock.count = mockCount.mockReturnValue({ get: mockCountGet });
     mockCountGet.mockResolvedValue({ data: () => ({ count: 0 }) });
@@ -81,18 +87,30 @@ describe('readAuditEntries unit tests', () => {
     });
   });
 
-  it('applies before filter when before cursor timestamp is provided', async () => {
+  it('v0.118c F86: compound before cursor {seconds, nanoseconds, id} → full precision startAfter', async () => {
     mockGet.mockResolvedValueOnce({
       docs: [],
     });
 
-    await readAuditEntries({ limit: 20, before: 1700000005000 });
+    await readAuditEntries({
+      limit: 20,
+      before: { seconds: 1700000005, nanoseconds: 123456000, id: 'doc-last' },
+    });
 
-    expect(mockWhere).toHaveBeenCalledWith('at', '<', expect.any(Timestamp));
+    // startAfter 는 Timestamp (seconds/nanoseconds 로 재구성) + docId.
+    expect(mockStartAfter).toHaveBeenCalledTimes(1);
+    const [callArg1, callArg2] = mockStartAfter.mock.calls[0];
+    expect(callArg1).toBeInstanceOf(Timestamp);
+    expect((callArg1 as Timestamp).seconds).toBe(1700000005);
+    expect((callArg1 as Timestamp).nanoseconds).toBe(123456000);
+    expect(callArg2).toBe('doc-last');
     expect(mockLimit).toHaveBeenCalledWith(20);
+    // 기존 where('at', '<', ...) 는 더 이상 쓰이지 않는다.
+    expect(mockWhere).not.toHaveBeenCalledWith('at', '<', expect.anything());
   });
 
-  it('sets nextCursor to last item timestamp when docs count equals limit', async () => {
+  it('v0.118c F86: sets nextCursor {seconds, nanoseconds, id} from last doc Timestamp full precision', async () => {
+    const lastTs = new Timestamp(1700000001, 500_000_000); // 1700000001.5 s
     const mockDoc1 = {
       id: 'doc-1',
       data: () => ({
@@ -102,7 +120,7 @@ describe('readAuditEntries unit tests', () => {
         target: '*',
         request_id: 'req-1',
         result: 'ok',
-        at: Timestamp.fromMillis(1700000002000),
+        at: new Timestamp(1700000002, 0),
       }),
     };
     const mockDoc2 = {
@@ -114,7 +132,7 @@ describe('readAuditEntries unit tests', () => {
         target: '*',
         request_id: 'req-2',
         result: 'ok',
-        at: Timestamp.fromMillis(1700000001000),
+        at: lastTs,
       }),
     };
 
@@ -124,7 +142,12 @@ describe('readAuditEntries unit tests', () => {
 
     const result = await readAuditEntries({ limit: 2 });
 
-    expect(result.nextCursor).toBe(1700000001000);
+    // v0.118c F86: nextCursor 는 Timestamp full precision + docId.
+    expect(result.nextCursor).toEqual({
+      seconds: 1700000001,
+      nanoseconds: 500_000_000,
+      id: 'doc-2',
+    });
     expect(result.entries).toHaveLength(2);
   });
 

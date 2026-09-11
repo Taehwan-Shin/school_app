@@ -3,11 +3,16 @@ import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
-import { readAuditEntries, type AuditLogEntryRead } from '../../audit/readAudit.js';
+import {
+  readAuditEntries,
+  type AuditLogEntryRead,
+  type ReadAuditCursor,
+} from '../../audit/readAudit.js';
 
 export interface AuditLogListRequest {
   limit?: number;
-  before?: number;
+  // v0.118b F82: compound cursor { at, id } for stable pagination across timestamp ties.
+  before?: ReadAuditCursor;
   atMin?: number;
   atMax?: number;
   filterActor?: string;
@@ -19,7 +24,7 @@ export interface AuditLogListRequest {
 
 export interface AuditLogListResponse {
   entries: AuditLogEntryRead[];
-  nextCursor: number | null;
+  nextCursor: ReadAuditCursor | null;
 }
 
 const MAX_LIMIT = 500;
@@ -80,10 +85,51 @@ export const auditLogList = onCall(
           ? data.limit
           : DEFAULT_LIMIT;
       const limit = Math.max(1, Math.min(MAX_LIMIT, Math.floor(rawLimit)));
-      const before =
-        typeof data?.before === 'number' && Number.isFinite(data.before) && data.before > 0
-          ? data.before
-          : undefined;
+      // v0.118c F86/F88: before 는 이제 { seconds, nanoseconds, id } compound cursor.
+      // legacy 숫자 cursor 는 조용히 drop 하면 rolling deploy 중 첫 페이지 재요청 →
+      // 중복 append 위험. invalid-argument 로 명시 거부해 클라이언트가 새로고침을
+      // 유도. undefined/null 은 초기 페이지로 정상 처리.
+      let before: ReadAuditCursor | undefined;
+      if (data?.before !== undefined && data.before !== null) {
+        if (typeof data.before === 'number') {
+          throw new HttpsError(
+            'invalid-argument',
+            'legacy_cursor_number_deprecated: refresh page to use compound cursor',
+          );
+        }
+        // v0.118d F89 / v0.118e F90: seconds/nanoseconds 는 반드시 정수,
+        // nanoseconds 는 0..999_999_999, seconds 는 0 초과이며 Firestore
+        // Timestamp 최대치 (9999-12-31T23:59:59Z = 253_402_300_799) 이하.
+        // Timestamp constructor 는 위반 시 RangeError 를 던지므로 callable 층에서
+        // 명시 거부해 감사에 정확한 사유가 남도록.
+        const beforeObj = data.before as {
+          seconds?: unknown;
+          nanoseconds?: unknown;
+          id?: unknown;
+        };
+        const MAX_TS_SECONDS = 253_402_300_799; // 9999-12-31T23:59:59Z
+        if (
+          typeof data.before === 'object' &&
+          typeof beforeObj.seconds === 'number' &&
+          Number.isInteger(beforeObj.seconds) &&
+          beforeObj.seconds > 0 &&
+          beforeObj.seconds <= MAX_TS_SECONDS &&
+          typeof beforeObj.nanoseconds === 'number' &&
+          Number.isInteger(beforeObj.nanoseconds) &&
+          beforeObj.nanoseconds >= 0 &&
+          beforeObj.nanoseconds <= 999_999_999 &&
+          typeof beforeObj.id === 'string' &&
+          beforeObj.id.length > 0
+        ) {
+          before = {
+            seconds: beforeObj.seconds,
+            nanoseconds: beforeObj.nanoseconds,
+            id: beforeObj.id,
+          };
+        } else {
+          throw new HttpsError('invalid-argument', 'invalid_before_cursor');
+        }
+      }
       const atMin =
         typeof data?.atMin === 'number' && Number.isFinite(data.atMin) && data.atMin > 0
           ? data.atMin
@@ -157,7 +203,7 @@ export const auditLogList = onCall(
         target: '*',
         request_id: requestId,
         result: 'ok',
-        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before}` : ''})${filterStr}`,
+        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before.seconds}.${String(before.nanoseconds).padStart(9, '0')}#${before.id}` : ''})${filterStr}`,
       });
 
       return result;

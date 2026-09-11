@@ -172,7 +172,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mock500Entries,
-      nextCursor: 1700000000499,
+      nextCursor: { seconds: 1700000000, nanoseconds: 499_000_000, id: 'doc-499' },
     });
 
     const req = createRequest({
@@ -208,7 +208,7 @@ describe('auditLogList unit tests', () => {
     });
   });
 
-  it('passes before cursor timestamp to readAuditEntries and records in audit log message', async () => {
+  it('v0.118c F86: compound before cursor {seconds, nanoseconds, id} 를 readAuditEntries 로 전달 + audit 메시지 반영', async () => {
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: [],
       nextCursor: null,
@@ -217,24 +217,126 @@ describe('auditLogList unit tests', () => {
     const req = createRequest({
       email: 'super@cam.hs.kr',
       role: 'super_admin',
-      data: { limit: 50, before: 1700000000000 },
+      data: {
+        limit: 50,
+        before: { seconds: 1700000000, nanoseconds: 123456000, id: 'doc-cursor' },
+      },
     });
     await auditLogList.run(req);
 
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 50,
-      before: 1700000000000,
+      before: { seconds: 1700000000, nanoseconds: 123456000, id: 'doc-cursor' },
     });
 
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'ok',
-        message: 'read 0 entries (limit 50, before 1700000000000)',
+        message: 'read 0 entries (limit 50, before 1700000000.123456000#doc-cursor)',
       }),
     );
   });
 
-  it('returns nextCursor when page is full (entries.length === limit)', async () => {
+  // v0.118c F88: legacy 숫자 cursor 는 조용히 drop 하지 않고 invalid-argument 로
+  // 명시 거부해야 rolling deploy 중 배포 전 브라우저 탭의 loadMore 가 첫 페이지를
+  // 재요청해 중복 append 하는 사고를 예방한다.
+  it('v0.118c F88: 숫자 legacy cursor 는 invalid-argument 로 명시 거부', async () => {
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { limit: 20, before: 1700000000000 as any },
+    });
+    await expect(auditLogList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining('legacy_cursor_number_deprecated'),
+    });
+    expect(mockReadAuditEntries).not.toHaveBeenCalled();
+  });
+
+  // 잘못된 compound shape (id 없이 등) 도 명시 거부.
+  it('v0.118c F86: 불완전한 compound cursor shape 은 invalid-argument', async () => {
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { limit: 20, before: { seconds: 1700000000 } as any },
+    });
+    await expect(auditLogList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining('invalid_before_cursor'),
+    });
+  });
+
+  // v0.118d F89: seconds/nanoseconds 는 정수여야 하고 nanoseconds 는 0..999_999_999.
+  // 소수·경계 초과·음수 를 감시.
+  const invalidCursorCases: Array<[string, unknown]> = [
+    ['seconds 소수', { seconds: 1700000000.5, nanoseconds: 0, id: 'd' }],
+    ['nanoseconds 소수', { seconds: 1700000000, nanoseconds: 500.5, id: 'd' }],
+    ['nanoseconds 상한 초과', { seconds: 1700000000, nanoseconds: 1_000_000_000, id: 'd' }],
+    ['nanoseconds 음수', { seconds: 1700000000, nanoseconds: -1, id: 'd' }],
+    ['seconds 0', { seconds: 0, nanoseconds: 0, id: 'd' }],
+    ['seconds NaN', { seconds: NaN, nanoseconds: 0, id: 'd' }],
+    ['id empty string', { seconds: 1700000000, nanoseconds: 0, id: '' }],
+    // v0.118e F90: seconds 상한 = 253_402_300_799 (9999-12-31T23:59:59Z).
+    ['seconds MAX+1', { seconds: 253_402_300_800, nanoseconds: 0, id: 'd' }],
+  ];
+  for (const [label, badCursor] of invalidCursorCases) {
+    it(`v0.118d F89: ${label} → invalid_before_cursor`, async () => {
+      const req = createRequest({
+        email: 'super@cam.hs.kr',
+        role: 'super_admin',
+        data: { limit: 20, before: badCursor as any },
+      });
+      await expect(auditLogList.run(req)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        message: expect.stringContaining('invalid_before_cursor'),
+      });
+      expect(mockReadAuditEntries).not.toHaveBeenCalled();
+    });
+  }
+
+  // v0.118d F89: 경계값은 정상 통과.
+  it('v0.118d F89: nanoseconds 경계 (0, 999_999_999) 는 정상 통과', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        limit: 20,
+        before: { seconds: 1700000000, nanoseconds: 999_999_999, id: 'edge' },
+      },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        before: { seconds: 1700000000, nanoseconds: 999_999_999, id: 'edge' },
+      }),
+    );
+  });
+
+  // v0.118e F90: seconds 최대값 (253_402_300_799) 은 정상 통과.
+  it('v0.118e F90: seconds MAX (253_402_300_799) 는 정상 통과', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        limit: 20,
+        before: { seconds: 253_402_300_799, nanoseconds: 999_999_999, id: 'max' },
+      },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        before: {
+          seconds: 253_402_300_799,
+          nanoseconds: 999_999_999,
+          id: 'max',
+        },
+      }),
+    );
+  });
+
+  it('v0.118b F82: returns nextCursor {at, id} when page is full', async () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
         id: 'doc-1',
@@ -260,7 +362,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mockEntries,
-      nextCursor: 1700000001000,
+      nextCursor: { seconds: 1700000001, nanoseconds: 0, id: 'doc-2' },
     });
 
     const req = createRequest({
@@ -270,7 +372,11 @@ describe('auditLogList unit tests', () => {
     });
     const result = await auditLogList.run(req);
 
-    expect(result.nextCursor).toBe(1700000001000);
+    expect(result.nextCursor).toEqual({
+      seconds: 1700000001,
+      nanoseconds: 0,
+      id: 'doc-2',
+    });
     expect(result.entries).toHaveLength(2);
   });
 
