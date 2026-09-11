@@ -547,7 +547,8 @@ describe('SuperAdminPage', () => {
     renderWithRouter(<SuperAdminPage />);
 
     expect(screen.getByTestId('super-admin-preview-loading')).toBeDefined();
-    expect(screen.getAllByText('불러오는 중...')).toHaveLength(2);
+    // v0.120: super-admin-breakdown-loading 도 「불러오는 중...」 이므로 3.
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(3);
     expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
     expect(screen.queryByTestId('super-admin-preview-error')).toBeNull();
@@ -607,7 +608,8 @@ describe('SuperAdminPage', () => {
     });
     const { unmount: unmountLoading } = renderWithRouter(<SuperAdminPage />);
     expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
-    expect(screen.getAllByText('불러오는 중...')).toHaveLength(2);
+    // v0.120: super-admin-breakdown-loading 도 「불러오는 중...」 이므로 3.
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(3);
     unmountLoading();
 
     // 2. error
@@ -1291,6 +1293,156 @@ describe('SuperAdminPage', () => {
       expect(grid!.className).toContain('md:grid-cols-2');
       expect(grid!.className).toContain('lg:grid-cols-3');
       expect(grid!.className).toContain('xl:grid-cols-5');
+    });
+  });
+
+  // v0.120: action breakdown 위젯.
+  describe('v0.120 action breakdown', () => {
+    const baseUsers = {
+      data: { users: [] as UserItem[] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    const baseGroups = {
+      data: { groups: [] as GroupItem[] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    const baseAuditList = {
+      entries: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    };
+    const baseUnresolved = {
+      data: {
+        entries: [],
+        scannedDetected: 0,
+        scannedResolved: 0,
+        detectedHasMore: false,
+        resolvedHasMore: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    beforeEach(() => {
+      mockUseUsersList.mockReturnValue(baseUsers);
+      mockUseGroupsList.mockReturnValue(baseGroups);
+      mockUseAuditLogList.mockReturnValue(baseAuditList);
+      mockUseUnresolvedRoleSplits.mockReturnValue(baseUnresolved);
+    });
+
+    it('actionCounts 정렬 후 top 액션 row 표시 + link href 검증', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3, 'users.write': 2, 'audit.read': 1 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 세 액션 row 존재.
+      expect(screen.getByTestId('super-admin-breakdown-row-users.read')).toBeDefined();
+      expect(screen.getByTestId('super-admin-breakdown-row-users.write')).toBeDefined();
+      expect(screen.getByTestId('super-admin-breakdown-row-audit.read')).toBeDefined();
+      // truncated 배너는 없음.
+      expect(screen.queryByTestId('super-admin-breakdown-truncated')).toBeNull();
+      // top row 는 count 가장 높은 users.read.
+      const list = screen.getByTestId('super-admin-breakdown-list');
+      const rows = list.querySelectorAll('li');
+      expect(rows[0].textContent).toContain('users.read');
+      // link href 는 action + atMin 포함.
+      const topLink = rows[0].querySelector('a');
+      expect(topLink?.getAttribute('href')).toContain('action=users.read');
+      expect(topLink?.getAttribute('href')).toMatch(/atMin=\d{4}-\d{2}-\d{2}/);
+    });
+
+    it('sampleTruncated=true 이면 truncated 경고 노출 (count > sampleSize 명시)', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 300, 'users.write': 200 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const truncated = screen.getByTestId('super-admin-breakdown-truncated');
+      expect(truncated.textContent).toContain('1234');
+      expect(truncated.textContent).toContain('500');
+    });
+
+    it('빈 결과 → empty 안내', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 0,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: {},
+          sampleSize: 0,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-breakdown-empty')).toBeDefined();
+      expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
+    });
+
+    // v0.120b F97: 구 Functions 응답 (actionCounts 필드 없음) 은 「집계 미제공」
+    // 으로 표시하고 「이벤트 없음」 (count=0 empty) 과 구분한다.
+    it('v0.120b F97: 구 응답 (actionCounts=undefined) 은 unavailable 안내 · empty 안내 미노출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 42, // 구 서버라 count 만 있고 actionCounts 없음
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          // actionCounts, sampleSize, sampleTruncated 없음 (backward-compat).
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-breakdown-unavailable')).toBeDefined();
+      // empty 안내는 뜨지 않아야.
+      expect(screen.queryByTestId('super-admin-breakdown-empty')).toBeNull();
+      expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
+    });
+
+    it('오류 상태 → breakdown-error 배너 · list 미노출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('network_failure'),
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const err = screen.getByTestId('super-admin-breakdown-error');
+      expect(err.textContent).toContain('network_failure');
+      expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
     });
   });
 });
