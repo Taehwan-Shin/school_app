@@ -65,43 +65,79 @@ bq --location=asia-northeast3 mk --dataset school-app-5a636:audit_log_sink
 
 ### 2. Cloud Logging Sink 생성
 
+**중요 (F111)**: 이 프로젝트는 `firebase-functions/v2` (2세대) 를 사용합니다.
+Gen2 함수의 stderr 는 Cloud Run 인프라 위에서 실행되므로 로그 `resource.type` 이
+`cloud_run_revision` 입니다 (Gen1 의 `cloud_function` 아님). 참고:
+https://cloud.google.com/run/docs/logging
+
+**중요 (F112)**: `--use-partitioned-tables` 플래그를 반드시 지정합니다. 없으면 date-
+sharded 테이블 (`table_YYYYMMDD` 여러 개) 로 만들어져 `_PARTITIONTIME` 쿼리가 실패
+하고 `_TABLE_SUFFIX` 를 써야 합니다. 파티션 테이블 하나로 통일하면 조회/보존 정책
+이 단순해집니다. 참고: https://cloud.google.com/logging/docs/export/bigquery
+
 ```bash
-# Filter: audit_write_failed 로 끝나는 message 만 (Cloud Functions 만 stream)
+# Gen2 함수 (Cloud Run) stderr 만 · audit_write_failed 로 끝나는 message 만 stream
 gcloud logging sinks create audit-write-failed-to-bq \
   bigquery.googleapis.com/projects/school-app-5a636/datasets/audit_log_sink \
-  --log-filter='resource.type="cloud_function" AND jsonPayload.message=~"_audit_write_failed$"' \
+  --log-filter='resource.type="cloud_run_revision" AND severity>=ERROR AND jsonPayload.message=~"_audit_write_failed$"' \
+  --use-partitioned-tables \
   --project=school-app-5a636
+```
+
+특정 함수만 골라 stream 하고 싶다면 (선택):
+```
+resource.type="cloud_run_revision"
+resource.labels.service_name=~"^(usersCreate|orgunitsCreate|classroomTransferOwnership)$"
+jsonPayload.message=~"_audit_write_failed$"
 ```
 
 또는 Firebase Console → Logging → Log Router → 「+ 싱크 만들기」:
 - 이름: `audit-write-failed-to-bq`
 - 대상: BigQuery dataset → `audit_log_sink`
-- 필터:
-  ```
-  resource.type="cloud_function"
-  jsonPayload.message=~"_audit_write_failed$"
-  ```
+- 「테이블 파티셔닝 사용」 (Use partitioned tables) 옵션 **체크**.
+- 필터 (위와 동일).
 
-### 3. Service Account 권한 부여
+### 3. Service Account 권한 부여 (destination write)
 
-Sink 생성 시 Google 이 자동으로 만든 service account (예: `p{PROJECT_NUMBER}-{ID}@gcp-sa-logging.iam.gserviceaccount.com`) 에게 BigQuery 에 쓸 권한이 있어야:
+Sink 생성 시 Google Cloud 가 자동으로 `writerIdentity` service account 를 만듭니다.
+이 SA 에게 destination dataset 에 데이터를 쓸 권한 (BigQuery Data Editor) 을 부여
+해야 합니다. 이는 **destination-쓰기 권한** 이며, destination 을 **누가 읽을 수 있는지**
+는 별도로 관리합니다 (§보안 관점).
 
 ```bash
-# sink 정보 확인
-gcloud logging sinks describe audit-write-failed-to-bq
+# sink 정보 확인 · writerIdentity 필드 확인
+gcloud logging sinks describe audit-write-failed-to-bq \
+  --project=school-app-5a636 \
+  --format='value(writerIdentity)'
 
 # writerIdentity 를 복사 → BigQuery Data Editor 부여
 gcloud projects add-iam-policy-binding school-app-5a636 \
-  --member="serviceAccount:{writerIdentity}" \
+  --member="{writerIdentity}" \
   --role="roles/bigquery.dataEditor"
 ```
 
-### 4. 조회 예시
+### 4. Smoke 확인
 
-sink 활성화 후 몇 시간 뒤 (Google 이 로그 stream 하는 시간):
+Sink 활성화 후 몇 분 뒤 의도적으로 fallback 을 발동해 end-to-end 를 확인 (선택):
+
+```bash
+# audit_log 컬렉션 write 를 잠깐 차단하는 방법이 없으니, 배포 후 실제 write 실패
+# 로그가 나올 때까지 대기. 확인은 Logs Explorer 에서:
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND jsonPayload.message=~"_audit_write_failed$"' \
+  --project=school-app-5a636 \
+  --limit=10 \
+  --format=json
+```
+
+몇 분 뒤 BigQuery 에 파티션 테이블 (`run_googleapis_com_stderr`) 이 자동 생성됩니다.
+
+### 5. 조회 예시
+
+파티션 테이블이므로 wildcard/suffix 없이 그대로 조회:
 
 ```sql
--- 최근 실패 목록
+-- 최근 실패 목록 (지난 7일)
 SELECT
   timestamp,
   jsonPayload.request_id,
@@ -111,8 +147,9 @@ SELECT
   jsonPayload.audit_entry.result,
   jsonPayload.audit_entry.message,
   jsonPayload.final_error
-FROM `school-app-5a636.audit_log_sink.run_googleapis_com_stderr_*`
-WHERE jsonPayload.message LIKE '%_audit_write_failed'
+FROM `school-app-5a636.audit_log_sink.run_googleapis_com_stderr`
+WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+  AND jsonPayload.message LIKE '%_audit_write_failed'
 ORDER BY timestamp DESC
 LIMIT 100;
 
@@ -120,7 +157,7 @@ LIMIT 100;
 SELECT
   jsonPayload.message AS slug,
   COUNT(*) AS fallback_count
-FROM `school-app-5a636.audit_log_sink.run_googleapis_com_stderr_*`
+FROM `school-app-5a636.audit_log_sink.run_googleapis_com_stderr`
 WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
   AND jsonPayload.message LIKE '%_audit_write_failed'
 GROUP BY slug
@@ -129,7 +166,19 @@ ORDER BY fallback_count DESC;
 
 ## 옵션 C 설정: Firestore → BigQuery (Firebase Extension)
 
-### 1. Extension 설치
+**주의 (F113)**: Firebase 의 `firestore-bigquery-export` 확장은 2027-03-31 종료
+예정입니다 (https://extensions.dev/extensions/firebase/firestore-bigquery-export).
+새로 설치하기보다는 대체 방안을 우선 고려하고, 설치할 경우 종료 일정에 맞춘
+migration 계획도 함께.
+
+**대체 방안** (권장 순서):
+1. **Cloud Firestore scheduled export → BigQuery load** (gcloud/scheduler 기반).
+   Firestore data 를 GCS 로 매일 export 하고 BigQuery 에 load. 관리 시간이 조금
+   들지만 벤더 종료 리스크 없음.
+2. **Dataflow** (Firestore → BigQuery streaming pipeline). 무거운 세팅.
+3. **확장 사용** (아래) — 종료 일정 인지 하에 단기 사용.
+
+### 1. Extension 설치 (단기 사용용)
 
 Firebase Console → Extensions → 「Explore extensions」 → **「Stream Collections to
 BigQuery」** (by Firebase) 검색 → Install.
@@ -137,33 +186,58 @@ BigQuery」** (by Firebase) 검색 → Install.
 설정:
 - Collection path: `audit_log`
 - BigQuery dataset ID: `firestore_audit_log`
-- BigQuery table ID: `audit_log_raw`
-- Location: `asia-northeast3` (Firestore 와 동일)
-- Wildcard IDs: 비워둠
+- BigQuery table ID prefix: `audit_log` (extension 이 `_raw_changelog` 접미사 자동
+  부착 → 실 테이블명 `audit_log_raw_changelog`).
+- Location: `asia-northeast3` (Firestore 와 동일).
+- Wildcard IDs: 비워둠.
 
 이 extension 은 audit_log 컬렉션에 신규 doc 이 추가될 때마다 BigQuery table 로
 자동 stream. 기존 데이터는 별도 backfill 스크립트로 (extension 문서 참고).
 
 ### 2. 조회 예시
 
+`_raw_changelog` 테이블의 `data` 컬럼은 **STRING** (JSON 문자열) 이므로
+`JSON_EXTRACT_SCALAR` / `JSON_VALUE` / `PARSE_JSON` 으로 파싱:
+
 ```sql
 -- 오늘 감사 액션별 정확 count (앱의 「정확 카운트 보기」와 동일)
 SELECT
-  data.action,
+  JSON_VALUE(data, '$.action') AS action,
   COUNT(*) AS count
-FROM `school-app-5a636.firestore_audit_log.audit_log_raw`
-WHERE TIMESTAMP_MILLIS(CAST(data.at._seconds AS INT64) * 1000)
+FROM `school-app-5a636.firestore_audit_log.audit_log_raw_changelog`
+WHERE JSON_VALUE(data, '$.at._seconds') IS NOT NULL
+  AND TIMESTAMP_SECONDS(CAST(JSON_VALUE(data, '$.at._seconds') AS INT64))
       >= TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY)
-GROUP BY data.action
+  AND operation = 'CREATE'
+GROUP BY action
 ORDER BY count DESC;
+
+-- 최근 24 시간 감사 이벤트 (특정 actor 필터 예)
+SELECT
+  timestamp,
+  JSON_VALUE(data, '$.actor') AS actor,
+  JSON_VALUE(data, '$.action') AS action,
+  JSON_VALUE(data, '$.target') AS target,
+  JSON_VALUE(data, '$.result') AS result
+FROM `school-app-5a636.firestore_audit_log.audit_log_raw_changelog`
+WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
+  AND operation = 'CREATE'
+  AND JSON_VALUE(data, '$.actor') = 'super@cam.hs.kr'
+ORDER BY timestamp DESC;
 ```
 
 ## 보존 정책 권장
 
 - **BigQuery**: 감사 데이터셋에 partition expiration 을 설정하지 않으면 무한 보존.
-  용량이 신경 쓰이면 2 년 partition expiration:
+  용량이 신경 쓰이면 2 년 partition expiration (partitioned 테이블 대상, 이름 뒤
+  underscore 없음):
   ```bash
-  bq update --time_partitioning_expiration 63072000 school-app-5a636:audit_log_sink.run_googleapis_com_stderr_
+  bq update --time_partitioning_expiration 63072000 \
+    school-app-5a636:audit_log_sink.run_googleapis_com_stderr
+  ```
+  또는 dataset 기본 파티션 만료:
+  ```bash
+  bq update --default_partition_expiration 63072000 school-app-5a636:audit_log_sink
   ```
 - **GCS**: Coldline storage class + lifecycle 규칙으로 5 년 후 Archive/삭제.
 
@@ -182,12 +256,36 @@ BigQuery dataset 은 그대로 두고 sink 만 지우면 신규 데이터만 str
 
 ## 보안 관점 (bliss00 확인 사항)
 
-- **sink 대상 (BigQuery dataset, GCS bucket) 은 프로젝트 소유자만 접근 가능**하도록
-  IAM 이 자동 설정됨. 지금 super_admin 이 Firestore `audit_log` 를 조회 가능한 것과
-  같은 신뢰 경계.
-- **감사 데이터 새로 노출 없음**. 이미 super_admin 이 조회 가능한 데이터를 durable
-  destination 으로 복사만 하는 것.
-- 새 IAM 권한도 추가 안 함 (log routing service account 는 Google 이 관리, 최소 권한).
+Sink 는 별도의 GCP IAM 경계를 만듭니다. 앱의 super_admin 경계와는 **다르므로**
+아래 항목을 명시적으로 관리해야 합니다. 참고: https://cloud.google.com/logging/docs/export/configure_export_v2
+
+### 새로 부여되는 권한 (destination write)
+- Sink 생성 자체가 `writerIdentity` (Google-managed service account) 에게
+  **destination-쓰기** 권한을 부여합니다 (위 §3 에서 `bigquery.dataEditor` 부여).
+- 이 SA 는 Google 이 관리하며 감사 데이터를 dataset 으로만 쓸 수 있고, 우리
+  Firestore/앱에는 접근하지 않습니다.
+
+### Destination 읽기 권한 (읽는 사람은 별도)
+- **BigQuery dataset 의 열람자는 GCP IAM 으로 별도 관리**합니다. 기본으로 프로젝트
+  `roles/owner` · `roles/bigquery.admin` 을 가진 계정 (=현재는 bliss00) 만 조회
+  가능. 앱의 super_admin 계정과 다릅니다 (앱 super_admin 은 Firestore 만 조회).
+- 다른 조직 구성원이 sink 데이터를 봐야 하면 GCP IAM 에서 `roles/bigquery.dataViewer`
+  등을 명시적으로 부여해야 합니다. 앱의 role 부여와 자동 연동되지 않습니다.
+
+### PII 보존/삭제
+- 감사 데이터에는 **actor 이메일 · target 자원 식별자** 등의 PII 가 포함됩니다.
+  BigQuery destination 은 sink 삭제 이후에도 데이터가 남습니다 (수동 삭제 필요).
+- 보존 정책 (§보존 정책 권장) 을 설정하지 않으면 **무한 보존**. 학교의 개인정보
+  파기 정책에 맞춰 partition expiration 을 설정하세요 (예: 2 년).
+- 사용자의 삭제 요구 (예: 퇴학생 개인정보 삭제) 는 destination BigQuery 에서
+  **개별 DML 로 삭제해야** 합니다. Firestore audit_log 삭제만으로는 sink 데이터가
+  지워지지 않습니다.
+
+### 확인 요약
+- **감사 데이터 자체는 이미 super_admin 이 앱에서 조회 가능하므로 sink 는 노출
+  범위를 (자체적으로는) 확대하지 않음.**
+- 다만 **GCP IAM 경계는 앱 super_admin 경계와 별도**이므로 destination reader 를
+  꼼꼼히 관리하고, PII 보존/삭제 정책을 명시적으로 수립해야 함.
 
 ## 관련 코드
 
