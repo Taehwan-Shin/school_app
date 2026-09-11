@@ -157,5 +157,63 @@ describe("BulkMoveOuDialog component", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
+
+  // v0.129 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정.
+  it("v0.129 F99: confirm 시 emails snapshot 확정 · 실행 중 prop 변경 무시", async () => {
+    const initial = ["user1@cam.hs.kr", "user2@cam.hs.kr"];
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockCallUsersUpdate.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; }),
+    );
+    mockCallUsersUpdate.mockResolvedValue({ primaryEmail: "test", updatedFields: ["orgUnitPath"] });
+
+    const onOpenChange = vi.fn();
+    const { rerender } = renderWithClient(
+      <BulkMoveOuDialog open={true} onOpenChange={onOpenChange} emails={initial} />
+    );
+    fireEvent.change(screen.getByTestId("bulk-move-ou-input"), {
+      target: { value: "/students" },
+    });
+    fireEvent.click(screen.getByTestId("bulk-move-ou-confirm-btn"));
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <BulkMoveOuDialog
+            open={true}
+            onOpenChange={onOpenChange}
+            emails={["completely-different@cam.hs.kr"]}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId("bulk-move-ou-running").textContent).toContain("2");
+
+    resolveFirst!({ primaryEmail: "user1@cam.hs.kr", updatedFields: ["orgUnitPath"] });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-move-ou-done")).toBeDefined();
+    });
+    expect(mockCallUsersUpdate).toHaveBeenCalledTimes(2);
+    expect(mockCallUsersUpdate).toHaveBeenNthCalledWith(1, {
+      primaryEmail: "user1@cam.hs.kr",
+      orgUnitPath: "/students",
+    });
+    expect(mockCallUsersUpdate).toHaveBeenNthCalledWith(2, {
+      primaryEmail: "user2@cam.hs.kr",
+      orgUnitPath: "/students",
+    });
+    expect(screen.getByTestId("bulk-move-ou-done").textContent).toContain("2명 성공");
+  });
+
+  // v0.129 (== v0.124 F100 대칭): label htmlFor 로 프로그램적 연결.
+  it("v0.129 F100: 대상 조직 단위 input 은 label htmlFor 로 프로그램적 연결", () => {
+    renderWithClient(
+      <BulkMoveOuDialog open={true} onOpenChange={vi.fn()} emails={["u@cam.hs.kr"]} />
+    );
+    const input = screen.getByLabelText(/대상 조직 단위/);
+    expect(input).toBeDefined();
+    expect((input as HTMLInputElement).id).toBe("bulk-move-ou-input");
+  });
 });
 
