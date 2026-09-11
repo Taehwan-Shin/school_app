@@ -123,6 +123,77 @@ describe("BulkRestoreDialog component", () => {
     expect(failuresEl.textContent).toContain("admin_cannot_edit_admin");
   });
 
+  // v0.123b F99: confirm 시점의 emails 를 snapshot 으로 고정. 실행 중 부모의
+  // selection 이 바뀌어도 running/done 은 원래 대상만 집계.
+  it("v0.123b F99: confirm 시 emails snapshot 확정 · 실행 중 prop 변경 무시", async () => {
+    const initial = ["user1@cam.hs.kr", "user2@cam.hs.kr"];
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockCallUsersUpdate.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; }),
+    );
+    mockCallUsersUpdate.mockResolvedValue({ primaryEmail: "test", updatedFields: ["suspended"] });
+
+    const onOpenChange = vi.fn();
+    const { rerender } = renderWithClient(
+      <BulkRestoreDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        emails={initial}
+      />
+    );
+    fireEvent.change(screen.getByTestId("bulk-restore-confirm-input"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByTestId("bulk-restore-confirm-btn"));
+
+    // 첫 API 호출 pending 상태에서 부모가 emails 를 바꿔서 rerender.
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <BulkRestoreDialog
+            open={true}
+            onOpenChange={onOpenChange}
+            emails={["completely-different@cam.hs.kr"]}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // running 배너 total 이 여전히 snapshot 크기 (2).
+    const running = screen.getByTestId("bulk-restore-running");
+    expect(running.textContent).toContain("2");
+
+    // 첫 API 해제 → 계속 진행.
+    resolveFirst!({ primaryEmail: "user1@cam.hs.kr", updatedFields: ["suspended"] });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-restore-done")).toBeDefined();
+    });
+    // 원래 2개만 처리, "completely-different" 는 포함 안 됨.
+    expect(mockCallUsersUpdate).toHaveBeenCalledTimes(2);
+    expect(mockCallUsersUpdate).toHaveBeenNthCalledWith(1, {
+      primaryEmail: "user1@cam.hs.kr",
+      suspended: false,
+    });
+    expect(mockCallUsersUpdate).toHaveBeenNthCalledWith(2, {
+      primaryEmail: "user2@cam.hs.kr",
+      suspended: false,
+    });
+    // 완료 집계도 snapshot 기준.
+    expect(screen.getByTestId("bulk-restore-done").textContent).toContain("2명 성공");
+  });
+
+  // v0.123b F100: label 이 input 에 htmlFor 로 연결되어 getByLabelText 로
+  // 접근 가능. 스크린리더/label 클릭 라벨 semantics.
+  it("v0.123b F100: confirm input 은 label htmlFor 로 프로그램적 연결", () => {
+    renderWithClient(
+      <BulkRestoreDialog open={true} onOpenChange={vi.fn()} emails={["u@cam.hs.kr"]} />
+    );
+    const input = screen.getByLabelText(/확인을 위해 대상 개수/);
+    expect(input).toBeDefined();
+    expect((input as HTMLInputElement).id).toBe("bulk-restore-confirm-input");
+  });
+
   it("calls onDone when dialog is closed via close button in done phase", async () => {
     const emails = ["user1@cam.hs.kr"];
     mockCallUsersUpdate.mockResolvedValue({ primaryEmail: "test", updatedFields: ["suspended"] });
