@@ -31,6 +31,10 @@ export function BulkSuspendDialog({
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
+  // v0.124 (== v0.123b F99 대칭): confirm 시점의 emails snapshot. 실행 중 부모
+  // selection 이 바뀌어도 승인 대상 == 처리 대상 == 완료 집계 를 일치시켜
+  // accountability 유지. confirm phase 는 live prop, running/done 은 snapshot.
+  const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -38,6 +42,7 @@ export function BulkSuspendDialog({
       setProgress(0);
       setFailures([]);
       setConfirmText("");
+      setRunEmails(null);
     }
   }, [open]);
 
@@ -50,10 +55,13 @@ export function BulkSuspendDialog({
   };
 
   const handleConfirm = async () => {
+    // F99: snapshot 을 phase 전환과 동시에 확정.
+    const snapshot = [...emails];
+    setRunEmails(snapshot);
     setPhase("running");
     const localFailures: { email: string; message: string }[] = [];
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
+    for (let i = 0; i < snapshot.length; i++) {
+      const email = snapshot[i];
       try {
         await callUsersUpdate({ primaryEmail: email, suspended: true });
       } catch (e) {
@@ -65,6 +73,8 @@ export function BulkSuspendDialog({
     setPhase("done");
     queryClient.invalidateQueries({ queryKey: ["users", "list"] });
   };
+
+  const displayEmails = runEmails ?? emails;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -88,10 +98,16 @@ export function BulkSuspendDialog({
               )}
             </ul>
             <div>
-              <label className="text-small text-fg-primary">
+              {/* v0.124 (== v0.123b F100 대칭): htmlFor/id 로 프로그램적 연결
+                  (UI_SYSTEM.md label semantics). getByLabelText 회귀 가능. */}
+              <label
+                htmlFor="bulk-suspend-confirm-input"
+                className="text-small text-fg-primary"
+              >
                 확인을 위해 대상 개수 (<strong>{emails.length}</strong>)를 입력하세요:
               </label>
               <input
+                id="bulk-suspend-confirm-input"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
@@ -123,13 +139,13 @@ export function BulkSuspendDialog({
             <div className="py-8 text-center space-y-3" data-testid="bulk-suspend-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{emails.length}</strong>
+                <strong className="font-mono">{displayEmails.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${emails.length > 0 ? (progress / emails.length) * 100 : 0}%`,
+                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -147,7 +163,7 @@ export function BulkSuspendDialog({
               <p className="text-body text-fg-primary">
                 완료:{" "}
                 <strong className="text-state-success font-mono">
-                  {emails.length - failures.length}
+                  {displayEmails.length - failures.length}
                 </strong>
                 명 성공
                 {failures.length > 0 && (
