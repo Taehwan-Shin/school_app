@@ -1,12 +1,4 @@
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import {
   Table,
@@ -30,19 +22,19 @@ import { useClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 import { useClassroomStudentsDelete } from '../../api/classroomStudentsDelete';
 import { ClassroomBulkInviteDialog } from './ClassroomBulkInviteDialog';
 
-export interface CourseMembersDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface CourseMembersPanelProps {
   courseId: string | null;
   courseName?: string;
+  active?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 }
 
-export function CourseMembersDialog({
-  open,
-  onOpenChange,
+export function CourseMembersPanel({
   courseId,
   courseName,
-}: CourseMembersDialogProps) {
+  active = true,
+  onPendingChange,
+}: CourseMembersPanelProps) {
   const [tab, setTab] = useState<'teachers' | 'students'>('teachers');
   const [addEmail, setAddEmail] = useState('');
   const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
@@ -61,13 +53,12 @@ export function CourseMembersDialog({
     addStudentMutation.isPending ||
     deleteStudentMutation.isPending;
 
-  const handleOpenChange = (next: boolean) => {
-    if (!next && anyPending) return;
-    onOpenChange(next);
-  };
+  useEffect(() => {
+    onPendingChange?.(anyPending);
+  }, [anyPending, onPendingChange]);
 
   useEffect(() => {
-    if (open && courseId) {
+    if (active && courseId) {
       setAddEmail('');
       setDeleteConfirmUserId(null);
       setTab('teachers');
@@ -77,7 +68,8 @@ export function CourseMembersDialog({
       addStudentMutation.reset?.();
       deleteStudentMutation.reset?.();
     }
-  }, [open, courseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, courseId]);
 
   useEffect(() => {
     setDeleteConfirmUserId(null);
@@ -103,8 +95,8 @@ export function CourseMembersDialog({
     }
   };
 
-  const teachersQuery = useClassroomTeachersList(courseId, open);
-  const studentsQuery = useClassroomStudentsList(courseId, open);
+  const teachersQuery = useClassroomTeachersList(courseId, active);
+  const studentsQuery = useClassroomStudentsList(courseId, active);
 
   const currentQuery = tab === 'teachers' ? teachersQuery : studentsQuery;
   const showLoading = !courseId || currentQuery.isLoading;
@@ -117,114 +109,112 @@ export function CourseMembersDialog({
       : (studentsQuery.data?.students ?? []);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{courseName || courseId} 멤버</DialogTitle>
-          <DialogDescription>
-            <span className="font-mono">{courseId}</span> 코스의 교사 및 학생 명단.
-          </DialogDescription>
-        </DialogHeader>
+    <div>
+      <div className="flex border-b border-border-subtle mb-4">
+        <button
+          type="button"
+          onClick={() => setTab('teachers')}
+          disabled={anyPending}
+          data-testid="course-members-tab-teachers"
+          className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            tab === 'teachers'
+              ? 'border-fg-primary text-fg-primary'
+              : 'border-transparent text-fg-secondary hover:text-fg-primary'
+          }`}
+        >
+          교사
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('students')}
+          disabled={anyPending}
+          data-testid="course-members-tab-students"
+          className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            tab === 'students'
+              ? 'border-fg-primary text-fg-primary'
+              : 'border-transparent text-fg-secondary hover:text-fg-primary'
+          }`}
+        >
+          학생
+        </button>
+      </div>
 
-        <div className="flex border-b border-border-subtle mb-4">
-          <button
-            type="button"
-            onClick={() => setTab('teachers')}
-            disabled={anyPending}
-            data-testid="course-members-tab-teachers"
-            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              tab === 'teachers'
-                ? 'border-fg-primary text-fg-primary'
-                : 'border-transparent text-fg-secondary hover:text-fg-primary'
-            }`}
+      {courseId && (
+        <div className="flex items-end gap-2 mb-4" data-testid="course-members-add-form">
+          <div className="flex-1">
+            <label
+              htmlFor="course-members-add-email-input"
+              className="text-small text-fg-secondary mb-1 block"
+            >
+              이메일 추가
+            </label>
+            <input
+              id="course-members-add-email-input"
+              type="email"
+              value={addEmail}
+              onChange={(e) => setAddEmail(e.target.value)}
+              placeholder="user@cam.hs.kr"
+              disabled={anyPending}
+              data-testid="course-members-add-email"
+              className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+          </div>
+          <Button
+            onClick={handleAdd}
+            disabled={!addEmail.trim() || anyPending}
+            data-testid="course-members-add-btn"
           >
-            교사
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('students')}
-            disabled={anyPending}
-            data-testid="course-members-tab-students"
-            className={`px-4 py-2 text-small font-medium border-b-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              tab === 'students'
-                ? 'border-fg-primary text-fg-primary'
-                : 'border-transparent text-fg-secondary hover:text-fg-primary'
-            }`}
-          >
-            학생
-          </button>
+            {currentAdd.isPending ? '추가 중...' : '추가'}
+          </Button>
         </div>
+      )}
+      {currentAdd.error && (
+        <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-add-error">
+          추가 실패: {currentAdd.error.message}
+        </div>
+      )}
+      {currentDelete.error && (
+        <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-delete-error">
+          삭제 실패: {currentDelete.error.message}
+        </div>
+      )}
 
-        {courseId && (
-          <div className="flex items-end gap-2 mb-4" data-testid="course-members-add-form">
-            <div className="flex-1">
-              <label className="text-small text-fg-secondary mb-1 block">이메일 추가</label>
-              <input
-                type="email"
-                value={addEmail}
-                onChange={(e) => setAddEmail(e.target.value)}
-                placeholder="user@cam.hs.kr"
+      {showLoading && (
+        <div
+          className="py-8 text-center text-small text-fg-secondary"
+          data-testid="course-members-loading"
+        >
+          로딩 중...
+        </div>
+      )}
+
+      {isError && (
+        <div
+          className="border border-state-danger p-4 text-small text-state-danger"
+          data-testid="course-members-error"
+        >
+          오류: {error?.message || '알 수 없는 오류'}
+        </div>
+      )}
+
+      {!showLoading && !isError && currentQuery.data && (
+        <>
+          {tab === 'students' && courseId && (
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="secondary"
+                onClick={() => setBulkInviteOpen(true)}
                 disabled={anyPending}
-                data-testid="course-members-add-email"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-40 disabled:cursor-not-allowed"
-              />
+                data-testid="course-members-bulk-invite-btn"
+              >
+                학급 일괄 초대
+              </Button>
             </div>
-            <Button
-              onClick={handleAdd}
-              disabled={!addEmail.trim() || anyPending}
-              data-testid="course-members-add-btn"
-            >
-              {currentAdd.isPending ? '추가 중...' : '추가'}
-            </Button>
-          </div>
-        )}
-        {currentAdd.error && (
-          <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-add-error">
-            추가 실패: {currentAdd.error.message}
-          </div>
-        )}
-        {currentDelete.error && (
-          <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-delete-error">
-            삭제 실패: {currentDelete.error.message}
-          </div>
-        )}
-
-        {showLoading && (
+          )}
           <div
-            className="py-8 text-center text-small text-fg-secondary"
-            data-testid="course-members-loading"
+            className="max-h-96 overflow-y-auto border border-border-subtle"
+            data-testid="course-members-scroll-container"
           >
-            로딩 중...
-          </div>
-        )}
-
-        {isError && (
-          <div
-            className="border border-state-danger p-4 text-small text-state-danger"
-            data-testid="course-members-error"
-          >
-            오류: {error?.message || '알 수 없는 오류'}
-          </div>
-        )}
-
-        {!showLoading && !isError && currentQuery.data && (
-          <>
-            {tab === 'students' && courseId && (
-              <div className="flex justify-end mb-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setBulkInviteOpen(true)}
-                  disabled={anyPending}
-                  data-testid="course-members-bulk-invite-btn"
-                >
-                  학급 일괄 초대
-                </Button>
-              </div>
-            )}
-            <div
-              className="max-h-96 overflow-y-auto border border-border-subtle"
-              data-testid="course-members-scroll-container"
-            >
             <Table>
               <TableHeader className="sticky top-0 bg-canvas">
                 <TableRow>
@@ -299,24 +289,17 @@ export function CourseMembersDialog({
               </TableBody>
             </Table>
           </div>
-          </>
-        )}
+        </>
+      )}
 
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => handleOpenChange(false)}>
-            닫기
-          </Button>
-        </DialogFooter>
-
-        {courseId && (
-          <ClassroomBulkInviteDialog
-            open={bulkInviteOpen}
-            onOpenChange={setBulkInviteOpen}
-            courseId={courseId}
-            courseName={courseName}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+      {courseId && (
+        <ClassroomBulkInviteDialog
+          open={bulkInviteOpen}
+          onOpenChange={setBulkInviteOpen}
+          courseId={courseId}
+          courseName={courseName}
+        />
+      )}
+    </div>
   );
 }

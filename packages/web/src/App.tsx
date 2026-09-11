@@ -14,6 +14,7 @@ import { AdminClassroomsPage } from './routes/admin/classrooms';
 import { GroupsPage } from './routes/admin/groups';
 import { GroupDetailPage } from './routes/admin/groupDetail';
 import { UserDetailPage } from './routes/admin/userDetail';
+import { ClassroomDetailPage } from './routes/admin/classroomDetail';
 import { TeacherPage } from './routes/teacher';
 
 const queryClient = new QueryClient({
@@ -47,6 +48,7 @@ export function App() {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/chat" element={<AdminChatPage />} />
                 <Route path="/admin/classrooms" element={<AdminClassroomsPage />} />
+                <Route path="/admin/classrooms/:id" element={<ClassroomDetailPage />} />
                 <Route path="/admin/groups" element={<GroupsPage />} />
                 <Route path="/admin/groups/:email" element={<GroupDetailPage />} />
                 <Route path="/admin/users/:email" element={<UserDetailPage />} />

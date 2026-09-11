@@ -50,6 +50,9 @@ export function AuditLogTable() {
     ? Array.from(new Set(actionParam.split(',').map((s) => s.trim()).filter((s) => s.length > 0)))
     : [];
   const actorFilter = searchParams.get('actor') ?? '';
+  // v0.117b F80: 서버 filterTarget URL param. classroom 상세 페이지 등에서
+  // `?target=courses/<id>` 로 진입해 특정 대상 이력을 정확히 조회.
+  const targetFilter = searchParams.get('target') ?? '';
   const atMinMs = (() => {
     const raw = searchParams.get('atMin');
     if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
@@ -65,6 +68,7 @@ export function AuditLogTable() {
 
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
     filterActor: actorFilter || undefined,
+    filterTarget: targetFilter || undefined,
     filterResult: resultFilter !== 'all' ? resultFilter : undefined,
     // v0.104: 다중이면 filterActions, 단일이면 filterAction (Firestore in vs == index 재사용).
     filterAction: actionList.length === 1 ? actionList[0] : undefined,
@@ -92,6 +96,7 @@ export function AuditLogTable() {
     if (actionParam) parts.push(`action-${actionParam.replace(/,/g, '_')}`);
     if (resultFilter !== 'all') parts.push(`result-${resultFilter}`);
     if (actorFilter) parts.push(`actor-${actorFilter.replace(/@.*/, '')}`);
+    if (targetFilter) parts.push(`target-${targetFilter.slice(0, 40)}`);
     if (actionSearch) parts.push(`q-${actionSearch.slice(0, 20)}`);
     return parts.length > 0 ? '-' + parts.join('-').replace(/[^a-zA-Z0-9._-]/g, '_') : '';
   };
@@ -143,6 +148,7 @@ export function AuditLogTable() {
         actions: actionList.length > 0 ? actionList : null,
         result: resultFilter !== 'all' ? resultFilter : null,
         actor: actorFilter || null,
+        target: targetFilter || null,
         q: actionSearch || null,
         atMinMs: atMinMs ?? null,
         atMinIso: atMinMs !== undefined ? new Date(atMinMs).toISOString() : null,
@@ -278,6 +284,20 @@ export function AuditLogTable() {
             placeholder="행위자 이메일"
             aria-label="행위자 필터"
             data-testid="audit-log-filter-actor"
+            className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
+          />
+          <input
+            type="text"
+            value={targetFilter}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              const v = e.target.value;
+              if (v) next.set('target', v); else next.delete('target');
+              setSearchParams(next, { replace: false });
+            }}
+            placeholder="대상 (예: courses/&lt;id&gt;)"
+            aria-label="대상 필터"
+            data-testid="audit-log-filter-target"
             className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
           />
           <select
@@ -417,6 +437,7 @@ export function AuditLogTable() {
             onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
             disabled={
               !actorFilter &&
+              !targetFilter &&
               resultFilter === 'all' &&
               !searchParams.get('atMin') &&
               !searchParams.get('atMax') &&
@@ -603,6 +624,7 @@ export function AuditLogTable() {
               도 필터 미적용. empty-state 도 `.trim().length > 0` 으로 맞춰야 공백-only q
               에서 「매칭 없음」 오도 방지. */}
           {actorFilter ||
+          targetFilter ||
           resultFilter !== 'all' ||
           searchParams.get('atMin') ||
           searchParams.get('atMax') ||
