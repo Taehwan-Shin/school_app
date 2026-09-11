@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
 import type { Role } from '@school-app/shared';
+import { AUDIT_ACTIONS } from '@school-app/shared';
 import { authenticateRequest, assertHasCap } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { readAuditEntries, countAuditEntries, type AuditLogEntryRead } from '../../audit/readAudit.js';
@@ -8,6 +9,11 @@ import { readAuditEntries, countAuditEntries, type AuditLogEntryRead } from '../
 export interface AuditLogSummaryRequest {
   atMin?: number;
   atMax?: number;
+  // v0.126: sample-scope breakdown (기본) 대신 각 action 을 Firestore
+  // `count()` aggregation 으로 정확히 세어 전체 count 를 반환. AUDIT_ACTIONS
+  // 28 개를 parallel 조회 → 최대 28 reads. 클라이언트는 sampleTruncated=true
+  // 일 때만 toggle 로 요청 (평상시 breakdown 은 sample 로 충분히 빠름).
+  exact?: boolean;
 }
 
 export interface AuditLogSummaryResponse {
@@ -21,6 +27,11 @@ export interface AuditLogSummaryResponse {
   actionCounts: Record<string, number>;
   sampleSize: number;
   sampleTruncated: boolean;
+  // v0.126: `exact=true` 요청 시 AUDIT_ACTIONS 각각을 count() 로 조회한 정확
+  // 값. 0 인 action 은 제외 (렌더 시 sample-scope 와 동일한 정렬 · 표시).
+  // 미요청 시 undefined — 클라이언트는 exactActionCounts ?? actionCounts 로
+  // 우선순위 렌더 + truncated 배너 숨김.
+  exactActionCounts?: Record<string, number>;
 }
 
 const PREVIEW_LIMIT = 5;
@@ -86,16 +97,30 @@ export const auditLogSummary = onCall(
         typeof data?.atMax === 'number' && Number.isFinite(data.atMax) && data.atMax > 0
           ? data.atMax
           : undefined;
+      const exact = data?.exact === true;
 
       const generatedAt = Date.now();
       const effectiveAtMax = clientAtMax !== undefined ? Math.min(clientAtMax, generatedAt) : generatedAt;
       const snapshotAt = effectiveAtMax;
 
       // v0.120: preview + count + sample (breakdown 용) 을 동시에 조회.
-      const [count, listResult, sampleResult] = await Promise.all([
+      // v0.126: exact=true 이면 각 AUDIT_ACTIONS 를 count() 로 추가 병렬 조회.
+      const [count, listResult, sampleResult, exactCountsList] = await Promise.all([
         countAuditEntries({ atMin, atMax: effectiveAtMax }),
         readAuditEntries({ limit: PREVIEW_LIMIT, atMin, atMax: effectiveAtMax }),
         readAuditEntries({ limit: SAMPLE_LIMIT, atMin, atMax: effectiveAtMax }),
+        exact
+          ? Promise.all(
+              AUDIT_ACTIONS.map(async (action) => ({
+                action,
+                count: await countAuditEntries({
+                  atMin,
+                  atMax: effectiveAtMax,
+                  filterAction: action,
+                }),
+              })),
+            )
+          : Promise.resolve(null),
       ]);
 
       // sample 에서 action 별 카운트 계산. sample 은 at DESC 로 최신 SAMPLE_LIMIT 건.
@@ -108,6 +133,27 @@ export const auditLogSummary = onCall(
       // 이 최신 sampleSize 만 대상. 정확 count 는 별도 `count` 필드.
       const sampleTruncated = count > sampleSize;
 
+      // v0.126: exactCountsList → { action: count } 로 변환. 0 인 action 제외.
+      // v0.126b F103: AUDIT_ACTIONS 는 비강제 카탈로그 — 서버는 임의 action 저장을
+      // 허용하므로 (writeAudit 참조), 28 개 catalog 로만 세면 미등록 action 이 total
+      // count 에서 누락. sum(exactActionCounts) < count 이면 차이를 `_other` 로 별도
+      // bucket 에 남겨 클라이언트가 「전부 정확 집계」 라는 오표기를 하지 않도록.
+      // 합계 불변식: Object.values(exactActionCounts).reduce((a,b)=>a+b, 0) === count.
+      let exactActionCounts: Record<string, number> | undefined;
+      if (exactCountsList) {
+        exactActionCounts = {};
+        let knownSum = 0;
+        for (const { action, count: c } of exactCountsList) {
+          if (c > 0) {
+            exactActionCounts[action] = c;
+            knownSum += c;
+          }
+        }
+        if (count > knownSum) {
+          exactActionCounts._other = count - knownSum;
+        }
+      }
+
       await writeAudit({
         actor: user.email,
         role: user.role,
@@ -115,7 +161,7 @@ export const auditLogSummary = onCall(
         target: 'dashboard:super_admin',
         request_id: requestId,
         result: 'ok',
-        message: `summarized ${count} entries (sample=${sampleSize}, truncated=${sampleTruncated}) [snapshot=${new Date(snapshotAt).toISOString()}, generated=${new Date(generatedAt).toISOString()}]`,
+        message: `summarized ${count} entries (sample=${sampleSize}, truncated=${sampleTruncated}${exact ? ', exact=on' : ''}) [snapshot=${new Date(snapshotAt).toISOString()}, generated=${new Date(generatedAt).toISOString()}]`,
       });
 
       return {
@@ -126,6 +172,7 @@ export const auditLogSummary = onCall(
         actionCounts,
         sampleSize,
         sampleTruncated,
+        ...(exactActionCounts !== undefined ? { exactActionCounts } : {}),
       };
     } catch (err) {
       await writeAudit({

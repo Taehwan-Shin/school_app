@@ -146,11 +146,14 @@ export interface CountAuditEntriesOptions {
   filterActor?: string;
   filterTarget?: string;
   filterResult?: 'ok' | 'error' | 'denied';
+  // v0.126: 정확 action-별 count aggregation 을 위한 확장. v0.101b `(action,
+  // at DESC)` 복합 인덱스를 그대로 재사용.
+  filterAction?: string;
 }
 
 export async function countAuditEntries(options: CountAuditEntriesOptions): Promise<number> {
   const db = getFirestore();
-  const { atMin, atMax, filterActor, filterTarget, filterResult } = options;
+  const { atMin, atMax, filterActor, filterTarget, filterResult, filterAction } = options;
 
   let query: FirebaseFirestore.Query = db.collection('audit_log');
   if (atMin !== undefined) query = query.where('at', '>=', Timestamp.fromMillis(atMin));
@@ -158,6 +161,7 @@ export async function countAuditEntries(options: CountAuditEntriesOptions): Prom
   if (filterActor) query = query.where('actor', '==', filterActor);
   if (filterTarget) query = query.where('target', '==', filterTarget);
   if (filterResult) query = query.where('result', '==', filterResult);
+  if (filterAction) query = query.where('action', '==', filterAction);
 
   const snap = await query.count().get();
   return snap.data().count;
