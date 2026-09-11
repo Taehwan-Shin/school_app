@@ -54,7 +54,7 @@ describe('fetchAllAuditLog', () => {
     mockCallAuditLogList
       .mockResolvedValueOnce({
         entries: [entry('a', 3), entry('b', 2)],
-        nextCursor: { at: 2, id: 'b' },
+        nextCursor: { seconds: 2, nanoseconds: 0, id: 'b' },
       })
       .mockResolvedValueOnce({
         entries: [entry('c', 1)],
@@ -70,7 +70,7 @@ describe('fetchAllAuditLog', () => {
     // 두 번째 요청은 compound before={at, id}.
     expect(mockCallAuditLogList).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ before: { at: 2, id: 'b' }, limit: 2 }),
+      expect.objectContaining({ before: { seconds: 2, nanoseconds: 0, id: 'b' }, limit: 2 }),
     );
     expect(result.entries.map((e) => e.id)).toEqual(['a', 'b', 'c']);
     expect(result.hitCap).toBe(false);
@@ -78,8 +78,8 @@ describe('fetchAllAuditLog', () => {
 
   it('maxPages 상한 도달 → hitCap=true · 이후 페이지 미시도', async () => {
     mockCallAuditLogList
-      .mockResolvedValueOnce({ entries: [entry('a', 3)], nextCursor: { at: 3, id: 'a' } })
-      .mockResolvedValueOnce({ entries: [entry('b', 2)], nextCursor: { at: 2, id: 'b' } });
+      .mockResolvedValueOnce({ entries: [entry('a', 3)], nextCursor: { seconds: 3, nanoseconds: 0, id: 'a' } })
+      .mockResolvedValueOnce({ entries: [entry('b', 2)], nextCursor: { seconds: 2, nanoseconds: 0, id: 'b' } });
     const result = await fetchAllAuditLog({}, { pageSize: 1, maxPages: 2 });
     expect(mockCallAuditLogList).toHaveBeenCalledTimes(2);
     expect(result.pages).toBe(2);
@@ -93,7 +93,7 @@ describe('fetchAllAuditLog', () => {
       .mockImplementationOnce(async () => {
         // 첫 페이지 후 취소 (응답은 아직 반환하기 전).
         controller.abort();
-        return { entries: [entry('a', 2)], nextCursor: { at: 2, id: 'a' } };
+        return { entries: [entry('a', 2)], nextCursor: { seconds: 2, nanoseconds: 0, id: 'a' } };
       })
       .mockResolvedValue({ entries: [entry('b', 1)], nextCursor: null });
     const result = await fetchAllAuditLog(
@@ -114,6 +114,50 @@ describe('fetchAllAuditLog', () => {
     expect(mockCallAuditLogList).toHaveBeenCalledWith(
       expect.objectContaining({ signal: controller.signal }),
     );
+  });
+
+  // v0.118c F87: AbortController.abort() 로 fetch 가 AbortError 로 reject 될 때
+  // helper 는 이를 정상 취소 (aborted=true) 로 흡수해야 UI 가 「실패」로 잘못
+  // 표시하지 않는다.
+  it('F87: fetch 가 AbortError 로 reject 되면 aborted=true 로 흡수 (에러 propagate 안 함)', async () => {
+    const controller = new AbortController();
+    // DOMException 없는 환경 대비: name==='AbortError' 인 Error 로도 흡수해야.
+    const abortErr = new Error('The operation was aborted.');
+    abortErr.name = 'AbortError';
+    mockCallAuditLogList.mockImplementationOnce(async () => {
+      controller.abort();
+      throw abortErr;
+    });
+    const result = await fetchAllAuditLog(
+      {},
+      { pageSize: 1, signal: controller.signal },
+    );
+    expect(result.aborted).toBe(true);
+    expect(result.entries).toHaveLength(0);
+  });
+
+  // F87 보강: signal.aborted=true 인 상태에서 reject 되면 원 에러 종류와 무관하게
+  // aborted 로 흡수 (일부 브라우저는 AbortError 대신 다른 이름의 오류 발생).
+  it('F87: signal.aborted=true 인 상태에서 reject 되면 aborted 로 흡수', async () => {
+    const controller = new AbortController();
+    mockCallAuditLogList.mockImplementationOnce(async () => {
+      controller.abort();
+      throw new Error('some_network_error');
+    });
+    const result = await fetchAllAuditLog(
+      {},
+      { pageSize: 1, signal: controller.signal },
+    );
+    expect(result.aborted).toBe(true);
+  });
+
+  // 반대: signal 이 abort 되지 않은 상태의 순수 fetch 에러는 그대로 throw.
+  it('F87: signal 미취소 상태의 에러는 정상 throw (aborted 흡수 안 함)', async () => {
+    const controller = new AbortController();
+    mockCallAuditLogList.mockRejectedValueOnce(new Error('server_500'));
+    await expect(
+      fetchAllAuditLog({}, { pageSize: 1, signal: controller.signal }),
+    ).rejects.toThrow('server_500');
   });
 
   it('시작 전에 이미 abort 된 signal → 아무 페이지도 요청 안 함', async () => {

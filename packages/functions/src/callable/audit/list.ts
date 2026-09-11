@@ -85,18 +85,38 @@ export const auditLogList = onCall(
           ? data.limit
           : DEFAULT_LIMIT;
       const limit = Math.max(1, Math.min(MAX_LIMIT, Math.floor(rawLimit)));
-      // v0.118b F82: before 는 이제 { at: number, id: string } 객체. wire 검증 후
-      // readAuditEntries 로 전달. 잘못된 shape 은 조용히 drop (백워드 호환).
-      const before: ReadAuditCursor | undefined =
-        data?.before &&
-        typeof data.before === 'object' &&
-        typeof (data.before as any).at === 'number' &&
-        Number.isFinite((data.before as any).at) &&
-        (data.before as any).at > 0 &&
-        typeof (data.before as any).id === 'string' &&
-        (data.before as any).id.length > 0
-          ? { at: (data.before as any).at, id: (data.before as any).id }
-          : undefined;
+      // v0.118c F86/F88: before 는 이제 { seconds, nanoseconds, id } compound cursor.
+      // legacy 숫자 cursor 는 조용히 drop 하면 rolling deploy 중 첫 페이지 재요청 →
+      // 중복 append 위험. invalid-argument 로 명시 거부해 클라이언트가 새로고침을
+      // 유도. undefined/null 은 초기 페이지로 정상 처리.
+      let before: ReadAuditCursor | undefined;
+      if (data?.before !== undefined && data.before !== null) {
+        if (typeof data.before === 'number') {
+          throw new HttpsError(
+            'invalid-argument',
+            'legacy_cursor_number_deprecated: refresh page to use compound cursor',
+          );
+        }
+        if (
+          typeof data.before === 'object' &&
+          typeof (data.before as any).seconds === 'number' &&
+          Number.isFinite((data.before as any).seconds) &&
+          (data.before as any).seconds > 0 &&
+          typeof (data.before as any).nanoseconds === 'number' &&
+          Number.isFinite((data.before as any).nanoseconds) &&
+          (data.before as any).nanoseconds >= 0 &&
+          typeof (data.before as any).id === 'string' &&
+          (data.before as any).id.length > 0
+        ) {
+          before = {
+            seconds: (data.before as any).seconds,
+            nanoseconds: (data.before as any).nanoseconds,
+            id: (data.before as any).id,
+          };
+        } else {
+          throw new HttpsError('invalid-argument', 'invalid_before_cursor');
+        }
+      }
       const atMin =
         typeof data?.atMin === 'number' && Number.isFinite(data.atMin) && data.atMin > 0
           ? data.atMin
@@ -170,7 +190,7 @@ export const auditLogList = onCall(
         target: '*',
         request_id: requestId,
         result: 'ok',
-        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before.at}#${before.id}` : ''})${filterStr}`,
+        message: `read ${result.entries.length} entries (limit ${limit}${before ? `, before ${before.seconds}.${String(before.nanoseconds).padStart(9, '0')}#${before.id}` : ''})${filterStr}`,
       });
 
       return result;

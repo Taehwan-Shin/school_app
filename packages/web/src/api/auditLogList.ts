@@ -16,10 +16,12 @@ export interface AuditLogEntryRead {
   message?: string;
 }
 
-// v0.118b F82: compound cursor { at, id } — 같은 timestamp 이벤트가 동시에 여러 개
-// 있을 때 페이지 경계에서 유실되지 않도록 documentId 로 tiebreak.
+// v0.118b F82 / v0.118c F86: compound cursor (Firestore Timestamp + documentId)
+// 로 tiebreak. Firestore Timestamp 는 microsecond 정밀도라 ms 만 보존하면
+// sub-ms 이벤트가 경계에서 유실. seconds/nanoseconds 로 full precision 보존.
 export interface AuditLogCursor {
-  at: number;
+  seconds: number;
+  nanoseconds: number;
   id: string;
 }
 

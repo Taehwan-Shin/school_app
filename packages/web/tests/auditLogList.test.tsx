@@ -66,7 +66,7 @@ describe('auditLogList API & Hook', () => {
         json: async () => ({
           result: {
             entries: mockEntries,
-            nextCursor: { at: 1725150000000, id: 'doc-cursor' },
+            nextCursor: { seconds: 1725150000, nanoseconds: 0, id: 'doc-cursor' },
           },
         }),
       });
@@ -74,7 +74,7 @@ describe('auditLogList API & Hook', () => {
 
       const result = await callAuditLogList({
         limit: 25,
-        before: { at: 1725160000000, id: 'doc-prev' },
+        before: { seconds: 1725160000, nanoseconds: 0, id: 'doc-prev' },
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -91,13 +91,13 @@ describe('auditLogList API & Hook', () => {
       expect(JSON.parse(options.body)).toEqual({
         data: expect.objectContaining({
           limit: 25,
-          before: { at: 1725160000000, id: 'doc-prev' },
+          before: { seconds: 1725160000, nanoseconds: 0, id: 'doc-prev' },
           _googleAccessToken: 'mock-google-access-token',
         }),
       });
       expect(result).toEqual({
         entries: mockEntries,
-        nextCursor: { at: 1725150000000, id: 'doc-cursor' },
+        nextCursor: { seconds: 1725150000, nanoseconds: 0, id: 'doc-cursor' },
       });
     });
 
@@ -156,7 +156,7 @@ describe('auditLogList API & Hook', () => {
         json: async () => ({
           result: {
             entries: mockEntries,
-            nextCursor: { at: 1725150000000, id: 'log-1' },
+            nextCursor: { seconds: 1725150000, nanoseconds: 0, id: 'log-1' },
           },
         }),
       }) as any;
@@ -203,7 +203,7 @@ describe('auditLogList API & Hook', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            result: { entries: page1, nextCursor: { at: 1725150000000, id: 'log-1' } },
+            result: { entries: page1, nextCursor: { seconds: 1725150000, nanoseconds: 0, id: 'log-1' } },
           }),
         })
         .mockResolvedValueOnce({
@@ -233,7 +233,7 @@ describe('auditLogList API & Hook', () => {
       expect(secondCallBody.data).toEqual(
         expect.objectContaining({
           limit: 25,
-          before: { at: 1725150000000, id: 'log-1' },
+          before: { seconds: 1725150000, nanoseconds: 0, id: 'log-1' },
         }),
       );
     });
@@ -420,7 +420,7 @@ describe('auditLogList API & Hook', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            result: { entries: entries1, nextCursor: { at: 1725150000000, id: 'log-1' } },
+            result: { entries: entries1, nextCursor: { seconds: 1725150000, nanoseconds: 0, id: 'log-1' } },
           }),
         })
         .mockResolvedValueOnce({

@@ -68,10 +68,27 @@ export async function fetchAllAuditLog(
     // v0.118b F83: fetch signal 도 함께 전파 → 네트워크 in-flight 자체 취소.
     if (options.signal) req.signal = options.signal;
 
-    const res = await callAuditLogList(req);
+    // v0.118c F87: fetch 가 AbortController.abort() 로 취소되면 AbortError 로
+    // reject 된다. 이건 정상 취소이지 실제 실패가 아니므로 error 로 rethrow 하지
+    // 않고 aborted 로 흡수한다.
+    let res: Awaited<ReturnType<typeof callAuditLogList>>;
+    try {
+      res = await callAuditLogList(req);
+    } catch (err) {
+      if (
+        options.signal?.aborted ||
+        (err instanceof DOMException && err.name === 'AbortError') ||
+        (err instanceof Error && err.name === 'AbortError')
+      ) {
+        aborted = true;
+        break;
+      }
+      throw err;
+    }
 
-    // v0.118b F83: await 뒤에도 abort 재확인. 마지막 페이지 요청 중 취소 시
-    // 서버는 응답을 이미 만들었지만 사용자 의도는 「멈춤」 이므로 파일 생성 안 함.
+    // v0.118b F83: await 뒤에도 abort 재확인 (fetch 가 abort 직전에 resolve 된
+    // 희귀한 race 도 흡수). 마지막 페이지 요청 중 취소 시 서버는 응답을 이미
+    // 만들었지만 사용자 의도는 「멈춤」 이므로 파일 생성 안 함.
     if (options.signal?.aborted) {
       aborted = true;
       break;

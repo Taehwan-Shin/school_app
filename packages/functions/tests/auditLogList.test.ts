@@ -172,7 +172,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mock500Entries,
-      nextCursor: { at: 1700000000499, id: 'doc-499' },
+      nextCursor: { seconds: 1700000000, nanoseconds: 499_000_000, id: 'doc-499' },
     });
 
     const req = createRequest({
@@ -208,7 +208,7 @@ describe('auditLogList unit tests', () => {
     });
   });
 
-  it('v0.118b F82: compound before cursor {at, id} 를 readAuditEntries 로 전달 + audit 메시지 반영', async () => {
+  it('v0.118c F86: compound before cursor {seconds, nanoseconds, id} 를 readAuditEntries 로 전달 + audit 메시지 반영', async () => {
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: [],
       nextCursor: null,
@@ -217,36 +217,53 @@ describe('auditLogList unit tests', () => {
     const req = createRequest({
       email: 'super@cam.hs.kr',
       role: 'super_admin',
-      data: { limit: 50, before: { at: 1700000000000, id: 'doc-cursor' } },
+      data: {
+        limit: 50,
+        before: { seconds: 1700000000, nanoseconds: 123456000, id: 'doc-cursor' },
+      },
     });
     await auditLogList.run(req);
 
     expect(mockReadAuditEntries).toHaveBeenCalledWith({
       limit: 50,
-      before: { at: 1700000000000, id: 'doc-cursor' },
+      before: { seconds: 1700000000, nanoseconds: 123456000, id: 'doc-cursor' },
     });
 
     expect(mockWriteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'ok',
-        message: 'read 0 entries (limit 50, before 1700000000000#doc-cursor)',
+        message: 'read 0 entries (limit 50, before 1700000000.123456000#doc-cursor)',
       }),
     );
   });
 
-  // 하위 호환성 검증: 불완전한 before (숫자만 · id 없이 등) 는 drop.
-  it('v0.118b F82: 비정상 before shape 은 undefined 로 drop', async () => {
-    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+  // v0.118c F88: legacy 숫자 cursor 는 조용히 drop 하지 않고 invalid-argument 로
+  // 명시 거부해야 rolling deploy 중 배포 전 브라우저 탭의 loadMore 가 첫 페이지를
+  // 재요청해 중복 append 하는 사고를 예방한다.
+  it('v0.118c F88: 숫자 legacy cursor 는 invalid-argument 로 명시 거부', async () => {
     const req = createRequest({
       email: 'super@cam.hs.kr',
       role: 'super_admin',
-      // 숫자만 (구 버전 클라이언트).
       data: { limit: 20, before: 1700000000000 as any },
     });
-    await auditLogList.run(req);
-    expect(mockReadAuditEntries).toHaveBeenCalledWith(
-      expect.objectContaining({ before: undefined }),
-    );
+    await expect(auditLogList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining('legacy_cursor_number_deprecated'),
+    });
+    expect(mockReadAuditEntries).not.toHaveBeenCalled();
+  });
+
+  // 잘못된 compound shape (id 없이 등) 도 명시 거부.
+  it('v0.118c F86: 불완전한 compound cursor shape 은 invalid-argument', async () => {
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: { limit: 20, before: { seconds: 1700000000 } as any },
+    });
+    await expect(auditLogList.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: expect.stringContaining('invalid_before_cursor'),
+    });
   });
 
   it('v0.118b F82: returns nextCursor {at, id} when page is full', async () => {
@@ -275,7 +292,7 @@ describe('auditLogList unit tests', () => {
 
     mockReadAuditEntries.mockResolvedValueOnce({
       entries: mockEntries,
-      nextCursor: { at: 1700000001000, id: 'doc-2' },
+      nextCursor: { seconds: 1700000001, nanoseconds: 0, id: 'doc-2' },
     });
 
     const req = createRequest({
@@ -285,7 +302,11 @@ describe('auditLogList unit tests', () => {
     });
     const result = await auditLogList.run(req);
 
-    expect(result.nextCursor).toEqual({ at: 1700000001000, id: 'doc-2' });
+    expect(result.nextCursor).toEqual({
+      seconds: 1700000001,
+      nanoseconds: 0,
+      id: 'doc-2',
+    });
     expect(result.entries).toHaveLength(2);
   });
 

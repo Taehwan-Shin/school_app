@@ -87,23 +87,30 @@ describe('readAuditEntries unit tests', () => {
     });
   });
 
-  it('v0.118b F82: compound before cursor → startAfter(atTs, docId)', async () => {
+  it('v0.118c F86: compound before cursor {seconds, nanoseconds, id} → full precision startAfter', async () => {
     mockGet.mockResolvedValueOnce({
       docs: [],
     });
 
     await readAuditEntries({
       limit: 20,
-      before: { at: 1700000005000, id: 'doc-last' },
+      before: { seconds: 1700000005, nanoseconds: 123456000, id: 'doc-last' },
     });
 
-    expect(mockStartAfter).toHaveBeenCalledWith(expect.any(Timestamp), 'doc-last');
+    // startAfter 는 Timestamp (seconds/nanoseconds 로 재구성) + docId.
+    expect(mockStartAfter).toHaveBeenCalledTimes(1);
+    const [callArg1, callArg2] = mockStartAfter.mock.calls[0];
+    expect(callArg1).toBeInstanceOf(Timestamp);
+    expect((callArg1 as Timestamp).seconds).toBe(1700000005);
+    expect((callArg1 as Timestamp).nanoseconds).toBe(123456000);
+    expect(callArg2).toBe('doc-last');
     expect(mockLimit).toHaveBeenCalledWith(20);
     // 기존 where('at', '<', ...) 는 더 이상 쓰이지 않는다.
     expect(mockWhere).not.toHaveBeenCalledWith('at', '<', expect.anything());
   });
 
-  it('sets nextCursor to last item timestamp when docs count equals limit', async () => {
+  it('v0.118c F86: sets nextCursor {seconds, nanoseconds, id} from last doc Timestamp full precision', async () => {
+    const lastTs = new Timestamp(1700000001, 500_000_000); // 1700000001.5 s
     const mockDoc1 = {
       id: 'doc-1',
       data: () => ({
@@ -113,7 +120,7 @@ describe('readAuditEntries unit tests', () => {
         target: '*',
         request_id: 'req-1',
         result: 'ok',
-        at: Timestamp.fromMillis(1700000002000),
+        at: new Timestamp(1700000002, 0),
       }),
     };
     const mockDoc2 = {
@@ -125,7 +132,7 @@ describe('readAuditEntries unit tests', () => {
         target: '*',
         request_id: 'req-2',
         result: 'ok',
-        at: Timestamp.fromMillis(1700000001000),
+        at: lastTs,
       }),
     };
 
@@ -135,8 +142,12 @@ describe('readAuditEntries unit tests', () => {
 
     const result = await readAuditEntries({ limit: 2 });
 
-    // v0.118b F82: compound cursor { at, id } — 마지막 entry 기준.
-    expect(result.nextCursor).toEqual({ at: 1700000001000, id: 'doc-2' });
+    // v0.118c F86: nextCursor 는 Timestamp full precision + docId.
+    expect(result.nextCursor).toEqual({
+      seconds: 1700000001,
+      nanoseconds: 500_000_000,
+      id: 'doc-2',
+    });
     expect(result.entries).toHaveLength(2);
   });
 

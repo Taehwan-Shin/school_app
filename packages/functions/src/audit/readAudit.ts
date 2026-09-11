@@ -15,11 +15,14 @@ export interface AuditLogEntryRead {
   message?: string;
 }
 
-// v0.118b F82: 같은 timestamp 이벤트가 페이지 경계에서 유실되지 않도록 (at, docId)
-// compound cursor 로 안정화. Firestore serverTimestamp() 는 ms 단위라 같은 batch 나
-// 동시 쓰기에서 동률 발생 가능.
+// v0.118b F82 / v0.118c F86: 같은 timestamp 이벤트가 페이지 경계에서 유실되지
+// 않도록 (Timestamp, docId) compound cursor 로 안정화. Firestore Timestamp 는
+// microsecond (nanoseconds/1000) 정밀도를 가지므로 ms 로 truncate 하면 같은 ms
+// 안 서로 다른 timestamp 도 동률처럼 취급되어 여전히 이벤트를 건너뛸 수 있다.
+// full precision 보존을 위해 seconds/nanoseconds 를 그대로 전달한다.
 export interface ReadAuditCursor {
-  at: number;
+  seconds: number;
+  nanoseconds: number;
   id: string;
 }
 
@@ -64,8 +67,10 @@ export async function readAuditEntries(
     .orderBy('at', 'desc')
     .orderBy(FieldPath.documentId(), 'desc');
   if (before !== undefined) {
-    // startAfter 는 orderBy 필드 순서와 정확히 일치해야 한다.
-    query = query.startAfter(Timestamp.fromMillis(before.at), before.id);
+    // v0.118c F86: cursor 를 full precision (seconds/nanoseconds) 로 복원.
+    // Timestamp.fromMillis 는 ms 정밀도만 유지하므로 sub-ms 이벤트를 건너뛴다.
+    const beforeTs = new Timestamp(before.seconds, before.nanoseconds);
+    query = query.startAfter(beforeTs, before.id);
   }
   if (atMin !== undefined) {
     query = query.where('at', '>=', Timestamp.fromMillis(atMin));
@@ -99,6 +104,7 @@ export async function readAuditEntries(
   query = query.limit(limit);
 
   const snap = await query.get();
+
   const entries: AuditLogEntryRead[] = snap.docs.map((doc) => {
     const data = doc.data();
     const at =
@@ -118,10 +124,18 @@ export async function readAuditEntries(
     };
   });
 
-  const nextCursor: ReadAuditCursor | null =
-    entries.length === limit
-      ? { at: entries[entries.length - 1].at, id: entries[entries.length - 1].id }
-      : null;
+  // v0.118c F86: 페이지가 꽉 찼을 때만 마지막 doc 의 Timestamp 를 full precision
+  // 으로 뽑아 다음 페이지 startAfter 를 정확히 보존. entries.at (ms) 는 UI 표시용
+  // 이라 microsecond 손실이 있어 cursor 재구성에 쓸 수 없음.
+  let nextCursor: ReadAuditCursor | null = null;
+  if (entries.length === limit) {
+    const lastDoc = snap.docs[snap.docs.length - 1];
+    const lastAt = lastDoc.data().at;
+    if (lastAt && typeof lastAt.toMillis === 'function') {
+      const ts = lastAt as Timestamp;
+      nextCursor = { seconds: ts.seconds, nanoseconds: ts.nanoseconds, id: lastDoc.id };
+    }
+  }
 
   return { entries, nextCursor };
 }
