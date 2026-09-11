@@ -5,8 +5,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 const mockMutateAsync = vi.fn();
 const mockCallClassroomTeachersAdd = vi.fn();
 const mockCallClassroomStudentsAdd = vi.fn();
+const mockOrgunitsCreateMutate = vi.fn();
+const mockOrgunitsCreateReset = vi.fn();
 let mockIsPending = false;
 let mockError: Error | null = null;
+let mockOrgunitsCreateIsPending = false;
+let mockOrgunitsCreateError: Error | null = null;
 let mockOrgunitsQuery: any = {
   data: { orgUnits: [] as any[] },
   isLoading: false,
@@ -32,6 +36,15 @@ vi.mock('../src/api/orgunitsList.js', () => ({
   useOrgunitsList: () => mockOrgunitsQuery,
 }));
 
+vi.mock('../src/api/orgunitsCreate.js', () => ({
+  useOrgunitsCreate: () => ({
+    mutateAsync: mockOrgunitsCreateMutate,
+    isPending: mockOrgunitsCreateIsPending,
+    error: mockOrgunitsCreateError,
+    reset: mockOrgunitsCreateReset,
+  }),
+}));
+
 vi.mock('../src/api/classroomList.js', () => ({
   useClassroomList: () => mockClassroomListQuery,
 }));
@@ -53,9 +66,13 @@ describe('CreateUserDialog component', () => {
     mockMutateAsync.mockReset();
     mockCallClassroomTeachersAdd.mockReset();
     mockCallClassroomStudentsAdd.mockReset();
+    mockOrgunitsCreateMutate.mockReset();
+    mockOrgunitsCreateReset.mockReset();
     vi.clearAllMocks();
     mockIsPending = false;
     mockError = null;
+    mockOrgunitsCreateIsPending = false;
+    mockOrgunitsCreateError = null;
     mockOrgunitsQuery = {
       data: { orgUnits: [] },
       isLoading: false,
@@ -295,13 +312,13 @@ describe('CreateUserDialog component', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
-  // v0.119b F91: OU 안내 문구가 「기존 OU 만」임을 명시. 잘못된 「자동 생성」
-  // 오해를 방지.
-  it('v0.119b F91: OU 안내는 「기존 OU 만」을 명시', () => {
+  // v0.119b F91 / v0.121: OU 안내 문구가 「기존에서 선택하거나 새로 만들 수
+  // 있음」을 명시. v0.121 부터는 인라인 신규 OU 생성이 가능해졌으므로 v0.119b
+  // 문구는 갱신됨.
+  it('v0.121: OU 안내는 「기존 선택 또는 새 OU 생성」 을 명시', () => {
     render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
-    // 헬프 문구.
     expect(
-      screen.getByText(/기존에 있는 조직 단위 경로만 사용할 수 있습니다/),
+      screen.getByText(/기존 조직 단위에서 선택하거나 아래에서 새 OU 를 만들/),
     ).toBeDefined();
   });
 
@@ -417,6 +434,151 @@ describe('CreateUserDialog component', () => {
       code: 'Escape',
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  // v0.121: 인라인 「+ 새 OU 만들기」 UI.
+  it('v0.121: 새 OU 만들기 toggle → form 노출 · 성공 시 orgUnitPath 자동 채움 + form 접힘', async () => {
+    mockOrgunitsQuery = {
+      data: {
+        orgUnits: [{ orgUnitPath: '/학생', name: '학생' }],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    mockOrgunitsCreateMutate.mockResolvedValueOnce({
+      orgUnitPath: '/학생/3학년',
+      name: '3학년',
+      parentOrgUnitPath: '/학생',
+    });
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+
+    // 초기: form 접힘.
+    expect(screen.queryByTestId('create-user-new-ou-form')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    expect(screen.getByTestId('create-user-new-ou-form')).toBeDefined();
+
+    fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+      target: { value: '3학년' },
+    });
+    fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+      target: { value: '/학생' },
+    });
+    fireEvent.change(screen.getByTestId('create-user-new-ou-description'), {
+      target: { value: '3학년 학생' },
+    });
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+
+    await waitFor(() => {
+      expect(mockOrgunitsCreateMutate).toHaveBeenCalledWith({
+        name: '3학년',
+        parentOrgUnitPath: '/학생',
+        description: '3학년 학생',
+      });
+    });
+    // 성공 시 form 접힘 + 성공 메시지 노출 + orgUnitPath 자동 채움.
+    await waitFor(() => {
+      expect(screen.queryByTestId('create-user-new-ou-form')).toBeNull();
+    });
+    expect(screen.getByTestId('create-user-new-ou-success')).toBeDefined();
+    expect(
+      (screen.getByTestId('create-user-orgunit-input') as HTMLInputElement).value,
+    ).toBe('/학생/3학년');
+  });
+
+  it('v0.121: 새 OU 이름 누락 → validation 에러 · mutate 호출 안 함', async () => {
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+      target: { value: '/학생' },
+    });
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+    expect(screen.getByTestId('create-user-new-ou-error').textContent).toContain(
+      'OU 이름을 입력',
+    );
+    expect(mockOrgunitsCreateMutate).not.toHaveBeenCalled();
+  });
+
+  it('v0.121: 새 OU 이름에 슬래시 포함 → validation 에러', async () => {
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+      target: { value: '3학년/1반' },
+    });
+    fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+      target: { value: '/학생' },
+    });
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+    expect(screen.getByTestId('create-user-new-ou-error').textContent).toContain(
+      '슬래시',
+    );
+    expect(mockOrgunitsCreateMutate).not.toHaveBeenCalled();
+  });
+
+  it('v0.121: 부모 경로가 「/」 로 시작 안 하면 validation 에러', async () => {
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+      target: { value: '3학년' },
+    });
+    fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+      target: { value: '학생' },
+    });
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+    expect(screen.getByTestId('create-user-new-ou-error').textContent).toContain(
+      '/',
+    );
+    expect(mockOrgunitsCreateMutate).not.toHaveBeenCalled();
+  });
+
+  it('v0.121: mutation 실패 (already-exists) → 사용자 친화 메시지', async () => {
+    mockOrgunitsCreateMutate.mockRejectedValueOnce(new Error('orgunit_already_exists: dup'));
+    mockOrgunitsCreateError = new Error('orgunit_already_exists: dup');
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+      target: { value: '3학년' },
+    });
+    fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+      target: { value: '/학생' },
+    });
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+    await waitFor(() => {
+      expect(screen.getByTestId('create-user-new-ou-error').textContent).toContain(
+        '이미 존재하는 OU',
+      );
+    });
+    // form 은 계속 열려있음 (사용자 재시도 가능).
+    expect(screen.getByTestId('create-user-new-ou-form')).toBeDefined();
+  });
+
+  it('v0.121: OU 생성 중 → 부모 dialog close gate + submit 버튼 disabled', () => {
+    mockOrgunitsCreateIsPending = true;
+    const onOpenChange = vi.fn();
+    render(<CreateUserDialog open={true} onOpenChange={onOpenChange} />);
+    // OU form 은 이미 열린 상태로 렌더되게 하기 위해 toggle 이 안 눌린 상태에서도
+    // isCreatingOu=true 는 isBusy 를 true 로 만들어 계정 생성 submit 도 disabled.
+    expect((screen.getByTestId('create-user-submit') as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    // Escape 로 닫으려 해도 handleClose 가 gate.
+    fireEvent.keyDown(document.activeElement || document.body, {
+      key: 'Escape',
+      code: 'Escape',
+    });
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it('v0.121: 새 OU form 취소 버튼 → form 접힘 · 검증 에러 제거', () => {
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+    // 이름 없이 submit 하여 에러 트리거.
+    fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+    expect(screen.getByTestId('create-user-new-ou-error')).toBeDefined();
+    fireEvent.click(screen.getByTestId('create-user-new-ou-cancel'));
+    expect(screen.queryByTestId('create-user-new-ou-form')).toBeNull();
+    expect(screen.queryByTestId('create-user-new-ou-error')).toBeNull();
   });
 
   it('v0.119: usersCreate 실패 시 classroom add 는 시도 안 함', async () => {

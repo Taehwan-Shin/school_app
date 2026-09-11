@@ -10,6 +10,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { useCreateUser } from '../../api/usersCreate';
 import { useOrgunitsList } from '../../api/orgunitsList';
+import { useOrgunitsCreate } from '../../api/orgunitsCreate';
 import { useClassroomList } from '../../api/classroomList';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
@@ -44,7 +45,23 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const [assignResults, setAssignResults] = useState<ClassroomAssignResult[] | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // v0.121: 신규 OU 인라인 생성 UI. 기본은 접힘, 「+ 새 OU 만들기」 누르면
+  // 아래에 폼이 펼쳐진다. 성공 시 orgunits 캐시 invalidate + orgUnitPath 자동
+  // 채움 + 폼 다시 접힘.
+  const [showNewOuForm, setShowNewOuForm] = useState(false);
+  const [newOuName, setNewOuName] = useState('');
+  const [newOuParent, setNewOuParent] = useState('/');
+  const [newOuDescription, setNewOuDescription] = useState('');
+  const [newOuValidationError, setNewOuValidationError] = useState<string | null>(null);
+  const [newOuSuccess, setNewOuSuccess] = useState<string | null>(null);
+
   const { mutateAsync: createUser, isPending: isCreating, error: mutationError } = useCreateUser();
+  const {
+    mutateAsync: createOrgunit,
+    isPending: isCreatingOu,
+    error: newOuMutationError,
+    reset: resetNewOuMutation,
+  } = useOrgunitsCreate();
   const orgunitsQuery = useOrgunitsList(open);
   // v0.119b F94: dialog 닫힌 상태에서는 classroom API/감사 호출 안 나게 `open` gate.
   // AccountsTable 은 CreateUserDialog 를 항상 mount 하므로 훅 자체가 실행되지 않게
@@ -65,6 +82,13 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     setValidationError(null);
     setAssignResults(null);
     setIsAssigning(false);
+    setShowNewOuForm(false);
+    setNewOuName('');
+    setNewOuParent('/');
+    setNewOuDescription('');
+    setNewOuValidationError(null);
+    setNewOuSuccess(null);
+    resetNewOuMutation();
   };
 
   useEffect(() => {
@@ -76,11 +100,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   }, [open]);
 
   const handleClose = (newOpen: boolean) => {
-    // v0.119c F95: 계정 생성/배정 중에는 X · Escape · outside click 로 닫히지
-    // 않도록 차단. mutation 은 비동기라 dialog 가 unmount 돼도 계속 실행됨 →
-    // 사용자는 결과를 못 보고 재열면 중복 작업 위험.
+    // v0.119c F95 / v0.121: 계정 생성/배정/OU 생성 중에는 X · Escape · outside
+    // click 로 닫히지 않도록 차단. mutation 은 비동기라 dialog 가 unmount 돼도
+    // 계속 실행됨 → 사용자는 결과를 못 보고 재열면 중복 작업 위험.
     if (!newOpen && isCreating) return;
     if (!newOpen && isAssigning) return;
+    if (!newOpen && isCreatingOu) return;
     if (!newOpen) resetForm();
     onOpenChange(newOpen);
   };
@@ -94,7 +119,41 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     });
   };
 
-  const isBusy = isCreating || isAssigning;
+  const isBusy = isCreating || isAssigning || isCreatingOu;
+
+  // v0.121: 인라인 OU 생성. 성공 시 orgUnitPath 자동 채움 + 폼 접힘.
+  // 실패 시 아래에 error 표시하되 dialog 는 유지 (사용자 재시도 가능).
+  const handleCreateOrgunit = async (e: FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNewOuValidationError(null);
+    setNewOuSuccess(null);
+    resetNewOuMutation();
+
+    const name = newOuName.trim();
+    const parent = newOuParent.trim();
+    if (!name) return setNewOuValidationError('OU 이름을 입력해주세요.');
+    if (name.length > 100) return setNewOuValidationError('OU 이름은 100자 이하여야 합니다.');
+    if (name.includes('/') || name.includes('\\'))
+      return setNewOuValidationError('OU 이름에 슬래시(/, \\)를 사용할 수 없습니다.');
+    if (!parent || !parent.startsWith('/'))
+      return setNewOuValidationError('부모 경로는 「/」 로 시작해야 합니다.');
+
+    try {
+      const res = await createOrgunit({
+        name,
+        parentOrgUnitPath: parent,
+        description: newOuDescription.trim() || undefined,
+      });
+      setOrgUnitPath(res.orgUnitPath);
+      setNewOuSuccess(`OU 「${res.orgUnitPath}」 를 생성했습니다.`);
+      setNewOuName('');
+      setNewOuDescription('');
+      setShowNewOuForm(false);
+    } catch {
+      // 렌더에서 newOuMutationError 로 표시.
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -322,8 +381,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <p className="mt-1 text-micro text-fg-muted">
-                기존에 있는 조직 단위 경로만 사용할 수 있습니다. 새 OU 는 Google
-                Workspace 관리 콘솔에서 먼저 만든 뒤 여기서 선택하세요.
+                기존 조직 단위에서 선택하거나 아래에서 새 OU 를 만들 수 있습니다.
               </p>
               <datalist id="create-user-orgunits-list" data-testid="create-user-orgunits-datalist">
                 {(orgunitsQuery.data?.orgUnits ?? []).map((ou) => (
@@ -332,6 +390,137 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   </option>
                 ))}
               </datalist>
+
+              {newOuSuccess && !showNewOuForm && (
+                <p
+                  className="mt-2 text-small text-state-success"
+                  data-testid="create-user-new-ou-success"
+                >
+                  {newOuSuccess}
+                </p>
+              )}
+
+              {!showNewOuForm ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewOuForm(true);
+                    setNewOuValidationError(null);
+                    setNewOuSuccess(null);
+                    resetNewOuMutation();
+                    // 부모 경로 기본값 = 현재 선택된 OU (없으면 root).
+                    setNewOuParent(orgUnitPath.trim() || '/');
+                  }}
+                  disabled={isBusy}
+                  data-testid="create-user-new-ou-toggle"
+                  className="mt-2 text-small text-fg-primary underline underline-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  + 새 OU 만들기
+                </button>
+              ) : (
+                <div
+                  className="mt-2 space-y-2 border border-border-subtle p-3 bg-elevated"
+                  data-testid="create-user-new-ou-form"
+                >
+                  <p className="text-small text-fg-primary font-medium">새 OU 만들기</p>
+                  <div>
+                    <label
+                      htmlFor="new-ou-name"
+                      className="text-small text-fg-secondary mb-1 block"
+                    >
+                      이름 *
+                    </label>
+                    <input
+                      id="new-ou-name"
+                      type="text"
+                      value={newOuName}
+                      onChange={(e) => setNewOuName(e.target.value)}
+                      placeholder="예: 3학년"
+                      disabled={isCreatingOu || isBusy}
+                      data-testid="create-user-new-ou-name"
+                      className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="new-ou-parent"
+                      className="text-small text-fg-secondary mb-1 block"
+                    >
+                      부모 경로 *
+                    </label>
+                    <input
+                      id="new-ou-parent"
+                      type="text"
+                      value={newOuParent}
+                      onChange={(e) => setNewOuParent(e.target.value)}
+                      placeholder="/학생"
+                      list="create-user-orgunits-list"
+                      disabled={isCreatingOu || isBusy}
+                      data-testid="create-user-new-ou-parent"
+                      className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-1 text-micro text-fg-muted">
+                      최상위는 「/」 하나만 입력. 기존 OU 목록에서 선택 가능.
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="new-ou-description"
+                      className="text-small text-fg-secondary mb-1 block"
+                    >
+                      설명 (선택)
+                    </label>
+                    <input
+                      id="new-ou-description"
+                      type="text"
+                      value={newOuDescription}
+                      onChange={(e) => setNewOuDescription(e.target.value)}
+                      placeholder="예: 3학년 학생 소속 OU"
+                      disabled={isCreatingOu || isBusy}
+                      data-testid="create-user-new-ou-description"
+                      className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  {(newOuValidationError || newOuMutationError) && (
+                    <p
+                      className="text-small text-state-danger"
+                      data-testid="create-user-new-ou-error"
+                    >
+                      {newOuValidationError ??
+                        (newOuMutationError!.message.includes('already-exists') ||
+                        newOuMutationError!.message.includes('orgunit_already_exists')
+                          ? '이미 존재하는 OU 입니다.'
+                          : newOuMutationError!.message.includes('permission-denied')
+                            ? 'OU 생성 권한이 없거나 스코프가 부족합니다.'
+                            : `OU 생성 실패: ${newOuMutationError!.message}`)}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={handleCreateOrgunit}
+                      disabled={isCreatingOu || isBusy}
+                      data-testid="create-user-new-ou-submit"
+                    >
+                      {isCreatingOu ? 'OU 생성 중...' : 'OU 만들기'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setShowNewOuForm(false);
+                        setNewOuValidationError(null);
+                        resetNewOuMutation();
+                      }}
+                      disabled={isCreatingOu}
+                      data-testid="create-user-new-ou-cancel"
+                    >
+                      취소
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* v0.119: 클래스룸 자동 배정. */}
@@ -451,9 +640,11 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   ? '생성 중...'
                   : isAssigning
                     ? `클래스룸 배정 중... (${selectedClassroomIds.size}개)`
-                    : selectedClassroomIds.size > 0
-                      ? `계정 생성 + ${selectedClassroomIds.size}개 배정`
-                      : '저장'}
+                    : isCreatingOu
+                      ? 'OU 생성 중...'
+                      : selectedClassroomIds.size > 0
+                        ? `계정 생성 + ${selectedClassroomIds.size}개 배정`
+                        : '저장'}
               </Button>
             )}
           </DialogFooter>
