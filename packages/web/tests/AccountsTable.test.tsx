@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useSearchParams } from "react-router-dom";
 
 const mockUseUsersList = vi.fn();
 const mockCurrentUser = { email: "admin@cam.hs.kr" };
@@ -1322,20 +1322,64 @@ describe("AccountsTable component", () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it("v0.125: 클릭 시 q/filter/sort/dir 모두 clear · 리스트 unfiltered", () => {
-      renderWithRouter(<AccountsTable />, [
-        '/admin?q=박&filter=suspended&sort=email&dir=desc',
-      ]);
-      // 필터 적용된 상태: suspended (user2 김 아님) + q=박 → user2 만.
-      const search = screen.getByTestId("accounts-search-input") as HTMLInputElement;
-      expect(search.value).toBe('박');
-      const btn = screen.getByTestId("accounts-clear-filters-btn");
-      fireEvent.click(btn);
-      // q 값이 비어야.
-      const searchAfter = screen.getByTestId("accounts-search-input") as HTMLInputElement;
-      expect(searchAfter.value).toBe('');
+    // v0.125b F101: 정규화 기준 판정 — 효과 없는 param 은 disabled 유지.
+    it("v0.125b F101: 공백-only q 는 필터 적용 안 되므로 disabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?q=%20%20']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it("v0.125b F101: allowlist 밖 filter (weird) 는 disabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?filter=weird']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it("v0.125b F101: dir 단독 (sort 없음) 은 효과 없으므로 disabled", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?dir=desc']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it("v0.125b F101: allowlist 밖 sort (weird) 는 disabled (sortColumn=null 로 normalize)", () => {
+      renderWithRouter(<AccountsTable />, ['/admin?sort=weird']);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    // v0.125b F102: URL search 실제 clear 검증 + DOM 사용자 두 명 복원 검증.
+    it("v0.125b F102: 클릭 시 URL search 완전 비움 + 두 사용자 모두 복원", () => {
+      let currentSearch: string | null = null;
+      function LocationSpy() {
+        const [sp] = useSearchParams();
+        currentSearch = sp.toString();
+        return null;
+      }
+      render(
+        <QueryClientProvider client={testQueryClient}>
+          <MemoryRouter
+            initialEntries={['/admin?q=박&filter=suspended&sort=email&dir=desc']}
+          >
+            <LocationSpy />
+            <AccountsTable />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      // 초기 필터 상태 확인: q=박 → user2 (박) 만 노출, user1 (김) 은 숨김.
+      expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
+      expect(screen.getByText("user2@cam.hs.kr")).toBeDefined();
+      expect(currentSearch).toContain('q=');
+
+      fireEvent.click(screen.getByTestId("accounts-clear-filters-btn"));
+
+      // URL search 완전히 빈 문자열.
+      expect(currentSearch).toBe('');
+      // 두 사용자 모두 복원.
+      expect(screen.getByText("user1@cam.hs.kr")).toBeDefined();
+      expect(screen.getByText("user2@cam.hs.kr")).toBeDefined();
       // 버튼도 다시 disabled.
-      expect((btn as HTMLButtonElement).disabled).toBe(true);
+      const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
     });
   });
 });
