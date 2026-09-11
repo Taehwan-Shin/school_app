@@ -97,20 +97,23 @@ export const auditLogList = onCall(
             'legacy_cursor_number_deprecated: refresh page to use compound cursor',
           );
         }
-        // v0.118d F89: seconds/nanoseconds 는 반드시 정수, nanoseconds 는
-        // 0..999_999_999 범위. Timestamp constructor 는 정수·범위 위반 시
-        // RangeError 를 던지므로 callable 층에서 명시 거부해 감사에 정확한
-        // 사유가 남도록.
+        // v0.118d F89 / v0.118e F90: seconds/nanoseconds 는 반드시 정수,
+        // nanoseconds 는 0..999_999_999, seconds 는 0 초과이며 Firestore
+        // Timestamp 최대치 (9999-12-31T23:59:59Z = 253_402_300_799) 이하.
+        // Timestamp constructor 는 위반 시 RangeError 를 던지므로 callable 층에서
+        // 명시 거부해 감사에 정확한 사유가 남도록.
         const beforeObj = data.before as {
           seconds?: unknown;
           nanoseconds?: unknown;
           id?: unknown;
         };
+        const MAX_TS_SECONDS = 253_402_300_799; // 9999-12-31T23:59:59Z
         if (
           typeof data.before === 'object' &&
           typeof beforeObj.seconds === 'number' &&
           Number.isInteger(beforeObj.seconds) &&
           beforeObj.seconds > 0 &&
+          beforeObj.seconds <= MAX_TS_SECONDS &&
           typeof beforeObj.nanoseconds === 'number' &&
           Number.isInteger(beforeObj.nanoseconds) &&
           beforeObj.nanoseconds >= 0 &&

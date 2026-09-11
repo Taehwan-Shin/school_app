@@ -276,6 +276,8 @@ describe('auditLogList unit tests', () => {
     ['seconds 0', { seconds: 0, nanoseconds: 0, id: 'd' }],
     ['seconds NaN', { seconds: NaN, nanoseconds: 0, id: 'd' }],
     ['id empty string', { seconds: 1700000000, nanoseconds: 0, id: '' }],
+    // v0.118e F90: seconds 상한 = 253_402_300_799 (9999-12-31T23:59:59Z).
+    ['seconds MAX+1', { seconds: 253_402_300_800, nanoseconds: 0, id: 'd' }],
   ];
   for (const [label, badCursor] of invalidCursorCases) {
     it(`v0.118d F89: ${label} → invalid_before_cursor`, async () => {
@@ -307,6 +309,29 @@ describe('auditLogList unit tests', () => {
     expect(mockReadAuditEntries).toHaveBeenCalledWith(
       expect.objectContaining({
         before: { seconds: 1700000000, nanoseconds: 999_999_999, id: 'edge' },
+      }),
+    );
+  });
+
+  // v0.118e F90: seconds 최대값 (253_402_300_799) 은 정상 통과.
+  it('v0.118e F90: seconds MAX (253_402_300_799) 는 정상 통과', async () => {
+    mockReadAuditEntries.mockResolvedValueOnce({ entries: [], nextCursor: null });
+    const req = createRequest({
+      email: 'super@cam.hs.kr',
+      role: 'super_admin',
+      data: {
+        limit: 20,
+        before: { seconds: 253_402_300_799, nanoseconds: 999_999_999, id: 'max' },
+      },
+    });
+    await auditLogList.run(req);
+    expect(mockReadAuditEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        before: {
+          seconds: 253_402_300_799,
+          nanoseconds: 999_999_999,
+          id: 'max',
+        },
       }),
     );
   });
