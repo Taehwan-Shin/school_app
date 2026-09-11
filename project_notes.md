@@ -1964,3 +1964,42 @@ v0.126 후보:
 v0.127 후보:
 - 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.127 GroupsTable 「필터 초기화」 button + F105 (2 라운드 Codex 감사)
+
+**슬라이스** — v0.125 AccountsTable · v0.112 AuditLogTable 의 「필터 초기화」 패턴 세 번째 적용. GroupsTable 은 이미 q + filter + sort/dir 를 URL 로 관리하고 있었으나 clear 버튼 미보유. 대칭 UX 확립.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `a71ad9e` | feat: GroupsTable 「필터 초기화」 버튼 (v0.125 대칭) + 9건 회귀 |
+| `64650d9` | fix: F105 (allowlist 밖 filter fail-closed → fail-open 대칭) + DOM 회귀 강화 |
+
+### v0.127 → v0.127b Codex 2 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.127 | `a71ad9e` | 6/1/2 | F105 fail-closed 로 인한 dead state (invalid URL 에서 목록 사라짐 · 복구 버튼 disabled) |
+| v0.127b | `64650d9` | **6/0/2** 통과 | 없음 (판정불가: 브라우저 layout · emulator Java) |
+
+### 병합 · 배포
+
+- 병합 커밋: `5d8b083` (main).
+- 배포: `firebase deploy --only hosting --project school-app-5a636` (functions 변경 없음).
+- 로컬 관문: shared 27 + functions 506 + web 795 = **1,328 unit**.
+
+### 배운 것
+
+- **대칭 슬라이스는 실제 코드 semantic 도 대칭이어야 안전** — 같은 UI 버튼 패턴 (「필터 초기화」) 을 세 번째 테이블에 clone 하면서 발견: AccountsTable 은 invalid filter 를 fail-open (필터 미적용 → 목록 유지), GroupsTable 은 fail-closed (필터 부재 취급 → 빈 목록) 로 이전부터 semantic 이 어긋나 있었다. 「같은 UI」 를 붙이는 순간 이 어긋남이 dead state 로 노출됨 (`?filter=weird` → 목록 사라짐 → 초기화 버튼 disabled 라 복구 불가). v0.124 의 clone slice 교훈 (「clone 하면서 발견된 fix 는 쌍둥이에도 적용」) 과 유사한 원리: 대칭 UX 슬라이스는 데이터 처리 semantic 도 함께 감사해야.
+- **fail-open vs fail-closed 의 선택은 사용자 복구 가능성 기준** — URL param 은 사용자 손에서 오타 가능. 이 경우 fail-closed 는 사용자에게 「내가 뭘 잘못했지?」 라는 인지 부하만 주고 실질 방어 이득 없음 (일반 공격 벡터도 아니고). fail-open (invalid 무시) + 복구 가능한 UI (초기화 버튼) 조합이 UX 관점에서 더 견고. 진짜 security-critical 판정 (예: role gate) 만 fail-closed 유지.
+- **Codex 는 「UI 버튼 disabled 판정 ↔ 실제 데이터 처리」 mismatch 를 잘 잡는다** — v0.125b F101 (raw vs normalized), v0.127 F105 (fail-open vs fail-closed) 모두 「버튼 상태와 실제 앱 상태의 불일치」 패턴. Codex 감사가 이런 계약 어긋남에 특히 강함을 확인.
+
+### 다음 세션에 이어갈 것
+
+v0.128 후보 (남은 후보 모두 사용자 조치 필요):
+- 전입생 계정 개별 생성 UX 세부 (Phase 5, `laterAccountSetup` 포팅) — 도메인 규칙 필요.
+- audit_log durable sink 인프라 (v0.116 F78 잔재) — Firebase console 조치 필요.
+- 소소한 UX slice (필요 시): CreateGroupDialog · CreateClassroomDialog 인라인 검증 강화, 감사 로그 필터 quick preset 확장 등.
