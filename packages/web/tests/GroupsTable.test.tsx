@@ -775,10 +775,15 @@ describe('GroupsTable component', () => {
       expect(btn.disabled).toBe(true);
     });
 
-    it('v0.127: allowlist 밖 filter (weird) 는 disabled', () => {
+    // v0.127b F105: allowlist 밖 filter 는 fail-open — 실제 목록 필터가 적용
+    // 되지 않아 두 그룹 모두 렌더, 초기화 버튼도 disabled (효과 없는 값).
+    it('v0.127b F105: allowlist 밖 filter (weird) 는 fail-open · 목록 유지 · 버튼 disabled', () => {
       renderWithRouter(<GroupsTable />, ['/admin/groups?filter=weird']);
       const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
+      // DOM: 두 그룹 모두 노출 (fail-open 확인).
+      expect(screen.getByText('그룹 A')).toBeDefined();
+      expect(screen.getByText('그룹 B')).toBeDefined();
     });
 
     it('v0.127: dir 단독 (sort 없음) 은 disabled', () => {

@@ -53,13 +53,14 @@ export function GroupsTable() {
     if (!data?.groups) return [];
     let result = data.groups;
 
-    // KPI 필터 먼저
+    // KPI 필터 먼저. v0.127b F105: allowlist 밖 filter 는 fail-open (필터
+     // 미적용) 로 처리 — v0.125 AccountsTable 대칭. 이전에는 fail-closed 라
+     // `?filter=weird` 로 목록이 사라졌고 「필터 초기화」 버튼도 disabled
+     // (allowlist 밖) 라 사용자가 복구할 수 없었음.
     if (kpiFilter === 'with-members') {
       result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) > 0);
     } else if (kpiFilter === 'empty') {
       result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) === 0);
-    } else if (kpiFilter) {
-      result = [];
     }
 
     const q = searchQuery.trim().toLowerCase();
