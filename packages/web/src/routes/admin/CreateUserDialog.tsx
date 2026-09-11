@@ -76,6 +76,11 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   }, [open]);
 
   const handleClose = (newOpen: boolean) => {
+    // v0.119c F95: 계정 생성/배정 중에는 X · Escape · outside click 로 닫히지
+    // 않도록 차단. mutation 은 비동기라 dialog 가 unmount 돼도 계속 실행됨 →
+    // 사용자는 결과를 못 보고 재열면 중복 작업 위험.
+    if (!newOpen && isCreating) return;
+    if (!newOpen && isAssigning) return;
     if (!newOpen) resetForm();
     onOpenChange(newOpen);
   };
