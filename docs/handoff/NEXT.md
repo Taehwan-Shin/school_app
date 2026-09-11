@@ -1,23 +1,53 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.118 병합 완료** (`4a00f85`) — 감사 로그 배치 export · 5 라운드 Codex 감사.
+> **v0.119 병합 완료** (`cb743e5`) — CreateUserDialog OU 드롭다운 + 클래스룸 자동 배정 · 4 라운드 Codex 감사.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `cb743e5` v0.119 — CreateUserDialog OU 드롭다운 + 클래스룸 자동 배정 (orgunitsList callable + F91~F96).
 - `4a00f85` v0.118 — 감사 로그 배치 export (전체 JSON, compound cursor, AbortSignal).
 - `c44f73f` v0.117 — classroom 상세 페이지 (`/admin/classrooms/:id`) + F80/F81.
 - `70fac11` v0.116 — 클래스룸 소유자 이관 (transferOwnership callable + Dialog + F72~F79).
 - `2da65ca` v0.115 — 클래스룸 archived bulk 관리 (BulkArchiveDialog + F72/F73).
-- `30e5c25` v0.114 — audit filter preset 저장 (localStorage).
 
 ## 다음 후보 (Head 자율 실행 예정)
 
 `docs/handoff/ROADMAP.md` Phase 5/6 남은 항목:
 - **super_admin 대시보드 위젯** — 최근 활동 요약 (Phase 6).
+- **orgunits.insert 신규 OU 생성 UI** — v0.119 잔재 (지금은 기존 OU 만 선택 가능).
 - **전입생 계정 개별 생성 UX 개선** — `laterAccountSetup` 포팅 (Phase 5).
 - **audit_log durable sink 인프라** — v0.116 F78 잔재. 사용자 조치 필요.
 - **(d)** 사용자 지시 그 외.
+
+## 안티그래비티 위임 template (bliss00 승인 2026-09-11)
+
+Head 는 신규 slice + Codex hotfix 담당, 안티그래비티는 매 슬라이스 마무리
+사이클을 담당하는 하이브리드 운영. **다음 슬라이스 (v0.120+) 부터 아래 template
+로 위임 시도**. 현 v0.119 는 이미 Head 로 마무리.
+
+**오더 예시** — v0.XX 감사 통과 뒤 실행할 마무리 사이클:
+
+```
+브랜치: feat/<slug>-vN.NN (HEAD `<sha>`)
+
+1. main 워크트리 (`/Users/bliss00/.buzz/REPOS/school_app`) 에서:
+   git fetch origin && git merge --no-ff origin/feat/<slug>-vN.NN -m "<merge msg>"
+   git push origin main
+2. `firebase deploy --only hosting,functions --project school-app-5a636`
+3. 4 문서 갱신 (지정된 diff):
+   - STATUS.md: 최근 병합 테이블 상단에 vN.NN row 추가, 열린 항목 vN.NN → vN.NN+1
+   - NEXT.md: v병합 완료 표기 + 최근 병합 목록 갱신
+   - ROADMAP.md: 필요 시 Phase 항목 재분류
+   - project_notes.md: append-only 로 「## YYYY-MM-DD · vN.NN <제목>」 섹션 (커밋 표 · 라운드 표 · 배운 것 · 다음 세션)
+4. git commit + push (docs): "docs: vN.NN 병합 반영 + STATUS/project_notes/NEXT/ROADMAP 갱신"
+5. 채널 공지: `buzz messages send --channel cfef52ba-5b47-4a4a-a70e-d604f73fe89c` 로 병합/배포/관문/교훈 요약. reply-to 없이 top-level.
+
+**제약**: main 에 직접 커밋 금지 (문서 갱신은 예외). Codex 감사 응답은 Head 만
+파싱. Antigravity 는 오더 template 밖 판단 금지.
+```
+
+Head 는 안티그래비티 결과를 리뷰하고 부족한 부분만 재작성.
 
 ## 상설 규약 (변하지 않음)
 

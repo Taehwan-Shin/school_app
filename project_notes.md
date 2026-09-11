@@ -1644,3 +1644,52 @@ v0.119 후보 (ROADMAP Phase 5/6):
 - super_admin 대시보드 위젯 (Phase 6, 앱-only 슬라이스).
 - 전입생 계정 개별 생성 UX 개선 (Phase 5, `laterAccountSetup` 포팅).
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.119 CreateUserDialog OU 드롭다운 + 클래스룸 자동 배정 (4 라운드 Codex 감사)
+
+**슬라이스** — bliss00 지시: 워크스페이스 계정 생성 시 (1) 조직 단위를 기존 목록 드롭다운 + 직접 입력, (2) 기존 클래스룸을 체크박스로 선택해 계정 생성 후 자동 배정. 신규 `orgunitsList` callable (Directory API `orgunits.list`) + `useOrgunitsList` React Query 훅 + `CreateUserDialog` combobox 리팩터 + 순차 classroom add 파이프라인.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `b1b4639` | feat: orgunitsList callable + DirectoryClient orgunits + CreateUserDialog combobox + classroom checkbox + 6+7 회귀 |
+| `d6dd485` | fix: F91 OU 안내 정정 + F92 form snapshot/busy lock + F93 password clear + F94 useClassroomList open gate |
+| `7c641d4` | fix: F95 busy 중 handleClose 차단 (X/Escape/outside dismissal 커버) |
+| `c73da10` | fix: F96 event-based 회귀로 소스 문자열 검사 대체 |
+
+### v0.119 → v0.119d Codex 4 라운드
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.119 | `b1b4639` | 7/4/2 | F91 misleading OU 안내 · F92 form race · F93 password 잔존 · F94 open gate 부재 |
+| v0.119b | `d6dd485` | 7/1/2 | F95 busy 중 X/Escape close 차단 부재 |
+| v0.119c | `7c641d4` | 5/1/2 | F96 회귀가 소스 문자열만 검사 |
+| v0.119d | `c73da10` | **6/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `cb743e5` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 484 + web 745 = 1256 unit.
+
+### 배운 것
+
+- **Wire 계약과 UI 안내는 반드시 일치** — 「직접 입력 가능」 안내는 Google Directory API 가 실제로 자동 생성해줘야 유효. `users.insert` 는 orgUnitPath 를 자동 생성 안 함 (별도 `orgunits.insert` 필요). 안내 문구가 백엔드 계약과 어긋나면 사용자가 400 응답을 원인 없이 받게 됨. Codex 가 정확히 잡은 지점.
+- **Async submit 은 제출 시점을 snapshot 으로 고정** — role/selection state 를 await 뒤에 다시 읽으면 사용자가 실행 중 값을 바꿔 원 선택과 다른 결과 발생. `handleSubmit` 초입에 필요한 state 를 로컬 변수로 캡처. 실행 중에는 입력 요소 disabled 로 사용자 오해도 방지 (2중 안전).
+- **Busy 중 Dialog close 차단은 Radix 의 controlled onOpenChange 한 지점에서** — X 버튼 · Escape · outside click 모두 Radix 가 `onOpenChange(false)` 로 라우팅하므로 우리 `handleClose` 가 busy gate 하면 세 경로 모두 커버. footer 취소 버튼 disabled 만으로는 부족 (Radix 는 여러 dismissal 경로 제공).
+- **Password 는 계정 생성 성공 즉시 state 에서 제거** — 부분 실패 배너로 dialog 가 유지되는 경우 password 가 메모리에 계속 남는 것은 감사·보안 위험. `setPassword('')` 를 `usersCreate` 성공 직후 수행.
+- **AccountsTable 처럼 dialog 를 항상 mount 하는 컨테이너에서는 React Query 훅에 `enabled=open` gate 필수** — 안 그러면 dialog 가 닫혀 있어도 API 호출 · 감사 이벤트 발생. 트래픽/비용/audit noise 모두 낭비.
+- **회귀 테스트는 소스 문자열 검사 대신 실제 이벤트로** — Codex 감사 표준. `fireEvent.keyDown(Escape)` · Radix Close 버튼 `screen.getByRole('button', {name: /닫기/})` 로 실사용 경로를 재현해야 계약이 제거되거나 Radix 연결이 깨져도 잡힘.
+
+### 다음 세션에 이어갈 것
+
+v0.120 후보 (ROADMAP Phase 5/6):
+- super_admin 대시보드 위젯 (Phase 6, 앱-only 슬라이스).
+- orgunits.insert 신규 OU 생성 UI (v0.119 잔재, 지금은 기존 OU 만).
+- 전입생 계정 개별 생성 UX 개선 (Phase 5).
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+**하이브리드 위임 시작** (bliss00 승인 2026-09-11) — v0.120 마무리 사이클부터 안티그래비티에 「병합 + 배포 + 4 문서 갱신 + 채널 공지」 위임. 오더 template 은 `docs/handoff/NEXT.md` 「안티그래비티 위임 template」 섹션. Head 는 신규 슬라이스 구현 · Codex 감사 응답 · hotfix 담당.

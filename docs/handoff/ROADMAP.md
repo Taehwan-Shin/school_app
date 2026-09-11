@@ -1,6 +1,6 @@
 # ROADMAP — school_app 개발 로드맵
 
-> 2026-09-11 기준 · v0.118 배포 완료 · 다음 단계 계획.
+> 2026-09-11 기준 · v0.119 배포 완료 · 다음 단계 계획.
 > `NEXT.md` 는 「지금 열린 오더」 · `ROADMAP.md` 는 「전체 계획」. 두 파일을 함께 본다.
 
 ## 완료 (v0.93 baseline → v0.112)
@@ -49,7 +49,8 @@
 - **클래스룸 archived bulk 관리** — v0.115 다중 선택 + `BulkArchiveClassroomDialog` (ACTIVE ↔ ARCHIVED). teacher membership 검증 (F72) + confirm snapshot (F73).
 
 남은 후보:
-- **전입생 계정 개별 생성 UX 개선** — 기존 `CreateUserDialog` 는 있으나 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 흐름을 아직 안 감쌈.
+- **전입생 계정 개별 생성 UX 개선** — v0.119 에서 OU 드롭다운 + 클래스룸 자동 배정 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 는 별도 확장 필요.
+- **orgunits.insert (신규 OU 생성 UI)** — v0.119 에서는 기존 OU 만 선택 가능. Directory API `orgunits.insert` 별도 callable + UI 필요 (bliss00 지시 시).
 - **계정 삭제 안내 메일** — 원본 MailApp 기능. SendGrid 등 3rd party 이메일 서비스 필요 (미구현).
 - **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅. Classroom Courses.patch(ownerId) callable.
 
