@@ -378,36 +378,45 @@ describe('CreateUserDialog component', () => {
     expect(pw.value).toBe('');
   });
 
-  // v0.119c F95: busy 중 X/Escape/outside click 등으로 onOpenChange(false) 가
-  // 시도돼도 handleClose 는 이를 차단해야 (mutation 진행 중 dialog unmount →
-  // 사용자가 결과를 못 보고 재열어서 중복 작업 시도 방지).
-  it('v0.119c F95: pending 중에는 handleClose(false) 가 no-op (onOpenChange 미호출)', () => {
+  // v0.119c F95 / v0.119d F96: busy 중 Escape · X 버튼 · outside click 등으로
+  // Radix 가 onOpenChange(false) 를 호출하려 해도 handleClose 가 부모 onOpenChange
+  // 로 전달하지 않아야. 실제 이벤트 기반 회귀로 소스 문자열 검사를 대체.
+  it('v0.119d F96: pending 중 Escape 키 → 부모 onOpenChange 미호출', () => {
     mockIsPending = true;
     const onOpenChange = vi.fn();
-    const { rerender } = render(
-      <CreateUserDialog open={true} onOpenChange={onOpenChange} />,
-    );
-    // Dialog 컴포넌트의 onOpenChange 는 Radix 가 open={true→false} 시도 시
-    // 호출한다. 여기서는 DialogContent 의 close 트리거를 직접 재현하기 어려우니
-    // rerender 로 상위 open prop 은 그대로 두되, dialog 의 handleClose 가 부모
-    // onOpenChange 를 호출하는지가 목표. 실용적 검증: 소스 계약을 확인.
-    // 더 확실한 검증: 취소 버튼 클릭 (footer button 은 disabled 지만 어떻든
-    // handleClose 로 라우팅). busy 중에도 disabled 라 클릭이 안 먹지만, 직접
-    // dialog 의 onOpenChange 를 호출한 것과 동등한 handleClose(false) 를
-    // 검증하려면 Radix DialogRoot 를 직접 흔들어야. 가장 간단한 방법은 소스
-    // 계약 (`if (!newOpen && isCreating) return;`) 검증.
-    const src = require('node:fs').readFileSync(
-      require.resolve('../src/routes/admin/CreateUserDialog.tsx'),
-      'utf8',
-    );
-    expect(src).toContain('if (!newOpen && isCreating) return;');
-    expect(src).toContain('if (!newOpen && isAssigning) return;');
-
-    // 스모크: pending 상태에서도 dialog 는 정상 렌더 (form 계속 노출).
+    render(<CreateUserDialog open={true} onOpenChange={onOpenChange} />);
+    // Radix DialogContent 는 Escape 를 감지해 controlled Root 의 onOpenChange(false)
+    // 를 호출. handleClose 가 busy gate 하면 부모의 onOpenChange 는 호출되지 않음.
+    fireEvent.keyDown(document.activeElement || document.body, {
+      key: 'Escape',
+      code: 'Escape',
+    });
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    // Dialog 요소가 여전히 존재 (form submit 버튼 접근 가능).
     expect(screen.getByTestId('create-user-submit')).toBeDefined();
-    // 첫 render 에서는 onOpenChange 호출 없음 (dialog open→open 유지).
-    expect(onOpenChange).not.toHaveBeenCalled();
-    rerender(<CreateUserDialog open={true} onOpenChange={onOpenChange} />);
+  });
+
+  it('v0.119d F96: pending 중 X (close) 버튼 클릭 → 부모 onOpenChange 미호출', () => {
+    mockIsPending = true;
+    const onOpenChange = vi.fn();
+    render(<CreateUserDialog open={true} onOpenChange={onOpenChange} />);
+    // DialogContent 의 Radix Close 버튼은 sr-only 「닫기」 텍스트 가짐.
+    const closeBtn = screen.getByRole('button', { name: /닫기/ });
+    fireEvent.click(closeBtn);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.getByTestId('create-user-submit')).toBeDefined();
+  });
+
+  it('v0.119d F96: idle 상태 Escape → 정상 close (부모 onOpenChange(false) 호출)', () => {
+    // busy 아니면 gate 없이 정상적으로 닫힘.
+    mockIsPending = false;
+    const onOpenChange = vi.fn();
+    render(<CreateUserDialog open={true} onOpenChange={onOpenChange} />);
+    fireEvent.keyDown(document.activeElement || document.body, {
+      key: 'Escape',
+      code: 'Escape',
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('v0.119: usersCreate 실패 시 classroom add 는 시도 안 함', async () => {
