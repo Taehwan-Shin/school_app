@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom';
 
 const mockUseGroupsList = vi.fn();
 
@@ -720,6 +720,103 @@ describe('GroupsTable component', () => {
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
 
     expect(exportBtn.disabled).toBe(true);
+  });
+
+  // v0.127: 「필터 초기화」 버튼 — v0.125 AccountsTable 대칭.
+  describe('v0.127 clear filters button', () => {
+    const mockGroups = [
+      { id: 'g1', email: 'group-a@cam.hs.kr', name: '그룹 A', description: '', directMembersCount: 3 },
+      { id: 'g2', email: 'group-b@cam.hs.kr', name: '그룹 B', description: '', directMembersCount: 0 },
+    ];
+    beforeEach(() => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('v0.127: 필터 없으면 disabled', () => {
+      renderWithRouter(<GroupsTable />);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn).toBeDefined();
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('v0.127: q 있으면 enabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?q=A']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('v0.127: filter=empty 있으면 enabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?filter=empty']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('v0.127: filter=with-members 있으면 enabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?filter=with-members']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('v0.127: sort=name 있으면 enabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?sort=name']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    // 경계: 정규화 대칭 (v0.125b F101 패턴).
+    it('v0.127: 공백-only q 는 disabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?q=%20%20']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    // v0.127b F105: allowlist 밖 filter 는 fail-open — 실제 목록 필터가 적용
+    // 되지 않아 두 그룹 모두 렌더, 초기화 버튼도 disabled (효과 없는 값).
+    it('v0.127b F105: allowlist 밖 filter (weird) 는 fail-open · 목록 유지 · 버튼 disabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?filter=weird']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      // DOM: 두 그룹 모두 노출 (fail-open 확인).
+      expect(screen.getByText('그룹 A')).toBeDefined();
+      expect(screen.getByText('그룹 B')).toBeDefined();
+    });
+
+    it('v0.127: dir 단독 (sort 없음) 은 disabled', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?dir=desc']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('v0.127: 클릭 시 URL search 완전 비움 + 그룹 두 개 모두 복원', () => {
+      let currentSearch: string | null = null;
+      function LocationSpy() {
+        const [sp] = useSearchParams();
+        currentSearch = sp.toString();
+        return null;
+      }
+      render(
+        <MemoryRouter initialEntries={['/admin/groups?q=B&filter=empty&sort=name']}>
+          <LocationSpy />
+          <GroupsTable />
+        </MemoryRouter>
+      );
+      // 필터 상태: q=B → group-b, filter=empty → member 0 인 것만.
+      expect(screen.queryByText('그룹 A')).toBeNull();
+      expect(screen.getByText('그룹 B')).toBeDefined();
+      expect(currentSearch).toContain('q=');
+
+      fireEvent.click(screen.getByTestId('groups-clear-filters-btn'));
+      expect(currentSearch).toBe('');
+      expect(screen.getByText('그룹 A')).toBeDefined();
+      expect(screen.getByText('그룹 B')).toBeDefined();
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
   });
 });
 

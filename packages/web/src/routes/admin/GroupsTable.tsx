@@ -53,13 +53,14 @@ export function GroupsTable() {
     if (!data?.groups) return [];
     let result = data.groups;
 
-    // KPI 필터 먼저
+    // KPI 필터 먼저. v0.127b F105: allowlist 밖 filter 는 fail-open (필터
+     // 미적용) 로 처리 — v0.125 AccountsTable 대칭. 이전에는 fail-closed 라
+     // `?filter=weird` 로 목록이 사라졌고 「필터 초기화」 버튼도 disabled
+     // (allowlist 밖) 라 사용자가 복구할 수 없었음.
     if (kpiFilter === 'with-members') {
       result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) > 0);
     } else if (kpiFilter === 'empty') {
       result = result.filter((g: GroupItem) => (g.directMembersCount ?? 0) === 0);
-    } else if (kpiFilter) {
-      result = [];
     }
 
     const q = searchQuery.trim().toLowerCase();
@@ -133,6 +134,24 @@ export function GroupsTable() {
             data-testid="groups-search-input"
             className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
           />
+          {/* v0.127: 필터 초기화 — v0.125 AccountsTable · v0.112 AuditLogTable 대칭.
+              활성 판정은 실제 필터 적용 규칙 기준으로 정규화: q trim non-empty ·
+              kpiFilter allowlist (with-members/empty) · sortColumn 이미 normalize
+              된 non-null · dir 단독 제외. */}
+          <Button
+            variant="secondary"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={
+              searchQuery.trim().length === 0 &&
+              kpiFilter !== 'with-members' &&
+              kpiFilter !== 'empty' &&
+              sortColumn === null
+            }
+            data-testid="groups-clear-filters-btn"
+            title="검색·필터·정렬 초기화"
+          >
+            필터 초기화
+          </Button>
           <Button
             variant="secondary"
             onClick={handleExportCsv}
