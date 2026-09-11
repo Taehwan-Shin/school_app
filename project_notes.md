@@ -1555,3 +1555,44 @@ v0.117 후보:
 - classroom 상세 페이지 (Phase 6, 앱-only 슬라이스).
 - 감사 로그 배치 export (Phase 6, 앱-only 슬라이스).
 - audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
+
+---
+
+## 2026-09-11 · v0.117 classroom 상세 페이지 (2 라운드 Codex 감사)
+
+**슬라이스** — `/admin/classrooms/:id` 신규 상세 페이지 도입. `ClassroomTable` 이름 컬럼을 `Link` 로 전환해 유일한 진입점. 기존 `CourseMembersDialog` 를 `CourseMembersPanel` 로 리팩터해 dialog 컴포넌트 제거. 상세 페이지는 코스 정보 카드 · 멤버 관리 패널 · super_admin 감사 이력 링크를 담고, inline actions 로 아카이브/복구 · 소유자 이관 · 삭제를 노출. Delete 성공 시 목록으로 자동 이동.
+
+### 커밋
+
+| 커밋 | 요약 |
+|---|---|
+| `e91f2ca` | feat(web): `/admin/classrooms/:id` 라우트 + Panel 리팩터 + Table Link 전환 + 10+23 회귀 |
+| `d626be7` | fix: F80 audit target URL param 서버 필터 + F81 CourseMembersPanel onPendingChange 로 코스 mutation 세 액션 disabled |
+
+### v0.117 → v0.117b
+
+| 라운드 | HEAD | Codex 결과 | 실패 항목 |
+|---|---|---|---|
+| v0.117 | `e91f2ca` | 8/2/2 | F80 `?q=<id>` 는 client-side action/message 검색만 · F81 `onPendingChange` 미연결 → 코스 mutation 이 pending 중에도 활성 |
+| v0.117b | `d626be7` | **8/0/2** 통과 | 없음 |
+
+### 병합 · 배포
+
+- 병합 커밋: `c44f73f` (main).
+- 배포: `firebase deploy --only hosting,functions --project school-app-5a636`.
+- 로컬 관문: shared 27 + functions 465 + web 717 = 1209 unit.
+
+### 배운 것
+
+- **audit 링크는 서버 필터 URL 로 연결** — 감사 화면의 `q` 는 현재 페이지 내 client-side action/message 부분 문자열 검색이라 pagination 뒤 이벤트는 놓친다. 서버 exact-match (`filterTarget`) URL param 을 추가하고, 감사 페이지 UI 도 target 입력 · 필터 초기화 · empty-state · JSON export · 파일명 요약에 일관되게 반영해야 딥링크 목적 (target 이력 검색) 이 실효를 갖는다.
+- **Dialog → Panel 리팩터 시 pending state 부모 노출 필수** — Dialog 는 modal backdrop 이 클릭을 막지만, 페이지에 임베드된 Panel 은 부모의 다른 액션과 시간 격리가 없음. 자식이 `onPendingChange(pending)` 콜백으로 mutation 상태를 부모에 알리고, 부모가 인접 액션을 disabled 처리하는 명시적 계약이 필요. Codex F81 이 정확히 이 지점.
+- **Dead code 정책** — CourseMembersDialog 를 완전 제거해 dead code 방지. 상세 페이지가 유일한 진입점이 되고 「멤버」 dialog 진입점은 사라진다. 테이블 이름 클릭이 유일한 진입 액션 → 딥링크·URL 공유·뒤로가기 자연스러움. 리팩터 시 「임시로 남겨둠」 을 피하는 게 리뷰·유지보수에 좋음.
+- **URL 인코딩 페어링** — `encodeURIComponent(courseId)` 로 인코딩하고 `useParams` + `decodeURIComponent` 로 복원. audit target 도 `courses/<id>` 전체를 `encodeURIComponent` — `/` 가 `%2F` 로 인코딩돼 서버에서 정확한 exact-match. hash character 나 querystring separator 같은 특수문자 안전.
+
+### 다음 세션에 이어갈 것
+
+v0.118 후보 (ROADMAP Phase 6 남은 항목):
+- 감사 로그 배치 export (전체 페이지 순회).
+- admin/users 검색 필터.
+- super_admin 대시보드 위젯.
+- audit_log durable sink 인프라 (v0.116 F78 잔재, 사용자 조치 필요).
