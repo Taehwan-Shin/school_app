@@ -1,7 +1,7 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.130 병합 완료** (`00501e9`) — BulkResetPasswordDialog F99 (emails snapshot) · Codex 1 라운드 통과.
+> **v0.131 병합 대기** — BulkRemoveMembersDialog F99/F100 대칭 (Bulk 하드닝 시리즈 마지막 6/6) · Codex 감사 요청 예정.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
