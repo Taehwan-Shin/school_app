@@ -156,5 +156,61 @@ describe("BulkDeleteDialog component", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onDone).toHaveBeenCalledTimes(1);
   });
+
+  // v0.128 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정.
+  it("v0.128 F99: confirm 시 emails snapshot 확정 · 실행 중 prop 변경 무시", async () => {
+    const initial = ["user1@cam.hs.kr", "user2@cam.hs.kr"];
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockCallUsersDelete.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; }),
+    );
+    mockCallUsersDelete.mockResolvedValue({ primaryEmail: "test", deleted: true });
+
+    const onOpenChange = vi.fn();
+    const { rerender } = renderWithClient(
+      <BulkDeleteDialog open={true} onOpenChange={onOpenChange} emails={initial} />
+    );
+    fireEvent.change(screen.getByTestId("bulk-delete-confirm-input"), {
+      target: { value: "삭제 2" },
+    });
+    fireEvent.click(screen.getByTestId("bulk-delete-confirm-btn"));
+
+    // 첫 API 호출 pending 중 부모가 emails 를 바꿔 rerender.
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <BulkDeleteDialog
+            open={true}
+            onOpenChange={onOpenChange}
+            emails={["completely-different@cam.hs.kr"]}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // running 배너 total 이 여전히 snapshot 크기 (2).
+    expect(screen.getByTestId("bulk-delete-running").textContent).toContain("2");
+
+    resolveFirst!({ primaryEmail: "user1@cam.hs.kr", deleted: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bulk-delete-done")).toBeDefined();
+    });
+    // 원래 2개만 처리.
+    expect(mockCallUsersDelete).toHaveBeenCalledTimes(2);
+    expect(mockCallUsersDelete).toHaveBeenNthCalledWith(1, { primaryEmail: "user1@cam.hs.kr" });
+    expect(mockCallUsersDelete).toHaveBeenNthCalledWith(2, { primaryEmail: "user2@cam.hs.kr" });
+    expect(screen.getByTestId("bulk-delete-done").textContent).toContain("2명 성공");
+  });
+
+  // v0.128 (== v0.124 F100 대칭): label htmlFor 로 프로그램적 연결.
+  it("v0.128 F100: confirm input 은 label htmlFor 로 프로그램적 연결", () => {
+    renderWithClient(
+      <BulkDeleteDialog open={true} onOpenChange={vi.fn()} emails={["u@cam.hs.kr"]} />
+    );
+    const input = screen.getByLabelText(/실행하려면 아래 문구/);
+    expect(input).toBeDefined();
+    expect((input as HTMLInputElement).id).toBe("bulk-delete-confirm-input");
+  });
 });
 

@@ -31,6 +31,9 @@ export function BulkDeleteDialog({
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
+  // v0.128 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정 —
+  // 실행 중 부모 selection 이 바뀌어도 승인 대상 == 처리 대상 == 완료 집계.
+  const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
   const requiredPhrase = `삭제 ${emails.length}`;
 
@@ -40,6 +43,7 @@ export function BulkDeleteDialog({
       setProgress(0);
       setFailures([]);
       setConfirmText("");
+      setRunEmails(null);
     }
   }, [open]);
 
@@ -52,10 +56,13 @@ export function BulkDeleteDialog({
   };
 
   const handleConfirm = async () => {
+    // F99: snapshot 을 phase 전환과 동시에 확정.
+    const snapshot = [...emails];
+    setRunEmails(snapshot);
     setPhase("running");
     const localFailures: { email: string; message: string }[] = [];
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
+    for (let i = 0; i < snapshot.length; i++) {
+      const email = snapshot[i];
       try {
         await callUsersDelete({ primaryEmail: email });
       } catch (e) {
@@ -67,6 +74,8 @@ export function BulkDeleteDialog({
     setPhase("done");
     queryClient.invalidateQueries({ queryKey: ["users", "list"] });
   };
+
+  const displayEmails = runEmails ?? emails;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -90,10 +99,16 @@ export function BulkDeleteDialog({
               )}
             </ul>
             <div>
-              <label className="text-small text-fg-primary">
+              {/* v0.128 (== v0.124 F100 대칭): htmlFor/id 로 프로그램적 연결
+                  (UI_SYSTEM label semantics). getByLabelText 회귀 가능. */}
+              <label
+                htmlFor="bulk-delete-confirm-input"
+                className="text-small text-fg-primary"
+              >
                 실행하려면 아래 문구를 정확히 입력하세요: <strong className="font-mono">{requiredPhrase}</strong>
               </label>
               <input
+                id="bulk-delete-confirm-input"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
@@ -126,13 +141,13 @@ export function BulkDeleteDialog({
             <div className="py-8 text-center space-y-3" data-testid="bulk-delete-running">
               <div className="text-body text-fg-primary">
                 진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{emails.length}</strong>
+                <strong className="font-mono">{displayEmails.length}</strong>
               </div>
               <div className="w-full bg-canvas h-2 border border-border-subtle">
                 <div
                   className="bg-fg-primary h-full transition-all"
                   style={{
-                    width: `${emails.length > 0 ? (progress / emails.length) * 100 : 0}%`,
+                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -150,7 +165,7 @@ export function BulkDeleteDialog({
               <p className="text-body text-fg-primary">
                 완료:{" "}
                 <strong className="text-state-success font-mono">
-                  {emails.length - failures.length}
+                  {displayEmails.length - failures.length}
                 </strong>
                 명 성공
                 {failures.length > 0 && (
