@@ -216,8 +216,11 @@ describe('SuperAdminPage', () => {
     expect(groupCard.textContent).toContain('3');
     expect(eventCard.textContent).toContain('8');
 
-    expect(mockUseAuditLogSummary).toHaveBeenCalledTimes(1);
-    expect(mockUseAuditLogSummary).toHaveBeenCalledWith({ atMin: expect.any(Number) });
+    // v0.122: 상단 「오늘 이벤트」 KpiCard/preview 용 + breakdown 용 두 번 호출.
+    // 기본 window=today 일 땐 두 호출 모두 같은 atMin=todayStartMs 를 전달.
+    expect(mockUseAuditLogSummary).toHaveBeenCalledTimes(2);
+    expect(mockUseAuditLogSummary).toHaveBeenNthCalledWith(1, { atMin: expect.any(Number) });
+    expect(mockUseAuditLogSummary).toHaveBeenNthCalledWith(2, { atMin: expect.any(Number) });
   });
 
   it('scenario 2: renders up to 5 recent events preview with action and result under super-admin-recent-events', () => {
@@ -1443,6 +1446,174 @@ describe('SuperAdminPage', () => {
       const err = screen.getByTestId('super-admin-breakdown-error');
       expect(err.textContent).toContain('network_failure');
       expect(screen.queryByTestId('super-admin-breakdown-list')).toBeNull();
+    });
+
+    // v0.122: window selector — 오늘/이번 주/이번 달 segmented control.
+    it('v0.122: window selector 렌더 · 기본 오늘 · aria-pressed 반영', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3, 'users.write': 3 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const today = screen.getByTestId('super-admin-breakdown-window-today');
+      const week = screen.getByTestId('super-admin-breakdown-window-week');
+      const month = screen.getByTestId('super-admin-breakdown-window-month');
+      expect(today.getAttribute('aria-pressed')).toBe('true');
+      expect(week.getAttribute('aria-pressed')).toBe('false');
+      expect(month.getAttribute('aria-pressed')).toBe('false');
+      // 제목이 「오늘 액션별」.
+      expect(screen.getByRole('heading', { name: '오늘 액션별' })).toBeDefined();
+    });
+
+    it('v0.122: 이번 주 클릭 → 제목/링크/atMin 이 주 시작 (월요일) 로 전환', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-week'));
+      expect(screen.getByRole('heading', { name: '이번 주 액션별' })).toBeDefined();
+      // 이번 주 버튼이 활성.
+      expect(
+        screen
+          .getByTestId('super-admin-breakdown-window-week')
+          .getAttribute('aria-pressed'),
+      ).toBe('true');
+      expect(
+        screen
+          .getByTestId('super-admin-breakdown-window-today')
+          .getAttribute('aria-pressed'),
+      ).toBe('false');
+      // 링크는 atMin=주-월요일-ISO.
+      const row = screen.getByTestId('super-admin-breakdown-row-users.read');
+      const href = row.getAttribute('href');
+      expect(href).toContain('action=users.read');
+      // 월요일 계산: 오늘의 요일에서 (day+6)%7 만큼 뺀 날짜.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      const iso = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+      expect(href).toContain(`atMin=${iso}`);
+    });
+
+    it('v0.122: 이번 달 클릭 → atMin 은 이번 달 1일', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
+      expect(screen.getByRole('heading', { name: '이번 달 액션별' })).toBeDefined();
+      const row = screen.getByTestId('super-admin-breakdown-row-users.read');
+      const href = row.getAttribute('href');
+      const today = new Date();
+      const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+      expect(href).toContain(`atMin=${iso}`);
+    });
+
+    it('v0.122: window 전환 시 useAuditLogSummary 가 다른 atMin 으로 재호출', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 6,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 6,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 초기 render 에서 두 번 호출 (같은 today atMin).
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayMs = today.getTime();
+      // 이번 달 클릭 → re-render 발생, 두 번째 hook 은 monthStartMs 로 호출.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
+      const monthMs = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
+      // 새 render 에서 최소 두 번 호출 (top summary today + breakdown month).
+      expect(afterCalls.length).toBeGreaterThanOrEqual(2);
+      const atMins = afterCalls.map((c: any[]) => c[0]?.atMin);
+      expect(atMins).toContain(todayMs);
+      expect(atMins).toContain(monthMs);
+    });
+
+    it('v0.122: sampleTruncated 배너의 label 이 선택된 window 를 반영', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 500 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-week'));
+      const truncated = screen.getByTestId('super-admin-breakdown-truncated');
+      expect(truncated.textContent).toContain('이번 주');
+    });
+
+    it('v0.122: empty 안내도 선택된 window label 을 반영', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 0,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: {},
+          sampleSize: 0,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-month'));
+      const empty = screen.getByTestId('super-admin-breakdown-empty');
+      expect(empty.textContent).toContain('이번 달');
     });
   });
 });

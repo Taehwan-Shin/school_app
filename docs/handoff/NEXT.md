@@ -1,7 +1,7 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.121 병합 완료** (`5aef31f`) — orgunitsCreate + CreateUserDialog 인라인 새 OU 생성 + F98 hotfix · 2 라운드 Codex 감사.
+> **v0.122 병합 대기** — SuperAdminPage 액션별 위젯에 오늘/이번 주/이번 달 segmented control · Codex 감사 요청 예정.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
@@ -14,7 +14,6 @@
 ## 다음 후보 (Head 자율 실행 예정)
 
 `docs/handoff/ROADMAP.md` Phase 5/6 남은 항목:
-- **이번 주/월 window breakdown** — v0.120 은 「오늘」만. 사용자 선택 window.
 - **전입생 계정 개별 생성 UX 개선** — `laterAccountSetup` 포팅 (Phase 5).
 - **클래스룸 소유자 이관 UI** — v0.116 서버는 있으나 UI 미완.
 - **audit_log durable sink 인프라** — v0.116 F78 잔재. 사용자 조치 필요.
