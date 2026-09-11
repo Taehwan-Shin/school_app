@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.132+) | 사용자 | 답 대기 | v0.104~v0.131 병합 완료. **Bulk 하드닝 시리즈 6/6 완주**. 남은 후보 전부 사용자 조치 필요: 전입생 계정 UX 세부 (도메인 규칙) · audit sink 인프라 (Firebase console) · (d) 그 외 |
+| 다음 제품 방향 확정 (v0.133+) | 사용자 | 답 대기 | v0.104~v0.132 병합 완료. bliss00 지시 (1) 전입생 UX 완료, (2) audit sink 인프라 「보안 문제 없으면 진행」 승인 → v0.133 진행 예정. |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
 | 웹앱 커스텀 도메인 `cam-t.kr` 연결 (배포 차단) | 사용자 | 답 대기 | Firebase Console → Hosting → Custom domain → `cam-t.kr` 추가 · DNS 레코드 등록. OAuth 승인된 도메인에도 `cam-t.kr` 유지. 이메일 도메인 `cam.hs.kr` 과 별개 |
@@ -27,6 +27,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.132 | `5ced712` (main) | 전입생 일괄 계정 생성 UX (BatchCreateUsersDialog, bliss00 지시). 10 rows (아이디 · 성 · 이름 · 이메일 자동 부착 `@cam.hs.kr`) · 공통 OU + 초기 비밀번호. 3-phase confirm/running/done. F106 usersCreate audit backup (v0.121b F98 대칭) · F107 lower-case canonical dedup + primaryEmail · F108 a11y (scope=col + aria-label 30개) · F109 buildRunRowsSnapshot 순수 함수 회귀 · F110 validation=error (roles.md 규약). 웹 822 + functions 507 = 1,356 unit. 3 라운드 Codex 감사 |
 | v0.131 | `33aebd7` (main) | BulkRemoveMembersDialog 에 F99/F100 대칭 (Bulk 하드닝 시리즈 마지막 6/6). runMemberEmails snapshot · displayEmails · label htmlFor/id. **Bulk 하드닝 완주** (v0.123 BulkRestore → v0.124 BulkSuspend → v0.128 BulkDelete → v0.129 BulkMoveOu → v0.130 BulkResetPassword → v0.131 BulkRemoveMembers). 웹 802 unit (+2). 1 라운드 Codex 감사 |
 | v0.130 | `00501e9` (main) | BulkResetPasswordDialog 에 F99 (emails snapshot) 적용 (v0.124 시리즈 5/6). v0.113b F65 (password 평문 snapshot) + F66 (label htmlFor) 는 이미 완료됐고 이번에 emails snapshot 만 추가. 웹 800 unit (+1, 첫 800 넘김). 1 라운드 Codex 감사 |
 | v0.129 | `25f1722` (main) | BulkMoveOuDialog 에 F99/F100 대칭 적용 (v0.124 시리즈 4/6). runEmails snapshot + displayEmails · label htmlFor/id 연결. 웹 799 unit (+2). 1 라운드 Codex 감사 |
