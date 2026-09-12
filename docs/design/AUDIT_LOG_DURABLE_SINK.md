@@ -44,7 +44,8 @@
 **장점**: 앱의 감사 데이터 전체를 SQL 로 조회 가능. Firestore 데이터 손실 시에도 남음.
 **단점**: 추가 Firebase extension 설치 필요 + BigQuery cost.
 
-**권장 조합**: 옵션 A + 옵션 C.
+**권장 조합**: 옵션 A + (Firestore scheduled export / Dataflow). 옵션 C 는 2027-03-31
+확장 종료 예정이라 새 설치보다 대체 방안 우선 (§옵션 C 세부 참조).
 
 ## 옵션 A 설정: Cloud Logging → BigQuery Sink
 
@@ -97,23 +98,57 @@ jsonPayload.message=~"_audit_write_failed$"
 - 「테이블 파티셔닝 사용」 (Use partitioned tables) 옵션 **체크**.
 - 필터 (위와 동일).
 
-### 3. Service Account 권한 부여 (destination write)
+### 3. Service Account 권한 부여 (dataset-scoped write) + 기본 ACL 정리
 
 Sink 생성 시 Google Cloud 가 자동으로 `writerIdentity` service account 를 만듭니다.
-이 SA 에게 destination dataset 에 데이터를 쓸 권한 (BigQuery Data Editor) 을 부여
-해야 합니다. 이는 **destination-쓰기 권한** 이며, destination 을 **누가 읽을 수 있는지**
-는 별도로 관리합니다 (§보안 관점).
+이 SA 에게 **destination dataset 에만** 쓸 권한 (BigQuery Data Editor) 을 부여합니다.
+프로젝트 전체가 아닌 dataset 단위로 최소권한 원칙을 지킵니다. 참고:
+https://cloud.google.com/bigquery/docs/access-control-basic-roles
+
+또한 새로 만든 BigQuery dataset 은 **기본으로 project-level basic role 이 상속** 됩니다:
+- `projectOwners` → OWNER, `projectEditors` → WRITER, `projectViewers` → READER.
+
+프로젝트에 owner 외 다른 사용자가 있다면 이 기본 ACL 로 read/write 가 넓어질 수
+있으므로 sink dataset 은 기본 ACL 을 제거하고 명시 IAM 만 남깁니다.
 
 ```bash
-# sink 정보 확인 · writerIdentity 필드 확인
-gcloud logging sinks describe audit-write-failed-to-bq \
+# 1) sink 의 writerIdentity 확인
+WRITER=$(gcloud logging sinks describe audit-write-failed-to-bq \
   --project=school-app-5a636 \
-  --format='value(writerIdentity)'
+  --format='value(writerIdentity)')
+echo "$WRITER"
 
-# writerIdentity 를 복사 → BigQuery Data Editor 부여
-gcloud projects add-iam-policy-binding school-app-5a636 \
-  --member="{writerIdentity}" \
-  --role="roles/bigquery.dataEditor"
+# 2) writerIdentity 를 dataset (프로젝트 전체가 아닌) 로만 dataEditor 부여
+bq add-iam-policy-binding \
+  --member="$WRITER" \
+  --role="roles/bigquery.dataEditor" \
+  school-app-5a636:audit_log_sink
+
+# 3) 기본 project-level ACL 제거 (projectReaders / projectWriters / projectOwners)
+#    현재 dataset ACL 을 JSON 으로 dump → 편집 → update.
+bq show --format=prettyjson school-app-5a636:audit_log_sink > audit_log_sink.acl.json
+# audit_log_sink.acl.json 의 `access` 배열에서
+#   { "specialGroup": "projectReaders", ... }
+#   { "specialGroup": "projectWriters", ... }
+#   { "specialGroup": "projectOwners", ... }
+# 세 항목을 제거하고 저장 (bliss00 의 명시 사용자 · writerIdentity 만 남기기).
+bq update --source audit_log_sink.acl.json school-app-5a636:audit_log_sink
+
+# 4) 검증: dataset 접근자 목록.
+bq show --format=prettyjson school-app-5a636:audit_log_sink | jq '.access'
+# 예상 (bliss00 을 owner 로 명시 부여한 경우):
+# [
+#   { "role": "OWNER", "userByEmail": "bliss00@..." },
+#   { "role": "WRITER", "userByEmail": "service-...@gcp-sa-logging.iam.gserviceaccount.com" }
+# ]
+```
+
+특정 열람자를 추가로 부여하려면:
+```bash
+bq add-iam-policy-binding \
+  --member="user:someone@cam.hs.kr" \
+  --role="roles/bigquery.dataViewer" \
+  school-app-5a636:audit_log_sink
 ```
 
 ### 4. Smoke 확인
@@ -259,18 +294,22 @@ BigQuery dataset 은 그대로 두고 sink 만 지우면 신규 데이터만 str
 Sink 는 별도의 GCP IAM 경계를 만듭니다. 앱의 super_admin 경계와는 **다르므로**
 아래 항목을 명시적으로 관리해야 합니다. 참고: https://cloud.google.com/logging/docs/export/configure_export_v2
 
-### 새로 부여되는 권한 (destination write)
-- Sink 생성 자체가 `writerIdentity` (Google-managed service account) 에게
-  **destination-쓰기** 권한을 부여합니다 (위 §3 에서 `bigquery.dataEditor` 부여).
-- 이 SA 는 Google 이 관리하며 감사 데이터를 dataset 으로만 쓸 수 있고, 우리
-  Firestore/앱에는 접근하지 않습니다.
+### 새로 부여되는 권한 (destination write, dataset-scoped)
+- Sink 생성 시 Google 이 자동으로 `writerIdentity` service account 를 만듭니다.
+- §3 에서 이 SA 에 대해 **dataset (`audit_log_sink`) 만 scope 한** `bigquery.dataEditor`
+  를 부여합니다 (project-wide 아님). 이 SA 는 Google 이 관리하며 감사 데이터를
+  이 dataset 에만 쓸 수 있고 우리 Firestore/앱에는 접근하지 않습니다.
 
-### Destination 읽기 권한 (읽는 사람은 별도)
-- **BigQuery dataset 의 열람자는 GCP IAM 으로 별도 관리**합니다. 기본으로 프로젝트
-  `roles/owner` · `roles/bigquery.admin` 을 가진 계정 (=현재는 bliss00) 만 조회
-  가능. 앱의 super_admin 계정과 다릅니다 (앱 super_admin 은 Firestore 만 조회).
-- 다른 조직 구성원이 sink 데이터를 봐야 하면 GCP IAM 에서 `roles/bigquery.dataViewer`
-  등을 명시적으로 부여해야 합니다. 앱의 role 부여와 자동 연동되지 않습니다.
+### Destination 읽기 권한 (읽는 사람은 별도) — 기본 ACL 제거 필수
+- BigQuery dataset 은 **생성 시 기본으로 프로젝트 level basic role 을 상속**합니다:
+  `projectOwners` → OWNER, `projectEditors` → WRITER, `projectViewers` → READER.
+  참고: https://cloud.google.com/bigquery/docs/access-control-basic-roles
+- 프로젝트에 owner 외 사용자가 있으면 이 기본 ACL 로 감사 데이터가 넓게 노출될
+  수 있으므로 §3 절차에서 이 기본 ACL 을 제거하고 명시 IAM (bliss00 owner +
+  writerIdentity 만) 만 남깁니다.
+- 다른 조직 구성원이 sink 데이터를 봐야 하면 `bq add-iam-policy-binding` 으로
+  개별 사용자에게 `roles/bigquery.dataViewer` 를 부여합니다.
+- 앱의 super_admin role 부여와는 자동 연동되지 않습니다 — 두 경계가 별개.
 
 ### PII 보존/삭제
 - 감사 데이터에는 **actor 이메일 · target 자원 식별자** 등의 PII 가 포함됩니다.
