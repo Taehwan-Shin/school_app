@@ -1,15 +1,16 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.133 병합 대기** — audit_log durable sink 인프라 (shared writeAuditWithBackup + 인프라 설정 GUIDE) · bliss00 승인 「보안 문제 없으면 진행」.
+> **v0.133 병합 완료** (`252a32b`) — audit_log durable sink 인프라 (shared util + GUIDE) · 4 라운드 Codex 감사.
+> **bliss00 두 지시 (전입생 UX + audit sink) 모두 완료.** sink 실 gcloud/bq 설정은 문서 참조하여 진행 가능.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `252a32b` v0.133 — audit_log durable sink 인프라 (shared writeAuditWithBackup + GUIDE).
 - `5ced712` v0.132 — 전입생 일괄 계정 생성 UX (BatchCreateUsersDialog) + F106~F110.
 - `33aebd7` v0.131 — BulkRemoveMembersDialog F99/F100 (Bulk 시리즈 마지막 6/6).
 - `00501e9` v0.130 — BulkResetPasswordDialog F99 (v0.124 시리즈 5/6).
 - `25f1722` v0.129 — BulkMoveOuDialog F99/F100 대칭 (v0.124 시리즈 4/6).
-- `a914fc9` v0.128 — BulkDeleteDialog F99/F100 대칭 (v0.124 시리즈 3/4).
 
 ## 다음 후보 (Head 자율 실행 예정)
 
