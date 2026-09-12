@@ -111,44 +111,63 @@ https://cloud.google.com/bigquery/docs/access-control-basic-roles
 프로젝트에 owner 외 다른 사용자가 있다면 이 기본 ACL 로 read/write 가 넓어질 수
 있으므로 sink dataset 은 기본 ACL 을 제거하고 명시 IAM 만 남깁니다.
 
+**중요 (F117)**: `bq add-iam-policy-binding` 은 dataset 리소스를 지원하지 않으므로
+(https://cloud.google.com/bigquery/docs/reference/bq-cli-reference#bq_add-iam-policy-binding),
+dataset access 는 반드시 `bq show` → JSON `access` 편집 → `bq update --source` 흐름
+으로 처리합니다 (https://cloud.google.com/bigquery/docs/control-access-to-resources-iam).
+아래 한 절차로 (a) writer 명시 부여 + (b) bliss00 owner 명시 부여 + (c) project-level
+basic role specialGroup 제거를 모두 처리합니다.
+
 ```bash
-# 1) sink 의 writerIdentity 확인
-WRITER=$(gcloud logging sinks describe audit-write-failed-to-bq \
+# 1) sink 의 writerIdentity 확인 (writer 는 `serviceAccount:...` 접두어가 붙어
+#    있으므로 email 부분만 추출해서 ACL 에 넣는다).
+WRITER_RAW=$(gcloud logging sinks describe audit-write-failed-to-bq \
   --project=school-app-5a636 \
   --format='value(writerIdentity)')
-echo "$WRITER"
+WRITER_EMAIL="${WRITER_RAW#serviceAccount:}"
+echo "$WRITER_EMAIL"
+# 예: service-{PROJECT_NUMBER}@gcp-sa-logging.iam.gserviceaccount.com
 
-# 2) writerIdentity 를 dataset (프로젝트 전체가 아닌) 로만 dataEditor 부여
-bq add-iam-policy-binding \
-  --member="$WRITER" \
-  --role="roles/bigquery.dataEditor" \
-  school-app-5a636:audit_log_sink
-
-# 3) 기본 project-level ACL 제거 (projectReaders / projectWriters / projectOwners)
-#    현재 dataset ACL 을 JSON 으로 dump → 편집 → update.
+# 2) 현재 dataset ACL 을 JSON 으로 dump.
 bq show --format=prettyjson school-app-5a636:audit_log_sink > audit_log_sink.acl.json
-# audit_log_sink.acl.json 의 `access` 배열에서
-#   { "specialGroup": "projectReaders", ... }
-#   { "specialGroup": "projectWriters", ... }
-#   { "specialGroup": "projectOwners", ... }
-# 세 항목을 제거하고 저장 (bliss00 의 명시 사용자 · writerIdentity 만 남기기).
-bq update --source audit_log_sink.acl.json school-app-5a636:audit_log_sink
 
-# 4) 검증: dataset 접근자 목록.
+# 3) audit_log_sink.acl.json 을 편집:
+#    - `access` 배열에서 아래 세 항목을 **제거** (project 상속 ACL):
+#        { "role": "OWNER",  "specialGroup": "projectOwners"  }
+#        { "role": "WRITER", "specialGroup": "projectWriters" }
+#        { "role": "READER", "specialGroup": "projectViewers" }
+#    - `access` 배열에 아래 두 항목을 **추가**:
+#        { "role": "OWNER",  "userByEmail": "bliss00@cam.hs.kr" }
+#        { "role": "WRITER", "userByEmail": "${WRITER_EMAIL}" }
+#
+#    수동 편집 대신 jq 로 한 번에:
+jq --arg writer "$WRITER_EMAIL" --arg owner "bliss00@cam.hs.kr" '
+  .access |= (map(select(
+    .specialGroup != "projectOwners"
+    and .specialGroup != "projectWriters"
+    and .specialGroup != "projectViewers"
+  )) + [
+    { "role": "OWNER",  "userByEmail": $owner },
+    { "role": "WRITER", "userByEmail": $writer }
+  ])
+' audit_log_sink.acl.json > audit_log_sink.acl.updated.json
+
+# 4) 갱신 적용.
+bq update --source audit_log_sink.acl.updated.json school-app-5a636:audit_log_sink
+
+# 5) 검증: dataset 접근자 목록.
 bq show --format=prettyjson school-app-5a636:audit_log_sink | jq '.access'
-# 예상 (bliss00 을 owner 로 명시 부여한 경우):
+# 예상:
 # [
-#   { "role": "OWNER", "userByEmail": "bliss00@..." },
+#   { "role": "OWNER",  "userByEmail": "bliss00@cam.hs.kr" },
 #   { "role": "WRITER", "userByEmail": "service-...@gcp-sa-logging.iam.gserviceaccount.com" }
 # ]
 ```
 
-특정 열람자를 추가로 부여하려면:
-```bash
-bq add-iam-policy-binding \
-  --member="user:someone@cam.hs.kr" \
-  --role="roles/bigquery.dataViewer" \
-  school-app-5a636:audit_log_sink
+**열람자 추가**: 동일한 JSON 편집 절차 (§3) 로 `access` 배열에 아래 항목 추가 후
+`bq update --source` 재적용:
+```json
+{ "role": "READER", "userByEmail": "someone@cam.hs.kr" }
 ```
 
 ### 4. Smoke 확인
@@ -307,8 +326,9 @@ Sink 는 별도의 GCP IAM 경계를 만듭니다. 앱의 super_admin 경계와�
 - 프로젝트에 owner 외 사용자가 있으면 이 기본 ACL 로 감사 데이터가 넓게 노출될
   수 있으므로 §3 절차에서 이 기본 ACL 을 제거하고 명시 IAM (bliss00 owner +
   writerIdentity 만) 만 남깁니다.
-- 다른 조직 구성원이 sink 데이터를 봐야 하면 `bq add-iam-policy-binding` 으로
-  개별 사용자에게 `roles/bigquery.dataViewer` 를 부여합니다.
+- 다른 조직 구성원이 sink 데이터를 봐야 하면 §3 의 JSON 편집 절차로 `access`
+  배열에 `{ "role": "READER", "userByEmail": "..." }` 를 추가한 뒤 `bq update
+  --source` 재적용 (`bq add-iam-policy-binding` 은 dataset 미지원).
 - 앱의 super_admin role 부여와는 자동 연동되지 않습니다 — 두 경계가 별개.
 
 ### PII 보존/삭제
