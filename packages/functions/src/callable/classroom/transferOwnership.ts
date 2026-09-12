@@ -4,6 +4,7 @@ import type { Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
 import { ALLOWED_DOMAIN } from '../../auth/onUserCreate.js';
 import { writeAudit } from '../../audit/writeAudit.js';
+import { writeAuditWithBackup } from '../../audit/writeAuditWithBackup.js';
 import { getClassroomClient, type ClassroomCourse } from '../../google/classroomClient.js';
 
 export interface ClassroomTransferOwnershipRequest {
@@ -33,38 +34,8 @@ const ALREADY_AUDITED = Symbol('transfer_owner_already_audited');
 type AuditedHttpsError = HttpsError & { [ALREADY_AUDITED]?: true };
 
 // v0.116d F78: audit_log 저장은 accountability 규율상 반드시 durable 이어야
-// 하지만 Firestore 쓰기는 드물게 실패 (network glitch · quota · outage). 재시도
-// 3 회 (지수 백오프) → 최종 실패 시 Cloud Logging 에 severity=ERROR + 감사 payload
-// 를 그대로 남긴다. Cloud Logging 은 로그 라우팅 sink 로 BigQuery/GCS 로 영구
-// 보관 가능하므로, 향후 request_id 기반 intent/outbox 로 마이그레이션 시에도
-// 재구성 가능. 이 helper 는 throw 하지 않는다 — 호출자가 patch 결과나 partial
-// throw 로 흐름을 결정하도록.
-type AuditEntry = Parameters<typeof writeAudit>[0];
-async function writeAuditWithBackup(entry: AuditEntry, requestId: string): Promise<void> {
-  const maxAttempts = 3;
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await writeAudit(entry);
-      return;
-    } catch (err) {
-      lastErr = err;
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-      }
-    }
-  }
-  // Cloud Logging 구조 로그 (Cloud Functions 자동 수집).
-  console.error(
-    JSON.stringify({
-      severity: 'ERROR',
-      message: 'classroom_transfer_owner_audit_write_failed',
-      request_id: requestId,
-      audit_entry: entry,
-      final_error: (lastErr as Error)?.message ?? String(lastErr),
-    }),
-  );
-}
+// 하지만 Firestore 쓰기는 드물게 실패. v0.133: shared writeAuditWithBackup util
+// 로 통합 (audit/writeAuditWithBackup.ts).
 
 function extractStatus(err: unknown): number | undefined {
   return (
@@ -257,6 +228,7 @@ export const classroomTransferOwnership = onCall(
             message: `added_teacher_but_patch_failed:${mapped.message} rollback=${rollback}`,
           },
           requestId,
+          'classroom_transfer_owner',
         );
         throw partial;
       }
@@ -275,6 +247,7 @@ export const classroomTransferOwnership = onCall(
           message: `newOwner=${newOwnerEmail} addedAsTeacher=${addedAsTeacher}`,
         },
         requestId,
+        'classroom_transfer_owner',
       );
 
       return { course: patchRes.data, addedAsTeacher };
@@ -298,6 +271,7 @@ export const classroomTransferOwnership = onCall(
           message: mapped.message,
         },
         requestId,
+        'classroom_transfer_owner',
       );
       throw mapped;
     }

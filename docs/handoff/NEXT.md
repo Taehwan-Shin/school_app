@@ -1,8 +1,7 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.132 병합 완료** (`5ced712`) — 전입생 일괄 계정 생성 UX (bliss00 지시) + F106/F107/F108/F109/F110 · 3 라운드 Codex 감사.
-> **다음: v0.133 audit_log durable sink 인프라 (bliss00 승인 「보안 문제 없으면 진행」).**
+> **v0.133 병합 대기** — audit_log durable sink 인프라 (shared writeAuditWithBackup + 인프라 설정 GUIDE) · bliss00 승인 「보안 문제 없으면 진행」.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
