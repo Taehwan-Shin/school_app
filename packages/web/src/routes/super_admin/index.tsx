@@ -33,8 +33,11 @@ export function SuperAdminPage() {
   // v0.122: 액션별 breakdown 위젯의 window 를 사용자 선택 (오늘 / 이번 주 / 이번 달).
   // 「오늘 이벤트」 KpiCard 와 「오늘 감사 이벤트」 preview 는 항상 today 지표로
   // 유지 (headline metric 안정성). breakdown 만 별도 query 로 전환.
-  type BreakdownWindow = 'today' | 'week' | 'month';
+  // v0.135: 4번째 옵션 「지난 N일」 추가 (nDays). N 은 numeric input · 1~365 · 기본 30.
+  type BreakdownWindow = 'today' | 'week' | 'month' | 'nDays';
   const [breakdownWindow, setBreakdownWindow] = useState<BreakdownWindow>('today');
+  // v0.135: nDays 값 (1..365). 잘못된 값은 30 으로 fallback (아래 nDaysSanitized).
+  const [nDaysInput, setNDaysInput] = useState<string>('30');
 
   // 주 시작 = 이번 주 월요일 00:00 (ISO 8601). Sunday=0 이라 (day+6)%7 로 월요일 offset.
   const weekStart = new Date(todayStart);
@@ -49,16 +52,44 @@ export function SuperAdminPage() {
   const monthStartMs = monthStart.getTime();
   const monthIso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-01`;
 
+  // v0.135: nDaysInput 을 안전한 정수 (1..365) 로 정규화. NaN·범위밖·비정수 는 30 으로 fallback.
+  const nDaysSanitized = (() => {
+    const raw = nDaysInput.trim();
+    if (!/^\d+$/.test(raw)) return 30;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 365) return 30;
+    return n;
+  })();
+  // nDays 시작 = (오늘 00:00) - (N-1) 일. 즉 N=1 이면 오늘 · N=7 이면 오늘 포함 지난 7일.
+  const nDaysStart = new Date(todayStart);
+  nDaysStart.setDate(nDaysStart.getDate() - (nDaysSanitized - 1));
+  const nDaysStartMs = nDaysStart.getTime();
+  const nDaysIso = `${nDaysStart.getFullYear()}-${String(nDaysStart.getMonth() + 1).padStart(2, '0')}-${String(nDaysStart.getDate()).padStart(2, '0')}`;
+
   const breakdownAtMin =
     breakdownWindow === 'today'
       ? todayStartMs
       : breakdownWindow === 'week'
         ? weekStartMs
-        : monthStartMs;
+        : breakdownWindow === 'month'
+          ? monthStartMs
+          : nDaysStartMs;
   const breakdownAtIso =
-    breakdownWindow === 'today' ? todayIso : breakdownWindow === 'week' ? weekIso : monthIso;
+    breakdownWindow === 'today'
+      ? todayIso
+      : breakdownWindow === 'week'
+        ? weekIso
+        : breakdownWindow === 'month'
+          ? monthIso
+          : nDaysIso;
   const breakdownLabel =
-    breakdownWindow === 'today' ? '오늘' : breakdownWindow === 'week' ? '이번 주' : '이번 달';
+    breakdownWindow === 'today'
+      ? '오늘'
+      : breakdownWindow === 'week'
+        ? '이번 주'
+        : breakdownWindow === 'month'
+          ? '이번 달'
+          : `지난 ${nDaysSanitized}일`;
 
   // v0.126: exact aggregation toggle. 기본 false — sampleTruncated=true 상황
   // 에서 사용자가 「정확 카운트」 버튼 눌러야 서버 count() 28 aggregation.
@@ -70,6 +101,19 @@ export function SuperAdminPage() {
   const handleWindowChange = (w: BreakdownWindow) => {
     setExactAggregation(false);
     setBreakdownWindow(w);
+  };
+  // v0.135: nDays 프리셋 chip (7 · 30 · 90) 클릭 시 window=nDays 로 전환 + input 갱신 + exact 리셋.
+  // F104 원자성 유지 — 같은 handler 안에서 batched.
+  const handleNDaysPreset = (n: number) => {
+    setExactAggregation(false);
+    setBreakdownWindow('nDays');
+    setNDaysInput(String(n));
+  };
+  // v0.135: nDays input 변경 — window 도 nDays 로 강제 전환 (사용자가 값을 편집하면 nDays 선택 의도).
+  const handleNDaysInputChange = (v: string) => {
+    setExactAggregation(false);
+    setBreakdownWindow('nDays');
+    setNDaysInput(v);
   };
 
   // window=today 인 경우 상단 summaryQuery 를 재사용해 network 절약 (React Query
@@ -380,33 +424,95 @@ export function SuperAdminPage() {
                 로그에서 해당 액션만 필터링해 볼 수 있습니다.
               </p>
             </div>
-            <div
-              className="flex border border-border-subtle"
-              role="group"
-              aria-label="breakdown window 선택"
-              data-testid="super-admin-breakdown-window"
-            >
-              {(['today', 'week', 'month'] as BreakdownWindow[]).map((w) => {
-                const label = w === 'today' ? '오늘' : w === 'week' ? '이번 주' : '이번 달';
-                const active = breakdownWindow === w;
-                return (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={() => handleWindowChange(w)}
-                    aria-pressed={active}
-                    data-testid={`super-admin-breakdown-window-${w}`}
-                    className={
-                      'px-3 py-1 text-small border-r last:border-r-0 border-border-subtle transition-colors ' +
-                      (active
-                        ? 'bg-fg-primary text-canvas'
-                        : 'bg-canvas text-fg-primary hover:bg-surface')
-                    }
+            <div className="flex items-center gap-2 flex-wrap">
+              <div
+                className="flex border border-border-subtle"
+                role="group"
+                aria-label="breakdown window 선택"
+                data-testid="super-admin-breakdown-window"
+              >
+                {(['today', 'week', 'month', 'nDays'] as BreakdownWindow[]).map((w) => {
+                  const label =
+                    w === 'today'
+                      ? '오늘'
+                      : w === 'week'
+                        ? '이번 주'
+                        : w === 'month'
+                          ? '이번 달'
+                          : '지난 N일';
+                  const active = breakdownWindow === w;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => handleWindowChange(w)}
+                      aria-pressed={active}
+                      data-testid={`super-admin-breakdown-window-${w}`}
+                      className={
+                        'px-3 py-1 text-small border-r last:border-r-0 border-border-subtle transition-colors ' +
+                        (active
+                          ? 'bg-fg-primary text-canvas'
+                          : 'bg-canvas text-fg-primary hover:bg-surface')
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* v0.135: nDays 세부 컨트롤 — window 가 nDays 이거나 chip 프리셋으로 진입 시 활성. */}
+              {breakdownWindow === 'nDays' && (
+                <div
+                  className="flex items-center gap-1"
+                  data-testid="super-admin-breakdown-ndays-controls"
+                >
+                  <div
+                    className="flex border border-border-subtle"
+                    role="group"
+                    aria-label="지난 N일 프리셋"
                   >
-                    {label}
-                  </button>
-                );
-              })}
+                    {[7, 30, 90].map((n) => {
+                      const active = breakdownWindow === 'nDays' && nDaysSanitized === n;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => handleNDaysPreset(n)}
+                          aria-pressed={active}
+                          data-testid={`super-admin-breakdown-ndays-preset-${n}`}
+                          className={
+                            'px-2 py-1 text-small border-r last:border-r-0 border-border-subtle transition-colors ' +
+                            (active
+                              ? 'bg-fg-primary text-canvas'
+                              : 'bg-canvas text-fg-primary hover:bg-surface')
+                          }
+                        >
+                          {n}일
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label
+                    htmlFor="super-admin-breakdown-ndays-input"
+                    className="text-small text-fg-secondary ml-1"
+                  >
+                    N=
+                  </label>
+                  <input
+                    id="super-admin-breakdown-ndays-input"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={nDaysInput}
+                    onChange={(e) => handleNDaysInputChange(e.target.value)}
+                    data-testid="super-admin-breakdown-ndays-input"
+                    className="w-16 border border-border-subtle bg-canvas px-2 py-1 text-small text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                  />
+                  <span className="text-small text-fg-muted">
+                    ({nDaysSanitized}일, 1~365)
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           {breakdownSummaryQuery.isLoading && (

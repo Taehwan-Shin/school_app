@@ -1780,5 +1780,179 @@ describe('SuperAdminPage', () => {
       // 링크 없음 — div 로 렌더 (a 태그 아님).
       expect(otherRow.tagName.toLowerCase()).toBe('div');
     });
+
+    // v0.135: 「지난 N일」 window 추가.
+    it('v0.135: 「지난 N일」 chip 은 초기 비활성 · N=30 기본 · 클릭 시 활성화', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 5,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const nDaysBtn = screen.getByTestId('super-admin-breakdown-window-nDays');
+      expect(nDaysBtn.getAttribute('aria-pressed')).toBe('false');
+      // 초기엔 nDays 컨트롤 숨김.
+      expect(screen.queryByTestId('super-admin-breakdown-ndays-controls')).toBeNull();
+
+      fireEvent.click(nDaysBtn);
+      expect(nDaysBtn.getAttribute('aria-pressed')).toBe('true');
+      // 컨트롤 노출 · 기본 N=30.
+      expect(screen.getByTestId('super-admin-breakdown-ndays-controls')).toBeDefined();
+      expect(
+        (screen.getByTestId('super-admin-breakdown-ndays-input') as HTMLInputElement).value,
+      ).toBe('30');
+      // 제목이 「지난 30일 액션별」.
+      expect(screen.getByRole('heading', { name: '지난 30일 액션별' })).toBeDefined();
+    });
+
+    it('v0.135: 프리셋 7/30/90 chip 클릭 시 window=nDays · N 동기 · atMin 계산', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 5,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // nDays 로 진입 (chip 아무 프리셋 클릭이 곧 window 전환).
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      // 7일 프리셋.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-ndays-preset-7'));
+      expect(
+        (screen.getByTestId('super-admin-breakdown-ndays-input') as HTMLInputElement).value,
+      ).toBe('7');
+      expect(screen.getByRole('heading', { name: '지난 7일 액션별' })).toBeDefined();
+      // 링크 atMin=(오늘 - 6일) ISO.
+      const row = screen.getByTestId('super-admin-breakdown-row-users.read');
+      const href = row.getAttribute('href');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      const iso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+      expect(href).toContain(`atMin=${iso}`);
+      // 90일 프리셋.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-ndays-preset-90'));
+      expect(
+        (screen.getByTestId('super-admin-breakdown-ndays-input') as HTMLInputElement).value,
+      ).toBe('90');
+      expect(screen.getByRole('heading', { name: '지난 90일 액션별' })).toBeDefined();
+    });
+
+    it('v0.135: N input 편집 시 window 강제 전환 · 잘못된 값 (범위 밖/비숫자) 은 30 fallback', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 5,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // 오늘 활성.
+      expect(
+        screen.getByTestId('super-admin-breakdown-window-today').getAttribute('aria-pressed'),
+      ).toBe('true');
+      // nDays 진입.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      // 유효 값.
+      fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
+        target: { value: '14' },
+      });
+      expect(screen.getByRole('heading', { name: '지난 14일 액션별' })).toBeDefined();
+      // 범위 초과 (400) → 30 fallback.
+      fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
+        target: { value: '400' },
+      });
+      expect(screen.getByRole('heading', { name: '지난 30일 액션별' })).toBeDefined();
+      // 비숫자 (abc) → 30 fallback.
+      fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
+        target: { value: 'abc' },
+      });
+      expect(screen.getByRole('heading', { name: '지난 30일 액션별' })).toBeDefined();
+      // 0 → 30 fallback.
+      fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
+        target: { value: '0' },
+      });
+      expect(screen.getByRole('heading', { name: '지난 30일 액션별' })).toBeDefined();
+    });
+
+    it('v0.135: nDays window → today 로 되돌리면 nDays 컨트롤 숨김', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 5,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      expect(screen.getByTestId('super-admin-breakdown-ndays-controls')).toBeDefined();
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-today'));
+      expect(screen.queryByTestId('super-admin-breakdown-ndays-controls')).toBeNull();
+      // 제목 되돌려짐.
+      expect(screen.getByRole('heading', { name: '오늘 액션별' })).toBeDefined();
+    });
+
+    it('v0.135 F104 대칭: nDays 프리셋 클릭 시 exact aggregation 리셋', () => {
+      // sampleTruncated=true 로 exact 버튼 노출.
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 500 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // exact 켜기.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
+      // 이후 nDays 프리셋 클릭. window + input 이 원자적으로 갱신되고 exact=false 리셋되어야 한다.
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-ndays-preset-7'));
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
+      // 마지막 breakdown 호출은 exact=false 이어야.
+      const breakdownCalls = afterCalls.filter(
+        (c: any[]) => typeof c[0]?.exact === 'boolean',
+      );
+      const lastBreakdown = breakdownCalls[breakdownCalls.length - 1];
+      expect(lastBreakdown?.[0]?.exact).toBe(false);
+    });
   });
 });
