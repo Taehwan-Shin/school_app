@@ -32,20 +32,27 @@ describe('sortHeaderKbdProps', () => {
     expect(props2.className).toBe(props2.className.trim());
   });
 
-  it('Enter 는 preventDefault 후 onActivate 호출', () => {
+  it('Enter 는 preventDefault → onActivate 순서로 호출', () => {
     const onActivate = vi.fn();
     const { event, preventDefault } = makeKbdEvent('Enter');
     sortHeaderKbdProps(onActivate).onKeyDown(event);
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(onActivate).toHaveBeenCalledTimes(1);
+    // v0.139b: preventDefault 가 onActivate 보다 먼저 호출됨을 순서 고정.
+    expect(preventDefault.mock.invocationCallOrder[0]).toBeLessThan(
+      onActivate.mock.invocationCallOrder[0],
+    );
   });
 
-  it('Space 는 preventDefault 후 onActivate 호출', () => {
+  it('Space 는 preventDefault → onActivate 순서로 호출', () => {
     const onActivate = vi.fn();
     const { event, preventDefault } = makeKbdEvent(' ');
     sortHeaderKbdProps(onActivate).onKeyDown(event);
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(onActivate).toHaveBeenCalledTimes(1);
+    expect(preventDefault.mock.invocationCallOrder[0]).toBeLessThan(
+      onActivate.mock.invocationCallOrder[0],
+    );
   });
 
   it('다른 키 (Tab · a · Escape · ArrowDown) 는 preventDefault · onActivate 모두 미호출', () => {
