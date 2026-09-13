@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
@@ -44,6 +44,12 @@ export function translateCourseState(s?: string): string {
   }
 }
 
+type SortColumn = 'name' | 'section' | 'state' | null;
+type SortDirection = 'asc' | 'desc';
+type KpiFilter = 'active' | 'archived' | null;
+
+const PAGE_SIZE = 25;
+
 export function ClassroomTable() {
   const { role: currentRole } = useAuth();
   const canTransferOwner = userHasCap(currentRole, 'classroom.transfer_owner');
@@ -61,10 +67,87 @@ export function ClassroomTable() {
   // v0.134: 일괄 이름 변경.
   const [isBulkRenameOpen, setIsBulkRenameOpen] = useState(false);
 
+  // v0.137: URL 기반 검색·필터·정렬. AccountsTable (v0.125) · GroupsTable (v0.127) 대칭.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
+  const kpiFilterRaw = searchParams.get('filter');
+  // v0.137 F105 대칭: allowlist 밖 filter 는 fail-open (필터 미적용).
+  const kpiFilter: KpiFilter =
+    kpiFilterRaw === 'active' || kpiFilterRaw === 'archived' ? kpiFilterRaw : null;
+  const sortColumn: SortColumn = (() => {
+    const raw = searchParams.get('sort');
+    return raw === 'name' || raw === 'section' || raw === 'state' ? raw : null;
+  })();
+  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
+
+  const handleSort = (column: 'name' | 'section' | 'state') => {
+    const next = new URLSearchParams(searchParams);
+    if (sortColumn === column) {
+      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      next.set('sort', column);
+      next.set('dir', 'asc');
+    }
+    setSearchParams(next, { replace: false });
+  };
+
   const courses = data?.courses ?? [];
+
+  const sortedFilteredCourses = useMemo(() => {
+    let result = courses;
+    if (kpiFilter === 'active') {
+      result = result.filter((c) => c.courseState === 'ACTIVE');
+    } else if (kpiFilter === 'archived') {
+      result = result.filter((c) => c.courseState === 'ARCHIVED');
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((c) => {
+        const name = (c.name || '').toLowerCase();
+        const section = (c.section || '').toLowerCase();
+        const id = (c.id || '').toLowerCase();
+        return name.includes(q) || section.includes(q) || id.includes(q);
+      });
+    }
+    if (sortColumn) {
+      result = [...result].sort((a, b) => {
+        let cmp = 0;
+        if (sortColumn === 'name') {
+          cmp = (a.name || '').localeCompare(b.name || '');
+        } else if (sortColumn === 'section') {
+          cmp = (a.section || '').localeCompare(b.section || '');
+        } else if (sortColumn === 'state') {
+          cmp = (a.courseState || '').localeCompare(b.courseState || '');
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [courses, kpiFilter, searchQuery, sortColumn, sortDirection]);
+
+  const total = sortedFilteredCourses.length;
+  const paginatedCourses = sortedFilteredCourses.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE,
+  );
+
+  // v0.137: eligibleIds 는 필터 결과 기반 (「전체 선택」 = 현재 보이는 eligible 만).
+  // 이미 선택된 id 는 필터 밖으로 나가도 selectedIds 에 유지 — 사용자가 필터를
+  // 바꿔가며 여러 배치를 골라 담을 수 있어야 함. Bulk 액션들은 selectedIds ∩
+  // 실제 courses (필터 무관) 로 계산되므로 여전히 정확.
   const eligibleIds = useMemo(
-    () => new Set(courses.filter((c) => c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED').map((c) => c.id)),
-    [courses],
+    () =>
+      new Set(
+        sortedFilteredCourses
+          .filter((c) => c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED')
+          .map((c) => c.id),
+      ),
+    [sortedFilteredCourses],
   );
   const selectedActive = useMemo(
     () => courses.filter((c) => selectedIds.has(c.id) && c.courseState === 'ACTIVE'),
@@ -84,8 +167,17 @@ export function ClassroomTable() {
     });
   };
   const toggleAll = (checked: boolean) => {
-    if (checked) setSelectedIds(new Set(eligibleIds));
-    else setSelectedIds(new Set());
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        // 현재 필터 결과 안의 eligible 만 추가 (기존 선택은 유지).
+        eligibleIds.forEach((id) => next.add(id));
+      } else {
+        // 현재 보이는 eligible 만 해제 (필터 밖 선택은 유지).
+        eligibleIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
   };
   const bulkTargetCourses =
     bulkDirection === 'archive'
@@ -104,13 +196,60 @@ export function ClassroomTable() {
     [courses, selectedIds],
   );
 
+  // v0.137: 「필터 초기화」 활성 판정 (실 필터 규칙 정규화).
+  const hasActiveFilter =
+    searchQuery.trim().length > 0 ||
+    kpiFilter !== null ||
+    sortColumn !== null;
+
+  const setKpiFilter = (v: KpiFilter) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === null) next.delete('filter');
+    else next.set('filter', v);
+    setSearchParams(next, { replace: false });
+  };
+
+  const setSearchQuery = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (v) next.set('q', v);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  };
+
+  const renderSortIndicator = (column: SortColumn) => {
+    if (sortColumn !== column) return null;
+    return <span aria-hidden="true"> {sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
+  const ariaSortFor = (column: SortColumn): 'ascending' | 'descending' | 'none' => {
+    if (sortColumn !== column) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
         </p>
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="이름·섹션·ID 로 검색"
+            aria-label="클래스룸 검색"
+            data-testid="classroom-search-input"
+            className="w-64 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={!hasActiveFilter}
+            data-testid="classroom-clear-filters-btn"
+            title="검색·필터·정렬 초기화"
+          >
+            필터 초기화
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setIsPairOpen(true)}
@@ -133,6 +272,55 @@ export function ClassroomTable() {
           </Button>
         </div>
       </div>
+      {/* v0.137: KPI 필터 chips (활성/보관됨). AccountsTable KPI 카드 대칭. */}
+      {data?.courses && data.courses.length > 0 && (
+        <div
+          role="group"
+          aria-label="상태 필터"
+          className="flex items-center gap-2"
+          data-testid="classroom-kpi-filters"
+        >
+          <button
+            type="button"
+            onClick={() => setKpiFilter(null)}
+            aria-pressed={kpiFilter === null}
+            data-testid="classroom-kpi-all"
+            className={`border px-3 py-1 text-small transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong ${
+              kpiFilter === null
+                ? 'border-fg-primary bg-fg-primary text-canvas'
+                : 'border-border-subtle bg-canvas text-fg-primary hover:bg-surface'
+            }`}
+          >
+            전체 ({data.courses.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setKpiFilter('active')}
+            aria-pressed={kpiFilter === 'active'}
+            data-testid="classroom-kpi-active"
+            className={`border px-3 py-1 text-small transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong ${
+              kpiFilter === 'active'
+                ? 'border-fg-primary bg-fg-primary text-canvas'
+                : 'border-border-subtle bg-canvas text-fg-primary hover:bg-surface'
+            }`}
+          >
+            활성 ({data.courses.filter((c) => c.courseState === 'ACTIVE').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setKpiFilter('archived')}
+            aria-pressed={kpiFilter === 'archived'}
+            data-testid="classroom-kpi-archived"
+            className={`border px-3 py-1 text-small transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong ${
+              kpiFilter === 'archived'
+                ? 'border-fg-primary bg-fg-primary text-canvas'
+                : 'border-border-subtle bg-canvas text-fg-primary hover:bg-surface'
+            }`}
+          >
+            보관됨 ({data.courses.filter((c) => c.courseState === 'ARCHIVED').length})
+          </button>
+        </div>
+      )}
       {/* v0.115: bulk actions bar — 선택된 항목이 있을 때만 노출. */}
       {selectedIds.size > 0 && (
         <div
@@ -194,8 +382,16 @@ export function ClassroomTable() {
           표시할 클래스룸 코스가 없습니다.
         </div>
       )}
-      {data?.courses && data.courses.length > 0 && (
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+      {/* v0.137b F122: pagination 은 원본 courses 가 존재하는 한 항상 렌더 —
+          필터 결과 0 이어도 「이전/다음」 disabled 상태로 노출해 사용자가 필터를
+          되돌리지 않고도 컨트롤을 인지할 수 있게. AccountsTable/GroupsTable 대칭. */}
+      {data?.courses && data.courses.length > 0 && sortedFilteredCourses.length === 0 && (
+        <div className="py-12 text-center text-small text-fg-secondary" data-testid="classroom-search-empty">
+          검색 결과가 없습니다.
+        </div>
+      )}
+      {data?.courses && data.courses.length > 0 && sortedFilteredCourses.length > 0 && (
+        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas" data-testid="classroom-table-wrap">
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,27 +401,56 @@ export function ClassroomTable() {
                     aria-label="전체 선택"
                     data-testid="classroom-select-all"
                     checked={
-                      eligibleIds.size > 0 && selectedIds.size === eligibleIds.size
+                      eligibleIds.size > 0 &&
+                      Array.from(eligibleIds).every((id) => selectedIds.has(id))
                     }
                     ref={(el) => {
-                      if (el)
-                        el.indeterminate =
-                          selectedIds.size > 0 && selectedIds.size < eligibleIds.size;
+                      if (el) {
+                        // v0.137b F121: 필터 밖 선택만 남은 경우도 「일부 선택」
+                        // 상태로 표시해야 사용자가 checkbox 만 보고 「선택 없음」
+                        // 으로 오해하지 않는다. selectedIds 전체를 참고.
+                        const hasAnySelection = selectedIds.size > 0;
+                        const allEligibleSelected =
+                          eligibleIds.size > 0 &&
+                          Array.from(eligibleIds).every((id) => selectedIds.has(id));
+                        el.indeterminate = hasAnySelection && !allEligibleSelected;
+                      }
                     }}
                     onChange={(e) => toggleAll(e.target.checked)}
                     disabled={eligibleIds.size === 0}
                   />
                 </TableHead>
-                <TableHead>이름</TableHead>
-                <TableHead>섹션</TableHead>
-                <TableHead>상태</TableHead>
+                <TableHead
+                  onClick={() => handleSort('name')}
+                  className="cursor-pointer select-none"
+                  data-testid="classroom-sort-name"
+                  aria-sort={ariaSortFor('name')}
+                >
+                  이름{renderSortIndicator('name')}
+                </TableHead>
+                <TableHead
+                  onClick={() => handleSort('section')}
+                  className="cursor-pointer select-none"
+                  data-testid="classroom-sort-section"
+                  aria-sort={ariaSortFor('section')}
+                >
+                  섹션{renderSortIndicator('section')}
+                </TableHead>
+                <TableHead
+                  onClick={() => handleSort('state')}
+                  className="cursor-pointer select-none"
+                  data-testid="classroom-sort-state"
+                  aria-sort={ariaSortFor('state')}
+                >
+                  상태{renderSortIndicator('state')}
+                </TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead className="text-right">링크</TableHead>
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.courses.map((c) => {
+              {paginatedCourses.map((c) => {
                 const canSelect = c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED';
                 return (
                   <TableRow key={c.id} data-testid={`classroom-row-${c.id}`}>
@@ -308,6 +533,35 @@ export function ClassroomTable() {
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+      {data?.courses && data.courses.length > 0 && (
+        <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
+          <span data-testid="classroom-pagination-info">
+            {total === 0
+              ? '결과 없음'
+              : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} / ${total}`}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              data-testid="classroom-pagination-prev"
+              className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+            >
+              이전
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={(page + 1) * PAGE_SIZE >= total}
+              data-testid="classroom-pagination-next"
+              className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+            >
+              다음
+            </button>
+          </div>
         </div>
       )}
       <ArchiveClassroomDialog
