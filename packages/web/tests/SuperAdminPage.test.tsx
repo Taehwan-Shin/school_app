@@ -1923,7 +1923,7 @@ describe('SuperAdminPage', () => {
       expect(screen.getByRole('heading', { name: '오늘 액션별' })).toBeDefined();
     });
 
-    it('v0.135 F104 대칭 (프리셋): nDays 프리셋 클릭 시 nDays atMin + exact=true 조합이 절대 발생 안 함', () => {
+    it('v0.135b F120 대칭 (프리셋): nDays 상태에서 exact=true → 프리셋 클릭 시 새 atMin + exact=true 조합 절대 없음', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 1234,
@@ -1939,36 +1939,44 @@ describe('SuperAdminPage', () => {
         error: null,
       });
       renderWithRouter(<SuperAdminPage />);
-      // exact 켜기 (today).
-      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
-      // nDays 진입 (30 기본).
+      // nDays 로 먼저 진입 (기본 N=30, exact=false).
       fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
-      // 프리셋 7일 → window + N + exact 원자적 갱신.
+      // 이제 nDays=30 상태에서 exact 켜기.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
+      // 30일 atMin 계산.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thirtyStart = new Date(today);
+      thirtyStart.setDate(today.getDate() - 29);
+      const thirtyAtMin = thirtyStart.getTime();
+      // 확인: (nDays=30 atMin, exact=true) 호출이 실제로 발생했다 (전제 조건).
+      const preCalls = mockUseAuditLogSummary.mock.calls.filter(
+        (c: any[]) => c[0]?.atMin === thirtyAtMin && c[0]?.exact === true,
+      );
+      expect(preCalls.length).toBeGreaterThanOrEqual(1);
+      // 이 시점 이후 프리셋 7일 클릭. handleNDaysPreset 가 exact 리셋 없이 window/N 만 갱신하면 (nDays=7 atMin, exact=true) leak 발생 가능.
       const initialCalls = mockUseAuditLogSummary.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-breakdown-ndays-preset-7'));
       const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
       const breakdownCalls = afterCalls.filter(
         (c: any[]) => typeof c[0]?.exact === 'boolean',
       );
-      // 7일 atMin 계산.
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const sevenStart = new Date(today);
       sevenStart.setDate(today.getDate() - 6);
       const sevenAtMin = sevenStart.getTime();
-      // (nDays=7 atMin, exact=true) 조합은 절대 발생 안 함.
+      // leak: 새 atMin + exact=true 조합 절대 발생 안 함.
       const leakCall = breakdownCalls.find(
         (c: any[]) => c[0]?.atMin === sevenAtMin && c[0]?.exact === true,
       );
       expect(leakCall).toBeUndefined();
-      // (nDays=7 atMin, exact=false) 는 최소 1회 발생.
+      // 정상: (nDays=7 atMin, exact=false) 는 최소 1회 발생.
       const goodCall = breakdownCalls.find(
         (c: any[]) => c[0]?.atMin === sevenAtMin && c[0]?.exact === false,
       );
       expect(goodCall).toBeDefined();
     });
 
-    it('v0.135 F104 대칭 (input 편집): input 변경 시에도 leak 없음', () => {
+    it('v0.135b F120 대칭 (input 편집): nDays 상태에서 exact=true → input 변경 시에도 leak 없음', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 1234,
@@ -1984,11 +1992,21 @@ describe('SuperAdminPage', () => {
         error: null,
       });
       renderWithRouter(<SuperAdminPage />);
-      // exact 켜기 (today).
-      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
-      // nDays 진입.
+      // nDays 로 먼저 진입 (기본 N=30, exact=false).
       fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
-      // input 을 14 로 편집 → window 강제 전환 + N 갱신 + exact 리셋 원자적.
+      // nDays=30 상태에서 exact 켜기.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thirtyStart = new Date(today);
+      thirtyStart.setDate(today.getDate() - 29);
+      const thirtyAtMin = thirtyStart.getTime();
+      // 전제 조건 확인: (nDays=30 atMin, exact=true) 호출 발생.
+      const preCalls = mockUseAuditLogSummary.mock.calls.filter(
+        (c: any[]) => c[0]?.atMin === thirtyAtMin && c[0]?.exact === true,
+      );
+      expect(preCalls.length).toBeGreaterThanOrEqual(1);
+      // input 을 14 로 편집. handleNDaysInputChange 가 exact 리셋 없이 window/N 만 갱신하면 leak.
       const initialCalls = mockUseAuditLogSummary.mock.calls.length;
       fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
         target: { value: '14' },
@@ -1997,8 +2015,6 @@ describe('SuperAdminPage', () => {
       const breakdownCalls = afterCalls.filter(
         (c: any[]) => typeof c[0]?.exact === 'boolean',
       );
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const fourteenStart = new Date(today);
       fourteenStart.setDate(today.getDate() - 13);
       const fourteenAtMin = fourteenStart.getTime();
