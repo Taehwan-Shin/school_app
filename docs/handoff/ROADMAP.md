@@ -47,12 +47,14 @@
 - **Classroom + Chat 통합 생성** — v0.98 `ClassroomChatPairBulkCreateDialog`.
 - **Chat/Classroom bulk invite** — `ChatBulkInviteDialog` · `ClassroomBulkInviteDialog`.
 - **클래스룸 archived bulk 관리** — v0.115 다중 선택 + `BulkArchiveClassroomDialog` (ACTIVE ↔ ARCHIVED). teacher membership 검증 (F72) + confirm snapshot (F73).
+- **orgunits.insert (신규 OU 생성 UI)** — v0.121 `orgunitsCreate` callable + CreateUserDialog 인라인 폼.
+- **클래스룸 소유자 이관** — v0.116 `classroomTransferOwnership` callable + `TransferClassroomOwnerDialog`.
+- **전입생 일괄 계정 생성** — v0.132 `BatchCreateUsersDialog` (10 rows · 공통 OU + 초기 비밀번호 · 3-phase confirm/running/done).
+- **클래스룸 일괄 이름 변경** — v0.134 `BulkRenameClassroomDialog` (원본 `updateAndLogClassroomNames` 포팅). `classroomPatch` 를 name/section 도 지원하도록 확장. ARCHIVED 는 Classroom REST v1 제약으로 제외 (F118).
 
 남은 후보:
-- **전입생 계정 개별 생성 UX 개선** — v0.119 에서 OU 드롭다운 + 클래스룸 자동 배정 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 는 별도 확장 필요.
-- **orgunits.insert (신규 OU 생성 UI)** — v0.119 에서는 기존 OU 만 선택 가능. Directory API `orgunits.insert` 별도 callable + UI 필요 (bliss00 지시 시).
+- **전입생 계정 개별 생성 UX 세부 확장** — v0.119 는 기본 폼 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로는 별도 확장 필요.
 - **계정 삭제 안내 메일** — 원본 MailApp 기능. SendGrid 등 3rd party 이메일 서비스 필요 (미구현).
-- **클래스룸 소유자 이관** — `transferClassroomOwnershipAndUpdateSheet` 포팅. Classroom Courses.patch(ownerId) callable.
 
 ### Phase 6 — 통합·자동화
 

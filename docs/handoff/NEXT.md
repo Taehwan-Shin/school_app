@@ -1,23 +1,23 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.133 병합 완료** (`252a32b`) — audit_log durable sink 인프라 (shared util + GUIDE) · 4 라운드 Codex 감사.
-> **bliss00 두 지시 (전입생 UX + audit sink) 모두 완료.** sink 실 gcloud/bq 설정은 문서 참조하여 진행 가능.
+> **v0.134 병합 완료** (`870522b`) — 클래스룸 일괄 이름 변경 UI · 2 라운드 Codex 감사.
+> **audit sink 실 설정 완료** (bliss00 2026-09-13 Cloud Shell 실행 · sink + dataset + ACL 활성).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `870522b` v0.134 — 클래스룸 일괄 이름 변경 (BulkRenameClassroomDialog + classroomPatch 확장) + F118/F119.
 - `252a32b` v0.133 — audit_log durable sink 인프라 (shared writeAuditWithBackup + GUIDE).
 - `5ced712` v0.132 — 전입생 일괄 계정 생성 UX (BatchCreateUsersDialog) + F106~F110.
 - `33aebd7` v0.131 — BulkRemoveMembersDialog F99/F100 (Bulk 시리즈 마지막 6/6).
 - `00501e9` v0.130 — BulkResetPasswordDialog F99 (v0.124 시리즈 5/6).
-- `25f1722` v0.129 — BulkMoveOuDialog F99/F100 대칭 (v0.124 시리즈 4/6).
 
 ## 다음 후보 (Head 자율 실행 예정)
 
 `docs/handoff/ROADMAP.md` Phase 5/6 남은 항목:
-- **전입생 계정 개별 생성 UX 개선** — `laterAccountSetup` 포팅 (Phase 5).
-- **클래스룸 소유자 이관 UI** — v0.116 서버는 있으나 UI 미완.
-- **audit_log durable sink 인프라** — v0.116 F78 잔재. 사용자 조치 필요.
+- **전입생 계정 개별 생성 UX 세부 확장** — `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로 (v0.119 는 기본 폼만 커버).
+- **계정 삭제 안내 메일** — SendGrid 등 3rd party 이메일 서비스 필요.
+- **감사 로그 window 사용자 정의** — v0.122 는 3-way (오늘/주/월) 이나 사용자 정의 window (30일 등) 미지원.
 - **(d)** 사용자 지시 그 외.
 
 ## 안티그래비티 위임 template (bliss00 승인 2026-09-11)

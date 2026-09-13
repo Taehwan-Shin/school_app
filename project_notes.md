@@ -2039,3 +2039,70 @@ ROADMAP 남은 후보 (v0.132+):
 - **전입생 계정 UX 세부** (Phase 5) — 도메인 규칙 필요 (사용자 조치).
 - **audit_log durable sink 인프라** (v0.116 F78 잔재) — Firebase console 조치 필요.
 - 다른 소소한 UX 개선.
+
+---
+
+## 2026-09-13 · v0.134 클래스룸 일괄 이름 변경 (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `87e65d2` | classroomPatch 서버 확장 + BulkRenameClassroomDialog UI + 통합 + 21 신규 테스트 |
+| 라운드 1 hotfix | `4806cbc` | F118 (ARCHIVED 제외) · F119 (API 한도 750/2800 정정) · 4 신규 테스트 |
+| 병합 | `870522b` | Merge into main + Firebase deploy |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `87e65d2` | 통과 6 / 실패 2 / 판정불가 0 | F118 ARCHIVED · F119 API 한도 |
+| 2 | `4806cbc` | 통과 11 / 실패 0 / 판정불가 1 (SHA 오탈자) | 코드상 실패 없음 |
+
+### 서버 확장
+
+`classroomPatch` 는 원래 courseState 만 (ACTIVE ↔ ARCHIVED) 지원. v0.134 는:
+
+- `name?: string` · `section?: string` optional 필드 추가. 요청에 최소 하나의 업데이트 필드 필요 (`no_fields_to_update`).
+- **동적 updateMask**: 요청 필드 조합에 따라 comma-joined (`courseState,name` 등).
+- **cap 분리**: courseState 변경은 `classroom.archive` 유지, name/section 변경은 `classroom.write`. 복합 요청은 두 cap 모두 assert.
+- **검증**: name/section 은 trim 후 length (name 1..750, section 0..2800, empty 는 section clear 허용).
+- **audit message**: 필드별 값을 `;` 로 결합, name/section 값은 `JSON.stringify` 로 quote (세미콜론 포함 이름 안전).
+- F72 (teacher 담당 코스 사전 검증) 는 필드 종류와 무관하게 유지.
+
+### UI: BulkRenameClassroomDialog
+
+원본 Apps Script `updateAndLogClassroomNames` 포팅. 다중 선택 코스에 대해:
+
+- **패턴 (선택)**: 찾기/바꾸기 (단순 문자열 `split(find).join(replace)` — 정규식 아님) · 전체 적용 · 원래대로.
+- **개별 편집 (필수)**: 각 코스별 새 이름 input · 변경/무변경/무효 상태 색 구분 · aria-invalid.
+- **3-phase confirm/running/done**: BulkArchive 대칭. F99 snapshot (부모 courses prop 변화 방어) · F100 label htmlFor/id 연결.
+- **변경 대상만 순차 patch**: `originalName === newName` 인 행은 API 호출 skip.
+- **useEffect dep 에서 courses 제외 (의도적)**: open 변경 시에만 rows 재계산. 열려있는 다이얼로그의 편집 상태를 부모 list invalidation 으로부터 보호. 재열기 시 새로운 selection 반영은 ClassroomTable 의 조건부 렌더 (unmount/remount) 로 보장.
+
+### F118 (ARCHIVED 제외)
+
+Codex 라운드 1 지적: `bulkRenameCourses` 가 ACTIVE + ARCHIVED 코스 모두 대상. 그러나 Classroom REST v1 은 ARCHIVED 코스의 name/section 변경을 거부 (courseState 만 변경 허용). ARCHIVED 를 포함시키면 부분 실패 확정.
+
+수정: `bulkRenameCourses` 필터에서 ARCHIVED 제외, ACTIVE 만 통과. ClassroomTable 테스트에 2 시나리오 (ACTIVE + ARCHIVED 선택 시 count=1 · ARCHIVED 만 선택 시 disabled).
+
+### F119 (API 한도 정정)
+
+Codex 라운드 1 지적: NAME_MAX=255 · SECTION_MAX=255 는 Google Directory Course 스키마 참조에서 유도한 값이나, Classroom REST v1 공식 한도는 name 750자 · section 2800자. 낮은 상한은 정상 변경을 차단.
+
+수정: NAME_MAX=750 · SECTION_MAX=2800 로 정정 + 상수 위 주석에 근거 URL. 테스트 시나리오 15 는 751 로 조정, 15b (정확히 750 boundary) 및 15c (section 2801) 신규 추가.
+
+### 배운 것
+
+- **API 문서를 명시적으로 확인하지 않고 상한을 추정하지 마라**. 원본 (Apps Script) 에도 명시가 없었고, Directory Course 스키마 (인접 API) 의 값을 그대로 옮긴 것이 문제. Codex 가 공식 REST 문서 URL 로 즉시 반박함. 상수를 코드에 넣기 전 근거 URL 을 주석에 남겨두면 후속 감사도 빠르게 검증 가능.
+- **API state 제약을 UI 층에서 사전 필터**. 서버가 어차피 거부할 요청 (ARCHIVED rename) 을 UI 에서 미리 제외하면 부분 실패 UX 를 완전히 회피. 서버 검증은 최후 방어선으로 유지.
+- **재열기 시 selection 재계산 문제는 unmount/remount 로 우아하게 해결**. useEffect dep 에 `courses` 를 포함시키면 편집 중 rows 초기화 위험, 제외하면 재열기 시 stale. 조건부 렌더로 컴포넌트 자체를 새 인스턴스로 만들면 두 문제 모두 해결 (개별 상태 vs prop 반영 사이의 tension 해소).
+- **audit message 포맷 선택**: JSON.stringify 는 이름에 세미콜론이나 quote 가 포함될 때 파싱 가능성 유지 목적. 현재 파싱 소비자 (BigQuery SQL 등) 는 없으나 미래 확장을 위한 방어. Codex 도 「불필요한 방어인가?」 를 묻고 「고정 커밋 내 파서 없음, 안전한 보존」 으로 통과 판정.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.135+):
+- **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로.
+- **계정 삭제 안내 메일** — SendGrid 등 3rd party.
+- **감사 로그 사용자 정의 window** — v0.122 의 3-way 를 임의 일수로 확장.
+- **첫 audit fallback 검증** — v0.133 sink 배포 완료, 실 fallback 발생 후 BigQuery 조회 smoke test 필요.
