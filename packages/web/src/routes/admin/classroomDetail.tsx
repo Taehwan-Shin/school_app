@@ -17,6 +17,10 @@ import {
   TransferClassroomOwnerDialog,
   type TransferClassroomOwnerTarget,
 } from './TransferClassroomOwnerDialog';
+import {
+  RenameClassroomDialog,
+  type RenameClassroomTarget,
+} from './RenameClassroomDialog';
 import { translateCourseState } from './ClassroomTable';
 
 export function ClassroomDetailPage() {
@@ -31,6 +35,8 @@ export function ClassroomDetailPage() {
   const [archiveTarget, setArchiveTarget] = useState<ArchiveClassroomTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteClassroomTarget | null>(null);
   const [transferTarget, setTransferTarget] = useState<TransferClassroomOwnerTarget | null>(null);
+  // v0.136: 개별 이름/섹션 변경.
+  const [renameTarget, setRenameTarget] = useState<RenameClassroomTarget | null>(null);
   // v0.117b F81: 멤버 add/delete pending 중 코스 단위 mutation 을 잠근다.
   // 반대로 코스 mutation dialog 가 열려 있을 때 멤버 조작도 잠글 수 있으나 dialog
   // 자체가 modal 이라 backdrop 이 클릭을 차단 — 여기서는 편도만 처리.
@@ -64,6 +70,31 @@ export function ClassroomDetailPage() {
             </div>
             {course && (
               <div className="flex items-center gap-3 flex-wrap justify-end">
+                {isActive && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRenameTarget({
+                        id: course.id,
+                        name: course.name,
+                        section: course.section,
+                      })
+                    }
+                    disabled={membersPending}
+                    data-testid="classroom-detail-rename-btn"
+                    title={
+                      membersPending
+                        ? '멤버 변경이 진행 중입니다.'
+                        : '코스 이름 · 섹션 변경 (ACTIVE 코스만 허용)'
+                    }
+                    className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    이름 변경
+                  </button>
+                )}
+                {isActive && canManage && (
+                  <span className="text-fg-muted text-small" aria-hidden="true">·</span>
+                )}
                 {canManage && (
                   <button
                     type="button"
@@ -235,6 +266,13 @@ export function ClassroomDetailPage() {
           open={true}
           onOpenChange={(o) => !o && setTransferTarget(null)}
           target={transferTarget}
+        />
+      )}
+      {renameTarget && (
+        <RenameClassroomDialog
+          open={true}
+          onOpenChange={(o) => !o && setRenameTarget(null)}
+          target={renameTarget}
         />
       )}
     </AppShell>
