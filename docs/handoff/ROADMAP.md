@@ -51,6 +51,7 @@
 - **클래스룸 소유자 이관** — v0.116 `classroomTransferOwnership` callable + `TransferClassroomOwnerDialog`.
 - **전입생 일괄 계정 생성** — v0.132 `BatchCreateUsersDialog` (10 rows · 공통 OU + 초기 비밀번호 · 3-phase confirm/running/done).
 - **클래스룸 일괄 이름 변경** — v0.134 `BulkRenameClassroomDialog` (원본 `updateAndLogClassroomNames` 포팅). `classroomPatch` 를 name/section 도 지원하도록 확장. ARCHIVED 는 Classroom REST v1 제약으로 제외 (F118).
+- **개별 클래스룸 이름 · 섹션 변경** - v0.136 `RenameClassroomDialog` (classroomDetail inline). v0.134 `classroomPatch` 확장을 개별 편집에 노출. ACTIVE 코스만 (F118 대칭) · name 750/section 2800자 검증 · F99 target snapshot · F100 label · 소프트 권고 반영.
 
 남은 후보:
 - **전입생 계정 개별 생성 UX 세부 확장** — v0.119 는 기본 폼 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로는 별도 확장 필요.

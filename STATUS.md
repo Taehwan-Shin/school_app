@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.136+) | 사용자 | 답 대기 | v0.104~v0.135 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄 이름 변경 · 대시보드 window 사용자 정의 모두 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
+| 다음 제품 방향 확정 (v0.137+) | 사용자 | 답 대기 | v0.104~v0.136 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 모두 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.136 | `4d95124` (main) | classroomDetail 페이지 inline 이름 · 섹션 변경 (RenameClassroomDialog). v0.134 의 classroomPatch name/section 확장을 개별 편집 경로에도 노출. ACTIVE 코스에만 노출 (F118 대칭). name 750/section 2800자 검증 · aria-invalid + 안내. F99 target snapshot · F100 label. Codex 1 라운드 통과 · 소프트 권고 (페이지 통합 테스트) v0.136b 로 반영. 웹 861 (+18) 유닛. 서버 변경 없음. |
 | v0.135 | `a5d3e38` (main) | 감사 대시보드 breakdown 위젯에 4번째 window 「지난 N일」 추가. v0.122 의 3-way (오늘/이번 주/이번 달) 유지 · 사용자 정의 N (1..365 정수, 잘못된 값은 30 fallback) · 프리셋 chip 7/30/90 · numeric input · atMin=(오늘-N-1)일. F120a/b 3 라운드 반복으로 F104 회귀 계약 강화 (nDays 상태에서 exact=true 켠 뒤 preset/input 각 경로에서 새 atMin+exact=true leak 부재 검증). aria-invalid + 「범위 밖 → 30일 적용」 문구 UX 개선. 서버 변경 없음 (auditLogSummary 기존 계약 그대로). 웹 843 (+7) 유닛. 3 라운드 Codex 감사. Antigravity 위임 시도했으나 응답 없어 Head 폴백. |
 | v0.134 | `870522b` (main) | 클래스룸 일괄 이름 변경 UI (원본 `updateAndLogClassroomNames` 포팅). `classroomPatch` 서버 확장 — courseState 만 지원하던 계약에 name/section optional 추가 · 동적 updateMask · cap 분리 (courseState → archive, name/section → write · 복합 요청 둘 다 assert) · F72 teacher 검증 유지 · audit message JSON.stringify quote · 세미콜론 결합. 신규 `BulkRenameClassroomDialog` — 패턴 찾기/바꾸기 (단순 문자열 split/join) + 개별 편집 · 3-phase confirm/running/done · F99 snapshot · F100 label htmlFor/id · 빈 이름 aria-invalid · 변경 대상만 순차 patch. F118 ARCHIVED 코스 제외 (Classroom REST v1 은 name/section 변경 거부) · F119 API 한도 정정 (NAME_MAX 255→750 · SECTION_MAX 255→2800). 웹 836 (+2) · functions 522 (+2) 유닛. 2 라운드 Codex 감사 |
 | v0.133 | `252a32b` (main) | audit_log durable sink 인프라 (bliss00 승인). 신규 `writeAuditWithBackup` shared util (3회 재시도 · Cloud Logging structured JSON fallback · throw 안 함 · slug 인자로 fallback tag). 3 기존 사이트 (usersCreate/orgunitsCreate/classroomTransferOwnership) 통합. 신규 GUIDE `docs/design/AUDIT_LOG_DURABLE_SINK.md` (bliss00 gcloud/bq 설정용). F111 Gen2 cloud_run_revision · F112 partitioned tables · F113 확장 종료 명시 + STRING JSON · F114 GCP IAM 별도 · F115 dataset-scoped + default ACL 정리 · F116 권장 조합 · F117 dataset ACL = JSON 편집 흐름. functions 511 (+4). 4 라운드 Codex 감사 |

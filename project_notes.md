@@ -2166,3 +2166,51 @@ ROADMAP 남은 후보 (v0.136+):
 - **계정 삭제 안내 메일** — SendGrid 등 3rd party.
 - **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
 - **Antigravity 위임 재시도** — 첫 시도 무응답 원인 확인 · 활성 확인 후 재시도.
+
+---
+
+## 2026-09-13 · v0.136 개별 클래스룸 rename (1 라운드 Codex 통과)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `9709bc8` | feat: v0.136 개별 클래스룸 이름 · 섹션 변경 UI (classroomDetail inline) |
+| 소프트 권고 반영 | `4a018f3` | test: v0.136b Codex 소프트 권고 반영 (ClassroomDetailPage 통합 테스트 추가) |
+| 병합 | `4d95124` | Merge feat/classroom-rename-inline-v136 into main (Firebase deploy hosting only, functions skipped) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `9709bc8` | 통과 8 / 실패 0 / 판정불가 0 | 통과 승인. 소프트 권고: ClassroomDetailPage 통합 테스트 추가 권고 (v0.136b `4a018f3` 로 4개 시나리오 반영 완료) |
+
+### 설계
+
+- **Bulk 와 Individual 대비**:
+  - v0.134 BulkRenameClassroomDialog 는 다중 선택 일괄 검색/치환 및 행별 편집 중심.
+  - v0.136 RenameClassroomDialog 는 개별 classroomDetail 페이지 내 inline modal 로 단일 클래스룸의 이름과 섹션을 직접 수정.
+  - 서버 `classroomPatch` 는 v0.134 에서 확장된 `name`, `section`, 동적 `updateMask` 를 그대로 재사용 (서버 변경 없음).
+- **F118 UX 차단**:
+  - Classroom REST v1 제약으로 ARCHIVED 코스는 name/section 변경 불가.
+  - classroomDetail 페이지에서 `isActive` (`course.courseState === 'ACTIVE'`) 일 때만 「이름 변경」 버튼 노출. ARCHIVED / PROVISIONED 는 사전 차단.
+  - `membersPending` 상태 시 버튼 disabled 처리 (F81 대칭).
+- **target snapshot 및 폼 검증**:
+  - 다이얼로그 open 시 target 을 snapshot 으로 고정 (F99 대칭), 백그라운드 list invalidation 이나 부모 갱신으로부터 편집 상태 격리.
+  - label htmlFor / input id 연결 (F100 대칭).
+  - F119 상한 준수: name 최대 750자, section 최대 2800자. 빈 이름이나 상한 초과 시 red border + aria-invalid + 안내 문구.
+  - 변경된 필드만 요청에 포함 (name-only, section-only, 둘 다).
+
+### 배운 것
+
+- **Codex 소프트 권고를 라운드 없이 후속 커밋으로 반영**:
+  - 1 라운드 통과 승인을 받은 상태에서 감사자가 제시한 소프트 권고 (ClassroomDetailPage 통합 테스트 4건) 를 별도 라운드 감사 요청 없이 v0.136b 로 즉시 반영하여 회귀 방어력을 높임.
+- **Antigravity 위임 2번째 시도 결과**:
+  - v0.135 첫 시도 무응답 (Head 폴백) 이후, v0.136 에서 2번째 위임 사이클을 정상 수신하여 브랜치 병합, 전체 빌드 및 테스트 (1,410건 통과), Firebase Hosting 배포 (Functions 44개 no changes 감지 및 skip, Hosting 릴리스 완료), 4개 문서 갱신 및 채널 공지까지 자율 일괄 완료.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.137+):
+- **전입생 계정 UX 세부** (Phase 5) - `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일** - SendGrid 등 3rd party.
+- **첫 audit fallback 검증** - v0.133 sink 실 데이터 흐름 smoke test.
