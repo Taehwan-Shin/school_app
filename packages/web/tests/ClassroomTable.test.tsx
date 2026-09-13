@@ -688,6 +688,41 @@ describe('ClassroomTable component', () => {
       expect((screen.getByTestId('classroom-pagination-prev') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    // v0.138: 정렬 헤더 키보드 접근성 (Codex v0.137 소프트 권고 반영).
+    it('정렬 헤더는 Enter · Space 로도 트리거 · tabIndex=0 · focus ring class', () => {
+      renderWithRouter(<ClassroomTable />);
+
+      const nameHeader = screen.getByTestId('classroom-sort-name');
+      expect(nameHeader.getAttribute('tabindex')).toBe('0');
+      expect(nameHeader.className).toContain('focus-visible:ring');
+
+      expect(nameHeader.getAttribute('aria-sort')).toBe('none');
+
+      fireEvent.keyDown(nameHeader, { key: 'Enter' });
+      expect(nameHeader.getAttribute('aria-sort')).toBe('ascending');
+
+      fireEvent.keyDown(nameHeader, { key: ' ' });
+      expect(nameHeader.getAttribute('aria-sort')).toBe('descending');
+
+      // 다른 키는 무시.
+      fireEvent.keyDown(nameHeader, { key: 'a' });
+      expect(nameHeader.getAttribute('aria-sort')).toBe('descending');
+    });
+
+    // v0.138: `dir` 단독 · unknown `sort` 는 「필터 초기화」 미활성.
+    it('URL `?dir=desc` 만 있으면 「필터 초기화」 disabled (sort 정규화 안 됨)', () => {
+      renderWithRouter(<ClassroomTable />, ['/admin/classrooms?dir=desc']);
+      expect((screen.getByTestId('classroom-clear-filters-btn') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('URL `?sort=weird` (allowlist 밖) 는 「필터 초기화」 disabled · 정렬 미적용', () => {
+      renderWithRouter(<ClassroomTable />, ['/admin/classrooms?sort=weird&dir=asc']);
+      expect((screen.getByTestId('classroom-clear-filters-btn') as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByTestId('classroom-sort-name').getAttribute('aria-sort')).toBe('none');
+      expect(screen.getByTestId('classroom-sort-section').getAttribute('aria-sort')).toBe('none');
+      expect(screen.getByTestId('classroom-sort-state').getAttribute('aria-sort')).toBe('none');
+    });
+
     it('페이지네이션: 25개 초과 시 페이지 분할 · 검색 시 페이지 0 리셋', () => {
       const many = Array.from({ length: 60 }, (_, i) => ({
         id: `c-${String(i).padStart(3, '0')}`,

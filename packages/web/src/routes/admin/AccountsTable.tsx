@@ -3,6 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
+import { sortHeaderKbdProps } from "./sortHeader";
 import {
   Table,
   TableBody,
@@ -352,7 +353,7 @@ export function AccountsTable() {
                     </TableHead>
                     <TableHead
                       onClick={() => handleSort('email')}
-                      className="cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('email'))}
                       data-testid="accounts-sort-email"
                       aria-sort={sortColumn === 'email' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
@@ -360,7 +361,7 @@ export function AccountsTable() {
                     </TableHead>
                     <TableHead
                       onClick={() => handleSort('name')}
-                      className="cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('name'))}
                       data-testid="accounts-sort-name"
                       aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
@@ -368,7 +369,7 @@ export function AccountsTable() {
                     </TableHead>
                     <TableHead
                       onClick={() => handleSort('orgUnitPath')}
-                      className="cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('orgUnitPath'))}
                       data-testid="accounts-sort-orgUnitPath"
                       aria-sort={sortColumn === 'orgUnitPath' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >

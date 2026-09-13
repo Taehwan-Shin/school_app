@@ -1348,6 +1348,24 @@ describe("AccountsTable component", () => {
       expect(btn.disabled).toBe(true);
     });
 
+    // v0.138: 정렬 헤더 키보드 접근성 (Codex v0.137 소프트 권고 반영).
+    it("v0.138: 정렬 헤더는 Enter · Space 로도 트리거 · tabIndex=0 · focus ring class", () => {
+      renderWithRouter(<AccountsTable />);
+      const emailHeader = screen.getByTestId("accounts-sort-email");
+      expect(emailHeader.getAttribute("tabindex")).toBe("0");
+      expect(emailHeader.className).toContain("focus-visible:ring");
+      expect(emailHeader.getAttribute("aria-sort")).toBe("none");
+
+      fireEvent.keyDown(emailHeader, { key: "Enter" });
+      expect(emailHeader.getAttribute("aria-sort")).toBe("ascending");
+
+      fireEvent.keyDown(emailHeader, { key: " " });
+      expect(emailHeader.getAttribute("aria-sort")).toBe("descending");
+
+      fireEvent.keyDown(emailHeader, { key: "a" });
+      expect(emailHeader.getAttribute("aria-sort")).toBe("descending");
+    });
+
     it("v0.125b F101: dir 단독 (sort 없음) 은 효과 없으므로 disabled", () => {
       renderWithRouter(<AccountsTable />, ['/admin?dir=desc']);
       const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
