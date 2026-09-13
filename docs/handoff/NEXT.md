@@ -1,16 +1,16 @@
 # NEXT.md — 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.136 병합 완료** (`4d95124`) — 개별 클래스룸 이름 · 섹션 변경 (RenameClassroomDialog) · 1 라운드 Codex 감사.
-> **Antigravity 위임 2번째 시도 성공**: v0.135 첫 시도 무응답 → v0.136 마무리 사이클 정상 응답 및 성공 완료 (병합/배포/문서/공지 일괄 수행).
+> **v0.137 병합 완료** (`e71286c`) — ClassroomTable 검색·KPI 필터·정렬·「필터 초기화」·25개 페이지네이션 · 2 라운드 Codex 감사.
+> **Antigravity 위임 3번째 시도 성공**: v0.136 에 이어 v0.137 마무리 사이클 정상 응답 및 성공 완료 (병합/배포/문서/공지 일괄 수행).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `e71286c` v0.137 — ClassroomTable 검색 · KPI 필터 · 정렬 · 「필터 초기화」 (AccountsTable/GroupsTable 대칭) + F121/F122/F123.
 - `4d95124` v0.136 — 개별 클래스룸 이름 · 섹션 변경 UI (RenameClassroomDialog) + 소프트 권고 반영.
 - `a5d3e38` v0.135 — 감사 대시보드 「지난 N일」 window (nDays) + F120 3 라운드.
 - `870522b` v0.134 — 클래스룸 일괄 이름 변경 (BulkRenameClassroomDialog + classroomPatch 확장) + F118/F119.
 - `252a32b` v0.133 — audit_log durable sink 인프라 (shared writeAuditWithBackup + GUIDE).
-- `5ced712` v0.132 — 전입생 일괄 계정 생성 UX (BatchCreateUsersDialog) + F106~F110.
 
 ## 다음 후보 (Head 자율 실행 예정)
 

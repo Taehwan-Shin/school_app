@@ -2214,3 +2214,53 @@ ROADMAP 남은 후보 (v0.137+):
 - **전입생 계정 UX 세부** (Phase 5) - `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일** - SendGrid 등 3rd party.
 - **첫 audit fallback 검증** - v0.133 sink 실 데이터 흐름 smoke test.
+
+---
+
+## 2026-09-13 · v0.137 ClassroomTable 검색·필터·정렬 (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `d80d20d` | feat: v0.137 ClassroomTable 검색 · KPI 필터 · 정렬 · 「필터 초기화」 (AccountsTable v0.125 · GroupsTable v0.127 대칭) |
+| 감사 대응 | `60e6721` | fix: v0.137b Codex F121/F122/F123 대응 (indeterminate · pagination · 정렬·checked·boundary 테스트) |
+| 병합 | `e71286c` | Merge feat/classroom-search-filter-v137 into main — v0.137 ClassroomTable 검색·KPI 필터·정렬·「필터 초기화」 (AccountsTable/GroupsTable 대칭) + F121/F122/F123 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `d80d20d` | 통과 10 / 실패 3 / 판정불가 0 | 재작업 필요. F121: indeterminate 가 visibleSelectedCount 만 사용 → 필터 밖 선택만 남으면 미검출. F122: 필터 결과 0 일 때 pagination 미렌더. F123: 정렬 실 행 순서 미검증 · checked/indeterminate 직접 단언 누락 · 25/26 boundary 미검증. 소프트 권고: 정렬 헤더 키보드 접근성 · dir 단독/unknown sort 초기화 미활성 테스트 |
+| 2 | `60e6721` | 통과 7 / 실패 0 / 판정불가 0 | 병합 승인. F121/F122/F123 대응 완료. 소프트 권고(정렬 헤더 키보드 접근성 등)는 v0.138+ 로 유보 |
+
+### 설계
+
+- **AccountsTable / GroupsTable 대칭**:
+  - `q` (이름/섹션/id 부분 일치, trim 및 소문자 정규화), `filter` (active/archived allowlist, fail-open), `sort/dir` (name/section/state asc↔desc) URL params 지원.
+  - 검색·KPI·정렬 변경 시 0페이지 리셋 (`setPage(0)`).
+  - 「필터 초기화」 버튼: `q.trim()`, allowlist `filter`, non-null `sort` 중 하나라도 활성화 시 표시, 클릭 시 빈 `URLSearchParams` 로 원자적 클리어.
+- **selectedIds ⨯ filter 상호작용**:
+  - 전체 선택: 필터 결과 내 eligible 코스 기준 토글.
+  - 선택 상태 보존: 필터 밖에서 이미 선택된 항목도 `selectedIds` 에 유지되며 bulk action 은 전체 courses 기준으로 실행.
+  - `indeterminate` 판정: 필터 결과 중 일부 선택 또는 필터 밖 선택만 남아있는 경우(`hasAnySelection && !isAllEligibleSelected`)에도 `indeterminate = true` 설정 (F121).
+- **pagination boundary**:
+  - 원본 코스 데이터가 존재하는 한, 필터 검색 결과가 0건이라도 pagination 컨트롤을 항상 렌더하여 상태(0/0 및 disabled 버튼)를 명확히 노출 (F122).
+  - 25개 페이지네이션 단위 기준 경계(25개 disabled, 26개 2페이지 활성화) 보장.
+
+### 배운 것
+
+- **indeterminate 상태는 뷰(필터) 밖의 선택도 반영해야 함**:
+  - 필터로 인해 화면에 보이는 선택 항목이 0개라도 전체 선택 집합에 요소가 남아있다면 헤더 체크박스를 indeterminate 로 표시해야 사용자가 선택이 잔존함을 인지할 수 있음 (F121).
+- **결과 0건이어도 pagination 은 항상 렌더**:
+  - 결과가 비었을 때 pagination 을 숨기면 레이아웃 점프가 생기고 현재 페이지 위치 인지가 어려움. 빈 결과에서도 disabled 상태로 일관 렌더링 유지 (F122).
+- **Antigravity 위임 3번째 사이클 성공**:
+  - v0.136 에 이어 v0.137 도 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 event id 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.138+):
+- **정렬 헤더 키보드 접근성** (Codex 소프트 권고) — `<th onClick>` 대신 `<button>` 또는 keydown 처리.
+- **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일** — SendGrid 등 3rd party.
+- **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
