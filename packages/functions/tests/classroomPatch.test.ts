@@ -343,4 +343,228 @@ describe('classroomPatch unit tests', () => {
       message: 'teacher_not_in_course',
     });
   });
+
+  // v0.134 시나리오 11: 필드 하나도 없이 id 만 -> invalid-argument no_fields_to_update
+  it('rejects request with no updatable fields', async () => {
+    const req = createRequest({
+      data: { id: 'c-101' },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'no_fields_to_update',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'admin@cam.hs.kr',
+        role: 'admin',
+        action: 'classroom.write',
+        target: 'courses/c-101',
+        result: 'error',
+      }),
+    );
+  });
+
+  // v0.134 시나리오 12: name 만 정상 patch -> updateMask=name · audit message name=...
+  it('successfully patches name only and writes ok audit log with quoted value', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: {
+        id: 'c-101',
+        name: '2026 1학년 1반',
+        courseState: 'ACTIVE',
+      },
+    });
+
+    const req = createRequest({
+      data: { id: 'c-101', name: '2026 1학년 1반' },
+    });
+
+    const result = await classroomPatch.run(req);
+    expect(result.course.name).toBe('2026 1학년 1반');
+
+    expect(mockCoursesPatch).toHaveBeenCalledWith({
+      id: 'c-101',
+      updateMask: 'name',
+      requestBody: { name: '2026 1학년 1반' },
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: 'name="2026 1학년 1반"',
+      }),
+    );
+  });
+
+  // v0.134 시나리오 13: name + courseState 동시 -> updateMask=courseState,name · audit 합성
+  it('supports combined courseState + name update in one call', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: {
+        id: 'c-101',
+        name: '수학 심화',
+        courseState: 'ARCHIVED',
+      },
+    });
+
+    const req = createRequest({
+      data: { id: 'c-101', courseState: 'ARCHIVED', name: '수학 심화' },
+    });
+
+    await classroomPatch.run(req);
+
+    expect(mockCoursesPatch).toHaveBeenCalledWith({
+      id: 'c-101',
+      updateMask: 'courseState,name',
+      requestBody: { courseState: 'ARCHIVED', name: '수학 심화' },
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: 'courseState=ARCHIVED;name="수학 심화"',
+      }),
+    );
+  });
+
+  // v0.134 시나리오 14: name 이 공백만 -> invalid-argument invalid_name
+  it('rejects whitespace-only name', async () => {
+    const req = createRequest({
+      data: { id: 'c-101', name: '   ' },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_name',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+  });
+
+  // v0.134b 시나리오 15: name 이 API 한도 750 초과 -> invalid-argument name_too_long
+  it('rejects name longer than 750 chars (Classroom API 한도)', async () => {
+    const req = createRequest({
+      data: { id: 'c-101', name: 'a'.repeat(751) },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'name_too_long',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+  });
+
+  // v0.134b 시나리오 15b: name 정확히 750 은 통과
+  it('accepts name at exactly 750 chars (boundary)', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', name: 'a'.repeat(750) },
+    });
+    const req = createRequest({
+      data: { id: 'c-101', name: 'a'.repeat(750) },
+    });
+    await classroomPatch.run(req);
+    expect(mockCoursesPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ updateMask: 'name' }),
+    );
+  });
+
+  // v0.134b 시나리오 15c: section 이 API 한도 2800 초과 -> invalid-argument section_too_long
+  it('rejects section longer than 2800 chars (Classroom API 한도)', async () => {
+    const req = createRequest({
+      data: { id: 'c-101', section: 'a'.repeat(2801) },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'section_too_long',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+  });
+
+  // v0.134 시나리오 16: name 이 문자열 아님 -> invalid-argument invalid_name
+  it('rejects non-string name', async () => {
+    const req = createRequest({
+      data: { id: 'c-101', name: 123 as unknown as string },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'invalid_name',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+  });
+
+  // v0.134 시나리오 17: section 만 정상 patch (빈 문자열 clear 허용) -> updateMask=section
+  it('supports section-only patch including empty string to clear', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', section: '', name: '수학' },
+    });
+
+    const req = createRequest({
+      data: { id: 'c-101', section: '' },
+    });
+
+    await classroomPatch.run(req);
+
+    expect(mockCoursesPatch).toHaveBeenCalledWith({
+      id: 'c-101',
+      updateMask: 'section',
+      requestBody: { section: '' },
+    });
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'ok',
+        message: 'section=""',
+      }),
+    );
+  });
+
+  // v0.134 시나리오 18: name 값의 앞뒤 공백은 서버가 trim 하여 저장
+  it('trims leading/trailing whitespace in name', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', name: '수학' },
+    });
+
+    const req = createRequest({
+      data: { id: 'c-101', name: '  수학  ' },
+    });
+
+    await classroomPatch.run(req);
+
+    expect(mockCoursesPatch).toHaveBeenCalledWith({
+      id: 'c-101',
+      updateMask: 'name',
+      requestBody: { name: '수학' },
+    });
+  });
+
+  // v0.134 시나리오 19: name-only 요청에서 archive cap 없어도 write cap 만으로 통과 가능해야 한다.
+  // (teacher 는 두 cap 모두 있어서 실제 차단 시나리오는 안 되지만, 코드 경로가 write 만 assert 하는지 검증.)
+  it('name-only request only asserts classroom.write cap (not classroom.archive)', async () => {
+    // teacher role · assertTeacherInCourse mock 성공.
+    mockCoursesTeachersGet.mockResolvedValueOnce({
+      data: { courseId: 'c-101', userId: 'teacher@cam.hs.kr' },
+    });
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', name: '새 이름' },
+    });
+
+    // userHasCap 을 spy 로 감싸 호출 인자만 검증.
+    const spy = vi.mocked(userHasCap);
+    spy.mockClear();
+
+    const req = createRequest({
+      email: 'teacher@cam.hs.kr',
+      role: 'teacher',
+      data: { id: 'c-101', name: '새 이름' },
+    });
+    await classroomPatch.run(req);
+
+    // classroom.archive 는 호출되지 않아야 한다 (courseState 미포함).
+    const calls = spy.mock.calls.map((c) => c[1]);
+    expect(calls).toContain('classroom.write');
+    expect(calls).not.toContain('classroom.archive');
+  });
 });

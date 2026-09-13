@@ -5,7 +5,9 @@ import type { ClassroomCourse } from './classroomList';
 
 export interface ClassroomPatchRequest {
   id: string;
-  courseState: 'ACTIVE' | 'ARCHIVED';
+  courseState?: 'ACTIVE' | 'ARCHIVED';
+  name?: string;
+  section?: string;
 }
 
 export interface ClassroomPatchResponse {
