@@ -380,4 +380,76 @@ describe('ClassroomDetailPage', () => {
       (screen.getByTestId('classroom-detail-delete-btn') as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  // v0.136: 이름 변경 버튼 페이지 통합 (Codex 소프트 권고).
+  it('v0.136: ACTIVE 코스는 「이름 변경」 버튼 노출', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: {
+        courses: [
+          { id: 'c-101', name: '1학년 1반', section: '1학기', courseState: 'ACTIVE' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('c-101');
+    const btn = screen.getByTestId('classroom-detail-rename-btn');
+    expect(btn).toBeDefined();
+    expect(btn.textContent).toContain('이름 변경');
+  });
+
+  it('v0.136: ARCHIVED 코스는 「이름 변경」 버튼 숨김 (F118 대칭)', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: {
+        courses: [
+          { id: 'c-101', name: '1학년 1반', courseState: 'ARCHIVED' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('c-101');
+    expect(screen.queryByTestId('classroom-detail-rename-btn')).toBeNull();
+    // 복구 버튼은 노출 (canManage).
+    expect(screen.getByTestId('classroom-detail-archive-btn').textContent).toContain('복구');
+  });
+
+  it('v0.136: PROVISIONED 코스는 「이름 변경」 버튼 숨김', () => {
+    mockUseClassroomList.mockReturnValue({
+      data: {
+        courses: [{ id: 'c-101', name: '준비 중', courseState: 'PROVISIONED' }],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('c-101');
+    expect(screen.queryByTestId('classroom-detail-rename-btn')).toBeNull();
+  });
+
+  it('v0.136 F81 대칭: membersPending 중 rename 버튼도 disabled', async () => {
+    mockTeachersAddState.isPending = true;
+    mockUseClassroomList.mockReturnValue({
+      data: {
+        courses: [
+          { id: 'c-101', name: '1학년 1반', courseState: 'ACTIVE' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('c-101');
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('classroom-detail-rename-btn') as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+  });
+
+  // 다이얼로그 열림 후 상호작용 회귀는 RenameClassroomDialog.test.tsx 가 담당
+  // (QueryClientProvider 필요). 여기서는 페이지 통합 (노출 조건 · F81) 만 검증.
 });
