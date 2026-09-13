@@ -792,6 +792,31 @@ describe('GroupsTable component', () => {
       expect(btn.disabled).toBe(true);
     });
 
+    // v0.138: allowlist 밖 sort 도 disabled (F101 대칭).
+    it('v0.138: allowlist 밖 sort (weird) 는 disabled (sortColumn=null 로 normalize)', () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?sort=weird']);
+      const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    // v0.138: 정렬 헤더 키보드 접근성 (Codex v0.137 소프트 권고 반영).
+    it('v0.138: 정렬 헤더는 Enter · Space 로도 트리거 · tabIndex=0 · focus ring class', () => {
+      renderWithRouter(<GroupsTable />);
+      const emailHeader = screen.getByTestId('groups-sort-email');
+      expect(emailHeader.getAttribute('tabindex')).toBe('0');
+      expect(emailHeader.className).toContain('focus-visible:ring');
+      expect(emailHeader.getAttribute('aria-sort')).toBe('none');
+
+      fireEvent.keyDown(emailHeader, { key: 'Enter' });
+      expect(emailHeader.getAttribute('aria-sort')).toBe('ascending');
+
+      fireEvent.keyDown(emailHeader, { key: ' ' });
+      expect(emailHeader.getAttribute('aria-sort')).toBe('descending');
+
+      fireEvent.keyDown(emailHeader, { key: 'a' });
+      expect(emailHeader.getAttribute('aria-sort')).toBe('descending');
+    });
+
     it('v0.127: 클릭 시 URL search 완전 비움 + 그룹 두 개 모두 복원', () => {
       let currentSearch: string | null = null;
       function LocationSpy() {

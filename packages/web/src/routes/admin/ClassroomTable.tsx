@@ -32,6 +32,7 @@ import {
   type TransferClassroomOwnerTarget,
 } from './TransferClassroomOwnerDialog';
 import { Button } from '../../components/ui/button';
+import { sortHeaderKbdProps } from './sortHeader';
 
 export function translateCourseState(s?: string): string {
   switch (s) {
@@ -422,7 +423,7 @@ export function ClassroomTable() {
                 </TableHead>
                 <TableHead
                   onClick={() => handleSort('name')}
-                  className="cursor-pointer select-none"
+                  {...sortHeaderKbdProps(() => handleSort('name'))}
                   data-testid="classroom-sort-name"
                   aria-sort={ariaSortFor('name')}
                 >
@@ -430,7 +431,7 @@ export function ClassroomTable() {
                 </TableHead>
                 <TableHead
                   onClick={() => handleSort('section')}
-                  className="cursor-pointer select-none"
+                  {...sortHeaderKbdProps(() => handleSort('section'))}
                   data-testid="classroom-sort-section"
                   aria-sort={ariaSortFor('section')}
                 >
@@ -438,7 +439,7 @@ export function ClassroomTable() {
                 </TableHead>
                 <TableHead
                   onClick={() => handleSort('state')}
-                  className="cursor-pointer select-none"
+                  {...sortHeaderKbdProps(() => handleSort('state'))}
                   data-testid="classroom-sort-state"
                   aria-sort={ariaSortFor('state')}
                 >

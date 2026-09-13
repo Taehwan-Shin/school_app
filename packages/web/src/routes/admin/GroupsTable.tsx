@@ -13,6 +13,7 @@ import {
 import { CreateGroupDialog } from './CreateGroupDialog';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
+import { sortHeaderKbdProps } from './sortHeader';
 
 type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
 type SortDirection = 'asc' | 'desc';
@@ -208,7 +209,7 @@ export function GroupsTable() {
                   <TableRow>
                     <TableHead
                       onClick={() => handleSort('email')}
-                      className="cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('email'))}
                       data-testid="groups-sort-email"
                       aria-sort={sortColumn === 'email' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
@@ -216,7 +217,7 @@ export function GroupsTable() {
                     </TableHead>
                     <TableHead
                       onClick={() => handleSort('name')}
-                      className="cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('name'))}
                       data-testid="groups-sort-name"
                       aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
@@ -226,7 +227,7 @@ export function GroupsTable() {
                     <TableHead>별칭</TableHead>
                     <TableHead
                       onClick={() => handleSort('directMembersCount')}
-                      className="text-right cursor-pointer select-none"
+                      {...sortHeaderKbdProps(() => handleSort('directMembersCount'), 'text-right')}
                       data-testid="groups-sort-directMembersCount"
                       aria-sort={sortColumn === 'directMembersCount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
