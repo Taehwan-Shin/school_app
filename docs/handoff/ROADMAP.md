@@ -72,6 +72,7 @@
 - **ClassroomTable 검색·필터·정렬** — v0.137 완료 (AccountsTable v0.125 · GroupsTable v0.127 대칭). URL params q/filter/sort/dir · KPI chips · 「필터 초기화」 · 25개 페이지네이션 · F121/F122/F123 대응.
 - **정렬 헤더 키보드 접근성 3화면 대칭** — v0.138 완료 (Codex v0.137 소프트 권고 반영). sortHeader.ts helper (sortHeaderKbdProps): tabIndex=0 + onKeyDown(Enter/Space preventDefault + activate) + focus-visible ring class. ClassroomTable · AccountsTable · GroupsTable 9개 sortable 헤더에 spread 적용.
 - **sortHeader helper 단위 테스트** — v0.139 완료 (Codex v0.138 소프트 권고 반영). packages/web/tests/sortHeader.test.ts 6 케이스 (Enter/Space preventDefault 후 onActivate 호출 순서 고정 · 비매칭 키 무시 · 반환 필드 shape · className trim/append · focus ring). v0.139b 소프트 권고 반영.
+- **web ESLint 관문** - v0.140 완료 (Codex v0.138 소프트 권고 반영). packages/web/eslint.config.js 신규 (@typescript-eslint + eslint-plugin-react-hooks 7.1.1, rule='react-hooks/exhaustive-deps: warn') · lint 스크립트 확장 ('tsc --noEmit && eslint src tests', functions 대칭).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

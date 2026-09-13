@@ -2357,3 +2357,50 @@ ROADMAP 남은 후보 (v0.140+):
 - **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일** — SendGrid 등 3rd party.
 - **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
+
+---
+
+## 2026-09-13 · v0.140 web ESLint 관문 (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `6e0cb63` | feat(web): eslint.config.js 신규 + lint 스크립트 확장 (functions 대칭) |
+| 라운드 1 hotfix | `89e9ee9` | fix(web): F124 react-hooks 5.2 -> 7.1.1 업그레이드 (ESLint 10 peer 지원) |
+| 병합 | `52e41bf` | Merge feat/web-eslint-v140 into main - v0.140 web ESLint 관문 (Codex v0.138 소프트 권고) + F124 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `6e0cb63` | 통과 6 / 실패 1 / 판정불가 1 | F124: react-hooks@5.2 peer 범위 ESLint 9까지 (ESLint 10 미지원). 판정불가: read-only sandbox EPERM |
+| 2 | `89e9ee9` | 통과 10 / 실패 0 / 판정불가 1 | 통과 · 병합 승인. eslint-plugin-react-hooks 7.1.1 업그레이드로 ESLint 10 peer 충족. 판정불가: read-only sandbox EPERM |
+
+### 설계
+
+- **functions 대칭**:
+  - `packages/web/eslint.config.js` 신설하여 functions 와 동일한 flat config 구조 구성.
+  - `package.json` 의 lint 스크립트를 `tsc --noEmit && eslint src tests` 로 확장하여 monorepo 일관성 확보.
+- **react-hooks warn only**:
+  - `rule = 'react-hooks/exhaustive-deps: warn'` 으로 설정하여 기존 빌드/린트 파이프라인을 차단하지 않으면서 잠재적인 훅 의존성 누락을 감시.
+- **disable 주석 계약 유지**:
+  - 기존 코드에 존재하던 4곳의 eslint-disable 주석이 실제 린터 계약과 연결되도록 체계화.
+
+### 배운 것
+
+- **peer 범위 확인 필수**:
+  - major 패키지 업그레이드 및 신규 도입 시 peer dependency 범위(ESLint 10 vs plugin 지원 버전)를 사전에 면밀히 확인해야 런타임/설치 시점 충돌 방지 가능 (F124 교훈).
+- **warning 은 tech debt 로 분류 가능**:
+  - 대규모 기존 코드베이스에 새 정적 분석 규칙을 도입할 때, 일괄 수정으로 인한 회귀 위험을 피하기 위해 warn 수준으로 시작하고 파일별 점진적 해결을 위한 기술부채로 관리하는 전략이 안전.
+- **Antigravity 위임 6번째 사이클 성공**:
+  - v0.136, v0.137, v0.138, v0.139 에 이어 v0.140 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.141+):
+- **exhaustive-deps warning 13건 fix**: 첫 배치 = `auditLogList.ts` (4건).
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
