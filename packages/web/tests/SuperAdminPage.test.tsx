@@ -1923,8 +1923,7 @@ describe('SuperAdminPage', () => {
       expect(screen.getByRole('heading', { name: '오늘 액션별' })).toBeDefined();
     });
 
-    it('v0.135 F104 대칭: nDays 프리셋 클릭 시 exact aggregation 리셋', () => {
-      // sampleTruncated=true 로 exact 버튼 노출.
+    it('v0.135 F104 대칭 (프리셋): nDays 프리셋 클릭 시 nDays atMin + exact=true 조합이 절대 발생 안 함', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 1234,
@@ -1940,19 +1939,110 @@ describe('SuperAdminPage', () => {
         error: null,
       });
       renderWithRouter(<SuperAdminPage />);
-      // exact 켜기.
+      // exact 켜기 (today).
       fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
-      // 이후 nDays 프리셋 클릭. window + input 이 원자적으로 갱신되고 exact=false 리셋되어야 한다.
-      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      // nDays 진입 (30 기본).
       fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      // 프리셋 7일 → window + N + exact 원자적 갱신.
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
       fireEvent.click(screen.getByTestId('super-admin-breakdown-ndays-preset-7'));
       const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
-      // 마지막 breakdown 호출은 exact=false 이어야.
       const breakdownCalls = afterCalls.filter(
         (c: any[]) => typeof c[0]?.exact === 'boolean',
       );
-      const lastBreakdown = breakdownCalls[breakdownCalls.length - 1];
-      expect(lastBreakdown?.[0]?.exact).toBe(false);
+      // 7일 atMin 계산.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sevenStart = new Date(today);
+      sevenStart.setDate(today.getDate() - 6);
+      const sevenAtMin = sevenStart.getTime();
+      // (nDays=7 atMin, exact=true) 조합은 절대 발생 안 함.
+      const leakCall = breakdownCalls.find(
+        (c: any[]) => c[0]?.atMin === sevenAtMin && c[0]?.exact === true,
+      );
+      expect(leakCall).toBeUndefined();
+      // (nDays=7 atMin, exact=false) 는 최소 1회 발생.
+      const goodCall = breakdownCalls.find(
+        (c: any[]) => c[0]?.atMin === sevenAtMin && c[0]?.exact === false,
+      );
+      expect(goodCall).toBeDefined();
+    });
+
+    it('v0.135 F104 대칭 (input 편집): input 변경 시에도 leak 없음', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 1234,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 500 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      // exact 켜기 (today).
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-exact-btn'));
+      // nDays 진입.
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      // input 을 14 로 편집 → window 강제 전환 + N 갱신 + exact 리셋 원자적.
+      const initialCalls = mockUseAuditLogSummary.mock.calls.length;
+      fireEvent.change(screen.getByTestId('super-admin-breakdown-ndays-input'), {
+        target: { value: '14' },
+      });
+      const afterCalls = mockUseAuditLogSummary.mock.calls.slice(initialCalls);
+      const breakdownCalls = afterCalls.filter(
+        (c: any[]) => typeof c[0]?.exact === 'boolean',
+      );
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const fourteenStart = new Date(today);
+      fourteenStart.setDate(today.getDate() - 13);
+      const fourteenAtMin = fourteenStart.getTime();
+      const leakCall = breakdownCalls.find(
+        (c: any[]) => c[0]?.atMin === fourteenAtMin && c[0]?.exact === true,
+      );
+      expect(leakCall).toBeUndefined();
+      const goodCall = breakdownCalls.find(
+        (c: any[]) => c[0]?.atMin === fourteenAtMin && c[0]?.exact === false,
+      );
+      expect(goodCall).toBeDefined();
+    });
+
+    it('v0.135b: fallback 시 input 은 aria-invalid + 「범위를 벗어나 N일로 적용됨」 문구 표시', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.read': 3 },
+          sampleSize: 5,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      fireEvent.click(screen.getByTestId('super-admin-breakdown-window-nDays'));
+      // 유효 값 → fallback 문구 없음, aria-invalid 없음.
+      const input = screen.getByTestId('super-admin-breakdown-ndays-input');
+      expect(input.getAttribute('aria-invalid')).toBeNull();
+      expect(screen.queryByTestId('super-admin-breakdown-ndays-fallback')).toBeNull();
+      // 400 입력 → invalid + fallback 문구.
+      fireEvent.change(input, { target: { value: '400' } });
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      const fallback = screen.getByTestId('super-admin-breakdown-ndays-fallback');
+      expect(fallback.textContent).toContain('30');
+      expect(fallback.textContent).toContain('범위');
+      // 유효 값으로 복구.
+      fireEvent.change(input, { target: { value: '30' } });
+      expect(input.getAttribute('aria-invalid')).toBeNull();
+      expect(screen.queryByTestId('super-admin-breakdown-ndays-fallback')).toBeNull();
     });
   });
 });

@@ -498,19 +498,46 @@ export function SuperAdminPage() {
                   >
                     N=
                   </label>
-                  <input
-                    id="super-admin-breakdown-ndays-input"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={nDaysInput}
-                    onChange={(e) => handleNDaysInputChange(e.target.value)}
-                    data-testid="super-admin-breakdown-ndays-input"
-                    className="w-16 border border-border-subtle bg-canvas px-2 py-1 text-small text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
-                  />
-                  <span className="text-small text-fg-muted">
-                    ({nDaysSanitized}일, 1~365)
-                  </span>
+                  {/* v0.135b F120: 입력값이 fallback 트리거 (범위 밖/비정수/빈 값) 인지 판정. 유효 값이면 문자열이 sanitized 와 일치. */}
+                  {(() => {
+                    const rawTrim = nDaysInput.trim();
+                    const isInvalidInput =
+                      !/^\d+$/.test(rawTrim) ||
+                      (() => {
+                        const n = Number.parseInt(rawTrim, 10);
+                        return !Number.isFinite(n) || n < 1 || n > 365;
+                      })();
+                    return (
+                      <>
+                        <input
+                          id="super-admin-breakdown-ndays-input"
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={nDaysInput}
+                          onChange={(e) => handleNDaysInputChange(e.target.value)}
+                          data-testid="super-admin-breakdown-ndays-input"
+                          aria-invalid={isInvalidInput || undefined}
+                          className={
+                            'w-16 border bg-canvas px-2 py-1 text-small focus:outline-none focus:ring-1 ' +
+                            (isInvalidInput
+                              ? 'border-state-danger text-state-danger focus:border-state-danger focus:ring-state-danger'
+                              : 'border-border-subtle text-fg-primary focus:border-border-strong focus:ring-border-strong')
+                          }
+                        />
+                        {isInvalidInput ? (
+                          <span
+                            className="text-small text-state-danger"
+                            data-testid="super-admin-breakdown-ndays-fallback"
+                          >
+                            범위를 벗어나 {nDaysSanitized}일로 적용됨 (1~365)
+                          </span>
+                        ) : (
+                          <span className="text-small text-fg-muted">({nDaysSanitized}일)</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
