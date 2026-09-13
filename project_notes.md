@@ -2310,3 +2310,50 @@ ROADMAP 남은 후보 (v0.139+):
 - **전입생 계정 UX 세부** (Phase 5) - `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일** - SendGrid 등 3rd party.
 - **첫 audit fallback 검증** - v0.133 sink 실 데이터 흐름 smoke test.
+
+---
+
+## 2026-09-13 · v0.139 sortHeader helper 단위 테스트 (1 라운드 Codex 감사 + v0.139b)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `46f3c10` | test: v0.139 sortHeader.ts helper 단위 테스트 (Codex v0.138 소프트 권고 반영) |
+| 소프트 권고 | `9dad561` | test: v0.139b invocationCallOrder assertion 추가 (Codex 소프트 권고 반영) |
+| 병합 | `4ad74c9` | Merge feat/sort-header-unit-test-v139 into main — v0.139 sortHeader helper 단위 테스트 (Codex v0.138 소프트 권고) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `46f3c10` | 통과 5 / 실패 0 / 판정불가 1 | 통과 · 병합 승인. 판정불가: read-only sandbox EPERM (Vitest 미실행, Head 가 web 887 통과 확인). 소프트 권고(호출 순서 assertion)는 v0.139b (`9dad561`) 로 즉시 반영 |
+
+### 설계
+
+- **신규 `packages/web/tests/sortHeader.test.ts` (6 케이스)**:
+  - Enter 키 감지 시 `preventDefault` 후 `onActivate` 가 순서대로 호출됨 (`invocationCallOrder` 고정).
+  - Space 키 감지 시 `preventDefault` 후 `onActivate` 가 순서대로 호출됨 (`invocationCallOrder` 고정).
+  - Tab, a, Escape, ArrowDown, A, 1 등 비매칭 키에서는 `preventDefault` 및 `onActivate` 미호출.
+  - 반환 객체의 3 필드 shape (`className`, `onKeyDown`, `tabIndex: 0`) 검증.
+  - `extraClassName` 인자 전달 시 trim 처리 및 클래스명 정상 append.
+  - focus-visible ring, cursor-pointer, select-none 기본 스타일 클래스 문자열 포함 검증.
+- **소프트 권고 v0.139b 즉시 반영**:
+  - Codex 라운드 1 소프트 권고였던 호출 순서 assertion (`onActivate` 보다 `preventDefault` 가 먼저 호출되는 불변식) 을 `9dad561` 로 즉시 추가.
+
+### 배운 것
+
+- **소프트 권고 즉시 반영 흐름**:
+  - 감사에서 병합 차단은 아니지만 품질을 높이는 소프트 권고(호출 순서 검증)가 나오면 v0.139b 서브 커밋으로 즉시 흡수하여 병합 전 완성도 확보.
+- **3-화면 integration + helper unit 이중 방어**:
+  - v0.138 에서는 3개 테이블 컴포넌트 실 DOM 상에서 키보드 이벤트 트리거를 테스트했고, v0.139 에서는 `sortHeaderKbdProps` 순수 helper 의 세부 계약(호출 순서, 키 필터링, 스타일 조합)을 단위 테스트로 격리 검증하여 향후 테이블 추가나 리팩터링 시에도 안정적인 재사용 기반 마련.
+- **Antigravity 위임 5번째 사이클 성공**:
+  - v0.136, v0.137, v0.138 에 이어 v0.139 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.140+):
+- **ESLint 관문 추가** (Codex v0.138 잔여 소프트 권고) — repo lint 를 tsc 외 eslint 구성 및 pnpm lint 추가.
+- **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일** — SendGrid 등 3rd party.
+- **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
