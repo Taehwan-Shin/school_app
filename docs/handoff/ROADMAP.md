@@ -70,6 +70,7 @@
 - **이번 주/월 window breakdown** — v0.122 완료 (3-way today/week/month).
 - **사용자 정의 window (지난 N일)** — v0.135 완료. 프리셋 chip (7/30/90) + numeric input (1..365, 잘못된 값은 30 fallback + aria-invalid).
 - **ClassroomTable 검색·필터·정렬** — v0.137 완료 (AccountsTable v0.125 · GroupsTable v0.127 대칭). URL params q/filter/sort/dir · KPI chips · 「필터 초기화」 · 25개 페이지네이션 · F121/F122/F123 대응.
+- **정렬 헤더 키보드 접근성 3화면 대칭** — v0.138 완료 (Codex v0.137 소프트 권고 반영). sortHeader.ts helper (sortHeaderKbdProps): tabIndex=0 + onKeyDown(Enter/Space preventDefault + activate) + focus-visible ring class. ClassroomTable · AccountsTable · GroupsTable 9개 sortable 헤더에 spread 적용.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

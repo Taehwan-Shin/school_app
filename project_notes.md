@@ -2264,3 +2264,49 @@ ROADMAP 남은 후보 (v0.138+):
 - **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일** — SendGrid 등 3rd party.
 - **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
+
+---
+
+## 2026-09-13 · v0.138 정렬 헤더 키보드 접근성 (1 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `5f4400f` | feat: v0.138 정렬 헤더 키보드 접근성 3화면 대칭 (Codex v0.137 소프트 권고 반영) |
+| 병합 | `60c404b` | Merge feat/sort-header-a11y-v138 into main (v0.138 정렬 헤더 키보드 접근성 3화면 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `5f4400f` | 통과 8 / 실패 0 / 판정불가 2 | 통과 · 병합 승인. 판정불가: read-only sandbox EPERM (Vitest 미실행, Head 가 web 881 통과 확인) · repo lint=tsc. 소프트 권고 3건(helper 단위 테스트, 프롬프트 오기, ESLint 관문)은 v0.139+ 로 유보 |
+
+### 설계
+
+- **sortHeaderKbdProps helper 공유**:
+  - `packages/web/src/routes/admin/sortHeader.ts` 신설.
+  - `sortHeaderKbdProps(onActivate, className?)`: `role="columnheader"` 기본 TableHead 위에서 `tabIndex={0}`, `onKeyDown` (Enter/Space 키 감지 시 `e.preventDefault()` 후 `onActivate()`), focus-visible ring 스타일(`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`) 반환.
+  - 3화면 (ClassroomTable 3열, AccountsTable 3열, GroupsTable 3열) 총 9개 sortable 헤더에 spread 적용. 기존 `onClick` 핸들러 유지하여 마우스 클릭 회귀 보존.
+- **React.KeyboardEvent 타입만 참조**:
+  - helper 에서 React 런타임 import 없이 `import type { KeyboardEvent } from 'react'` 타입만 참조하여 번들 오버헤드 최소화.
+- **TableHead cn 병합 및 정렬 클래스 보존**:
+  - `components/ui/table.tsx` 의 TableHead 가 `cn()` (tailwind-merge) 으로 병합하므로 GroupsTable 의 `directMembersCount` 등 `text-right` 정렬 클래스가 기본 `text-left` 를 안전하게 대체하고 focus ring 보존.
+
+### 배운 것
+
+- **Codex 소프트 권고를 별도 슬라이스로 반영하는 흐름**:
+  - v0.137 감사에서 제기된 접근성 소프트 권고(정렬 헤더 키보드 트리거 및 dir 단독/unknown sort 비활성화 명시 테스트)를 즉시 다음 슬라이스(v0.138)의 명확한 독립 단위로 분리하여 반영.
+  - 슬라이스 범위를 작고 집중되게 유지함으로써 1 라운드 만에 8건 전원 통과 및 병합 승인 획득.
+- **v0.137 학습 template 즉시 반영**:
+  - 이전 사이클에서 학습된 CLI 제약(`buzz messages send` 가 `--content @/tmp/xxx` 미지원, stdin 파이프 필요)을 NEXT.md 안티그래비티 위임 template 및 공지 파이프라인에 즉시 반영하여 운영 실패 원인을 사전 제거.
+- **Antigravity 위임 4번째 사이클 성공**:
+  - v0.136, v0.137 에 이어 v0.138 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.139+):
+- **Codex v0.138 소프트 권고 반영**: `sortHeader.ts` helper 단위 테스트 추가, ESLint 관문 구성.
+- **전입생 계정 UX 세부** (Phase 5) - `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일** - SendGrid 등 3rd party.
+- **첫 audit fallback 검증** - v0.133 sink 실 데이터 흐름 smoke test.
