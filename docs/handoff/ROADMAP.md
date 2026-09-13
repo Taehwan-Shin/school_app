@@ -65,8 +65,12 @@
 - **admin/users 검색 필터** — 이미 구현됨 (`AccountsTable` `q` URL param + 이메일/이름 검색).
 - **super_admin 대시보드 위젯** — v0.120 완료 (「오늘 액션별」 bar-list · SAMPLE_LIMIT=500 · truncated 배너).
 
+이미 구현됨 (Phase 6 추가):
+- **이번 주/월 window breakdown** — v0.122 완료 (3-way today/week/month).
+- **사용자 정의 window (지난 N일)** — v0.135 완료. 프리셋 chip (7/30/90) + numeric input (1..365, 잘못된 값은 30 fallback + aria-invalid).
+
 남은 후보:
-- **이번 주/월 window breakdown** — v0.120 은 「오늘」만. 사용자 선택 window.
+- 없음 (Phase 6 완료 상태에 가까움).
 
 ### Phase 7 — 배포·운영 gate (사용자 조치 대기)
 - **Identity Platform 업그레이드** — Firebase Console → Authentication → Settings.

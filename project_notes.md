@@ -2106,3 +2106,63 @@ ROADMAP 남은 후보 (v0.135+):
 - **계정 삭제 안내 메일** — SendGrid 등 3rd party.
 - **감사 로그 사용자 정의 window** — v0.122 의 3-way 를 임의 일수로 확장.
 - **첫 audit fallback 검증** — v0.133 sink 배포 완료, 실 fallback 발생 후 BigQuery 조회 smoke test 필요.
+
+---
+
+## 2026-09-13 · v0.135 감사 대시보드 window 「지난 N일」 (3 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `efb2b5e` | BreakdownWindow union 확장 (nDays) · sanitize · atMin=(오늘-N-1)일 · 4th chip + 프리셋 7/30/90 + numeric input · F104 원자성 유지 · 5 신규 테스트 |
+| 라운드 2 hotfix | `9da2613` | F120 대응 — 테스트 강화 시도 + UX aria-invalid + 「범위 밖」 문구 |
+| 라운드 3 hotfix | `d5fa1b4` | F120b/c 대응 — 두 F104 회귀 테스트 순서 재구성 (전제 조건 확립 → leak 검사) |
+| 병합 | `a5d3e38` | Merge into main + Firebase deploy (hosting only, functions no change) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `efb2b5e` | 통과 6 / 실패 1 / 판정불가 0 | F120: F104 회귀 테스트가 leak 부재 미검증 |
+| 2 | `9da2613` | 통과 6 / 실패 2 / 판정불가 0 | F120a/b: 테스트 두 경로 여전히 preset/input handler 리셋 제거 회귀 못 잡음 |
+| 3 | `d5fa1b4` | 통과 5 / 실패 0 / 판정불가 2 (감사 환경 write 제약) | 통과 · 병합 승인 |
+
+### 설계
+
+- **BreakdownWindow union 확장**: `'today' | 'week' | 'month'` → `'today' | 'week' | 'month' | 'nDays'`.
+- **nDaysSanitized 정규화**: `/^\d+$/` 만 통과 · `1..365` 범위 밖은 `30` fallback. 소수·음수·지수 표기 모두 fallback.
+- **atMin 계산**: `(오늘 00:00) - (N-1)일`. N=1 이면 오늘 00:00 == today window 와 일치.
+- **UI**: 상위 4-way segmented control · nDays 선택 시 sub-controls 노출 (7/30/90 프리셋 + `<input type=number min=1 max=365>`).
+- **F104 원자성 유지**: `handleNDaysPreset` 과 `handleNDaysInputChange` 둘 다 `setExactAggregation(false)` + window/N 갱신을 같은 이벤트 handler 에서 batched 로 처리 → (새 nDays atMin, exact=true) leak 방지.
+- **aria-invalid + fallback 문구**: input 이 범위 밖일 때 red border + `aria-invalid=true` + 「범위를 벗어나 {N}일로 적용됨 (1~365)」 시각 힌트.
+
+### F120 3 라운드 이야기
+
+라운드 1 감사가 F120 을 지적: 「나의 F104 신규 테스트가 마지막 exact=false 만 확인 · 실제 leak 부재 미검증」.
+
+라운드 2 에서 두 경로 (preset/input) 각각에 대해 `(nDays atMin, exact=true) leak 부재 + (nDays atMin, exact=false) 발생 확인` 을 추가했지만, 감사가 다시 지적: 「테스트 순서상 window-nDays 진입이 이미 exact=false 로 리셋 → 이후 preset/input 은 exact=false 상태에서 시작하므로 handler 의 exact 리셋 제거 회귀는 여전히 잡히지 않음」.
+
+라운드 3 에서 두 테스트 순서를 재구성:
+1. nDays 진입 (exact=false, N=30 기본).
+2. **그 상태에서 exact-btn 클릭** → (nDays=30, exact=true) 로 진입.
+3. **전제 조건 확인**: (nDays=30 atMin, exact=true) 호출이 실제 발생함을 assertion.
+4. 대상 액션 (preset-7 or input=14).
+5. 새 atMin + exact=true 조합 leak 부재 검증.
+
+이제 handler 의 `setExactAggregation(false)` 를 제거하면 실제로 leak 이 발생하고 테스트가 실패 → 회귀 방지 계약 강화.
+
+### 배운 것
+
+- **회귀 테스트는 실제로 회귀를 잡는지 검증하라**. 「이 시나리오에서 이 값이 되어야 한다」 만 확인하는 것과 「이 handler 를 없앴을 때 실패하는가」 는 다르다. Codex 가 라운드 2 에서 이를 정확히 지적: "handler 의 exact 리셋을 제거해도 테스트 통과 = 회귀 방지 못함". Head 는 라운드 1 · 2 모두 자신의 테스트가 충분하다고 판단했으나 감사가 더 엄격. 앞으로 회귀 테스트를 쓸 때는 「이 테스트를 유지한 채 대상 코드를 없애면 실패하는가?」 를 스스로 물어라.
+- **테스트 시나리오 pre-condition 확립을 명시적으로**: v0.135b 라운드 2 실수는 window 전환 자체가 pre-condition 을 오염시키는 것을 놓친 것. 시나리오의 시작 상태 (nDays + exact=true) 를 명시적으로 확립하고 assertion 으로 확인한 뒤 대상 액션을 트리거하면 이런 오염을 피할 수 있음.
+- **Codex 감사 소프트 권고도 반영 가치 있음**: 라운드 1 의 UX 소프트 권고 (aria-invalid + 「범위 밖」 문구) 를 라운드 2 에 함께 반영. 감사 라운드 수를 하나 절약하고 사용자 경험도 개선.
+- **Antigravity 위임 첫 실전 결과**: v0.135 마무리 사이클을 `@Antigravity` 에게 NEXT.md antigravity template 오더로 위임했으나 ~15 분 무응답 → Head 폴백. Antigravity 의 활성화 상태 · @mention 인식 여부 · 오더 파싱 능력을 별도 확인 필요. bot 이 대응 안 하면 Head 가 계속 폴백하는 것으로 실무는 굴러가지만 위임 template 의 실질 효과가 없음.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.136+):
+- **전입생 계정 UX 세부** (Phase 5) — `laterAccountSetup` 매크로 (도메인 규칙 필요).
+- **계정 삭제 안내 메일** — SendGrid 등 3rd party.
+- **첫 audit fallback 검증** — v0.133 sink 실 데이터 흐름 smoke test.
+- **Antigravity 위임 재시도** — 첫 시도 무응답 원인 확인 · 활성 확인 후 재시도.
