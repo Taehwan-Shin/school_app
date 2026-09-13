@@ -149,10 +149,6 @@ export function ClassroomTable() {
       ),
     [sortedFilteredCourses],
   );
-  const visibleSelectedCount = useMemo(
-    () => sortedFilteredCourses.filter((c) => selectedIds.has(c.id)).length,
-    [sortedFilteredCourses, selectedIds],
-  );
   const selectedActive = useMemo(
     () => courses.filter((c) => selectedIds.has(c.id) && c.courseState === 'ACTIVE'),
     [courses, selectedIds],
@@ -386,14 +382,16 @@ export function ClassroomTable() {
           표시할 클래스룸 코스가 없습니다.
         </div>
       )}
-      {!isLoading && !isError && data?.courses && data.courses.length > 0 && sortedFilteredCourses.length === 0 && (
+      {/* v0.137b F122: pagination 은 원본 courses 가 존재하는 한 항상 렌더 —
+          필터 결과 0 이어도 「이전/다음」 disabled 상태로 노출해 사용자가 필터를
+          되돌리지 않고도 컨트롤을 인지할 수 있게. AccountsTable/GroupsTable 대칭. */}
+      {data?.courses && data.courses.length > 0 && sortedFilteredCourses.length === 0 && (
         <div className="py-12 text-center text-small text-fg-secondary" data-testid="classroom-search-empty">
           검색 결과가 없습니다.
         </div>
       )}
       {data?.courses && data.courses.length > 0 && sortedFilteredCourses.length > 0 && (
-        <>
-        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
+        <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas" data-testid="classroom-table-wrap">
           <Table>
             <TableHeader>
               <TableRow>
@@ -408,11 +406,14 @@ export function ClassroomTable() {
                     }
                     ref={(el) => {
                       if (el) {
-                        const anyVisibleSelected = visibleSelectedCount > 0;
+                        // v0.137b F121: 필터 밖 선택만 남은 경우도 「일부 선택」
+                        // 상태로 표시해야 사용자가 checkbox 만 보고 「선택 없음」
+                        // 으로 오해하지 않는다. selectedIds 전체를 참고.
+                        const hasAnySelection = selectedIds.size > 0;
                         const allEligibleSelected =
                           eligibleIds.size > 0 &&
                           Array.from(eligibleIds).every((id) => selectedIds.has(id));
-                        el.indeterminate = anyVisibleSelected && !allEligibleSelected;
+                        el.indeterminate = hasAnySelection && !allEligibleSelected;
                       }
                     }}
                     onChange={(e) => toggleAll(e.target.checked)}
@@ -533,6 +534,8 @@ export function ClassroomTable() {
             </TableBody>
           </Table>
         </div>
+      )}
+      {data?.courses && data.courses.length > 0 && (
         <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
           <span data-testid="classroom-pagination-info">
             {total === 0
@@ -560,7 +563,6 @@ export function ClassroomTable() {
             </button>
           </div>
         </div>
-        </>
       )}
       <ArchiveClassroomDialog
         open={!!archiveTarget}

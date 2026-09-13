@@ -457,25 +457,49 @@ describe('ClassroomTable component', () => {
       expect(screen.getByTestId('classroom-row-c-104')).toBeDefined();
     });
 
-    it('정렬: 컬럼 헤더 클릭으로 asc → desc 토글 · aria-sort 반영', () => {
+    it('정렬: 컬럼 헤더 클릭으로 asc → desc 토글 · aria-sort 반영 · 실제 행 순서 변경', () => {
       renderWithRouter(<ClassroomTable />);
 
       const nameHeader = screen.getByTestId('classroom-sort-name');
       expect(nameHeader.getAttribute('aria-sort')).toBe('none');
 
-      // 첫 클릭 → asc
+      // 첫 클릭 → asc. 이름 「1학년 1반...」 < 「1학년 2반...」 < 「2학년...」 < 「3학년...」
       fireEvent.click(nameHeader);
       expect(nameHeader.getAttribute('aria-sort')).toBe('ascending');
+      const rowsAsc = Array.from(document.querySelectorAll('[data-testid^="classroom-row-"]'));
+      const idsAsc = rowsAsc.map((r) => r.getAttribute('data-testid'));
+      expect(idsAsc).toEqual([
+        'classroom-row-c-101',
+        'classroom-row-c-102',
+        'classroom-row-c-103',
+        'classroom-row-c-104',
+      ]);
 
-      // 두 번째 클릭 → desc
+      // 두 번째 클릭 → desc. 역순.
       fireEvent.click(nameHeader);
       expect(nameHeader.getAttribute('aria-sort')).toBe('descending');
+      const rowsDesc = Array.from(document.querySelectorAll('[data-testid^="classroom-row-"]'));
+      const idsDesc = rowsDesc.map((r) => r.getAttribute('data-testid'));
+      expect(idsDesc).toEqual([
+        'classroom-row-c-104',
+        'classroom-row-c-103',
+        'classroom-row-c-102',
+        'classroom-row-c-101',
+      ]);
 
-      // 다른 컬럼 클릭 → 원본 컬럼 none, 새 컬럼 asc
+      // 다른 컬럼 클릭 → 원본 컬럼 none, 새 컬럼 asc.
+      // state asc: ACTIVE(c-101, c-103) < ARCHIVED(c-102) < PROVISIONED(c-104)
       const stateHeader = screen.getByTestId('classroom-sort-state');
       fireEvent.click(stateHeader);
       expect(nameHeader.getAttribute('aria-sort')).toBe('none');
       expect(stateHeader.getAttribute('aria-sort')).toBe('ascending');
+      const rowsState = Array.from(document.querySelectorAll('[data-testid^="classroom-row-"]'));
+      const idsState = rowsState.map((r) => r.getAttribute('data-testid'));
+      // ACTIVE 두 개는 안정 정렬 (원본 순서: c-101, c-103) 이후 ARCHIVED, PROVISIONED.
+      expect(idsState[0]).toBe('classroom-row-c-101');
+      expect(idsState[1]).toBe('classroom-row-c-103');
+      expect(idsState[2]).toBe('classroom-row-c-102');
+      expect(idsState[3]).toBe('classroom-row-c-104');
     });
 
     it('URL params 초기 로드: q · filter · sort · dir 복원', () => {
@@ -577,6 +601,91 @@ describe('ClassroomTable component', () => {
       const bulkActions = screen.getByTestId('classroom-bulk-actions');
       expect(bulkActions.textContent).toContain('2개 선택됨');
       expect(bulkActions.textContent).toContain('ACTIVE 2');
+    });
+
+    // v0.137b F121: indeterminate 는 selectedIds 전체 기준. 필터 밖 선택만
+    // 남으면 「일부 선택」 상태로 보여야 사용자가 「선택 없음」 으로 오해하지 않음.
+    it('필터 밖에만 선택이 남은 경우 「전체 선택」 checkbox 는 indeterminate', () => {
+      renderWithRouter(<ClassroomTable />);
+
+      // ARCHIVED c-102 만 선택.
+      fireEvent.click(screen.getByTestId('classroom-select-c-102'));
+
+      // 「활성」 필터 켜기 → 필터 결과에는 c-102 안 보임 (필터 밖 선택만 남음).
+      fireEvent.click(screen.getByTestId('classroom-kpi-active'));
+      expect(screen.queryByTestId('classroom-row-c-102')).toBeNull();
+
+      // 전체 선택 checkbox 는 indeterminate 여야 함 (선택 존재 · 이 필터 eligible
+      // (c-101, c-103) 은 미선택 상태).
+      const selectAll = screen.getByTestId('classroom-select-all') as HTMLInputElement;
+      expect(selectAll.checked).toBe(false);
+      expect(selectAll.indeterminate).toBe(true);
+    });
+
+    // v0.137b F121: 전체 필터 eligible 이 모두 선택되면 checked=true, indeterminate=false.
+    it('필터 결과 eligible 을 모두 선택하면 「전체 선택」 checkbox 는 checked · not indeterminate', () => {
+      renderWithRouter(<ClassroomTable />);
+
+      // 「활성」 필터 → 눈에 보이는 eligible = c-101, c-103.
+      fireEvent.click(screen.getByTestId('classroom-kpi-active'));
+      fireEvent.click(screen.getByTestId('classroom-select-c-101'));
+      fireEvent.click(screen.getByTestId('classroom-select-c-103'));
+
+      const selectAll = screen.getByTestId('classroom-select-all') as HTMLInputElement;
+      expect(selectAll.checked).toBe(true);
+      expect(selectAll.indeterminate).toBe(false);
+    });
+
+    // v0.137b F122: 결과 0 이어도 원본 courses 존재하면 pagination 렌더.
+    it('필터 결과 0 이어도 원본 courses 있으면 pagination 은 렌더 · 이전/다음 모두 disabled', () => {
+      renderWithRouter(<ClassroomTable />);
+
+      const input = screen.getByTestId('classroom-search-input');
+      fireEvent.change(input, { target: { value: 'zzzz-no-match' } });
+
+      // 검색 결과 없음 배너.
+      expect(screen.getByTestId('classroom-search-empty')).toBeDefined();
+
+      // 페이지네이션은 여전히 렌더.
+      expect(screen.getByTestId('classroom-pagination-info').textContent).toContain('결과 없음');
+      const prev = screen.getByTestId('classroom-pagination-prev') as HTMLButtonElement;
+      const next = screen.getByTestId('classroom-pagination-next') as HTMLButtonElement;
+      expect(prev.disabled).toBe(true);
+      expect(next.disabled).toBe(true);
+    });
+
+    // v0.137b F122 boundary: 정확히 PAGE_SIZE=25 · 26 개에서 next disabled 판정.
+    it('페이지 boundary: 정확히 25개 → next disabled · 26개 → next enabled', () => {
+      const make = (n: number) =>
+        Array.from({ length: n }, (_, i) => ({
+          id: `c-${String(i).padStart(3, '0')}`,
+          name: `Course ${i}`,
+          section: '',
+          courseState: 'ACTIVE',
+        }));
+
+      // 25 개 → 한 페이지에 딱 맞음. next disabled.
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: make(25) },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      const { unmount } = renderWithRouter(<ClassroomTable />);
+      expect((screen.getByTestId('classroom-pagination-next') as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId('classroom-pagination-prev') as HTMLButtonElement).disabled).toBe(true);
+      unmount();
+
+      // 26 개 → 두 페이지. next enabled.
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: make(26) },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<ClassroomTable />);
+      expect((screen.getByTestId('classroom-pagination-next') as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByTestId('classroom-pagination-prev') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('페이지네이션: 25개 초과 시 페이지 분할 · 검색 시 페이지 0 리셋', () => {
