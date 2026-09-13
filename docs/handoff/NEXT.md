@@ -41,10 +41,12 @@ Head 는 신규 slice + Codex hotfix 담당, 안티그래비티는 매 슬라이
    - ROADMAP.md: 필요 시 Phase 항목 재분류
    - project_notes.md: append-only 로 「## YYYY-MM-DD · vN.NN <제목>」 섹션 (커밋 표 · 라운드 표 · 배운 것 · 다음 세션)
 4. git commit + push (docs): "docs: vN.NN 병합 반영 + STATUS/project_notes/NEXT/ROADMAP 갱신"
-5. 채널 공지: `buzz messages send --channel cfef52ba-5b47-4a4a-a70e-d604f73fe89c` 로 병합/배포/관문/교훈 요약. reply-to 없이 top-level.
+5. 채널 공지: `buzz messages send --channel <위임 스레드가 발생한 채널 UUID>` 로 병합/배포/관문/교훈 요약. reply-to 없이 top-level.
+6. **완료 후 delegation reply 스레드에 반드시 [채널 공지 event id] 를 붙여 보고** (2026-09-13 v0.136 학습 — Antigravity 가 announce 를 발행해도 relay 전파 지연으로 Head 에서 즉시 안 보임, event id 를 명시하면 Head 가 중복 발행을 피할 수 있음).
 
 **제약**: main 에 직접 커밋 금지 (문서 갱신은 예외). Codex 감사 응답은 Head 만
-파싱. Antigravity 는 오더 template 밖 판단 금지.
+파싱. Antigravity 는 오더 template 밖 판단 금지. **채널 UUID 는 위임 오더에서
+Head 가 명시** (school_app_02 vs school_app_03 등 여러 채널 존재 가능).
 ```
 
 Head 는 안티그래비티 결과를 리뷰하고 부족한 부분만 재작성.
