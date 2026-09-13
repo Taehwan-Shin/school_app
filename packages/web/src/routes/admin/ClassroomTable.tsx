@@ -93,12 +93,13 @@ export function ClassroomTable() {
       : bulkDirection === 'restore'
         ? selectedArchived.map((c) => ({ id: c.id, name: c.name }))
         : [];
-  // v0.134: 이름 변경은 아카이브 여부와 무관하게 selectable 코스 모두 대상.
+  // v0.134b F118: Classroom REST v1 은 ARCHIVED 코스의 courseState 외 필드
+  // 변경을 거부한다 (upstream 403/failed_precondition). 이름 변경 대상은
+  // ACTIVE 만 허용하여 부분 실패를 사전 차단.
   const bulkRenameCourses = useMemo(
     () =>
       courses
-        .filter((c) => selectedIds.has(c.id))
-        .filter((c) => c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED')
+        .filter((c) => selectedIds.has(c.id) && c.courseState === 'ACTIVE')
         .map((c) => ({ id: c.id, name: c.name })),
     [courses, selectedIds],
   );

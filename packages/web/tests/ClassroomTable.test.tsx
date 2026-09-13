@@ -330,5 +330,48 @@ describe('ClassroomTable component', () => {
     expect(screen.getByTestId('bulk-create-year-input')).toBeDefined();
     expect(screen.getByText('학년/반 코스 일괄 생성')).toBeDefined();
   });
+
+  // v0.134b F118: 이름 변경은 ACTIVE 만 대상. ARCHIVED 를 선택해도 count 반영 안 됨.
+  it('일괄 이름 변경 버튼은 ACTIVE 선택 수만 반영 (ARCHIVED 제외)', () => {
+    const mockCourses = [
+      { id: 'c-101', name: 'A', courseState: 'ACTIVE' },
+      { id: 'c-102', name: 'B', courseState: 'ARCHIVED' },
+    ];
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: mockCourses },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<ClassroomTable />);
+    fireEvent.click(screen.getByTestId('classroom-select-c-101'));
+    fireEvent.click(screen.getByTestId('classroom-select-c-102'));
+
+    const renameBtn = screen.getByTestId('classroom-bulk-rename-btn');
+    // count 는 ACTIVE 1 만.
+    expect(renameBtn.textContent).toContain('(1)');
+    expect((renameBtn as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // v0.134b F118: 선택이 모두 ARCHIVED 면 disabled.
+  it('일괄 이름 변경 버튼은 ARCHIVED 만 선택되면 disabled', () => {
+    const mockCourses = [
+      { id: 'c-101', name: 'A', courseState: 'ARCHIVED' },
+    ];
+    mockUseClassroomList.mockReturnValue({
+      data: { courses: mockCourses },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithRouter(<ClassroomTable />);
+    fireEvent.click(screen.getByTestId('classroom-select-c-101'));
+
+    const renameBtn = screen.getByTestId('classroom-bulk-rename-btn') as HTMLButtonElement;
+    expect(renameBtn.disabled).toBe(true);
+    expect(renameBtn.textContent).toContain('(0)');
+  });
 });
 

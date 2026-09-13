@@ -440,15 +440,43 @@ describe('classroomPatch unit tests', () => {
     expect(mockCoursesPatch).not.toHaveBeenCalled();
   });
 
-  // v0.134 시나리오 15: name 이 255 초과 -> invalid-argument name_too_long
-  it('rejects name longer than 255 chars', async () => {
+  // v0.134b 시나리오 15: name 이 API 한도 750 초과 -> invalid-argument name_too_long
+  it('rejects name longer than 750 chars (Classroom API 한도)', async () => {
     const req = createRequest({
-      data: { id: 'c-101', name: 'a'.repeat(256) },
+      data: { id: 'c-101', name: 'a'.repeat(751) },
     });
 
     await expect(classroomPatch.run(req)).rejects.toMatchObject({
       code: 'invalid-argument',
       message: 'name_too_long',
+    });
+
+    expect(mockCoursesPatch).not.toHaveBeenCalled();
+  });
+
+  // v0.134b 시나리오 15b: name 정확히 750 은 통과
+  it('accepts name at exactly 750 chars (boundary)', async () => {
+    mockCoursesPatch.mockResolvedValueOnce({
+      data: { id: 'c-101', name: 'a'.repeat(750) },
+    });
+    const req = createRequest({
+      data: { id: 'c-101', name: 'a'.repeat(750) },
+    });
+    await classroomPatch.run(req);
+    expect(mockCoursesPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ updateMask: 'name' }),
+    );
+  });
+
+  // v0.134b 시나리오 15c: section 이 API 한도 2800 초과 -> invalid-argument section_too_long
+  it('rejects section longer than 2800 chars (Classroom API 한도)', async () => {
+    const req = createRequest({
+      data: { id: 'c-101', section: 'a'.repeat(2801) },
+    });
+
+    await expect(classroomPatch.run(req)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'section_too_long',
     });
 
     expect(mockCoursesPatch).not.toHaveBeenCalled();

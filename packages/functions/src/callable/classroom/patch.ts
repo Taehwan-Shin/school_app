@@ -22,10 +22,11 @@ const REQUIRED_SCOPES = [
 ] as const;
 
 const COURSE_ID_RE = /^[A-Za-z0-9_-]+$/;
-// v0.134: Google Classroom Courses.name/section 은 255자 상한 (Directory Course
-// 스키마 참조). trim 후 검증.
-const NAME_MAX = 255;
-const SECTION_MAX = 255;
+// v0.134b F118: Google Classroom Courses REST v1 문서상 name 은 최대 750자,
+// section 은 최대 2800자. trim 후 이 한도로 검증. (기존 255 제한은 정상 변경을
+// 차단해 실패로 판정됨.) 근거: developers.google.com/workspace/classroom/reference/rest/v1/courses
+const NAME_MAX = 750;
+const SECTION_MAX = 2800;
 
 function mapUpstreamError(err: unknown): HttpsError {
   if (err instanceof HttpsError) return err;
