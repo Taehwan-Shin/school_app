@@ -54,6 +54,9 @@ export function ChatSpaceMembersDialog({
       setDeleteConfirmName(null);
       deleteMutation.reset?.();
     }
+    // v0.142: deleteMutation 은 매 렌더 신규 참조 (react-query 반환). dep 에
+    // 넣으면 무한 루프 · 여기선 open/spaceName transition 에서만 초기화 의도.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, spaceName]);
 
   const handleDelete = async (memberName: string) => {
