@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,9 @@ export function CreateClassroomDialog({
     reset: resetMutation,
   } = useClassroomCreate();
 
-  const resetForm = () => {
+  // v0.142b: useCallback([resetMutation]) 로 안정 참조 (Codex 지적 · react-query
+  // reset 은 observer stable bind). setter 들은 React 가 이미 stable 보장.
+  const resetForm = useCallback(() => {
     setName('');
     setSection('');
     setDescription('');
@@ -44,13 +46,13 @@ export function CreateClassroomDialog({
     setOwnerId('me');
     setCourseState('PROVISIONED');
     resetMutation?.();
-  };
+  }, [resetMutation]);
 
   useEffect(() => {
     if (open) {
       resetForm();
     }
-  }, [open]);
+  }, [open, resetForm]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (isPending) return;
