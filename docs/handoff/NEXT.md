@@ -1,16 +1,16 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.141 병합 완료** (`0c8905e`) - exhaustive-deps logical expression 6건 fix (13 → 7) · 2 라운드 Codex 감사 + F125.
-> **Antigravity 위임 7번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140 에 이어 v0.141 마무리 사이클 정상 응답 및 성공 완료 (병합/배포/문서/공지 일괄 수행).
+> **v0.142 병합 완료** (`d4932e9`) - exhaustive-deps missing dep 3건 실제 fix (7 → 4) · 2 라운드 Codex 감사 + F126.
+> **Antigravity 위임 8번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141 에 이어 v0.142 마무리 사이클 정상 응답 및 성공 완료 (병합/배포/문서/공지 일괄 수행).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `d4932e9` v0.142 - exhaustive-deps missing dep 3건 실제 fix (7 → 4) + 2 라운드 Codex 감사 + F126.
 - `0c8905e` v0.141 - exhaustive-deps logical expression 6건 fix (13 → 7) + 2 라운드 Codex 감사 + F125.
 - `52e41bf` v0.140 - web ESLint 관문 (Codex v0.138 소프트 권고 반영) + 2 라운드 Codex 감사 + F124.
 - `4ad74c9` v0.139 - sortHeader.ts helper 단위 테스트 (Codex v0.138 소프트 권고 반영) + 1 라운드 Codex 감사 + v0.139b.
 - `60c404b` v0.138 - 정렬 헤더 키보드 접근성 3화면 대칭 (ClassroomTable/AccountsTable/GroupsTable sortHeader.ts helper) + 1 라운드 Codex 감사.
-- `e71286c` v0.137 - ClassroomTable 검색 · KPI 필터 · 정렬 · 「필터 초기화」 (AccountsTable/GroupsTable 대칭) + F121/F122/F123.
 
 ## 다음 후보 (Head 자율 실행 예정)
 

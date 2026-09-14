@@ -2448,3 +2448,50 @@ ROADMAP 남은 후보 (v0.142+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-14 · v0.142 exhaustive-deps missing dep 실제 fix (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `27c0934` | fix: v0.142 exhaustive-deps missing dep 3건 fix (7 → 4) |
+| 라운드 1 정정 | `a82ddd0` | fix: v0.142b Codex F126 대응 (disable 대신 실제 fix · react-query reset stable) |
+| 병합 | `d4932e9` | Merge feat/exhaustive-deps-missing-v142 into main - v0.142 exhaustive-deps missing dep 3건 실제 fix (7 → 4) + F126 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `27c0934` | 통과 7 / 실패 2 / 판정불가 1 | F126: `CreateClassroomDialog.tsx:53` resetMutation 이 신규 참조라는 주석은 사실 오류 (tanstack-query 5.102.8 `mutationObserver.ts:54,62` 에서 reset 은 stable bind). `CreateClassroomDialog.tsx:39` resetForm 을 `useCallback([resetMutation])` 로 안정화 가능하므로 disable 주석 불필요. 판정불가: read-only sandbox EPERM (Vitest 재실행 불가, Head 가 web 887 통과 실 확인) |
+| 2 | `a82ddd0` | 통과 7 / 실패 0 / 판정불가 1 | 통과 · 병합 승인. AddChatMemberDialog (`resetAddMutation = addMutation.reset` 구조분해 · deps `[open, resetAddMutation]`), ChatSpaceMembersDialog (`resetDeleteMutation = deleteMutation.reset` 구조분해 · deps `[open, spaceName, resetDeleteMutation]`), CreateClassroomDialog (resetForm `useCallback(..., [resetMutation])` 안정화 · deps `[open, resetForm]`). disable 주석 3개 완전 제거. 남은 4 warning (`auditLogList.ts:154,180`) 만 존재. 판정불가: read-only sandbox EPERM |
+
+### 설계
+
+- **react-query reset stable bind 특성 활용**:
+  - `addMutation.reset` 과 `deleteMutation.reset` 은 TanStack Query `MutationObserver` 인스턴스 생성 시점에 바인딩된 stable 함수(`mutationObserver.ts:62`).
+  - 구조분해 할당(`const { reset: resetAddMutation } = useAddChatMemberMutation()`)으로 추출하여 `useEffect` 의 deps 에 직접 전달해도 매 렌더 재실행되지 않고 안전함.
+- **useCallback 으로 함수 참조 안정화**:
+  - `CreateClassroomDialog` 의 `resetForm` 은 내부에서 `resetMutation()` 및 React `useState` setter 들(`setName`, `setSection`, `setCustomId`, `setError`)을 호출.
+  - React setter 는 규약상 stable 참조가 보장되므로, `useCallback(..., [resetMutation])` 으로 감싸면 `resetForm` 자체도 stable 참조가 됨.
+  - 결과적으로 `useEffect(..., [open, resetForm])` 에서 disable 주석 없이 온전히 ESLint exhaustive-deps 규칙을 준수.
+
+### 배운 것
+
+- **Codex 는 실 라이브러리 소스 근거로 감사**:
+  - tanstack-query 소스 코드(`mutationObserver.ts`) 레벨에서 reset 메소드의 바인딩 방식을 직접 검증하여 무분별한 disable 주석 사용을 반박함.
+- **disable 은 최후 수단**:
+  - 의존성 경고가 발생했을 때 disable 주석으로 회피하기 전, 함수 분해/useCallback/stable 바인딩 등을 통해 실제 올바른 hook 규칙으로 리팩터링 가능한지 먼저 탐색해야 함.
+- **Antigravity 위임 8번째 사이클 성공**:
+  - v0.136, v0.137, v0.138, v0.139, v0.140, v0.141 에 이어 v0.142 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.143+):
+- **exhaustive-deps 잔여 4건 fix**: `auditLogList.ts:154,180` (filters missing dep + complex expression) - filters hook 자체 재구성 필요.
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
+
