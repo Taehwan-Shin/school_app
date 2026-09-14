@@ -138,8 +138,10 @@ export function useAuditLogList(
   const filterActionsList = filters?.filterActions;
   const atMin = filters?.atMin;
   const atMax = filters?.atMax;
+  // v0.143b Codex F127: join(',') 은 ['a,b','c'] vs ['a','b,c'] 충돌. JSON
+  // 직렬화로 정확 key.
   const filterActionsKey = useMemo(
-    () => (filterActionsList ?? []).join(','),
+    () => JSON.stringify(filterActionsList ?? []),
     [filterActionsList],
   );
 
