@@ -100,6 +100,8 @@ export function ClassroomTable() {
   // v0.141: `data?.courses ?? []` 는 매 렌더 새 참조 (falsy path) 라 하위
   // useMemo 의 dep array 가 안정되지 않는다. useMemo 로 감싸 data.courses 가
   // 실제로 바뀔 때만 새 배열 생성 (v0.140 lint 도입으로 표면화된 warning fix).
+  // 남은 v0.142+ 스코프: missing dep 5 (addMutation · deleteMutation ·
+  // resetForm · auditLogList filters ×2) + complex expression 2 (auditLogList).
   const courses = useMemo(() => data?.courses ?? [], [data?.courses]);
 
   const sortedFilteredCourses = useMemo(() => {
