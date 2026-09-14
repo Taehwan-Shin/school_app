@@ -39,6 +39,8 @@ export function ChatSpaceMembersDialog({
   const [deleteConfirmName, setDeleteConfirmName] = useState<string | null>(null);
   const deleteMutation = useChatMembersDelete();
   const anyPending = deleteMutation.isPending;
+  // v0.142b: react-query reset 은 stable bind (Codex 지적).
+  const resetDeleteMutation = deleteMutation.reset;
 
   const { data, isLoading, isError, error } = useChatMembersList(spaceName, open);
 
@@ -52,12 +54,9 @@ export function ChatSpaceMembersDialog({
   useEffect(() => {
     if (open && spaceName) {
       setDeleteConfirmName(null);
-      deleteMutation.reset?.();
+      resetDeleteMutation?.();
     }
-    // v0.142: deleteMutation 은 매 렌더 신규 참조 (react-query 반환). dep 에
-    // 넣으면 무한 루프 · 여기선 open/spaceName transition 에서만 초기화 의도.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, spaceName]);
+  }, [open, spaceName, resetDeleteMutation]);
 
   const handleDelete = async (memberName: string) => {
     try {

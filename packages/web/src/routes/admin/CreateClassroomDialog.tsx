@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,9 @@ export function CreateClassroomDialog({
     reset: resetMutation,
   } = useClassroomCreate();
 
-  const resetForm = () => {
+  // v0.142b: useCallback([resetMutation]) 로 안정 참조 (Codex 지적 · react-query
+  // reset 은 observer stable bind). setter 들은 React 가 이미 stable 보장.
+  const resetForm = useCallback(() => {
     setName('');
     setSection('');
     setDescription('');
@@ -44,17 +46,13 @@ export function CreateClassroomDialog({
     setOwnerId('me');
     setCourseState('PROVISIONED');
     resetMutation?.();
-  };
+  }, [resetMutation]);
 
   useEffect(() => {
     if (open) {
       resetForm();
     }
-    // v0.142: resetForm 은 매 렌더 신규 참조 + resetMutation (react-query)
-    // 도 신규 참조. dep 에 넣으면 무한 루프 · 여기선 open transition 에서만
-    // 초기화 의도.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, resetForm]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (isPending) return;

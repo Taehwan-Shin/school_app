@@ -27,16 +27,16 @@ export function AddChatMemberDialog({
 }: AddChatMemberDialogProps) {
   const [email, setEmail] = useState('');
   const addMutation = useChatMembersAdd();
+  // v0.142b: react-query 의 reset 은 observer 가 stable bind 유지 → dep 로
+  // 안전하게 사용 가능 (Codex 지적).
+  const resetAddMutation = addMutation.reset;
 
   useEffect(() => {
     if (open) {
       setEmail('');
-      addMutation.reset?.();
+      resetAddMutation?.();
     }
-    // v0.142: addMutation 은 매 렌더 신규 참조 (react-query 반환). dep 에
-    // 넣으면 무한 루프 · 여기선 open transition 에서만 초기화 의도.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, resetAddMutation]);
 
   const handleOpenChange = (next: boolean) => {
     if (!next && addMutation.isPending) return;
