@@ -1,11 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.144 병합 완료** (`e88730b`) - CreateUserDialog 클래스룸 UX 개선 (bliss00 실 UX 피드백 반영) · 1 라운드 Codex 통과.
-> **Antigravity 위임 10번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143 에 이어 v0.144 마무리 사이클 정상 응답 및 성공 완료.
+> **v0.145 병합 완료** (`2f66aa0`) - 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅) · 1 라운드 Codex 통과.
+> **Antigravity 위임 11번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144 에 이어 v0.145 마무리 사이클 정상 응답 및 성공 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `2f66aa0` v0.145 - 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅) · 3 CSV drop/preview/실행 · papaparse · 1 라운드 Codex 통과.
 - `e88730b` v0.144 - CreateUserDialog 클래스룸 UX 개선 (bliss00 실 사용 피드백) · 2컬럼 grid · 이름순 정렬 + 검색 · 선택 유지 + 1 라운드 Codex 통과.
 - `f370ea2` v0.143 - auditLogList filters hook 재구성 · exhaustive-deps 마지막 4 warning 해소 (13→0 완주) + 2 라운드 Codex 감사 + F127.
 - `d4932e9` v0.142 - exhaustive-deps missing dep 3건 실제 fix (7 → 4) + 2 라운드 Codex 감사 + F126.
@@ -17,9 +18,9 @@
 ## 다음 후보 (Head 자율 실행 예정)
 
 `docs/handoff/ROADMAP.md` Phase 5/6 남은 항목:
-- **전입생 계정 개별 생성 UX 세부 확장** — `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로 (v0.119 는 기본 폼만 커버).
-- **계정 삭제 안내 메일** — SendGrid 등 3rd party 이메일 서비스 필요.
-- **첫 audit fallback 검증** — v0.133 sink 배포 완료 · 실 fallback 발생 후 BigQuery smoke test 필요.
+- **전입생 계정 개별 생성 UX 세부 확장** - `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로 (v0.119 는 기본 폼만 커버).
+- **계정 삭제 안내 메일** - SendGrid 등 3rd party 이메일 서비스 필요.
+- **첫 audit fallback 검증** - v0.133 sink 배포 완료 · 실 fallback 발생 후 BigQuery smoke test 필요.
 - **(d)** 사용자 지시 그 외.
 
 ## 안티그래비티 위임 template (bliss00 승인 2026-09-11)

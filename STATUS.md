@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.145+) | 사용자 | 답 대기 | v0.104~v0.144 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps 13건 경고 전량 해소 (13→0 완주) · CreateUserDialog 클래스룸 UX 개선 (2컬럼 grid, 정렬/검색, 선택 유지). Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
+| 다음 제품 방향 확정 (v0.146+) | 사용자 | 답 대기 | v0.104~v0.145 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps 13건 경고 전량 해소 (13→0 완주) · CreateUserDialog 클래스룸 UX 개선 (2컬럼 grid, 정렬/검색, 선택 유지) · 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅). Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.145 | `2f66aa0` (main) | 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 Apps Script createAndInviteClassrooms 웹 포팅). 3 CSV drop → 파싱 → preview → 실행. 신규 papaparse (~50KB) + @types/papaparse · 신규 neisCsvParse.ts (parser + plan builder) + NeisCsvImportDialog.tsx (3-phase select/preview/running/done · 진행률 · 실패 격리). ClassroomTable 「나이스 CSV 일괄 생성」 버튼 (conditional mount 로 useQueryClient 미제공 테스트 회피). 원본 컬럼 인덱스 그대로 (classroom C1/E/F/G/H · teacher B/G · student B/K · 헤더 3/1/1행 skip). Classroom.Courses.create({courseState:ACTIVE}) 로 원본 create+patch 2단계를 1단계로. Owner: CSV C1 우선 · 없으면 me. 웹 898 (+8) 유닛 · lint clean · 서버 변경 없음 (기존 API 재사용). 1 라운드 Codex 통과 |
 | v0.144 | `e88730b` (main) | CreateUserDialog 클래스룸 UX 개선 (bliss00 실 사용 피드백). 다이얼로그 폭 max-w-md → max-w-4xl · 폼 (왼쪽) · 클래스룸 배정 (오른쪽) 2컬럼 grid (md 이상). 이름순 정렬 + 검색 (이름/섹션/id 부분 일치). 검색 결과 없음 안내 · 선택 유지 (필터 밖도 selectedIds 유지 · 계정 생성 시 그대로 배정). 리스트 max-height 40 → 96. 웹 890 (+3) 유닛. 서버 변경 없음. 1 라운드 Codex 통과 |
 | v0.143 | `f370ea2` (main) | auditLogList filters hook 재구성 · exhaustive-deps 마지막 4 warning 해소 (13→0 완주). filters 필드 원시 분해 · filterActions 는 JSON.stringify(useMemo) key (F127 join collision 대응). filterActionsList 는 dep 제외 (참조 신규 위험) · disable 주석 이유 명시. 웹 887 유닛 · lint exit 0 · warning 0. 서버 변경 없음. 2 라운드 Codex 감사 |
 | v0.142 | `d4932e9` (main) | exhaustive-deps missing dep 3건 실제 fix (7 → 4). AddChatMemberDialog · ChatSpaceMembersDialog · CreateClassroomDialog 세 다이얼로그의 useEffect (open transition 초기화) 를 disable 주석 없이 실제 hooks 규칙 만족. AddChat/ChatSpaceMembers 는 mutation.reset 구조분해 · CreateClassroom 은 resetForm useCallback([resetMutation]). F126 라운드 1 정정 (react-query mutation.reset 은 observer stable bind, tanstack-query 5.102.8 mutationObserver.ts:54,62 확인). Codex 지적 원문 반영 · disable 주석 대신 실제 refactor 방식 채택. 남은 4 warning (auditLogList filters missing + complex expression) 은 v0.143+ 유보. 웹 887 유닛 · lint exit 0. 서버 변경 없음. 2 라운드 Codex 감사 |

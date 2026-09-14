@@ -2587,4 +2587,58 @@ ROADMAP 남은 후보 (v0.145+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-15 · v0.145 나이스 CSV 일괄 클래스룸 생성 + 초대 (1 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `34fe149` | feat: v0.145 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 포팅) |
+| 병합 | `2f66aa0` | Merge feat/neis-csv-import-v145 into main - v0.145 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 Apps Script createAndInviteClassrooms 웹 포팅) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `34fe149` | 통과 6 / 실패 0 | 통과 · 병합 승인. bliss00 실 요청 반영. 원본 Apps Script createAndInviteClassrooms 웹 포팅. 3 CSV drop → papaparse 파싱 → preview → 실행 원버튼. 원본 컬럼 인덱스 그대로 (classroom C1/E/F/G/H · teacher B/G · student B/K · 헤더 3/1/1행 skip). Classroom.Courses.create({courseState:ACTIVE}) 로 원본 create+patch 2단계를 1단계로 단축. Owner: CSV C1 우선 · 없으면 me. 신규 papaparse + @types/papaparse, neisCsvParse.ts, NeisCsvImportDialog.tsx, ClassroomTable 액션바 통합. 웹 898 (+8) 유닛, lint exit 0, 서버 변경 없음 (기존 API 재사용). |
+
+### 설계
+
+- **원본 Apps Script 3개 탭 조합 워크플로우 웹 포팅**:
+  - 원본 createAndInviteClassrooms 흐름(`1.클래스룸생성&초대`, `교사과목정리`, `학생과목정리`)을 웹에서 그대로 수행할 수 있도록 3개 CSV 파일 업로드 인터페이스 구축.
+  - `classroom.csv`: C1=ownerEmail, row 4+ 데이터, E열=과목-반(`subjectClass`), F열=코스이름(`courseName`), G열=만들기(TRUE/FALSE), H열=classroomId (output).
+  - `teachers.csv`: row 2+ 데이터, B열=과목-반(`subjectClass`), G열=교사 이메일(`email`).
+  - `students.csv`: row 2+ 데이터, B열=과목-반(`subjectClass`), K열=학생 이메일(`email`).
+- **파싱 및 플랜 생성 (`neisCsvParse.ts`)**:
+  - edge case(따옴표, 쉼표, 개행 등)에 견고한 `papaparse` 라이브러리를 채택하여 브라우저 환경에서 안정적인 CSV 파싱 구현.
+  - 양식별 헤더 행 자동 스킵 (classroom 3행, teachers 1행, students 1행 건너뛰기).
+  - G열이 'TRUE'(대소문자 무관)인 row 만 필터링하여 생성 대상 추출.
+  - `subjectClass` 를 매칭 키로 사용하여 대상 코스에 배정될 교사/학생 목록을 매핑하는 실행 플랜(`ImportPlan`) 구축.
+  - 소유자(Owner) 결정: `classroom.csv` 의 C1 셀 이메일 우선 적용, 미지정 시 로그인 사용자(`me`) 적용.
+- **3-Phase 실행 다이얼로그 (`NeisCsvImportDialog.tsx`)**:
+  - Select Phase: 3개 파일 drag & drop 또는 개별 파일 선택 UI.
+  - Preview Phase: 파싱 결과 요약(생성 코스 N개, 매칭 교사 M명, 학생 K명) 및 코스별 상세 테이블 미리보기 제공.
+  - Running/Done Phase: 순차 생성 (`classroomCreate({courseState: ACTIVE})` 로 원본 create + patch 2단계를 1단계로 단축), 과목별 교사/학생 순차 추가 (`classroomTeachersAdd`, `classroomStudentsAdd`).
+  - 개별 실패 격리: 특정 교사/학생 추가 실패가 전체 배치를 중단시키지 않고 실패 목록에 기록되며 다음 항목 계속 진행. 진행률 표시줄 및 완료 요약(생성된 courseId, 교사/학생 성공/실패 카운트) 제공.
+- **ClassroomTable 액션바 통합**:
+  - 클래스룸 관리 화면 상단 액션바에 「나이스 CSV 일괄 생성」 버튼 신설.
+  - 다이얼로그를 conditional mount 로 구성하여 불필요한 useQueryClient hook 실행 및 테스트 환경 충돌 회피.
+
+### 배운 것
+
+- **사용자 기존 업무 양식 보존의 가치**:
+  - 나이스에서 내보낸 기존 CSV/엑셀 3개 파일 양식을 그대로 활용할 수 있도록 설계하여 사용자의 수동 편집 및 재가공 피로도를 최소화함.
+- **API 호출 단계 단축 및 효율화**:
+  - 원본 스크립트는 코스를 생성한 뒤 별도의 patch 호출로 `ACTIVE` 상태를 활성화했으나, 웹 포팅에서는 `create` 시점에 `courseState: ACTIVE` 를 전달함으로써 호출 횟수를 절반으로 줄이고 중간 실패 지점을 제거함.
+- **Antigravity 위임 11번째 사이클 성공**:
+  - v0.136~v0.144 에 이어 v0.145 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.146+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
