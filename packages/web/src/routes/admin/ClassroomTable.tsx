@@ -22,6 +22,7 @@ import {
 import { CreateClassroomDialog } from './CreateClassroomDialog';
 import { CourseBulkCreateDialog } from './CourseBulkCreateDialog';
 import { ClassroomChatPairBulkCreateDialog } from './ClassroomChatPairBulkCreateDialog';
+import { NeisCsvImportDialog } from './NeisCsvImportDialog';
 import {
   BulkArchiveClassroomDialog,
   type BulkArchiveDirection,
@@ -60,6 +61,7 @@ export function ClassroomTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBatchOpen, setIsBatchOpen] = useState(false);
   const [isPairOpen, setIsPairOpen] = useState(false);
+  const [isNeisOpen, setIsNeisOpen] = useState(false);
   // v0.115: 다중 선택 + bulk archive/restore.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDirection, setBulkDirection] = useState<BulkArchiveDirection | null>(null);
@@ -262,6 +264,13 @@ export function ClassroomTable() {
             data-testid="classroom-pair-create-btn"
           >
             학급 통합 생성
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsNeisOpen(true)}
+            data-testid="classroom-neis-import-btn"
+          >
+            나이스 CSV 일괄 생성
           </Button>
           <Button
             variant="secondary"
@@ -592,6 +601,9 @@ export function ClassroomTable() {
         open={isPairOpen}
         onOpenChange={setIsPairOpen}
       />
+      {isNeisOpen && (
+        <NeisCsvImportDialog open={true} onOpenChange={setIsNeisOpen} />
+      )}
       {bulkDirection !== null && (
         <BulkArchiveClassroomDialog
           open={true}
