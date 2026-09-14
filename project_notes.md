@@ -2539,4 +2539,52 @@ ROADMAP 남은 후보 (v0.144+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-14 · v0.144 CreateUserDialog 클래스룸 UX 개선 (1 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `2820e70` | feat: v0.144 CreateUserDialog 클래스룸 UX 개선 (bliss00 실 피드백) |
+| 병합 | `e88730b` | Merge feat/create-user-classroom-ux-v144 into main - v0.144 CreateUserDialog 클래스룸 UX 개선 (bliss00 실 UX 피드백 반영) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `2820e70` | 통과 6 / 실패 0 | 통과 · 병합 승인. bliss00 실 UX 피드백 반영. DialogContent max-w-4xl 폭 확장 및 2컬럼 grid, activeClassrooms 이름순 정렬(localeCompare), 검색 input(이름/섹션/id), 검색 필터 시 selectedIds 보존, resetForm 검색어 초기화, 리스트 max-height 96. 웹 890 (+3) 유닛, lint exit 0, 서버 변경 없음. |
+
+### 설계
+
+- **다이얼로그 폭 및 2컬럼 grid 레이아웃**:
+  - `DialogContent` 폭을 `max-w-md` 에서 `max-w-4xl` 로 확장.
+  - 폼 필드 (이메일, 이름, 비밀번호, 조직 단위) 는 왼쪽 컬럼, 클래스룸 배정 체크박스 영역은 오른쪽 컬럼으로 배치 (`grid grid-cols-1 md:grid-cols-2 gap-6`).
+  - 클래스룸 스크롤 영역의 높이를 `max-h-40` 에서 `max-h-96` 으로 확장하여 시인성 확보.
+- **이름순 정렬**:
+  - `activeClassrooms` 를 `courses.filter(...).sort((a, b) => a.name.localeCompare(b.name))` 로 정렬하여 이름 오름차순으로 안정적 제공.
+- **검색 및 선택 상태 분리/유지**:
+  - `searchTerm` 상태를 추가하여 클래스룸 이름, 섹션(`section`), ID 부분 일치(대소문자 무시) 검색 지원.
+  - 검색 필터링(`filteredClassrooms`)은 화면 표시용으로만 적용되며, 실제 선택된 목록(`selectedIds`)은 필터링 여부와 무관하게 온전히 유지되어 계정 생성 시 정상 배정됨.
+  - 검색어 초기화는 다이얼로그가 닫히거나 폼이 초기화될 때(`resetForm`) 함께 수행.
+  - 검색 결과가 없는 경우 「검색 결과가 없습니다」 안내 및 카운트(`선택됨 · 검색 결과 M/N`) 표시.
+
+### 배운 것
+
+- **실사용자 UX 피드백 반영**:
+  - 계정 생성 시 배정할 클래스룸이 많을 때 1컬럼 협소한 레이아웃과 무정렬/비검색 환경이 주는 피로도를 해소함.
+  - 다이얼로그 폭 확대 시 폼과 연계 선택 영역을 2컬럼으로 병렬 배치하면 입력 흐름과 선택 흐름이 동시에 보존됨.
+- **필터링과 다중 선택 상태의 직교성(orthogonality)**:
+  - 리스트를 검색/필터링할 때 화면 밖으로 숨겨진 요소의 선택 상태(`selectedIds`)를 클리어하지 않고 독립적으로 유지함으로써 사용자가 여러 검색어를 오가며 원하는 항목들을 누적 선택할 수 있게 됨.
+- **Antigravity 위임 10번째 사이클 성공**:
+  - v0.136~v0.143 에 이어 v0.144 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.145+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
 

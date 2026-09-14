@@ -1,11 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.143 병합 완료** (`f370ea2`) - auditLogList filters hook 재구성 · exhaustive-deps 마지막 4 warning 해소 (13→0 완주).
-> **Antigravity 위임 9번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142 에 이어 v0.143 마무리 사이클 정상 응답 및 성공 완료.
+> **v0.144 병합 완료** (`e88730b`) - CreateUserDialog 클래스룸 UX 개선 (bliss00 실 UX 피드백 반영) · 1 라운드 Codex 통과.
+> **Antigravity 위임 10번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143 에 이어 v0.144 마무리 사이클 정상 응답 및 성공 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `e88730b` v0.144 - CreateUserDialog 클래스룸 UX 개선 (bliss00 실 사용 피드백) · 2컬럼 grid · 이름순 정렬 + 검색 · 선택 유지 + 1 라운드 Codex 통과.
 - `f370ea2` v0.143 - auditLogList filters hook 재구성 · exhaustive-deps 마지막 4 warning 해소 (13→0 완주) + 2 라운드 Codex 감사 + F127.
 - `d4932e9` v0.142 - exhaustive-deps missing dep 3건 실제 fix (7 → 4) + 2 라운드 Codex 감사 + F126.
 - `0c8905e` v0.141 - exhaustive-deps logical expression 6건 fix (13 → 7) + 2 라운드 Codex 감사 + F125.
