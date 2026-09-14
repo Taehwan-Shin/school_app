@@ -97,7 +97,10 @@ export function ClassroomTable() {
     setSearchParams(next, { replace: false });
   };
 
-  const courses = data?.courses ?? [];
+  // v0.141: `data?.courses ?? []` 는 매 렌더 새 참조 (falsy path) 라 하위
+  // useMemo 의 dep array 가 안정되지 않는다. useMemo 로 감싸 data.courses 가
+  // 실제로 바뀔 때만 새 배열 생성 (v0.140 lint 도입으로 표면화된 warning fix).
+  const courses = useMemo(() => data?.courses ?? [], [data?.courses]);
 
   const sortedFilteredCourses = useMemo(() => {
     let result = courses;
