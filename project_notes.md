@@ -2494,4 +2494,49 @@ ROADMAP 남은 후보 (v0.143+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-14 · v0.143 auditLogList filters hook 재구성 (2 라운드 Codex 감사 + F127)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `bad7d46` | fix: v0.143 exhaustive-deps 마지막 4건 fix (auditLogList filters hook) |
+| 라운드 1 정정 | `9b7b4d4` | fix: v0.143b F127 (join collision -> JSON.stringify key) |
+| 병합 | `f370ea2` | Merge feat/audit-filters-hook-v143 into main - v0.143 auditLogList filters hook 재구성 (warning 4 -> 0 완주) + F127 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `bad7d46` | 통과 7 / 실패 1 / 판정불가 1 | F127: filterActions.join(',') 은 원소 내 쉼표가 있을 때 충돌 위험 (예: `['a,b', 'c']` vs `['a', 'b,c']`). 안전한 직렬화(JSON.stringify)로 대체 필요. 판정불가: read-only sandbox EPERM (Vitest 재실행 불가, Head 가 web 887 통과 실 확인) |
+| 2 | `9b7b4d4` | 통과 8 / 실패 0 / 판정불가 1 | 통과 · 병합 승인. `filterActionsKey = useMemo(() => JSON.stringify(filterActionsList ?? []), [filterActionsList])` 로 안정 키 생성. filters 원시 필드 분해 및 filterActionsList dep 제외(참조 신규 위험 방지, disable 주석에 이유 명시). warning 4 -> 0 완주. lint exit 0. 판정불가: read-only sandbox EPERM |
+
+### 설계
+
+- **filters 필드 원시 분해**:
+  - `filters` 객체는 호출측 인라인 객체라 매 렌더 새 참조를 생성함.
+  - `filterActor`, `filterTarget`, `filterResult`, `filterAction`, `filterActionsList`, `atMin`, `atMax` 로 원시 필드를 분해하여 `fetchPage` 와 `useEffect` 의 의존성으로 사용.
+- **filterActionsKey 문자열 키 안정화 (F127 대응)**:
+  - `filterActions` 배열도 인라인 생성 시 참조 신규 위험이 있으나 배열 내용을 기준으로 의존성을 감지해야 함.
+  - `join(',')` 방식의 구분자 충돌(`['a,b', 'c']` vs `['a', 'b,c']`)을 방지하기 위해 `useMemo(() => JSON.stringify(filterActionsList ?? []), [filterActionsList])` 로 정규화된 JSON 문자열 키를 추출하여 감지.
+  - `filterActionsList` 배열 자체는 의존성에서 제외하고 disable 주석에 명확한 사유를 기재하여 무한 루프 위험 원천 차단.
+
+### 배운 것
+
+- **배열 키 직렬화 시 구분자 충돌(join collision) 방어**:
+  - 배열 요소를 단일 문자열 키로 합칠 때 단순 `join(',')` 은 요소 자체에 구분자가 포함된 경우 충돌(collision)을 일으킬 수 있으므로, `JSON.stringify` 와 같은 완결된 직렬화 방식을 채택해야 함 (F127 교훈).
+- **exhaustive-deps warning 13 -> 0 완주**:
+  - v0.140 에서 ESLint 관문 도입 후 발견된 13개 경고를 논리 표현식 안정화(v0.141, 13 -> 7), React Query reset 안정 참조 및 useCallback 적용(v0.142, 7 -> 4), hook 필드 분해 및 배열 키 안정화(v0.143, 4 -> 0)의 3단계로 점진적이고 안전하게 전량 해결.
+- **Antigravity 위임 9번째 사이클 성공**:
+  - v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142 에 이어 v0.143 마무리 사이클(병합, 배포, 문서 갱신)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.144+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
 

@@ -75,6 +75,7 @@
 - **web ESLint 관문** - v0.140 완료 (Codex v0.138 소프트 권고 반영). packages/web/eslint.config.js 신규 (@typescript-eslint + eslint-plugin-react-hooks 7.1.1, rule='react-hooks/exhaustive-deps: warn') · lint 스크립트 확장 ('tsc --noEmit && eslint src tests', functions 대칭).
 - **exhaustive-deps logical fix** - v0.141 완료 (v0.140 ESLint warning 13 → 7). ClassroomTable (courses 4건) · ChatBulkInviteDialog (rosters 1) · ClassroomBulkInviteDialog (rosters 1) 세 파일의 fallback 표현식을 useMemo 로 안정화하여 falsy path 매 렌더 신규 참조 방지 및 하위 hook 재실행 안정성 확보.
 - **exhaustive-deps missing dep fix** - v0.142 완료 (v0.141 ESLint warning 7 → 4). AddChatMemberDialog · ChatSpaceMembersDialog · CreateClassroomDialog 세 다이얼로그의 useEffect open transition 초기화에서 disable 주석을 제거하고 tanstack-query mutation.reset observer stable bind 특성 및 resetForm useCallback([resetMutation]) 을 적용하여 exhaustive-deps 규칙 준수.
+- **exhaustive-deps auditLogList hook 재구성** - v0.143 완료 (v0.142 ESLint warning 4 → 0 완주). auditLogList.ts 의 filters 필드 원시 분해 및 filterActions key(useMemo + JSON.stringify) 도입으로 hook 의존성 배열 안정화 및 exhaustive-deps 경고 4건 전량 해소 (13→0 완주).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
