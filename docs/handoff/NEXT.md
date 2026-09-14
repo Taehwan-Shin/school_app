@@ -1,11 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.145 병합 완료** (`2f66aa0`) - 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅) · 1 라운드 Codex 통과.
-> **Antigravity 위임 11번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144 에 이어 v0.145 마무리 사이클 정상 응답 및 성공 완료.
+> **v0.146 병합 완료** (`479b075`) - CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix (bliss00 실 버그 리포트) · 2 라운드 Codex 통과.
+> **Antigravity 위임 12번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145 에 이어 v0.146 마무리 사이클 정상 응답 및 성공 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `479b075` v0.146 - CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix (bliss00 실 버그 리포트) · login scope 2개 추가 · 에러 상세/재시도 버튼 · bliss00 재동의 필수 · 2 라운드 Codex 통과.
 - `2f66aa0` v0.145 - 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅) · 3 CSV drop/preview/실행 · papaparse · 1 라운드 Codex 통과.
 - `e88730b` v0.144 - CreateUserDialog 클래스룸 UX 개선 (bliss00 실 사용 피드백) · 2컬럼 grid · 이름순 정렬 + 검색 · 선택 유지 + 1 라운드 Codex 통과.
 - `f370ea2` v0.143 - auditLogList filters hook 재구성 · exhaustive-deps 마지막 4 warning 해소 (13→0 완주) + 2 라운드 Codex 감사 + F127.

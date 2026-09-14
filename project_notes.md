@@ -2642,3 +2642,51 @@ ROADMAP 남은 후보 (v0.146+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-15 · v0.146 CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `c192bbf` | fix: v0.146 CreateUserDialog OU 목록 에러 상세 표시 + 재시도 (bliss00 리포트) |
+| 라운드 1 대응 | `884e4d9` | fix: v0.146b F128 대응 (login scope 에 admin.directory.orgunit(.readonly) 2개 추가) |
+| 병합 | `479b075` | Merge fix/orgunits-error-detail-v146 into main - v0.146 CreateUserDialog OU 목록 에러 상세 표시 + login scope 누락 fix (bliss00 리포트) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `c192bbf` | 통과 3 / 실패 1 | 실패 1 (F128): CreateUserDialog 에서 「다시 로그인」 안내를 표시했으나, 실제 GOOGLE_LOGIN_SCOPES 에 admin.directory.orgunit(.readonly) 스코프가 누락되어 재로그인해도 서버에서 insufficient_scope 가 계속 발생하는 근본 원인 지적. |
+| 2 | `884e4d9` | 통과 4 / 실패 0 | 통과 · 병합 승인. bliss00 실 버그 리포트 fix. GOOGLE_LOGIN_SCOPES 에 admin.directory.orgunit.readonly 및 admin.directory.orgunit 스코프 2개 추가. CreateUserDialog 에러 UI (실제 서버 응답 메시지 노출 · 「다시 시도」 refetch 버튼 · 401/403/scope 감지 시 재로그인 안내). tests/auth.test.ts 11 → 13 스코프 갱신. 웹 898 유닛 유지, lint exit 0, 서버 변경 없음. |
+
+### 설계
+
+- **Google Login Scope 누락 보완 (`packages/web/src/lib/auth.tsx`)**:
+  - v0.119(`orgunitsList`) 및 v0.121(`orgunitsCreate`) 도입 시점에 서버 callable은 해당 scope를 요구했으나, 클라이언트 `GOOGLE_LOGIN_SCOPES` 에 `admin.directory.orgunit.readonly` 와 `admin.directory.orgunit` 가 누락되어 있었음.
+  - 로그인 시 사용자에게 해당 권한 동의를 요청하도록 2개 스코프를 추가하여, 재로그인 시 유효한 access token을 발급받을 수 있도록 수정.
+  - `tests/auth.test.ts` 의 provider.addScope 호출 횟수(11 -> 13) 및 파라미터 검증 갱신.
+- **CreateUserDialog 에러 UI 및 진단성 강화 (`packages/web/src/routes/admin/CreateUserDialog.tsx`)**:
+  - 기존에는 OU 목록 로드 실패 시 단순히 「OU 목록 로드 실패」 텍스트만 표시되어 원인 파악이 어려웠음.
+  - `orgunitsQuery.error` 로부터 실제 에러 메시지(예: `insufficient_scope`, `http_403`)를 추출하여 함께 표시.
+  - 목록을 다시 불러올 수 있는 「다시 시도」 버튼 (`refetch`) 제공 (`isFetching` 중 disabled).
+  - 401, 403, scope, permission 키워드 감지 시 「로그아웃 후 다시 로그인하여 권한을 승인해 주세요」 안내(state-warning) 노출.
+
+### 배운 것
+
+- **권한 누락 버그의 근본 원인 추적**:
+  - UI 에러 처리(재로그인 유도 등)를 추가하더라도, 인증 흐름 자체에서 필요한 OAuth scope를 요청하지 않으면 사용자가 아무리 재로그인해도 동일한 `insufficient_scope` 오류가 반복됨.
+  - Codex 감사를 통해 표면적인 UI 개선에 그치지 않고 로그인 스코프 정의 누락이라는 근본 원인(F128)을 조기에 적발하여 해결할 수 있었음.
+- **실사용자 환경에서의 OAuth 동의 갱신 필요성**:
+  - 스코프가 추가된 배포 이후에도 기존 세션은 구 스코프로 발급된 토큰을 가지고 있으므로, 반드시 사용자가 로그아웃 후 재로그인하여 구글 재동의 화면에서 새 권한을 승인해야 정상 작동함. 공지 및 안내에 이 점을 명시하는 것이 필수적임.
+- **Antigravity 위임 12번째 사이클 성공**:
+  - v0.136~v0.145 에 이어 v0.146 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.147+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
