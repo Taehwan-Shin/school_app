@@ -385,11 +385,42 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   <span
                     className="text-state-danger ml-2"
                     data-testid="create-user-orgunits-error"
+                    title={orgunitsQuery.error?.message ?? '알 수 없는 오류'}
                   >
                     OU 목록 로드 실패
+                    {orgunitsQuery.error?.message ? (
+                      <span className="ml-1 text-micro font-mono">
+                        ({orgunitsQuery.error.message})
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => orgunitsQuery.refetch()}
+                      disabled={orgunitsQuery.isFetching}
+                      data-testid="create-user-orgunits-retry"
+                      className="ml-2 underline hover:text-fg-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      다시 시도
+                    </button>
                   </span>
                 )}
               </label>
+              {/* v0.146: OU 조회는 admin.directory.orgunit.readonly scope 필요.
+                  v0.119 이전 세션은 scope 미승인이라 여기서 401/403 발생 가능 —
+                  안내로 로그아웃/재로그인 유도. */}
+              {orgunitsQuery.isError &&
+                (orgunitsQuery.error?.message?.toLowerCase().includes('scope') ||
+                  orgunitsQuery.error?.message?.toLowerCase().includes('permission') ||
+                  orgunitsQuery.error?.message?.includes('403') ||
+                  orgunitsQuery.error?.message?.includes('401')) && (
+                  <p
+                    className="mt-1 text-micro text-state-warning"
+                    data-testid="create-user-orgunits-scope-hint"
+                  >
+                    권한 문제일 수 있습니다. 우측 상단 프로필 → 로그아웃 → 다시 로그인 (Google
+                    재동의 화면에서 「조직 단위 조회」 승인) 후 재시도.
+                  </p>
+                )}
               <input
                 id="orgUnitPath"
                 type="text"
