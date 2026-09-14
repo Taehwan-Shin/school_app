@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { auth } from '../lib/firebase';
 import { getGoogleAccessTokenFromSession } from '../lib/auth';
 
@@ -127,6 +127,22 @@ export function useAuditLogList(
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
 
+  // v0.143: 마지막 exhaustive-deps warning 4건 해소 (auditLogList).
+  // (1) filters 는 호출측 인라인 객체라 매 렌더 새 참조 · 각 필드를 원시로 분해.
+  // (2) filterActions 배열도 참조 신규 위험 → join(',') 로 안정 문자열 (key)
+  //     추출해 dep array 의 complex expression 경고 해소.
+  const filterActor = filters?.filterActor;
+  const filterTarget = filters?.filterTarget;
+  const filterResult = filters?.filterResult;
+  const filterAction = filters?.filterAction;
+  const filterActionsList = filters?.filterActions;
+  const atMin = filters?.atMin;
+  const atMax = filters?.atMax;
+  const filterActionsKey = useMemo(
+    () => (filterActionsList ?? []).join(','),
+    [filterActionsList],
+  );
+
   const fetchPage = useCallback(
     async (targetCursor?: AuditLogCursor, isReload = false) => {
       setLoading(true);
@@ -135,7 +151,13 @@ export function useAuditLogList(
         const res = await callAuditLogList({
           limit: pageSize,
           before: targetCursor,
-          ...filters,
+          filterActor,
+          filterTarget,
+          filterResult,
+          filterAction,
+          filterActions: filterActionsList,
+          atMin,
+          atMax,
         });
         if (isReload) {
           setEntries(res.entries);
@@ -151,7 +173,10 @@ export function useAuditLogList(
         setLoading(false);
       }
     },
-    [pageSize, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.filterAction, (filters?.filterActions ?? []).join(','), filters?.atMin, filters?.atMax]
+    // filterActionsList 는 참조 신규 위험 있어 filterActionsKey (정규화 문자열)
+    // 로 변경 감지. list 자체는 dep 에서 제외.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pageSize, filterActor, filterTarget, filterResult, filterAction, filterActionsKey, atMin, atMax]
   );
 
   useEffect(() => {
@@ -160,7 +185,16 @@ export function useAuditLogList(
     setError(null);
     setEntries([]);
     setCursor(undefined);
-    callAuditLogList({ limit: pageSize, ...filters })
+    callAuditLogList({
+      limit: pageSize,
+      filterActor,
+      filterTarget,
+      filterResult,
+      filterAction,
+      filterActions: filterActionsList,
+      atMin,
+      atMax,
+    })
       .then((res) => {
         if (!cancelled) {
           setEntries(res.entries);
@@ -177,7 +211,9 @@ export function useAuditLogList(
     return () => {
       cancelled = true;
     };
-  }, [pageSize, fetchTrigger, filters?.filterActor, filters?.filterTarget, filters?.filterResult, filters?.filterAction, (filters?.filterActions ?? []).join(','), filters?.atMin, filters?.atMax]);
+    // filterActionsList 는 참조 신규 위험 · filterActionsKey 로 대체 감지.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, fetchTrigger, filterActor, filterTarget, filterResult, filterAction, filterActionsKey, atMin, atMax]);
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || cursorRef.current === null || cursorRef.current === undefined) {
