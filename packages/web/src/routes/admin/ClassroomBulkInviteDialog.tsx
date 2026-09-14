@@ -67,7 +67,11 @@ function ClassroomBulkInviteDialogContent({
   const basicDataQuery = useBasicDataGet(selectedYear, open);
 
   const grades = basicDataQuery.data?.data?.grades ?? [];
-  const rosters = basicDataQuery.data?.data?.rosters ?? {};
+  // v0.141: rosters 는 하위 useMemo dep 로 쓰여 안정 참조 필요 (v0.140 lint 도입).
+  const rosters = useMemo(
+    () => basicDataQuery.data?.data?.rosters ?? {},
+    [basicDataQuery.data?.data?.rosters],
+  );
 
   const targets = useMemo(() => {
     if (!isYearValid(yearInput)) return [];
