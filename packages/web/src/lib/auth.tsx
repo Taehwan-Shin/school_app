@@ -39,6 +39,10 @@ export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.group.member.readonly',
   'https://www.googleapis.com/auth/admin.directory.group.member',
   'https://www.googleapis.com/auth/admin.directory.user.security',
+  // v0.146: OU 조회/생성. v0.119 (orgunitsList) · v0.121 (orgunitsCreate) 도입
+  // 시 로그인 스코프에 추가하지 못해 재로그인해도 insufficient_scope 발생.
+  'https://www.googleapis.com/auth/admin.directory.orgunit.readonly',
+  'https://www.googleapis.com/auth/admin.directory.orgunit',
   'https://www.googleapis.com/auth/chat.spaces',
   'https://www.googleapis.com/auth/chat.memberships',
   'https://www.googleapis.com/auth/classroom.courses',
