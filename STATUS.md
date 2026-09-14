@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.141+) | 사용자 | 답 대기 | v0.104~v0.140 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 모두 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
+| 다음 제품 방향 확정 (v0.142+) | 사용자 | 답 대기 | v0.104~v0.141 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps logical fix 모두 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.141 | `0c8905e` (main) | exhaustive-deps logical expression 6건 fix (v0.140 lint 도입 warning 13 → 7). ClassroomTable.tsx (courses 4건) · ChatBulkInviteDialog.tsx (rosters 1) · ClassroomBulkInviteDialog.tsx (rosters 1) 세 파일 공통 패턴 fix: 'const x = data?.foo ?? []' → useMemo(() => data?.foo ?? [], [data?.foo]) 로 falsy path 매 렌더 신규 참조 방지. F125 라운드 1 정정 (커밋 메시지 남은 warning breakdown 정확 = missing dep 5 + complex expression 2). 남은 7건 (auditLogList filters · addMutation · deleteMutation · resetForm) 은 v0.142+ 유보. 웹 887 유닛 · lint exit 0. 서버 변경 없음. 2 라운드 Codex 감사 |
 | v0.140 | `52e41bf` (main) | web ESLint 관문 추가 (Codex v0.138 소프트 권고 반영). 신규 packages/web/eslint.config.js - @typescript-eslint parser + plugin + eslint-plugin-react-hooks 7.1.1 (ESLint 10 지원). rule='react-hooks/exhaustive-deps: warn' (기존 disable 주석 4곳이 실제 계약 가지도록). lint 스크립트 확장: 'tsc --noEmit && eslint src tests' (functions 대칭). 새 devDeps: eslint@^10 · @typescript-eslint/{parser,eslint-plugin}@^8 · eslint-plugin-react-hooks@^7. F124 라운드 1 실패 (5.2 peer 범위 ESLint 9까지) → 7.1.1 로 업그레이드로 대응. 감지된 warning 13건 (exhaustive-deps) 은 기술부채, v0.141+ 파일별 fix 유보. 웹 887 유닛 · lint exit 0. 서버 변경 없음. 2 라운드 Codex 감사 |
 | v0.139 | `4ad74c9` (main) | sortHeader.ts helper 단위 테스트 (Codex v0.138 소프트 권고 반영). packages/web/tests/sortHeader.test.ts 신규 6 케이스: Enter/Space → preventDefault → onActivate 호출 순서 (invocationCallOrder) 고정 · Tab/a/Escape/ArrowDown/A/1 미호출 · 반환 3 필드 shape · extraClassName trim/append · focus-visible:ring class 문자열. v0.139b (9dad561) 로 소프트 권고 (호출 순서) 즉시 반영. 3화면 integration (v0.138) 과 helper unit (v0.139) 이 이중 회귀 방어. 웹 887 (+6) 유닛. 서버 변경 없음. 1 라운드 Codex 감사 |
 | v0.138 | `60c404b` (main) | 정렬 헤더 키보드 접근성 3화면 대칭 (Codex v0.137 소프트 권고 반영). 신규 sortHeader.ts helper (sortHeaderKbdProps): tabIndex=0 + onKeyDown(Enter/Space preventDefault + activate) + focus-visible ring class. ClassroomTable · AccountsTable · GroupsTable 총 9개 sortable 헤더에 spread 적용, 기존 onClick 유지 (마우스 회귀 보존). 각 화면 키보드 트리거 테스트 · dir 단독/unknown sort 초기화 disabled 판정 명시 테스트 추가 (F101 대칭). NEXT.md antigravity template 채널 공지 항목을 stdin 파이프로 명시 (v0.137 학습). 웹 881 (+6) 유닛. 서버 변경 없음. 1 라운드 Codex 감사 |

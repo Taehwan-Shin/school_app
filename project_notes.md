@@ -2404,3 +2404,47 @@ ROADMAP 남은 후보 (v0.141+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-14 · v0.141 exhaustive-deps logical expression fix (2 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `8207dd3` | fix: v0.141 exhaustive-deps logical expression 6건 fix (13 → 7) |
+| 라운드 1 정정 | `804b079` | docs: v0.141b Codex R1 정정 반영 (남은 warning breakdown 명시) |
+| 병합 | `0c8905e` | Merge feat/exhaustive-deps-logical-v141 into main - v0.141 exhaustive-deps logical expression 6건 fix (13 → 7) + F125 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `8207dd3` | 통과 8 / 실패 1 / 판정불가 1 | F125: 커밋 메시지가 「남은 7건은 missing dependency 패턴」이라 서술했으나 실제 breakdown 은 missing dep 5 + complex dependency expression 2. 판정불가: read-only sandbox EPERM (Vitest/Vite build 재실행 불가, Head 가 web 887 통과 실 확인) |
+| 2 | `804b079` | 통과 10 / 실패 0 / 판정불가 1 | 통과 · 병합 승인. ClassroomTable.tsx:103 주석에 정확한 breakdown 명시 (missing dep 5 · complex expression 2). 남은 warning 위치 5곳 근거 확인. 판정불가: read-only sandbox EPERM |
+
+### 설계
+
+- **useMemo 로 fallback 안정 참조**:
+  - `ClassroomTable.tsx` (courses 4건), `ChatBulkInviteDialog.tsx` (rosters 1건), `ClassroomBulkInviteDialog.tsx` (rosters 1건) 의 `const x = data?.foo ?? []` 공통 패턴 fix.
+  - `useMemo(() => data?.foo ?? [], [data?.foo])` 로 감싸 falsy path 에서 매 렌더 빈 배열 `[]` 이 신규 생성되는 것을 방지.
+- **TanStack Query dep 안정성**:
+  - query 캐시 데이터가 실제로 변경될 때만 참조가 갱신되도록 보장하여, 이를 의존하는 하위 useMemo / useEffect 의 불필요한 재계산 및 렌더링 루프 차단.
+
+### 배운 것
+
+- **Codex 는 메시지 정확성도 감사**:
+  - 코드 변경의 타당성뿐만 아니라 커밋 메시지나 문서상의 서술(남은 warning 분류 등)도 정밀 감사 대상임 (F125 교훈).
+- **남은 warning breakdown 관리 필수**:
+  - 기술부채로 유보한 잔여 경고(7건)에 대해 정확한 분류(missing dep 5건 + complex expression 2건)와 대상 위치(`auditLogList.ts:154,180`, `AddChatMemberDialog.tsx:36`, `ChatSpaceMembersDialog.tsx:57`, `CreateClassroomDialog.tsx:53`)를 명확히 기록해두어야 후속 슬라이스에서 혼선 없이 작업 가능.
+- **Antigravity 위임 7번째 사이클 성공**:
+  - v0.136, v0.137, v0.138, v0.139, v0.140 에 이어 v0.141 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 delegation reply 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.142+):
+- **exhaustive-deps 잔여 7건 fix**: missing dep 5건 + complex expression 2건 (`auditLogList.ts`, `AddChatMemberDialog.tsx`, `ChatSpaceMembersDialog.tsx`, `CreateClassroomDialog.tsx`).
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
