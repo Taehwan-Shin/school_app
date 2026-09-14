@@ -608,4 +608,85 @@ describe('CreateUserDialog component', () => {
     expect(mockCallClassroomStudentsAdd).not.toHaveBeenCalled();
     expect(mockCallClassroomTeachersAdd).not.toHaveBeenCalled();
   });
+
+  // v0.144: 클래스룸 리스트 정렬 · 검색.
+  describe('v0.144 클래스룸 정렬 · 검색', () => {
+    beforeEach(() => {
+      mockClassroomListQuery = {
+        data: {
+          courses: [
+            { id: 'c-3', name: '3학년 국어', courseState: 'ACTIVE' },
+            { id: 'c-1', name: '1학년 수학', courseState: 'ACTIVE' },
+            { id: 'c-2', name: '2학년 영어', courseState: 'ACTIVE' },
+            { id: 'c-arch', name: '보관됨', courseState: 'ARCHIVED' },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      };
+    });
+
+    it('클래스룸 리스트는 이름순 정렬 (asc)', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      const list = screen.getByTestId('create-user-classrooms-list');
+      const rows = Array.from(list.querySelectorAll('label'));
+      const names = rows.map((r) => r.textContent);
+      expect(names[0]).toContain('1학년 수학');
+      expect(names[1]).toContain('2학년 영어');
+      expect(names[2]).toContain('3학년 국어');
+    });
+
+    it('검색 input 이 이름/섹션/id 부분 일치 필터', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      const search = screen.getByTestId('create-user-classroom-search') as HTMLInputElement;
+
+      fireEvent.change(search, { target: { value: '수학' } });
+      expect(screen.getByTestId('create-user-classroom-cb-c-1')).toBeDefined();
+      expect(screen.queryByTestId('create-user-classroom-cb-c-2')).toBeNull();
+      expect(screen.queryByTestId('create-user-classroom-cb-c-3')).toBeNull();
+
+      // id 부분 일치 (case-insensitive).
+      fireEvent.change(search, { target: { value: 'C-2' } });
+      expect(screen.getByTestId('create-user-classroom-cb-c-2')).toBeDefined();
+      expect(screen.queryByTestId('create-user-classroom-cb-c-1')).toBeNull();
+
+      // 미일치 → search-empty.
+      fireEvent.change(search, { target: { value: 'zzzz' } });
+      expect(screen.getByTestId('create-user-classrooms-search-empty')).toBeDefined();
+    });
+
+    it('필터 후 이전 선택은 유지 · bulk 계정 생성 시 그대로 배정', async () => {
+      mockMutateAsync.mockResolvedValueOnce({ primaryEmail: 's@cam.hs.kr', uid: 'u1' });
+      mockCallClassroomStudentsAdd.mockResolvedValue({ student: {} });
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+
+      // c-1, c-3 선택.
+      fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
+      fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-3'));
+
+      // 검색 「영어」 → c-2 만 노출, c-1/c-3 는 필터 밖.
+      const search = screen.getByTestId('create-user-classroom-search');
+      fireEvent.change(search, { target: { value: '영어' } });
+      expect(screen.queryByTestId('create-user-classroom-cb-c-1')).toBeNull();
+
+      // 「선택됨: 2개 · 검색 결과 1/3」 안내.
+      const selected = screen.getByTestId('create-user-classrooms-selected');
+      expect(selected.textContent).toContain('선택됨: 2개');
+      expect(selected.textContent).toContain('1/3');
+
+      // 계정 생성 → c-1, c-3 두 개 모두 배정.
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
+      fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+
+      await waitFor(() => {
+        expect(mockCallClassroomStudentsAdd).toHaveBeenCalledTimes(2);
+      });
+      const calls = mockCallClassroomStudentsAdd.mock.calls.map((c: unknown[]) => (c[0] as { courseId: string }).courseId);
+      expect(calls.sort()).toEqual(['c-1', 'c-3']);
+    });
+  });
 });

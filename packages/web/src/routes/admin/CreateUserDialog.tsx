@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -68,8 +68,25 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   // enabled=open 으로 gate.
   const classroomsQuery = useClassroomList(open);
 
-  const activeClassrooms =
-    classroomsQuery.data?.courses?.filter((c) => c.courseState === 'ACTIVE') ?? [];
+  // v0.144: ACTIVE 코스만 대상 · 이름 순 (localeCompare) 정렬로 안정 표시.
+  // 원본 배열의 정렬을 건드리지 않도록 spread 후 sort.
+  const activeClassrooms = useMemo(() => {
+    const list = classroomsQuery.data?.courses?.filter((c) => c.courseState === 'ACTIVE') ?? [];
+    return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [classroomsQuery.data?.courses]);
+
+  // v0.144: 클래스룸 검색어 (이름 · 섹션 · id 부분 일치).
+  const [classroomSearch, setClassroomSearch] = useState('');
+  const filteredClassrooms = useMemo(() => {
+    const q = classroomSearch.trim().toLowerCase();
+    if (!q) return activeClassrooms;
+    return activeClassrooms.filter((c) => {
+      const name = (c.name || '').toLowerCase();
+      const section = (c.section || '').toLowerCase();
+      const id = (c.id || '').toLowerCase();
+      return name.includes(q) || section.includes(q) || id.includes(q);
+    });
+  }, [activeClassrooms, classroomSearch]);
 
   const resetForm = () => {
     setPrimaryEmail('');
@@ -79,6 +96,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     setOrgUnitPath('/');
     setClassroomRole('student');
     setSelectedClassroomIds(new Set());
+    setClassroomSearch('');
     setValidationError(null);
     setAssignResults(null);
     setIsAssigning(false);
@@ -244,13 +262,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
+      {/* v0.144: 클래스룸 배정을 오른쪽 컬럼으로 옮기려고 다이얼로그 폭 확장. */}
+      <DialogContent className="max-w-4xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>Google Workspace 계정 추가</DialogTitle>
             <DialogDescription>
-              새 사용자의 기본 정보를 입력하여 Google Workspace 계정을 생성합니다. 아래에서
-              기존 클래스룸을 선택하면 계정 생성 후 자동으로 배정합니다.
+              새 사용자의 기본 정보를 입력하여 Google Workspace 계정을 생성합니다.
+              오른쪽에서 기존 클래스룸을 선택하면 계정 생성 후 자동으로 배정합니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -283,7 +302,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             </div>
           )}
 
-          <div className="space-y-4">
+          {/* v0.144: 폼 (왼쪽) · 클래스룸 배정 (오른쪽) 2컬럼 (md 이상). */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
             <div>
               <label htmlFor="primaryEmail" className="text-small text-fg-secondary mb-1 block">
                 이메일 *
@@ -522,14 +543,15 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 </div>
               )}
             </div>
+            </div>
 
-            {/* v0.119: 클래스룸 자동 배정. */}
+            {/* v0.144: 클래스룸 자동 배정 = 오른쪽 컬럼. 이름순 정렬 + 검색 지원. */}
             <div className="space-y-2 border border-border-subtle p-3 bg-elevated">
               <p className="text-small text-fg-primary font-medium">
                 클래스룸 자동 배정 (선택)
               </p>
               <p className="text-small text-fg-secondary">
-                계정 생성 후 아래에서 체크한 클래스룸에 지정한 역할로 자동 추가합니다.
+                계정 생성 후 체크한 클래스룸에 지정한 역할로 자동 추가합니다.
               </p>
 
               <div
@@ -585,29 +607,59 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 </p>
               )}
               {activeClassrooms.length > 0 && (
-                <div
-                  className="max-h-40 overflow-y-auto border border-border-subtle bg-canvas p-2 space-y-1"
-                  data-testid="create-user-classrooms-list"
-                >
-                  {activeClassrooms.map((c) => (
+                <>
+                  {/* v0.144: 검색 input (이름 · 섹션 · id 부분 일치, case-insensitive). */}
+                  <div>
                     <label
-                      key={c.id}
-                      className="flex items-center gap-2 text-small text-fg-primary cursor-pointer"
+                      htmlFor="create-user-classroom-search"
+                      className="sr-only"
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedClassroomIds.has(c.id)}
-                        onChange={(e) => toggleClassroom(c.id, e.target.checked)}
-                        disabled={isBusy}
-                        data-testid={`create-user-classroom-cb-${c.id}`}
-                      />
-                      <span>{c.name || c.id}</span>
-                      {c.section && (
-                        <span className="text-fg-muted text-micro">({c.section})</span>
-                      )}
+                      클래스룸 검색
                     </label>
-                  ))}
-                </div>
+                    <input
+                      id="create-user-classroom-search"
+                      type="text"
+                      value={classroomSearch}
+                      onChange={(e) => setClassroomSearch(e.target.value)}
+                      placeholder={`클래스룸 검색 (총 ${activeClassrooms.length}개)`}
+                      disabled={isBusy}
+                      data-testid="create-user-classroom-search"
+                      className="w-full border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  {filteredClassrooms.length === 0 ? (
+                    <p
+                      className="text-small text-fg-muted py-2"
+                      data-testid="create-user-classrooms-search-empty"
+                    >
+                      검색 결과가 없습니다.
+                    </p>
+                  ) : (
+                    <div
+                      className="max-h-96 overflow-y-auto border border-border-subtle bg-canvas p-2 space-y-1"
+                      data-testid="create-user-classrooms-list"
+                    >
+                      {filteredClassrooms.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-2 text-small text-fg-primary cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedClassroomIds.has(c.id)}
+                            onChange={(e) => toggleClassroom(c.id, e.target.checked)}
+                            disabled={isBusy}
+                            data-testid={`create-user-classroom-cb-${c.id}`}
+                          />
+                          <span>{c.name || c.id}</span>
+                          {c.section && (
+                            <span className="text-fg-muted text-micro">({c.section})</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               {selectedClassroomIds.size > 0 && (
                 <p
@@ -615,6 +667,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   data-testid="create-user-classrooms-selected"
                 >
                   선택됨: {selectedClassroomIds.size}개
+                  {classroomSearch.trim().length > 0 &&
+                    ` · 검색 결과 ${filteredClassrooms.length}/${activeClassrooms.length}`}
                 </p>
               )}
             </div>
