@@ -49,14 +49,18 @@ export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/classroom.rosters',
 ] as const;
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(options?: { forceConsent?: boolean }) {
   const provider = new GoogleAuthProvider();
   for (const scope of GOOGLE_LOGIN_SCOPES) {
     provider.addScope(scope);
   }
+  // v0.147: forceConsent=true 일 때 prompt='consent' 로 Google 재동의 화면을
+  // 강제. Google 은 기본적으로 이미 승인된 scope 는 재동의 화면을 skip 하는데,
+  // 사용자의 이전 access token 에 우리 앱이 요구하는 최신 scope 가 없으면
+  // 다음 로그인에서도 그대로 부족한 채 로그인 완료돼 문제 반복.
   provider.setCustomParameters({
     hd: 'cam.hs.kr',
-    prompt: 'select_account',
+    prompt: options?.forceConsent ? 'consent' : 'select_account',
   });
   const result = await signInWithPopup(auth, provider);
   const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -64,6 +68,14 @@ export async function signInWithGoogle() {
     setGoogleAccessTokenToSession(credential.accessToken);
   }
   return result;
+}
+
+// v0.147: 스코프 부족 등으로 재인증이 필요한 경우 한 번의 호출로 (1) 세션 토큰
+// 삭제 (2) Firebase 로그아웃 (3) Google 재동의 강제 재로그인.
+export async function reauthorizeWithGoogle() {
+  clearGoogleAccessTokenFromSession();
+  await firebaseSignOut(auth);
+  return signInWithGoogle({ forceConsent: true });
 }
 
 export async function signInWithEmulator(email: string): Promise<void> {

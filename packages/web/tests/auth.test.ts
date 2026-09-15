@@ -36,6 +36,7 @@ import {
   signInWithEmulator,
   signInWithGoogle,
   signOut,
+  reauthorizeWithGoogle,
   getGoogleAccessTokenFromSession,
   setGoogleAccessTokenToSession,
   clearGoogleAccessTokenFromSession,
@@ -151,6 +152,59 @@ describe('Auth & Session Helpers', () => {
 
       expect(getGoogleAccessTokenFromSession()).toBeNull();
       expect(signOutMock).toHaveBeenCalled();
+    });
+  });
+
+  // v0.147: forceConsent 옵션 · reauthorizeWithGoogle 회귀.
+  describe('v0.147 signInWithGoogle({forceConsent}) · reauthorizeWithGoogle', () => {
+    it('default prompt 은 select_account', async () => {
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 't' });
+      await signInWithGoogle();
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'select_account' }),
+      );
+    });
+
+    it('forceConsent=true 이면 prompt 은 consent', async () => {
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 't' });
+      await signInWithGoogle({ forceConsent: true });
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'consent' }),
+      );
+    });
+
+    it('reauthorizeWithGoogle: session clear → firebase signOut → signIn(consent) 순서', async () => {
+      setGoogleAccessTokenToSession('old-token');
+      // signOut mock 이 실행되는 시점에 이미 session token 이 삭제되어 있는지
+      // 검사 (clear → signOut 순서 계약 고정).
+      let sessionAtSignOut: string | null = 'not-called';
+      signOutMock.mockImplementationOnce(async () => {
+        sessionAtSignOut = getGoogleAccessTokenFromSession();
+      });
+      // signIn mock 이 실행되는 시점에 signOut 이 이미 호출됐는지 검사.
+      let signOutCallCountBeforeSignIn = -1;
+      signInWithPopupMock.mockImplementationOnce(async () => {
+        signOutCallCountBeforeSignIn = signOutMock.mock.calls.length;
+        return { user: { uid: 'u1' } };
+      });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 'new-token' });
+
+      await reauthorizeWithGoogle();
+
+      // 1. signOut 이 호출됐고, 그 시점에 session token 이 이미 삭제됨.
+      expect(signOutMock).toHaveBeenCalledTimes(1);
+      expect(sessionAtSignOut).toBeNull();
+      // 2. signIn 이 signOut 이후에 호출됨 (호출 카운트 기준).
+      expect(signInWithPopupMock).toHaveBeenCalledTimes(1);
+      expect(signOutCallCountBeforeSignIn).toBe(1);
+      // 3. prompt=consent 로 재로그인.
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'consent' }),
+      );
+      // 4. 새 토큰 세션 저장.
+      expect(getGoogleAccessTokenFromSession()).toBe('new-token');
     });
   });
 });

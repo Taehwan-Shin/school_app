@@ -14,6 +14,7 @@ import { useOrgunitsCreate } from '../../api/orgunitsCreate';
 import { useClassroomList } from '../../api/classroomList';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
+import { reauthorizeWithGoogle } from '../../lib/auth';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -405,21 +406,40 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   </span>
                 )}
               </label>
-              {/* v0.146: OU 조회는 admin.directory.orgunit.readonly scope 필요.
-                  v0.119 이전 세션은 scope 미승인이라 여기서 401/403 발생 가능 —
-                  안내로 로그아웃/재로그인 유도. */}
+              {/* v0.146/v0.147: OU 조회 scope (admin.directory.orgunit(.readonly))
+                  이 세션 access token 에 없는 경우 자체 복구. v0.147 은 「재로그인」
+                  버튼으로 signOut + signIn(prompt=consent) 를 한 번에 실행. */}
               {orgunitsQuery.isError &&
                 (orgunitsQuery.error?.message?.toLowerCase().includes('scope') ||
                   orgunitsQuery.error?.message?.toLowerCase().includes('permission') ||
                   orgunitsQuery.error?.message?.includes('403') ||
                   orgunitsQuery.error?.message?.includes('401')) && (
-                  <p
-                    className="mt-1 text-micro text-state-warning"
+                  <div
+                    className="mt-1 space-y-1"
                     data-testid="create-user-orgunits-scope-hint"
                   >
-                    권한 문제일 수 있습니다. 우측 상단 프로필 → 로그아웃 → 다시 로그인 (Google
-                    재동의 화면에서 「조직 단위 조회」 승인) 후 재시도.
-                  </p>
+                    <p className="text-micro text-state-warning">
+                      Google 계정에 조직 단위 조회 권한이 부여되지 않았습니다. 아래 버튼을
+                      누르면 재로그인 · 재동의 화면에서 승인 후 자동 복구됩니다.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await reauthorizeWithGoogle();
+                          // 재로그인 성공 후 orgunits 재조회 트리거.
+                          await orgunitsQuery.refetch();
+                        } catch (e) {
+                          // 팝업 차단 · 사용자 취소는 무시 (기존 상태 유지).
+                          console.warn('reauthorize failed', e);
+                        }
+                      }}
+                      data-testid="create-user-orgunits-reauth-btn"
+                      className="text-small text-fg-primary underline hover:text-state-warning"
+                    >
+                      Google 재로그인 (권한 재승인)
+                    </button>
+                  </div>
                 )}
               <input
                 id="orgUnitPath"
