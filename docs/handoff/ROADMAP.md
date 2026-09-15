@@ -55,6 +55,7 @@
 - **CreateUserDialog 클래스룸 UX 개선** - v0.144 완료 (bliss00 실 사용 피드백). 다이얼로그 폭 2컬럼 grid (max-w-4xl, 왼쪽 폼 + 오른쪽 클래스룸 배정) · 클래스룸 이름순 정렬 (localeCompare) · 검색 input (이름/섹션/id 부분 일치) · 검색 결과 없음 안내 · 선택 유지 (selectedIds 유지) · 리스트 높이 확장 (max-h-96).
 - **나이스 CSV 일괄 클래스룸 생성 + 초대** - v0.145 완료 (bliss00 실 요청, 원본 Apps Script createAndInviteClassrooms 포팅). 3 CSV (1.클래스룸생성&초대 / 교사과목정리 / 학생과목정리) drop → papaparse 파싱 → 미리보기 (생성 대상/매칭 교사·학생 수) → 순차 생성 (Classroom.Courses.create courseState:ACTIVE) 및 교사/학생 add (실패 격리 · 진행률 표시). Owner 는 CSV C1 우선, 없으면 로그인 사용자.
 - **CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix** - v0.146 완료 (bliss00 실 버그 리포트). Google 로그인 스코프에 admin.directory.orgunit(.readonly) 2개 추가 · 에러 상세 문자열 노출 · 다시 시도 버튼 · 401/403/scope 감지 시 재로그인(재동의) 안내. auth.test.ts 11→13 갱신.
+- **CreateUserDialog OU 목록 재로그인 자동 복구 버튼** - v0.147 완료 (bliss00 실 버그 리포트 UX 자동화). reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · CreateUserDialog scope 에러 시 「Google 재로그인」 버튼 · 클릭 시 자동 재동의/복구 + OU 재조회. auth.test.ts 회귀 3건 (F129/F130). 3 라운드 Codex 통과.
 
 남은 후보:
 - **전입생 계정 개별 생성 UX 세부 확장** — v0.119 는 기본 폼 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로는 별도 확장 필요.

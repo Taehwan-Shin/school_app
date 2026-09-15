@@ -2690,3 +2690,53 @@ ROADMAP 남은 후보 (v0.147+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-16 · v0.147 CreateUserDialog OU 목록 재로그인 자동 복구 버튼 (3 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `ed55753` | fix: v0.147 OU 목록 재로그인 자동 복구 버튼 (prompt=consent 강제) |
+| 라운드 1 대응 | `9957a06` | test: v0.147b F129 (forceConsent · reauthorizeWithGoogle 회귀 3건) |
+| 라운드 2 대응 | `6672c34` | test: v0.147c F130 (reauthorize 세션 clear→signOut 실 순서 assertion) |
+| 병합 | `6894567` | Merge fix/orgunits-reauth-button-v147 into main - v0.147 OU 목록 재로그인 자동 복구 버튼 (bliss00 리포트 대응) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ed55753` | 통과 3 / 실패 1 | 실패 1 (F129): reauthorizeWithGoogle 및 signInWithGoogle({forceConsent}) 에 대한 단위 테스트 부재로 prompt 파라미터 전달 및 재인증 흐름 회귀 방어 불가 지적. |
+| 2 | `9957a06` | 통과 3 / 실패 1 | 실패 1 (F130): reauthorizeWithGoogle 테스트에서 session token clear 와 Firebase signOut 간의 실제 실행 순서 검증 및 clear assertion 이 부실하여 세션 누수 방지 계약 불완전 지적. |
+| 3 | `6672c34` | 통과 4 / 실패 0 | 통과 · 병합 승인. session token clear -> signOut -> signIn(consent) 실 순서 assertion 및 auth.test.ts 회귀 3건 완비. CreateUserDialog 에러 UI 에서 「Google 재로그인」 버튼 클릭 시 원클릭 자동 복구. 웹 901 (+3) 유닛, lint exit 0, 서버 변경 없음. |
+
+### 설계
+
+- **reauthorizeWithGoogle 헬퍼 및 forceConsent 지원 (`packages/web/src/lib/auth.tsx`)**:
+  - Google OAuth `prompt: 'select_account'` 는 계정 선택만 유도하고 기 승인된 scope에 대해 동의 화면을 건너뛰므로 새 scope 인가 기회가 주어지지 않음.
+  - `signInWithGoogle({ forceConsent?: boolean })` 옵션을 도입하여 `forceConsent: true` 시 `prompt: 'consent'` 를 설정하여 Google 동의 화면을 강제 표시하도록 구현.
+  - `reauthorizeWithGoogle` 헬퍼에서 `clearGoogleAccessTokenFromSession()` -> `firebaseSignOut()` -> `signInWithGoogle({ forceConsent: true })` 순서로 세션을 초기화하고 강제 재동의를 수행.
+  - `packages/web/tests/auth.test.ts` 에 default prompt, forceConsent prompt, 그리고 clear -> signOut -> signIn 호출 순서 및 세션 비움 assertion 3건 추가.
+- **CreateUserDialog 에러 화면 원클릭 자동 복구 (`packages/web/src/routes/admin/CreateUserDialog.tsx`)**:
+  - OU 목록 로드 실패 시 401, 403, scope, permission 키워드가 감지되면 기존 단순 안내 문구 대신 **「Google 재로그인 (권한 재승인)」** 버튼을 노출.
+  - 사용자가 버튼을 클릭하면 `reauthorizeWithGoogle()` 을 호출하여 브라우저에서 즉시 권한 재승인 팝업을 띄우고, 재인증 성공 시 자동으로 OU 목록 재조회(`refetch()`)를 수행.
+  - 재인증 진행 중(`isReauthorizing`) 버튼 비활성화 및 로딩 상태 표시, 실패 시 에러 알림.
+
+### 배운 것
+
+- **OAuth 권한 갱신 UX 자동화의 중요성**:
+  - 스코프 추가 후 사용자에게 수동 "로그아웃 -> 재로그인"을 안내하더라도 Google의 기본 `select_account` 프롬프트로 인해 동의 화면이 생략될 수 있으며 사용자에게 번거로움을 줌. `prompt: 'consent'` 강제 및 원클릭 복구 버튼 제공으로 UX 마찰을 최소화하고 권한 불일치를 안정적으로 해소함.
+- **순서 계약의 철저한 테스트 검증 (F129/F130)**:
+  - 인증 세션 정리 작업은 비동기 호출 간의 실행 순서가 매우 중요함. Mock 객체의 호출 횟수뿐만 아니라, signOut 시점에 세션이 이미 비워졌는지, signIn 전에 signOut이 완료되었는지를 명시적으로 검증해야 함.
+- **Antigravity 위임 13번째 사이클 성공**:
+  - v0.136~v0.146 에 이어 v0.147 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.148+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
+
