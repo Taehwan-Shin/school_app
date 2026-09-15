@@ -36,6 +36,7 @@ import {
   signInWithEmulator,
   signInWithGoogle,
   signOut,
+  reauthorizeWithGoogle,
   getGoogleAccessTokenFromSession,
   setGoogleAccessTokenToSession,
   clearGoogleAccessTokenFromSession,
@@ -151,6 +152,49 @@ describe('Auth & Session Helpers', () => {
 
       expect(getGoogleAccessTokenFromSession()).toBeNull();
       expect(signOutMock).toHaveBeenCalled();
+    });
+  });
+
+  // v0.147: forceConsent 옵션 · reauthorizeWithGoogle 회귀.
+  describe('v0.147 signInWithGoogle({forceConsent}) · reauthorizeWithGoogle', () => {
+    it('default prompt 은 select_account', async () => {
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 't' });
+      await signInWithGoogle();
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'select_account' }),
+      );
+    });
+
+    it('forceConsent=true 이면 prompt 은 consent', async () => {
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 't' });
+      await signInWithGoogle({ forceConsent: true });
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'consent' }),
+      );
+    });
+
+    it('reauthorizeWithGoogle: session clear → firebase signOut → signIn(consent) 순서', async () => {
+      setGoogleAccessTokenToSession('old-token');
+      signOutMock.mockResolvedValueOnce(undefined);
+      signInWithPopupMock.mockResolvedValueOnce({ user: { uid: 'u1' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 'new-token' });
+
+      await reauthorizeWithGoogle();
+
+      // signOut 이 signIn 보다 먼저 호출됨.
+      expect(signOutMock).toHaveBeenCalledTimes(1);
+      expect(signInWithPopupMock).toHaveBeenCalledTimes(1);
+      expect(signOutMock.mock.invocationCallOrder[0]).toBeLessThan(
+        signInWithPopupMock.mock.invocationCallOrder[0],
+      );
+      // prompt=consent 로 재로그인.
+      expect(setCustomParametersMock).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'consent' }),
+      );
+      // 새 토큰 세션 저장.
+      expect(getGoogleAccessTokenFromSession()).toBe('new-token');
     });
   });
 });
