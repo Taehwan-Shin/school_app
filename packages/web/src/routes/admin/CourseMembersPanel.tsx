@@ -199,16 +199,60 @@ export function CourseMembersPanel({
 
       {!showLoading && !isError && currentQuery.data && (
         <>
-          {tab === 'students' && courseId && (
-            <div className="flex justify-end mb-2">
+          {courseId && (
+            <div className="flex justify-end gap-2 mb-2">
+              {/* v0.148: 현재 탭 명단 CSV 내보내기 (원본 「명단 확인」 대응).
+                  파일명 = <코스이름>-<tab>-<YYYY-MM-DD>.csv. */}
               <Button
                 variant="secondary"
-                onClick={() => setBulkInviteOpen(true)}
-                disabled={anyPending}
-                data-testid="course-members-bulk-invite-btn"
+                onClick={() => {
+                  const header = ['이름', '이메일', 'userId'];
+                  const rows = items.map((m) => [
+                    m.profile?.name?.fullName || '',
+                    m.profile?.emailAddress || '',
+                    m.userId,
+                  ]);
+                  const csv = [header, ...rows]
+                    .map((row) =>
+                      row
+                        .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+                        .join(','),
+                    )
+                    .join('\n');
+                  const blob = new Blob(['﻿' + csv], {
+                    type: 'text/csv;charset=utf-8;',
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const safeName = (courseName || courseId).replace(/[\\/:*?"<>|]/g, '_');
+                  const today = new Date().toISOString().split('T')[0];
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${safeName}-${tab === 'teachers' ? '교사' : '학생'}-${today}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                disabled={items.length === 0 || anyPending}
+                data-testid="course-members-export-csv-btn"
+                title={
+                  items.length === 0
+                    ? '내보낼 명단이 없습니다.'
+                    : `${items.length}명 CSV 내보내기`
+                }
               >
-                학급 일괄 초대
+                CSV 내보내기 ({items.length})
               </Button>
+              {tab === 'students' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setBulkInviteOpen(true)}
+                  disabled={anyPending}
+                  data-testid="course-members-bulk-invite-btn"
+                >
+                  학급 일괄 초대
+                </Button>
+              )}
             </div>
           )}
           <div

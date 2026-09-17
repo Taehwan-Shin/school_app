@@ -778,4 +778,206 @@ describe('CourseMembersPanel component', () => {
     const input = screen.getByLabelText('이메일 추가') as HTMLInputElement;
     expect(input.id).toBe('course-members-add-email-input');
   });
+
+  // v0.148: 명단 CSV 내보내기 (원본 「명단 확인」 대응).
+  describe('v0.148 CSV 내보내기', () => {
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+    });
+    afterAll(() => {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    });
+
+    it('교사 탭에서 「CSV 내보내기 (N)」 버튼 · 명단 없으면 disabled', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: { teachers: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: { students: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      render(<CourseMembersPanel courseId="c-101" courseName="1학년 1반" />);
+      const btn = screen.getByTestId('course-members-export-csv-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.textContent).toContain('(0)');
+    });
+
+    it('교사 탭에서 명단 있으면 enabled · 클릭 시 CSV 파일 download 트리거', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: {
+          teachers: [
+            {
+              courseId: 'c-101',
+              userId: 't1',
+              profile: {
+                emailAddress: 't1@school.kr',
+                name: { fullName: '홍길동' },
+              },
+            },
+            {
+              courseId: 'c-101',
+              userId: 't2',
+              profile: {
+                emailAddress: 't2@school.kr',
+                name: { fullName: '김철수' },
+              },
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: { students: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      // anchor click intercept.
+      const clicks: Array<{ href: string; download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          Object.defineProperty(el, 'click', {
+            value: () =>
+              clicks.push({
+                href: (el as HTMLAnchorElement).href,
+                download: (el as HTMLAnchorElement).download,
+              }),
+          });
+        }
+        return el;
+      });
+
+      render(<CourseMembersPanel courseId="c-101" courseName="1학년 1반" />);
+      const btn = screen.getByTestId('course-members-export-csv-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+      expect(btn.textContent).toContain('(2)');
+      fireEvent.click(btn);
+
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+      expect(clicks).toHaveLength(1);
+      // 파일명: 코스이름-교사-YYYY-MM-DD.csv.
+      expect(clicks[0].download).toMatch(/^1학년 1반-교사-\d{4}-\d{2}-\d{2}\.csv$/);
+
+      spy.mockRestore();
+    });
+
+    it('학생 탭으로 전환하면 export 버튼 텍스트가 학생 카운트로 갱신 · 파일명도 학생', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: {
+          teachers: [
+            {
+              courseId: 'c-101',
+              userId: 't1',
+              profile: { emailAddress: 't@x.kr', name: { fullName: '교사' } },
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: {
+          students: [
+            {
+              courseId: 'c-101',
+              userId: 's1',
+              profile: { emailAddress: 's1@x.kr', name: { fullName: '학생1' } },
+            },
+            {
+              courseId: 'c-101',
+              userId: 's2',
+              profile: { emailAddress: 's2@x.kr', name: { fullName: '학생2' } },
+            },
+            {
+              courseId: 'c-101',
+              userId: 's3',
+              profile: { emailAddress: 's3@x.kr', name: { fullName: '학생3' } },
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          Object.defineProperty(el, 'click', {
+            value: () => clicks.push({ download: (el as HTMLAnchorElement).download }),
+          });
+        }
+        return el;
+      });
+
+      render(<CourseMembersPanel courseId="c-101" courseName="1학년 1반" />);
+      fireEvent.click(screen.getByTestId('course-members-tab-students'));
+
+      const btn = screen.getByTestId('course-members-export-csv-btn');
+      expect(btn.textContent).toContain('(3)');
+      fireEvent.click(btn);
+      expect(clicks[0].download).toMatch(/^1학년 1반-학생-\d{4}-\d{2}-\d{2}\.csv$/);
+
+      spy.mockRestore();
+    });
+
+    it('코스명에 파일시스템 금지 문자 (/ * ? 등) 있으면 _ 로 치환', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: {
+          teachers: [
+            {
+              courseId: 'c-1',
+              userId: 't1',
+              profile: { emailAddress: 't@x.kr', name: { fullName: 'A' } },
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: { students: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          Object.defineProperty(el, 'click', {
+            value: () => clicks.push({ download: (el as HTMLAnchorElement).download }),
+          });
+        }
+        return el;
+      });
+
+      render(<CourseMembersPanel courseId="c-1" courseName="1/2 * 반?" />);
+      fireEvent.click(screen.getByTestId('course-members-export-csv-btn'));
+      expect(clicks[0].download).toMatch(/^1_2 _ 반_-교사-\d{4}-\d{2}-\d{2}\.csv$/);
+
+      spy.mockRestore();
+    });
+  });
 });
