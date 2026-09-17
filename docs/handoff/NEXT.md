@@ -1,11 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.147 병합 완료** (`6894567`) - CreateUserDialog OU 목록 재로그인 자동 복구 버튼 (prompt=consent 강제) · 3 라운드 Codex 통과.
-> **Antigravity 위임 13번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146 에 이어 v0.147 마무리 사이클 정상 응답 및 성공 완료.
+> **v0.148 병합 완료** (`559ac45`) - classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) · 1 라운드 Codex 통과.
+> **Antigravity 위임 14번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147 에 이어 v0.148 마무리 사이클 정상 응답 및 성공 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `559ac45` v0.148 - classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) · CourseMembersPanel 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 sanitize · items 0 or anyPending 시 disabled · 1 라운드 Codex 통과.
 - `6894567` v0.147 - OU 목록 로드 실패 재발 대응 (bliss00 v0.146 후에도 리포트) · reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · CreateUserDialog 「Google 재로그인」 버튼 · 3 라운드 Codex 통과.
 - `479b075` v0.146 - CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix (bliss00 실 버그 리포트) · login scope 2개 추가 · 에러 상세/재시도 버튼 · bliss00 재동의 필수 · 2 라운드 Codex 통과.
 - `2f66aa0` v0.145 - 나이스 CSV 일괄 클래스룸 생성 + 초대 (원본 createAndInviteClassrooms 웹 포팅) · 3 CSV drop/preview/실행 · papaparse · 1 라운드 Codex 통과.

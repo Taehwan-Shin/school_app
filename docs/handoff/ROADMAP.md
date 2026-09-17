@@ -56,6 +56,7 @@
 - **나이스 CSV 일괄 클래스룸 생성 + 초대** - v0.145 완료 (bliss00 실 요청, 원본 Apps Script createAndInviteClassrooms 포팅). 3 CSV (1.클래스룸생성&초대 / 교사과목정리 / 학생과목정리) drop → papaparse 파싱 → 미리보기 (생성 대상/매칭 교사·학생 수) → 순차 생성 (Classroom.Courses.create courseState:ACTIVE) 및 교사/학생 add (실패 격리 · 진행률 표시). Owner 는 CSV C1 우선, 없으면 로그인 사용자.
 - **CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix** - v0.146 완료 (bliss00 실 버그 리포트). Google 로그인 스코프에 admin.directory.orgunit(.readonly) 2개 추가 · 에러 상세 문자열 노출 · 다시 시도 버튼 · 401/403/scope 감지 시 재로그인(재동의) 안내. auth.test.ts 11→13 갱신.
 - **CreateUserDialog OU 목록 재로그인 자동 복구 버튼** - v0.147 완료 (bliss00 실 버그 리포트 UX 자동화). reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · CreateUserDialog scope 에러 시 「Google 재로그인」 버튼 · 클릭 시 자동 재동의/복구 + OU 재조회. auth.test.ts 회귀 3건 (F129/F130). 3 라운드 Codex 통과.
+- **classroom 상세 명단 CSV 내보내기** - v0.148 완료 (원본 명단 확인 대응). CourseMembersPanel 에 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 sanitize · items 0 or anyPending 시 disabled · title 툴팁 · 1 라운드 Codex 통과.
 
 남은 후보:
 - **전입생 계정 개별 생성 UX 세부 확장** — v0.119 는 기본 폼 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로는 별도 확장 필요.

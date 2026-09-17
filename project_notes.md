@@ -2739,4 +2739,56 @@ ROADMAP 남은 후보 (v0.148+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-18 · v0.148 classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (1 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `ff39dde` | feat: v0.148 classroom 상세 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) |
+| 병합 | `559ac45` | Merge feat/course-members-csv-export-v148 into main - v0.148 classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ff39dde` | 통과 5 / 실패 0 | 통과 · 병합 승인. classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응). CourseMembersPanel 에 「CSV 내보내기 (N)」 버튼 추가, UTF-8 BOM, 이름/이메일/userId 3개 컬럼 CSV 생성 및 다운로드 트리거. 파일명 sanitize (`/ \ : * ? " < > |` -> `_`), items 0 또는 anyPending 시 disabled 처리 및 title 툴팁 안내. 유닛 테스트 4건 (disabled, enabled+click download, 탭 전환, 파일명 sanitize) 추가. 웹 905 (+4) 유닛, lint clean, 서버 무변경. |
+
+### 설계
+
+- **CourseMembersPanel CSV 내보내기 버튼 (`packages/web/src/routes/admin/CourseMembersPanel.tsx`)**:
+  - 교사/학생 탭 헤더 우측에 「CSV 내보내기 (N)」 버튼을 배치 (학생 탭에서는 기존 「학급 일괄 초대」 버튼 좌측에 위치).
+  - 현재 활성 탭(`activeTab`: 'teachers' | 'students')의 명단 배열(`items`)을 기준으로 CSV 생성.
+  - CSV 헤더: `이름,이메일,userId`. 데이터 행: `name,email,userId` 값에 대해 큰따옴표 이스케이프 (`"value"` 형태) 처리.
+  - Excel 호환성을 위해 `\uFEFF` (UTF-8 BOM) 추가 후 Blob (`text/csv;charset=utf-8;`) 생성.
+  - 임시 `<a>` 태그를 생성하여 `URL.createObjectURL` 로 다운로드 트리거 후 `revokeObjectURL` 로 메모리 정리.
+- **파일명 sanitize 및 비활성화 조건**:
+  - 파일명 형식: `<코스이름>-<교사|학생>-<YYYY-MM-DD>.csv` (오늘 날짜 KST/로컬 기준 YYYY-MM-DD).
+  - 파일시스템에서 금지되는 특수문자 (`/ \ : * ? " < > |`)는 정규식을 통해 `_` 로 치환하여 OS 파일 저장 오류 방지.
+  - 명단이 비어있거나(`items.length === 0`), 작업 중(`anyPending`)일 때 버튼을 `disabled` 처리하고 `title` 툴팁으로 사유를 안내.
+- **회귀 방어 단위 테스트 (`packages/web/tests/CourseMembersPanel.test.tsx`)**:
+  - 명단 없을 때 disabled 상태 및 툴팁 텍스트 검증.
+  - 명단 존재 시 enabled 상태, 클릭 시 Blob 생성 내용(UTF-8 BOM 및 CSV 행 데이터)과 a.download 파일명 확인.
+  - 교사 탭에서 학생 탭으로 전환 시 버튼 텍스트 및 다운로드 파일명(학생) 반영 확인.
+  - 코스명에 특수문자(`Math / Science: 2026*?`) 포함 시 sanitize 치환 파일명(`Math _ Science_ 2026__-교사-...`) 다운로드 검증.
+
+### 배운 것
+
+- **클래스룸 명단 확인 업무의 웹 포팅**:
+  - 기존 스프레드시트/스크립트 환경에서 운영되던 클래스룸 구성원 명단 확인 작업을 웹 상세 페이지에서 원클릭 CSV 추출로 바로 대응할 수 있게 됨.
+  - UTF-8 BOM을 삽입하여 한글 Windows 환경의 Excel에서도 인코딩 깨짐 없이 즉시 열람 가능하도록 지원.
+- **파일명 안전성(Sanitization) 보장**:
+  - 사용자 입력 기반의 코스명은 슬래시나 콜론 등 다양한 특수문자를 포함할 수 있으므로, 파일 다운로드 시 OS 파일시스템 예약어를 사전에 치환하는 방어 로직이 필수적임.
+- **Antigravity 위임 14번째 사이클 성공**:
+  - v0.136~v0.147 에 이어 v0.148 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.149+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
 
