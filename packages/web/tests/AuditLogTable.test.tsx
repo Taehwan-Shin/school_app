@@ -141,6 +141,147 @@ describe('AuditLogTable component', () => {
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  // v0.153: 무한 스크롤 sentinel.
+  it('v0.153: hasMore 이면 sentinel + 「더 보기」 버튼 둘 다 렌더 · IntersectionObserver observe 호출', () => {
+    const observeMock = vi.fn();
+    const disconnectMock = vi.fn();
+    class MockIO {
+      constructor(_cb: unknown, _opts?: unknown) {}
+      observe = observeMock;
+      disconnect = disconnectMock;
+      unobserve = vi.fn();
+      takeRecords = vi.fn(() => []);
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+    }
+    const originalIO = (globalThis as any).IntersectionObserver;
+    (globalThis as any).IntersectionObserver = MockIO;
+
+    const mockEntries: AuditLogEntryRead[] = [
+      {
+        id: 'log-1',
+        actor: 'a@x.kr',
+        role: 'super_admin',
+        action: 'users.read',
+        target: '*',
+        request_id: 'r1',
+        result: 'ok',
+        at: 1725150000000,
+      },
+    ];
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: mockEntries,
+      hasMore: true,
+      loadMore: vi.fn(),
+    });
+
+    renderWithRouter(<AuditLogTable />);
+
+    expect(screen.getByTestId('audit-log-load-more')).toBeDefined();
+    expect(screen.getByTestId('audit-log-infinite-scroll-sentinel')).toBeDefined();
+    expect(observeMock).toHaveBeenCalledTimes(1);
+
+    (globalThis as any).IntersectionObserver = originalIO;
+  });
+
+  it('v0.153: IntersectionObserver 콜백이 sentinel intersecting=true 시 loadMore 호출 (loading=false, hasMore=true)', () => {
+    let ioCallback: ((entries: any[]) => void) | null = null;
+    class MockIO {
+      constructor(cb: (entries: any[]) => void, _opts?: unknown) {
+        ioCallback = cb;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+      takeRecords = vi.fn(() => []);
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+    }
+    const originalIO = (globalThis as any).IntersectionObserver;
+    (globalThis as any).IntersectionObserver = MockIO;
+
+    const mockLoadMore = vi.fn();
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-1',
+          actor: 'a@x.kr',
+          role: 'super_admin',
+          action: 'users.read',
+          target: '*',
+          request_id: 'r1',
+          result: 'ok',
+          at: 1725150000000,
+        },
+      ],
+      hasMore: true,
+      loading: false,
+      loadMore: mockLoadMore,
+    });
+
+    renderWithRouter(<AuditLogTable />);
+    expect(ioCallback).not.toBeNull();
+    // sentinel intersecting.
+    ioCallback!([{ isIntersecting: true }]);
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+    // 다시 콜백 호출 시 loadMore 다시 호출 (여기선 loading 상태 안 바뀌었으니).
+    ioCallback!([{ isIntersecting: true }]);
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+    // isIntersecting=false → 호출 없음.
+    ioCallback!([{ isIntersecting: false }]);
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+
+    (globalThis as any).IntersectionObserver = originalIO;
+  });
+
+  it('v0.153: loading=true 중이면 sentinel intersecting 이어도 loadMore 호출 안 함', () => {
+    let ioCallback: ((entries: any[]) => void) | null = null;
+    class MockIO {
+      constructor(cb: (entries: any[]) => void, _opts?: unknown) {
+        ioCallback = cb;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+      takeRecords = vi.fn(() => []);
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+    }
+    const originalIO = (globalThis as any).IntersectionObserver;
+    (globalThis as any).IntersectionObserver = MockIO;
+
+    const mockLoadMore = vi.fn();
+    mockUseAuditLogList.mockReturnValue({
+      ...defaultMockReturn,
+      entries: [
+        {
+          id: 'log-1',
+          actor: 'a@x.kr',
+          role: 'super_admin',
+          action: 'users.read',
+          target: '*',
+          request_id: 'r1',
+          result: 'ok',
+          at: 1725150000000,
+        },
+      ],
+      hasMore: true,
+      loading: true,
+      loadMore: mockLoadMore,
+    });
+
+    renderWithRouter(<AuditLogTable />);
+    ioCallback!([{ isIntersecting: true }]);
+    expect(mockLoadMore).not.toHaveBeenCalled();
+
+    (globalThis as any).IntersectionObserver = originalIO;
+  });
+
   it('does not render load-more button when hasMore is false', () => {
     const mockEntries: AuditLogEntryRead[] = [
       {
