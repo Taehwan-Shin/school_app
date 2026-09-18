@@ -170,6 +170,37 @@ describe('AutoRemoveNonRosterMembersDialog', () => {
     expect(screen.getByText(/성공 3.*실패 1/)).toBeDefined();
   });
 
+  // v0.149b F131: rosters 미설정 (undefined) 반은 스캔 대상 제외 — 빈 배열로
+  // 처리하면 실 그룹의 모든 MEMBER 가 제거 대상으로 잡혀 위험.
+  it('rosters 미설정 반은 스캔 대상 제외 (모든 MEMBER 제거 위험 방지)', async () => {
+    const partialData: BasicDataYear = {
+      year: 2026,
+      grades: [{ grade: 1, classes: ['1반', '2반', '3반'] }],
+      rosters: {
+        '1': {
+          '1반': ['s1@cam.hs.kr'], // rosters 설정.
+          '3반': [],               // rosters 빈 배열 (명시적 0명).
+          // '2반' 미설정 → 스캔 skip.
+        },
+      },
+    };
+    mockCallGroupsMembersList.mockImplementation(async () => ({
+      members: [member('extra@cam.hs.kr')],
+      nextPageToken: null,
+    }));
+    render(<AutoRemoveNonRosterMembersDialog open={true} onOpenChange={vi.fn()} year={2026} data={partialData} />);
+    // scan 대상 = 2 그룹 (1반 · 3반 · 2반은 미설정이라 제외).
+    expect(screen.getByTestId('auto-remove-nonroster-scan-btn').textContent).toContain('2개');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('auto-remove-nonroster-scan-btn'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-remove-nonroster-table')).toBeDefined();
+    });
+    // 2 그룹만 스캔 · 각 그룹에 extra 1건 → surplus=2건 (2반 그룹은 스캔 안 됨).
+    expect(mockCallGroupsMembersList).toHaveBeenCalledTimes(2);
+  });
+
   it('prefix 검증: 대문자/특수문자 있으면 scan 버튼 disabled', () => {
     render(<AutoRemoveNonRosterMembersDialog open={true} onOpenChange={vi.fn()} year={2026} data={testData} />);
     const btn = screen.getByTestId('auto-remove-nonroster-scan-btn') as HTMLButtonElement;

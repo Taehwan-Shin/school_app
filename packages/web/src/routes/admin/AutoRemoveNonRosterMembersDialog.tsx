@@ -86,12 +86,16 @@ export function AutoRemoveNonRosterMembersDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set()); // `${group}::${email}` key.
   const [protectMembersOnly, setProtectMembersOnly] = useState(true);
 
-  // 학년/반 목록 (기초 데이터 기반). rosters 명단이 있는 것만.
+  // 학년/반 목록 (기초 데이터 기반).
+  // v0.149b F131: rosters 「미설정」 반 (undefined) 은 스캔 대상에서 제외 —
+  //   빈 배열로 처리하면 실 그룹의 모든 MEMBER 가 제거 대상으로 잡혀 위험.
+  //   반드시 rosters 에 명시적 배열 (0명 포함) 이 있는 반만 대상.
   const classSpecs = useMemo(() => {
     const out: { grade: number; class: string; roster: Set<string>; groupEmail: string }[] = [];
     for (const g of data?.grades ?? []) {
       for (const c of g?.classes ?? []) {
-        const students = data?.rosters?.[String(g.grade)]?.[c] ?? [];
+        const students = data?.rosters?.[String(g.grade)]?.[c];
+        if (students === undefined) continue;
         out.push({
           grade: g.grade,
           class: c,
