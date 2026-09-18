@@ -1,11 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.148 병합 완료** (`559ac45`) - classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) · 1 라운드 Codex 통과.
-> **Antigravity 위임 14번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147 에 이어 v0.148 마무리 사이클 정상 응답 및 성공 완료.
+> **v0.149 병합 완료** (`f68837f`) - 반 그룹 명단 밖 자동 제거 (원본 assignGroups 제외 워크플로우) · 2 라운드 Codex 통과.
+> **Antigravity 위임 15번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147, v0.148 에 이어 v0.149 마무리 사이클 정상 응답 및 성공 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `f68837f` v0.149 - 반 그룹 명단 밖 자동 제거 (원본 assignGroups 제외 워크플로우) · AutoRemoveNonRosterMembersDialog (5-phase) · fetchAllGroupMembers 페이지 넘김 · rosters diff · MEMBER 기본/OWNER·MANAGER 보호 toggle · 개별 체크박스 · 「제거 N」 정확 입력 · 순차 delete · 실패 격리 · F131 fix (rosters 미설정 반 스캔 skip) · BasicDataPanel 「명단 밖 자동 제거」 버튼 · 2 라운드 Codex 통과.
 - `559ac45` v0.148 - classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) · CourseMembersPanel 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 sanitize · items 0 or anyPending 시 disabled · 1 라운드 Codex 통과.
 - `6894567` v0.147 - OU 목록 로드 실패 재발 대응 (bliss00 v0.146 후에도 리포트) · reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · CreateUserDialog 「Google 재로그인」 버튼 · 3 라운드 Codex 통과.
 - `479b075` v0.146 - CreateUserDialog OU 목록 에러 상세 + login scope 누락 fix (bliss00 실 버그 리포트) · login scope 2개 추가 · 에러 상세/재시도 버튼 · bliss00 재동의 필수 · 2 라운드 Codex 통과.
@@ -16,7 +17,6 @@
 - `0c8905e` v0.141 - exhaustive-deps logical expression 6건 fix (13 → 7) + 2 라운드 Codex 감사 + F125.
 - `52e41bf` v0.140 - web ESLint 관문 (Codex v0.138 소프트 권고 반영) + 2 라운드 Codex 감사 + F124.
 - `4ad74c9` v0.139 - sortHeader.ts helper 단위 테스트 (Codex v0.138 소프트 권고 반영) + 1 라운드 Codex 감사 + v0.139b.
-- `60c404b` v0.138 - 정렬 헤더 키보드 접근성 3화면 대칭 (ClassroomTable/AccountsTable/GroupsTable sortHeader.ts helper) + 1 라운드 Codex 감사.
 
 ## 다음 후보 (Head 자율 실행 예정)
 

@@ -2790,5 +2790,56 @@ ROADMAP 남은 후보 (v0.149+):
 - **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+---
 
+## 2026-09-18 · v0.149 반 그룹 명단 밖 자동 제거 (2 라운드 Codex 감사)
 
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `df1410a` | feat: v0.149 반 그룹 「명단 밖 자동 제거」 (원본 assignGroups 제외 워크플로우) |
+| fix | `ea40e35` | fix: v0.149b F131 (rosters 미설정 반 스캔 제외 · 모든 MEMBER 제거 위험 방지) |
+| 병합 | `f68837f` | Merge feat/auto-remove-non-roster-v149 into main - v0.149 반 그룹 명단 밖 자동 제거 (원본 assignGroups 제외 워크플로우) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `df1410a` | 통과 5 / 실패 1 | F131 지적: rosters 미설정 반(undefined)을 빈 Set 으로 처리하여 그룹 내 모든 MEMBER 가 명단 밖으로 오인되어 삭제 후보에 오르는 위험. F131 수정: rosters 가 설정되지 않은 반은 스캔 대상에서 제외(skip)하도록 방어 (빈 배열인 경우는 정상 스캔 대상으로 유지). |
+| 2 | `ea40e35` | 통과 2 / 실패 0 | 통과 · 병합 승인. F131 회귀 테스트 (`tests/AutoRemoveNonRosterMembersDialog.test.tsx`) 추가 및 rosters undefined 반 skip 검증 완료. 웹 911 (+6) 유닛, lint clean, 서버 무변경. |
+
+### 설계
+
+- **AutoRemoveNonRosterMembersDialog (`packages/web/src/routes/admin/AutoRemoveNonRosterMembersDialog.tsx`)**:
+  - 원본 Apps Script `assignGroups` 의 「제외」 워크플로우를 웹으로 포팅. 반 그룹에서 기초 데이터 rosters 에 없는 멤버를 자동 감지하여 일괄 제거.
+  - 5-phase 구조: `confirm` -> `scanning` -> `preview` -> `running` -> `done`.
+  - **스캔 단계**:
+    - `fetchAllGroupMembers` helper 를 통해 기초 데이터의 각 (grade, class) 그룹 구성원을 최대 20,000명(100페이지)까지 페이지네이션 순회 조회.
+    - rosters 명단 Set 과 대조하여 초과 멤버(surplus) 목록을 도출.
+  - **보호 및 안전 규칙 (F131 포함)**:
+    - rosters 가 미설정(undefined)된 반은 스캔에서 안전하게 제외하여 전원 삭제 위험을 원천 방지.
+    - OWNER / MANAGER 역할은 기본 보호되며 toggle 로만 노출. 기본적으로 MEMBER 역할만 제거 대상.
+    - 미리보기 화면에서 개별 체크박스를 통한 선택/해제 지원.
+    - 실행 전 「제거 N」 문자열을 정확히 입력해야만 확인 버튼 활성화.
+  - **실행 단계**:
+    - 선택된 대상을 순차적으로 `callGroupsMembersDelete` 호출.
+    - 개별 실패 격리 및 진행률 표시, 완료 후 성공/실패 카운트와 실패 내역 표시.
+- **BasicDataPanel 진입점 (`packages/web/src/routes/admin/BasicDataPanel.tsx`)**:
+  - 기존 「학생 자동 초대」 버튼 옆에 「명단 밖 자동 제거」 버튼 추가.
+  - QueryClient 미제공 컨텍스트 회피를 위한 conditional mount 적용.
+
+### 배운 것
+
+- **동기화 제외 워크플로우에서의 안전 불변식 (F131)**:
+  - 동기화 로직에서 명단 미입력(undefined)과 빈 명단([])은 엄격히 구분되어야 함.
+  - 데이터가 정의되지 않은 상태를 빈 컬렉션으로 간주할 경우 전체 멤버가 삭제되는 치명적 부작용이 발생할 수 있으므로, 명시적인 skip 처리가 필수적임.
+- **Antigravity 위임 15번째 사이클 성공**:
+  - v0.136~v0.148 에 이어 v0.149 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.150+):
+- **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
