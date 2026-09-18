@@ -2897,3 +2897,56 @@ ROADMAP 남은 후보 (v0.151+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+## 2026-09-19 · v0.152 AccountsTable JSON 내보내기 (로드맵 B-6)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `bbe0777` | feat: v0.152 AccountsTable JSON 내보내기 (로드맵 B-6) |
+| 병합 | `0d579fd` | Merge feat/auto-remove-non-roster-chat-v152 into main - v0.152 AccountsTable JSON 내보내기 (로드맵 B-6) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `bbe0777` | 통과 4 / 실패 0 | 통과 · 병합 승인. AccountsTable 회귀 3건 (`tests/AccountsTable.test.tsx`) 추가 (버튼 enabled/disabled · download 트리거 · payload shape+필터 반영). 웹 920 (+3) 유닛, lint clean, 서버 무변경. (원 계획 v0.152 반 챗방 명단 밖 자동 제거는 chat member API userId 반환 제약으로 다음 슬라이스로 유보) |
+
+### 설계
+
+- **AccountsTable JSON 내보내기 (`packages/web/src/routes/admin/AccountsTable.tsx`)**:
+  - 로드맵 B-6 대응. 감사 및 재적재 자동화 편의를 위한 JSON export 기능.
+  - CSV 내보내기 버튼 옆에 「JSON 내보내기」 버튼 추가.
+  - **Payload 스키마**:
+    - `exportedAt`: ISO 8601 타임스탬프 (`new Date().toISOString()`).
+    - `filters`: 현재 검색/필터/정렬 상태 객체 (`q`: trim 된 검색어, `filter`: 선택된 필터, `sort`: 정렬 기준 컬럼, `dir`: 정렬 방향).
+    - `totalCount`: 내보낸 사용자 수 (`users.length`).
+    - `users`: 사용자 객체 배열 (`email`, `firstName`, `lastName`, `orgUnitPath`, `isAdmin`, `isSuspended`).
+  - **파일 포맷 및 파일명**:
+    - 파일명: `accounts-YYYY-MM-DD.json`.
+    - MIME 타입: `application/json;charset=utf-8`.
+    - 들여쓰기 2칸 (`JSON.stringify(payload, null, 2)`).
+  - **안전 규칙 및 UX**:
+    - 현재 화면의 검색·필터·정렬 결과인 `sortedFilteredUsers` 를 그대로 반영.
+    - 필터 결과가 0건인 경우 버튼 disabled 처리 및 title 툴팁 안내.
+    - 다운로드 Blob URL 생성 및 클릭 트리거 후 `revokeObjectURL` 로 메모리 정리.
+
+### 배운 것
+
+- **API 제약에 따른 유연한 스코프 전환 (Pivot)**:
+  - 원 계획이었던 반 챗방 명단 밖 자동 제거는 Chat member API 가 이메일이 아닌 `userId` 만 반환하는 제약이 발견되어, 불완전한 구현 대신 로드맵 B-6 JSON 내보내기로 유연하게 피벗하여 안정성 유지.
+- **Antigravity 위임 17번째 성공 (위임 오더 18번째)**:
+  - v0.136~v0.150 에 이어 v0.152 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.153+):
+- **AuditLogTable 무한 스크롤** (로드맵 B-7).
+- **super_admin 대시보드 확장** (로드맵 B-8).
+- **반 챗방 명단 밖 자동 제거**: Chat member API 의 `userId` 반환 제약 대응을 위해 `usersList` 연계 또는 서버 보강 후 진행.
+- **BatchCreateUsersDialog + 클래스룸 배정** (로드맵 B-5).
+- **부서 그룹 명단 밖 자동 제거** (v0.149 대칭).
+- **전입생 매크로** (A-1, 도메인 규칙 필요).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+
