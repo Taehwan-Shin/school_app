@@ -58,6 +58,7 @@
 - **CreateUserDialog OU 목록 재로그인 자동 복구 버튼** - v0.147 완료 (bliss00 실 버그 리포트 UX 자동화). reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · CreateUserDialog scope 에러 시 「Google 재로그인」 버튼 · 클릭 시 자동 재동의/복구 + OU 재조회. auth.test.ts 회귀 3건 (F129/F130). 3 라운드 Codex 통과.
 - **classroom 상세 명단 CSV 내보내기** - v0.148 완료 (원본 명단 확인 대응). CourseMembersPanel 에 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 sanitize · items 0 or anyPending 시 disabled · title 툴팁 · 1 라운드 Codex 통과.
 - **반 그룹 명단 밖 자동 제거** - v0.149 완료 (원본 assignGroups 제외 워크플로우). AutoRemoveNonRosterMembersDialog (5-phase confirm→scanning→preview→running→done) · fetchAllGroupMembers 페이지 넘김 · rosters diff · MEMBER 기본 대상 / OWNER·MANAGER 보호 toggle · 개별 체크박스 · 「제거 N」 정확 입력 확인 · 순차 delete · 실패 격리 · F131 fix (rosters 미설정 반 스캔 skip · 빈 배열은 정상 스캔) · BasicDataPanel 「명단 밖 자동 제거」 버튼 (conditional mount) · 2 라운드 Codex 통과.
+- **반 챗방 학생 자동 초대** - v0.150 완료 (원본 assignMembersToChatRooms 대응). AutoInviteStudentsToChatSpacesDialog (5-phase confirm→scanning→preview→running→done) · callChatList displayName 매칭 (「{year}학년도 N학년 M반」) · matched vs unmatched 분리 · rosters 미설정/빈 반 skip · 「초대 N」 정확 입력 확인 · 순차 add · already member skip 분류 · 실패 격리 · BasicDataPanel 「반 챗방 자동 초대」 버튼 (conditional mount) · 1 라운드 Codex 통과.
 
 남은 후보:
 - **전입생 계정 개별 생성 UX 세부 확장** — v0.119 는 기본 폼 커버. 원본 `laterAccountSetup` 의 「학번/반 자동 배정 + 그룹 자동 추가」 매크로는 별도 확장 필요.

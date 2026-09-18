@@ -2843,3 +2843,57 @@ ROADMAP 남은 후보 (v0.150+):
 - **전입생 계정 UX 세부** (Phase 5): `laterAccountSetup` 매크로 (학번/반 자동 배정 + 그룹 자동 추가).
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+---
+
+## 2026-09-18 · v0.150 반 챗방 학생 자동 초대 (1 라운드 Codex 감사)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `7ce42a1` | feat: v0.150 반 챗방 학생 자동 초대 (원본 assignMembersToChatRooms 대응) |
+| 병합 | `b00342e` | Merge feat/auto-invite-chat-spaces-v150 into main - v0.150 반 챗방 학생 자동 초대 (원본 assignMembersToChatRooms 대응) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `7ce42a1` | 통과 7 / 실패 0 | 통과 · 병합 승인. AutoInviteStudentsToChatSpacesDialog 회귀 6건 (`tests/AutoInviteStudentsToChatSpacesDialog.test.tsx`) 추가 (매칭/미매칭 분리 · empty · confirm text · execute 성공/skip/실패 분류 · rosters 미설정/빈 반 제외 · scan 실패 UX). 웹 917 (+6) 유닛, lint clean, 서버 무변경 (기존 chatList/chatMembersAdd 재사용). |
+
+### 설계
+
+- **AutoInviteStudentsToChatSpacesDialog (`packages/web/src/routes/admin/AutoInviteStudentsToChatSpacesDialog.tsx`)**:
+  - 원본 Apps Script `assignMembersToChatRooms` 웹 포팅 (로드맵 A-4). 기초 데이터 rosters 정보를 바탕으로 반별 Chat 스페이스에 학생들을 일괄 초대.
+  - 5-phase 구조: `confirm` -> `scanning` -> `preview` -> `running` -> `done`.
+  - **스캔 단계**:
+    - `callChatList` 로 기존 Chat 스페이스 목록을 일괄 조회한 뒤 displayName Map 구축.
+    - 기초 데이터의 각 (grade, class)에 대해 `{year}학년도 N학년 M반` 형식(CourseBulkCreateDialog 와 동일 규칙)으로 매칭 대상 판별.
+    - 일치하는 스페이스는 매칭 목록(`matched`)으로, 스페이스가 없는 반은 미매칭(`unmatched`)으로 분리.
+  - **안전 규칙**:
+    - rosters 가 미설정(undefined)되었거나 학생 명단이 빈 반은 스캔 대상에서 제외 (v0.149 F131 대칭).
+    - 미리보기에서 매칭 챗방 테이블(스페이스명, 학년-반, 학생 수) 및 미매칭 반 목록을 확인.
+    - 실행 전 「초대 N」(N=대상 반 수) 문자열을 정확히 입력해야 확인 버튼 활성화.
+  - **실행 단계**:
+    - 각 매칭 스페이스에 대해 순차적으로 `callChatMembersAdd` 호출.
+    - 이미 참여 중인 학생(`ALREADY_EXISTS` 등)은 자동으로 `skip` 분류, 개별 오류는 격리하여 전체 프로세스 중단 방지.
+    - 실행 완료 후 성공/건너뜀/실패 카운트 및 실패 목록 표시.
+- **BasicDataPanel 진입점 (`packages/web/src/routes/admin/BasicDataPanel.tsx`)**:
+  - 기존 「학생 자동 초대」, 「그룹 자동 초대」, 「명단 밖 자동 제거」 버튼 옆에 「반 챗방 자동 초대」 버튼 추가.
+  - QueryClient 미제공 컨텍스트 회피를 위한 conditional mount 적용.
+
+### 배운 것
+
+- **규칙 재사용을 통한 도메인 일관성 확보**:
+  - 코스 및 챗방 네이밍 규칙(`{year}학년도 N학년 M반`)을 일관되게 공유함으로써 추가 식별 메타데이터 없이도 스페이스와 학급을 안전하게 매칭.
+- **Antigravity 위임 16번째 사이클 성공**:
+  - v0.136~v0.149 에 이어 v0.150 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.151+):
+- **BatchCreateUsersDialog + 클래스룸 배정** (로드맵 B-5).
+- **부서 그룹 명단 밖 자동 제거** (v0.149 대칭).
+- **전입생 매크로** (A-1, 도메인 규칙 필요).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+

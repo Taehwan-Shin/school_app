@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.150+) | 사용자 | 답 대기 | v0.104~v0.149 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps 13건 경고 전량 해소 (13→0 완주) · CreateUserDialog 클래스룸 UX 개선 (2컬럼 grid, 정렬/검색, 선택 유지) · 나이스 CSV 일괄 클래스룸 생성 + 초대 · CreateUserDialog OU 목록 로드 실패 fix 및 Google 재로그인 원클릭 자동 복구 버튼 (prompt=consent 강제) · classroom 상세 페이지 학생/교사 명단 CSV 내보내기 · 반 그룹 명단 밖 자동 제거. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
+| 다음 제품 방향 확정 (v0.151+) | 사용자 | 답 대기 | v0.104~v0.150 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps 13건 경고 전량 해소 (13→0 완주) · CreateUserDialog 클래스룸 UX 개선 (2컬럼 grid, 정렬/검색, 선택 유지) · 나이스 CSV 일괄 클래스룸 생성 + 초대 · CreateUserDialog OU 목록 로드 실패 fix 및 Google 재로그인 원클릭 자동 복구 버튼 (prompt=consent 강제) · classroom 상세 페이지 학생/교사 명단 CSV 내보내기 · 반 그룹 명단 밖 자동 제거 · 반 챗방 학생 자동 초대. Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.150 | `b00342e` (main) | 반 챗방 학생 자동 초대 (원본 assignMembersToChatRooms 대응). 신규 AutoInviteStudentsToChatSpacesDialog: 5-phase (confirm→scanning→preview→running→done) · callChatList displayName 매칭 (「{year}학년도 N학년 M반」 courseName 규칙 재사용) · matched vs unmatched 분리 · rosters 미설정/빈 반 skip · 「초대 N」 정확 입력 · 순차 add · already member skip 분류 · 실패 격리. BasicDataPanel 「반 챗방 자동 초대」 버튼 (conditional mount). 6 회귀 테스트. 웹 917 (+6) · lint clean · 서버 무변경. 1 라운드 Codex 감사 |
 | v0.149 | `f68837f` (main) | 반 그룹 명단 밖 자동 제거 (원본 assignGroups 제외 워크플로우). 신규 AutoRemoveNonRosterMembersDialog: 5-phase (confirm→scanning→preview→running→done) · fetchAllGroupMembers 페이지 넘김 · rosters diff · MEMBER 기본/OWNER·MANAGER 보호 toggle · 개별 체크박스 · 「제거 N」 정확 입력 · 순차 delete · 실패 격리. F131 fix (rosters 미설정 반 스캔 skip · 빈 배열은 스캔 정상 대상 · 전 MEMBER 제거 위험 방지). BasicDataPanel 「명단 밖 자동 제거」 버튼 (conditional mount). 6 회귀 테스트. 웹 911 (+6) · lint clean · 서버 무변경. 2 라운드 Codex 감사 |
 | v0.148 | `559ac45` (main) | classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응). CourseMembersPanel 에 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 (/ \ : * ? " < > |) 는 _ 로 치환 · items 0 or anyPending 시 disabled · title 툴팁. 4 유닛 테스트 추가 (disabled/enabled+download 트리거/탭 전환/파일명 sanitize). 웹 905 (+4) 유닛 · lint clean · 서버 무변경. 1 라운드 Codex 감사 |
 | v0.147 | `6894567` (main) | OU 목록 로드 실패 재발 대응 (bliss00 v0.146 후에도 리포트). 원인 = Google prompt=select_account 가 기존 승인 scope 재동의 skip → 새 scope 승인 기회 미제공. reauthorizeWithGoogle helper (clearSession+signOut+signIn forceConsent) · signInWithGoogle({forceConsent}) 추가 · CreateUserDialog scope 에러 화면에 「Google 재로그인」 버튼 · 클릭 시 자동 복구 + OU 재조회. auth.test.ts 회귀 3건 (F129/F130). 웹 901 (+3) 유닛 · lint clean · 서버 무변경. 3 라운드 Codex 감사 |
