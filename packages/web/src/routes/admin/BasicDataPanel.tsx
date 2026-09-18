@@ -7,6 +7,7 @@ import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
 import { EditRostersDialog } from './EditRostersDialog';
 import { AutoInviteStudentsDialog } from './AutoInviteStudentsDialog';
+import { AutoRemoveNonRosterMembersDialog } from './AutoRemoveNonRosterMembersDialog';
 import { ImportBasicDataDialog } from './ImportBasicDataDialog';
 
 export function BasicDataPanel() {
@@ -19,6 +20,7 @@ export function BasicDataPanel() {
   const [isAutoCreateDeptOpen, setIsAutoCreateDeptOpen] = useState(false);
   const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);
   const [isAutoInviteOpen, setIsAutoInviteOpen] = useState(false);
+  const [isAutoRemoveOpen, setIsAutoRemoveOpen] = useState(false);
 
   useEffect(() => {
     const parsed = Number.parseInt(yearInput, 10);
@@ -127,6 +129,19 @@ export function BasicDataPanel() {
             }
           >
             학생 자동 초대
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsAutoRemoveOpen(true)}
+            data-testid="basic-data-auto-remove-nonroster-btn"
+            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+            title={
+              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                ? '학생 명단을 먼저 등록하세요'
+                : '반 그룹에서 rosters 명단에 없는 사람 자동 제거'
+            }
+          >
+            명단 밖 자동 제거
           </Button>
           <Button
             variant="secondary"
@@ -280,6 +295,15 @@ export function BasicDataPanel() {
         <AutoInviteStudentsDialog
           open={isAutoInviteOpen}
           onOpenChange={setIsAutoInviteOpen}
+          year={selectedYear}
+          data={data.data}
+        />
+      )}
+
+      {data?.data && isAutoRemoveOpen && (
+        <AutoRemoveNonRosterMembersDialog
+          open={true}
+          onOpenChange={setIsAutoRemoveOpen}
           year={selectedYear}
           data={data.data}
         />
