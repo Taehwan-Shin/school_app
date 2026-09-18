@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -11,6 +11,9 @@ import {
 import { Button } from "../../components/ui/button";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
+import { useClassroomList } from "../../api/classroomList";
+import { callClassroomTeachersAdd } from "../../api/classroomTeachersAdd";
+import { callClassroomStudentsAdd } from "../../api/classroomStudentsAdd";
 
 export interface BatchCreateUsersDialogProps {
   open: boolean;
@@ -28,6 +31,7 @@ const DOMAIN = "cam.hs.kr";
 const LOCAL_PART_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 type Phase = "confirm" | "running" | "done";
+type ClassroomRole = "teacher" | "student";
 
 interface RowInput {
   id: string;
@@ -35,10 +39,20 @@ interface RowInput {
   givenName: string;
 }
 
+// v0.151: 각 row 의 classroom 배정 결과 (계정 생성 자체와 분리).
+interface ClassroomAssignRowResult {
+  courseId: string;
+  courseName?: string;
+  ok: boolean;
+  message?: string;
+}
+
 interface RowResult {
   primaryEmail: string;
   ok: boolean;
   message?: string;
+  // v0.151: 계정 생성 성공 후 시도한 classroom 배정 결과.
+  classroomResults?: ClassroomAssignRowResult[];
 }
 
 function emptyRow(): RowInput {
@@ -87,6 +101,37 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
 
   const orgunitsQuery = useOrgunitsList(open);
 
+  // v0.151: 공통 classroom 배정 (v0.144 UX 재사용). 모든 batch row 가 동일한
+  // classroom 세트에 동일 역할로 배정. CreateUserDialog 대칭이지만 폼 폭
+  // 제약 (max-w-3xl · 10 rows 표) 로 별도 컬럼 대신 하단 세션 방식.
+  const classroomsQuery = useClassroomList(open);
+  const [classroomRole, setClassroomRole] = useState<ClassroomRole>("student");
+  const [selectedClassroomIds, setSelectedClassroomIds] = useState<Set<string>>(new Set());
+  const [classroomSearch, setClassroomSearch] = useState("");
+  const activeClassrooms = useMemo(() => {
+    const list =
+      classroomsQuery.data?.courses?.filter((c) => c.courseState === "ACTIVE") ?? [];
+    return [...list].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [classroomsQuery.data?.courses]);
+  const filteredClassrooms = useMemo(() => {
+    const q = classroomSearch.trim().toLowerCase();
+    if (!q) return activeClassrooms;
+    return activeClassrooms.filter((c) => {
+      const name = (c.name || "").toLowerCase();
+      const section = (c.section || "").toLowerCase();
+      const id = (c.id || "").toLowerCase();
+      return name.includes(q) || section.includes(q) || id.includes(q);
+    });
+  }, [activeClassrooms, classroomSearch]);
+  const toggleClassroom = (id: string, checked: boolean) => {
+    setSelectedClassroomIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (open) {
       setPhase("confirm");
@@ -97,6 +142,10 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       setProgress(0);
       setResults([]);
       setRunRows(null);
+      // v0.151.
+      setClassroomRole("student");
+      setSelectedClassroomIds(new Set());
+      setClassroomSearch("");
     }
   }, [open]);
 
@@ -166,6 +215,17 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
     // 실행 시작 즉시 password state 는 clear (BulkResetPassword v0.113b F65 패턴).
     setInitialPassword("");
 
+    // v0.151: 배정 snapshot = confirm 시점의 selectedClassroomIds + role.
+    // 사용자가 실행 중 폼을 조작해도 원본 승인 대상 유지 (v0.132 F99 대칭).
+    const classroomSnapshot: Array<{ id: string; name?: string }> = activeClassrooms
+      .filter((c) => selectedClassroomIds.has(c.id))
+      .map((c) => ({ id: c.id, name: c.name }));
+    const classroomRoleSnapshot: ClassroomRole = classroomRole;
+    const classroomAddCall =
+      classroomRoleSnapshot === "teacher"
+        ? callClassroomTeachersAdd
+        : callClassroomStudentsAdd;
+
     for (let i = 0; i < snapshot.length; i++) {
       const row = snapshot[i];
       try {
@@ -177,7 +237,26 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
           orgUnitPath: orgu,
           changePasswordAtNextLogin: true,
         });
-        localResults.push({ primaryEmail: row.primaryEmail, ok: true });
+        // 계정 생성 성공 → classroom 배정 (있으면).
+        const classroomResults: ClassroomAssignRowResult[] = [];
+        for (const c of classroomSnapshot) {
+          try {
+            await classroomAddCall({ courseId: c.id, userId: row.primaryEmail });
+            classroomResults.push({ courseId: c.id, courseName: c.name, ok: true });
+          } catch (ce) {
+            classroomResults.push({
+              courseId: c.id,
+              courseName: c.name,
+              ok: false,
+              message: (ce as Error).message,
+            });
+          }
+        }
+        localResults.push({
+          primaryEmail: row.primaryEmail,
+          ok: true,
+          classroomResults: classroomResults.length > 0 ? classroomResults : undefined,
+        });
       } catch (e) {
         localResults.push({
           primaryEmail: row.primaryEmail,
@@ -190,6 +269,9 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
     setResults(localResults);
     setPhase("done");
     queryClient.invalidateQueries({ queryKey: ["users", "list"] });
+    if (classroomSnapshot.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["classroom"] });
+    }
   };
 
   const displayRows = runRows ?? filledRows.map((r) => ({
@@ -283,6 +365,139 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                   className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                 />
               </div>
+            </div>
+
+            {/* v0.151: 공통 클래스룸 자동 배정 (선택). 모든 batch row 가 같은
+                클래스룸에 같은 역할로 배정. v0.144 CreateUserDialog UX 대칭
+                (검색 · 이름순 정렬 · 선택 유지). */}
+            <div
+              className="space-y-2 border border-border-subtle p-3 bg-elevated"
+              data-testid="batch-create-users-classroom-section"
+            >
+              <p className="text-small text-fg-primary font-medium">
+                클래스룸 자동 배정 (모두 공통, 선택)
+              </p>
+              <p className="text-small text-fg-secondary">
+                계정 생성 후 선택한 클래스룸에 지정 역할로 각 계정을 자동 배정합니다.
+              </p>
+              <div
+                className="flex items-center gap-4"
+                role="group"
+                aria-label="클래스룸 배정 역할"
+              >
+                <label className="flex items-center gap-2 text-small text-fg-primary cursor-pointer">
+                  <input
+                    type="radio"
+                    name="batch-classroom-role"
+                    value="student"
+                    checked={classroomRole === "student"}
+                    onChange={() => setClassroomRole("student")}
+                    data-testid="batch-create-users-classroom-role-student"
+                  />
+                  학생
+                </label>
+                <label className="flex items-center gap-2 text-small text-fg-primary cursor-pointer">
+                  <input
+                    type="radio"
+                    name="batch-classroom-role"
+                    value="teacher"
+                    checked={classroomRole === "teacher"}
+                    onChange={() => setClassroomRole("teacher")}
+                    data-testid="batch-create-users-classroom-role-teacher"
+                  />
+                  교사
+                </label>
+              </div>
+              {classroomsQuery.isLoading && (
+                <p
+                  className="text-small text-fg-muted"
+                  data-testid="batch-create-users-classrooms-loading"
+                >
+                  클래스룸 목록 불러오는 중...
+                </p>
+              )}
+              {classroomsQuery.isError && (
+                <p
+                  className="text-small text-state-danger"
+                  data-testid="batch-create-users-classrooms-error"
+                >
+                  클래스룸 목록 로드 실패:{" "}
+                  {classroomsQuery.error?.message || "알 수 없는 오류"}
+                </p>
+              )}
+              {!classroomsQuery.isLoading &&
+                !classroomsQuery.isError &&
+                activeClassrooms.length === 0 && (
+                  <p
+                    className="text-small text-fg-muted"
+                    data-testid="batch-create-users-classrooms-empty"
+                  >
+                    ACTIVE 상태의 클래스룸이 없습니다.
+                  </p>
+                )}
+              {activeClassrooms.length > 0 && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="batch-create-users-classroom-search"
+                      className="sr-only"
+                    >
+                      클래스룸 검색
+                    </label>
+                    <input
+                      id="batch-create-users-classroom-search"
+                      type="text"
+                      value={classroomSearch}
+                      onChange={(e) => setClassroomSearch(e.target.value)}
+                      placeholder={`클래스룸 검색 (총 ${activeClassrooms.length}개)`}
+                      data-testid="batch-create-users-classroom-search"
+                      className="w-full border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                    />
+                  </div>
+                  {filteredClassrooms.length === 0 ? (
+                    <p
+                      className="text-small text-fg-muted py-2"
+                      data-testid="batch-create-users-classrooms-search-empty"
+                    >
+                      검색 결과가 없습니다.
+                    </p>
+                  ) : (
+                    <div
+                      className="max-h-40 overflow-y-auto border border-border-subtle bg-canvas p-2 space-y-1"
+                      data-testid="batch-create-users-classrooms-list"
+                    >
+                      {filteredClassrooms.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-2 text-small text-fg-primary cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedClassroomIds.has(c.id)}
+                            onChange={(e) => toggleClassroom(c.id, e.target.checked)}
+                            data-testid={`batch-create-users-classroom-cb-${c.id}`}
+                          />
+                          <span>{c.name || c.id}</span>
+                          {c.section && (
+                            <span className="text-fg-muted text-micro">({c.section})</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {selectedClassroomIds.size > 0 && (
+                <p
+                  className="text-small text-fg-secondary"
+                  data-testid="batch-create-users-classrooms-selected"
+                >
+                  선택됨: {selectedClassroomIds.size}개 · 각 계정마다 자동 배정 (총{" "}
+                  {selectedClassroomIds.size * filledRows.length} 배정 호출).
+                  {classroomSearch.trim().length > 0 &&
+                    ` · 검색 결과 ${filteredClassrooms.length}/${activeClassrooms.length}`}
+                </p>
+              )}
             </div>
 
             {/* 10 rows */}
@@ -428,6 +643,38 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                     ))}
                 </ul>
               )}
+              {/* v0.151: 계정 성공 · classroom 배정 일부 실패한 경우 별도 표시. */}
+              {(() => {
+                const partialFails = results
+                  .filter((r) => r.ok && r.classroomResults?.some((c) => !c.ok))
+                  .flatMap((r) =>
+                    (r.classroomResults ?? [])
+                      .filter((c) => !c.ok)
+                      .map((c) => ({ email: r.primaryEmail, ...c })),
+                  );
+                if (partialFails.length === 0) return null;
+                return (
+                  <div
+                    className="border border-state-warning p-3 text-small text-fg-primary space-y-1"
+                    data-testid="batch-create-users-classroom-failures"
+                  >
+                    <p>
+                      계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다 (
+                      <strong className="font-mono">{partialFails.length}</strong>건). 필요 시
+                      각 클래스룸 상세 페이지에서 직접 추가하세요.
+                    </p>
+                    <ul className="pl-4 list-disc space-y-1 max-h-40 overflow-y-auto">
+                      {partialFails.map((f, i) => (
+                        <li key={`${f.email}::${f.courseId}::${i}`} className="text-state-danger">
+                          <span className="font-mono">{f.email}</span> →{" "}
+                          <span className="font-mono">{f.courseName || f.courseId}</span>:{" "}
+                          {f.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>
