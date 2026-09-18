@@ -160,6 +160,41 @@ export function AccountsTable() {
     URL.revokeObjectURL(url);
   };
 
+  // v0.152: JSON \uB0B4\uBCF4\uB0B4\uAE30 (\uB85C\uB4DC\uB9F5 B-6). CSV \uB294 \uC0AC\uB78C\uC774 \uC5F4\uB78C\uC6A9, JSON \uC740 \uC790\uB3D9\uD654/
+  // \uAC10\uC0AC\u00B7\uC7AC\uC801\uC7AC\uC6A9. sortedFilteredUsers (\uAC80\uC0C9\u00B7\uC815\uB82C\u00B7\uD544\uD130 \uBC18\uC601) \u00B7 exportedAt \uBA54\uD0C0
+  // \uD3EC\uD568. AuditLogTable v0.108 export \uB300\uCE6D.
+  const handleExportJson = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      filters: {
+        q: searchQuery.trim(),
+        filter: kpiFilter,
+        sort: sortColumn,
+        dir: sortDirection,
+      },
+      totalCount: sortedFilteredUsers.length,
+      users: sortedFilteredUsers.map((u) => ({
+        email: u.email,
+        firstName: u.firstName ?? '',
+        lastName: u.lastName ?? '',
+        orgUnitPath: u.orgUnitPath || '/',
+        isAdmin: !!u.isAdmin,
+        isSuspended: !!u.isSuspended,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `accounts-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -209,6 +244,19 @@ export function AccountsTable() {
             disabled={sortedFilteredUsers.length === 0}
           >
             CSV 내보내기
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportJson}
+            data-testid="accounts-export-json-btn"
+            disabled={sortedFilteredUsers.length === 0}
+            title={
+              sortedFilteredUsers.length === 0
+                ? '내보낼 계정이 없습니다.'
+                : '현재 필터 반영 JSON 다운로드 (exportedAt · filters 메타 포함)'
+            }
+          >
+            JSON 내보내기
           </Button>
           <Button
             onClick={() => setIsCreateOpen(true)}

@@ -1035,6 +1035,144 @@ describe("AccountsTable component", () => {
     expect(exportBtn.disabled).toBe(true);
   });
 
+  // v0.152: JSON 내보내기 (로드맵 B-6).
+  describe("v0.152 JSON 내보내기", () => {
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => "blob:mock");
+      URL.revokeObjectURL = vi.fn();
+    });
+    afterAll(() => {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    });
+
+    const mockUsers = [
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "김",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관리",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+
+    it("JSON 버튼 표시 · 데이터 있으면 enabled · 필터 결과 0 이면 disabled", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      const btn = screen.getByTestId("accounts-export-json-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+      expect(btn.textContent).toContain("JSON 내보내기");
+
+      fireEvent.change(screen.getByTestId("accounts-search-input"), {
+        target: { value: "zzz-nomatch" },
+      });
+      expect(btn.disabled).toBe(true);
+    });
+
+    it("JSON 클릭 시 download 트리거 · 파일명 accounts-YYYY-MM-DD.json", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string; href: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          Object.defineProperty(el, "click", {
+            value: () =>
+              clicks.push({
+                download: (el as HTMLAnchorElement).download,
+                href: (el as HTMLAnchorElement).href,
+              }),
+          });
+        }
+        return el;
+      });
+
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-export-json-btn"));
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+      expect(clicks).toHaveLength(1);
+      expect(clicks[0].download).toMatch(/^accounts-\d{4}-\d{2}-\d{2}\.json$/);
+      spy.mockRestore();
+    });
+
+    it("JSON payload 는 exportedAt · filters · totalCount · users 배열 포함 (필터 반영)", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      let blobText = "";
+      const originalCreate = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        blob.text().then((t) => {
+          blobText = t;
+        });
+        return "blob:mock";
+      });
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          Object.defineProperty(el, "click", { value: () => {} });
+        }
+        return el;
+      });
+
+      renderWithRouter(<AccountsTable />, ["/admin?q=user1&filter=normal&sort=email&dir=desc"]);
+      fireEvent.click(screen.getByTestId("accounts-export-json-btn"));
+      // 다음 microtask 대기.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const parsed = JSON.parse(blobText);
+      expect(parsed.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(parsed.filters).toEqual({
+        q: "user1",
+        filter: "normal",
+        sort: "email",
+        dir: "desc",
+      });
+      // q=user1 + filter=normal (관리자 아님) → user1 만.
+      expect(parsed.totalCount).toBe(1);
+      expect(parsed.users).toHaveLength(1);
+      expect(parsed.users[0]).toMatchObject({
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "김",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      });
+
+      spy.mockRestore();
+      URL.createObjectURL = originalCreate;
+    });
+  });
+
   it("renders checkboxes for each account with self account disabled", () => {
     const mockUsers = [
       {
