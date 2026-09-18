@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
@@ -870,19 +870,82 @@ export function AuditLogTable() {
           )}
 
           {hasMore && (
-            <div className="flex justify-center mt-4">
-              <Button
-                variant="secondary"
-                onClick={loadMore}
-                disabled={loading}
-                data-testid="audit-log-load-more"
-              >
-                {loading ? '불러오는 중...' : '더 보기 (25 건)'}
-              </Button>
-            </div>
+            <>
+              {/* v0.153: 무한 스크롤 (로드맵 B-7). sentinel 요소가 뷰포트에
+                  들어오면 자동 loadMore. 「더 보기」 버튼도 유지 (키보드/
+                  스크롤 없는 사용자 fallback + JS disabled 케이스). */}
+              <InfiniteScrollSentinel
+                hasMore={hasMore}
+                loading={loading}
+                loadMore={loadMore}
+              />
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="secondary"
+                  onClick={loadMore}
+                  disabled={loading}
+                  data-testid="audit-log-load-more"
+                >
+                  {loading ? '불러오는 중...' : '더 보기 (25 건)'}
+                </Button>
+              </div>
+            </>
           )}
         </>
       )}
     </div>
+  );
+}
+
+// v0.153: IntersectionObserver 로 sentinel 이 뷰포트 근처에 들어오면 loadMore
+// 자동 호출. 「더 보기」 버튼은 유지 (fallback / 명시 조작). rootMargin=200px
+// 로 사용자가 마지막 항목에 닿기 직전에 미리 fetch.
+interface InfiniteScrollSentinelProps {
+  hasMore: boolean;
+  loading: boolean;
+  loadMore: () => void;
+}
+
+function InfiniteScrollSentinel({
+  hasMore,
+  loading,
+  loadMore,
+}: InfiniteScrollSentinelProps) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef(loading);
+  const hasMoreRef = useRef(hasMore);
+  const loadMoreRef = useRef(loadMore);
+  loadingRef.current = loading;
+  hasMoreRef.current = hasMore;
+  loadMoreRef.current = loadMore;
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return;
+    // 구형 브라우저 or SSR 에서는 IntersectionObserver 없음 → 「더 보기」 만.
+    if (typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && hasMoreRef.current && !loadingRef.current) {
+            loadMoreRef.current();
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    io.observe(node);
+    return () => {
+      io.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={sentinelRef}
+      aria-hidden="true"
+      data-testid="audit-log-infinite-scroll-sentinel"
+      className="h-1"
+    />
   );
 }
