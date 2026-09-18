@@ -8,6 +8,7 @@ import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDi
 import { EditRostersDialog } from './EditRostersDialog';
 import { AutoInviteStudentsDialog } from './AutoInviteStudentsDialog';
 import { AutoRemoveNonRosterMembersDialog } from './AutoRemoveNonRosterMembersDialog';
+import { AutoInviteStudentsToChatSpacesDialog } from './AutoInviteStudentsToChatSpacesDialog';
 import { ImportBasicDataDialog } from './ImportBasicDataDialog';
 
 export function BasicDataPanel() {
@@ -21,6 +22,7 @@ export function BasicDataPanel() {
   const [isRostersEditOpen, setIsRostersEditOpen] = useState(false);
   const [isAutoInviteOpen, setIsAutoInviteOpen] = useState(false);
   const [isAutoRemoveOpen, setIsAutoRemoveOpen] = useState(false);
+  const [isAutoInviteChatOpen, setIsAutoInviteChatOpen] = useState(false);
 
   useEffect(() => {
     const parsed = Number.parseInt(yearInput, 10);
@@ -142,6 +144,19 @@ export function BasicDataPanel() {
             }
           >
             명단 밖 자동 제거
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setIsAutoInviteChatOpen(true)}
+            data-testid="basic-data-auto-invite-chat-btn"
+            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+            title={
+              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                ? '학생 명단을 먼저 등록하세요'
+                : 'rosters 학생을 반 챗방에 자동 초대'
+            }
+          >
+            반 챗방 자동 초대
           </Button>
           <Button
             variant="secondary"
@@ -304,6 +319,15 @@ export function BasicDataPanel() {
         <AutoRemoveNonRosterMembersDialog
           open={true}
           onOpenChange={setIsAutoRemoveOpen}
+          year={selectedYear}
+          data={data.data}
+        />
+      )}
+
+      {data?.data && isAutoInviteChatOpen && (
+        <AutoInviteStudentsToChatSpacesDialog
+          open={true}
+          onOpenChange={setIsAutoInviteChatOpen}
           year={selectedYear}
           data={data.data}
         />
