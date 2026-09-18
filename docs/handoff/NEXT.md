@@ -1,12 +1,14 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.152 병합 완료** (`0d579fd`) - AccountsTable JSON 내보내기 (로드맵 B-6) · 1 라운드 Codex 통과.
-> **Antigravity 위임 17번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147, v0.148, v0.149, v0.150 에 이어 v0.152 마무리 사이클 정상 응답 및 성공 완료 (17번째 성공, 위임 오더 18번째).
+> **v0.153 병합 완료** (`324395b`) - AuditLogTable 무한 스크롤 (로드맵 B-7) · 1 라운드 Codex 통과.
+> **Antigravity 위임 18번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147, v0.148, v0.149, v0.150, v0.152 에 이어 v0.153 마무리 사이클 정상 응답 및 성공 완료 (18번째 성공, 위임 오더 19번째).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `324395b` v0.153 - AuditLogTable 무한 스크롤 (로드맵 B-7) · InfiniteScrollSentinel (IntersectionObserver rootMargin=200px) · sentinel 뷰포트 진입 시 자동 loadMore · 「더 보기」 버튼 병행 유지 · sentinel 조건 hasMore && !loading · effect deps [] + ref 로 최신 상태 참조 · 3 회귀 테스트 (`tests/AuditLogTable.test.tsx`) · 웹 928 (+3) · lint clean · 서버 무변경 · 1 라운드 Codex 통과.
 - `0d579fd` v0.152 - AccountsTable JSON 내보내기 (로드맵 B-6) · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, users) · users 필드 (email, firstName, lastName, orgUnitPath, isAdmin, isSuspended) · 파일명 accounts-YYYY-MM-DD.json · sortedFilteredUsers 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 920 (+3) · lint clean · 서버 무변경 · 1 라운드 Codex 통과.
+- `d831523` v0.151 - BatchCreateUsersDialog + 클래스룸 자동 배정 (로드맵 B-5) · 1 라운드 Codex 통과 · Head 폴백 병합.
 - `b00342e` v0.150 - 반 챗방 학생 자동 초대 (원본 assignMembersToChatRooms 대응) · AutoInviteStudentsToChatSpacesDialog (5-phase) · callChatList displayName 매칭 · matched vs unmatched 분리 · rosters 미설정/빈 반 skip · 「초대 N」 정확 입력 · 순차 add · already member skip 분류 · 실패 격리 · BasicDataPanel 「반 챗방 자동 초대」 버튼 · 1 라운드 Codex 통과.
 - `f68837f` v0.149 - 반 그룹 명단 밖 자동 제거 (원본 assignGroups 제외 워크플로우) · AutoRemoveNonRosterMembersDialog (5-phase) · fetchAllGroupMembers 페이지 넘김 · rosters diff · MEMBER 기본/OWNER·MANAGER 보호 toggle · 개별 체크박스 · 「제거 N」 정확 입력 · 순차 delete · 실패 격리 · F131 fix (rosters 미설정 반 스캔 skip) · BasicDataPanel 「명단 밖 자동 제거」 버튼 · 2 라운드 Codex 통과.
 - `559ac45` v0.148 - classroom 상세 페이지 학생/교사 명단 CSV 내보내기 (원본 명단 확인 대응) · CourseMembersPanel 「CSV 내보내기 (N)」 버튼 · 이름/이메일/userId 컬럼 · UTF-8 BOM · 파일명 <코스이름>-<교사|학생>-<YYYY-MM-DD>.csv · 파일시스템 금지 문자 sanitize · items 0 or anyPending 시 disabled · 1 라운드 Codex 통과.
@@ -22,7 +24,6 @@
 ## 다음 후보 (Head 자율 실행 예정)
 
 `docs/handoff/ROADMAP.md` Phase 5/6 남은 항목:
-- **AuditLogTable 무한 스크롤** - 로드맵 B-7.
 - **super_admin 대시보드 확장** - 로드맵 B-8.
 - **반 챗방 명단 밖 자동 제거** - chat member API 가 userId 반환이라 usersList extend 필요 (서버 변경 slice).
 - **BatchCreateUsersDialog + 클래스룸 배정** - 로드맵 B-5.

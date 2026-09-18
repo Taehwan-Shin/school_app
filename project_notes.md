@@ -2950,3 +2950,47 @@ ROADMAP 남은 후보 (v0.153+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+## 2026-09-19 · v0.153 AuditLogTable 무한 스크롤 (로드맵 B-7)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `65b16cd` | feat: v0.153 AuditLogTable 무한 스크롤 (로드맵 B-7) |
+| 병합 | `324395b` | Merge feat/audit-infinite-scroll-v153 into main - v0.153 AuditLogTable 무한 스크롤 (로드맵 B-7) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `65b16cd` | 통과 5 / 실패 0 | 통과 · 병합 승인. InfiniteScrollSentinel 및 AuditLogTable 회귀 3건 (`tests/AuditLogTable.test.tsx`) 추가 (렌더+observe 호출 · intersecting 시 loadMore 호출 · loading=true 시 호출 skip). 웹 928 (+3) 유닛, lint clean, 서버 무변경. 1 라운드 Codex 통과. |
+
+### 설계
+
+- **AuditLogTable 무한 스크롤 (`packages/web/src/routes/super_admin/AuditLogTable.tsx`)**:
+  - 로드맵 B-7 대응. 감사 로그 페이지 하단에 sentinel 이 뷰포트에 들어오면 자동으로 다음 25건을 로드.
+  - **InfiniteScrollSentinel 컴포넌트**:
+    - `IntersectionObserver` 사용 (`rootMargin: '200px'`). 사용자가 목록 끝에 도달하기 전 200px 지점에서 미리 fetch.
+    - `useEffect` 의 의존성 배열을 `[]`로 두고 `useRef`(`loadingRef`, `hasMoreRef`, `loadMoreRef`)를 활용하여 observer 인스턴스는 한 번만 생성하면서도 최신 상태를 안전하게 참조.
+    - sentinel 조건: `hasMore && !loading`.
+    - 구형 브라우저 또는 `IntersectionObserver` 미지원 환경에서는 안전하게 fallback.
+  - **기존 「더 보기」 버튼 유지**:
+    - 키보드 내비게이션 사용자, 스크롤 없는 디바이스 또는 명시적 조작을 원하는 사용자를 위한 fallback으로 기존 「더 보기 (25 건)」 버튼 병행 유지.
+
+### 배운 것
+
+- **IntersectionObserver 와 React effect 생명주기 안정화**:
+  - observer callback 내부에서 최신 props(`hasMore`, `loading`, `loadMore`)를 참조할 때 ref pattern을 사용하여 effect 재생성 및 unobserve/re-observe 깜빡임 없이 단일 observer로 안전하게 무한 스크롤 처리.
+- **Antigravity 위임 18번째 성공 (위임 오더 19번째)**:
+  - v0.151 Head 폴백 이후 19번째 위임에서 v0.153 마무리 사이클(병합, 배포, 4문서 갱신, 채널 공지 및 스레드 보고)을 규약에 맞춰 정상 완수.
+
+### 다음 세션에 이어갈 것
+
+ROADMAP 남은 후보 (v0.154+):
+- **super_admin 대시보드 확장** (로드맵 B-8).
+- **반 챗방 명단 밖 자동 제거**: Chat member API 의 `userId` 반환 제약 대응을 위해 `usersList` 연계 또는 서버 보강 후 진행.
+- **부서 그룹 명단 밖 자동 제거** (v0.149 대칭).
+- **전입생 매크로** (A-1, 도메인 규칙 필요).
+- **계정 삭제 안내 메일**: SendGrid 등 3rd party.
+- **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
+

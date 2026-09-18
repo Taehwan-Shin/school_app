@@ -84,6 +84,7 @@
 - **exhaustive-deps missing dep fix** - v0.142 완료 (v0.141 ESLint warning 7 → 4). AddChatMemberDialog · ChatSpaceMembersDialog · CreateClassroomDialog 세 다이얼로그의 useEffect open transition 초기화에서 disable 주석을 제거하고 tanstack-query mutation.reset observer stable bind 특성 및 resetForm useCallback([resetMutation]) 을 적용하여 exhaustive-deps 규칙 준수.
 - **exhaustive-deps auditLogList hook 재구성** - v0.143 완료 (v0.142 ESLint warning 4 → 0 완주). auditLogList.ts 의 filters 필드 원시 분해 및 filterActions key(useMemo + JSON.stringify) 도입으로 hook 의존성 배열 안정화 및 exhaustive-deps 경고 4건 전량 해소 (13→0 완주).
 - **AccountsTable JSON 내보내기** - v0.152 완료 (로드맵 B-6). 사용자 목록 감사·재적재 편의. CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, users) · users 필드 (email, firstName, lastName, orgUnitPath, isAdmin, isSuspended) · 파일명 accounts-YYYY-MM-DD.json · sortedFilteredUsers 반영 · 결과 0 이면 disabled · 1 라운드 Codex 통과.
+- **AuditLogTable 무한 스크롤** - v0.153 완료 (로드맵 B-7). 감사 로그 하단 sentinel (IntersectionObserver rootMargin=200px) 자동 loadMore · 기존 「더 보기」 버튼 병행 유지 · ref 기반 최신 상태 참조 · 3 회귀 테스트 · 웹 928 (+3) 유닛 · 1 라운드 Codex 통과.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
