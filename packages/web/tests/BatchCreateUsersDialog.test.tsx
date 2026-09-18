@@ -19,6 +19,25 @@ vi.mock("../src/api/orgunitsList.js", () => ({
   }),
 }));
 
+// v0.151: 클래스룸 배정 UI.
+const mockUseClassroomList = vi.fn(() => ({
+  data: { courses: [] },
+  isLoading: false,
+  isError: false,
+  error: null,
+}));
+const mockCallClassroomTeachersAdd = vi.fn();
+const mockCallClassroomStudentsAdd = vi.fn();
+vi.mock("../src/api/classroomList", () => ({
+  useClassroomList: () => mockUseClassroomList(),
+}));
+vi.mock("../src/api/classroomTeachersAdd", () => ({
+  callClassroomTeachersAdd: (data: unknown) => mockCallClassroomTeachersAdd(data),
+}));
+vi.mock("../src/api/classroomStudentsAdd", () => ({
+  callClassroomStudentsAdd: (data: unknown) => mockCallClassroomStudentsAdd(data),
+}));
+
 import {
   BatchCreateUsersDialog,
   buildRunRowsSnapshot,
@@ -377,5 +396,114 @@ describe("BatchCreateUsersDialog component", () => {
     expect(orgu.id).toBe("batch-create-users-orgunit");
     const pw = screen.getByLabelText(/초기 비밀번호/) as HTMLInputElement;
     expect(pw.id).toBe("batch-create-users-password");
+  });
+
+  // v0.151: 공통 클래스룸 자동 배정 (v0.144 UX 대칭).
+  describe("v0.151 클래스룸 자동 배정", () => {
+    beforeEach(() => {
+      mockUseClassroomList.mockReturnValue({
+        data: {
+          courses: [
+            { id: "c-3", name: "3학년 국어", courseState: "ACTIVE" },
+            { id: "c-1", name: "1학년 수학", courseState: "ACTIVE" },
+            { id: "c-2", name: "1학년 영어", courseState: "ACTIVE" },
+            { id: "c-arch", name: "보관됨", courseState: "ARCHIVED" },
+          ] as any,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it("클래스룸 리스트는 이름순 정렬 · ARCHIVED 제외", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      const list = screen.getByTestId("batch-create-users-classrooms-list");
+      const rows = Array.from(list.querySelectorAll("label"));
+      const names = rows.map((r) => r.textContent);
+      expect(names[0]).toContain("1학년 수학");
+      expect(names[1]).toContain("1학년 영어");
+      expect(names[2]).toContain("3학년 국어");
+      expect(screen.queryByTestId("batch-create-users-classroom-cb-c-arch")).toBeNull();
+    });
+
+    it("검색 input 이 이름/섹션/id 필터", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      const search = screen.getByTestId("batch-create-users-classroom-search");
+      fireEvent.change(search, { target: { value: "수학" } });
+      expect(screen.getByTestId("batch-create-users-classroom-cb-c-1")).toBeDefined();
+      expect(screen.queryByTestId("batch-create-users-classroom-cb-c-2")).toBeNull();
+      fireEvent.change(search, { target: { value: "C-2" } });
+      expect(screen.getByTestId("batch-create-users-classroom-cb-c-2")).toBeDefined();
+      fireEvent.change(search, { target: { value: "zzz" } });
+      expect(screen.getByTestId("batch-create-users-classrooms-search-empty")).toBeDefined();
+    });
+
+    it("실행 시 각 계정 생성 후 선택된 클래스룸 순차 배정 · 선택 유지 (검색 후에도)", async () => {
+      mockCallUsersCreate
+        .mockResolvedValueOnce({ primaryEmail: "hong1@cam.hs.kr", uid: "u1" })
+        .mockResolvedValueOnce({ primaryEmail: "hong2@cam.hs.kr", uid: "u2" });
+      mockCallClassroomStudentsAdd.mockResolvedValue({ student: {} });
+
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+
+      // row 0, 1 입력.
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-id"), { target: { value: "hong2" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-given"), { target: { value: "길순" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "abcd1234" } });
+
+      // c-1, c-3 선택 → 검색으로 필터해도 유지.
+      fireEvent.click(screen.getByTestId("batch-create-users-classroom-cb-c-1"));
+      fireEvent.click(screen.getByTestId("batch-create-users-classroom-cb-c-3"));
+      fireEvent.change(screen.getByTestId("batch-create-users-classroom-search"), { target: { value: "영어" } });
+      expect(screen.queryByTestId("batch-create-users-classroom-cb-c-1")).toBeNull();
+      expect(screen.getByTestId("batch-create-users-classrooms-selected").textContent).toContain("선택됨: 2");
+
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => {
+        expect(mockCallClassroomStudentsAdd).toHaveBeenCalledTimes(4); // 2 accounts × 2 classrooms.
+      });
+      const calls = mockCallClassroomStudentsAdd.mock.calls.map((call: any[]) => (call[0] as any).courseId);
+      expect(calls.sort()).toEqual(["c-1", "c-1", "c-3", "c-3"]);
+    });
+
+    it("교사 role 선택 시 teachers.add 호출", async () => {
+      mockCallUsersCreate.mockResolvedValueOnce({ primaryEmail: "t1@cam.hs.kr", uid: "u1" });
+      mockCallClassroomTeachersAdd.mockResolvedValue({ teacher: {} });
+
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "t1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "김" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "교사" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "abcd1234" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-classroom-role-teacher"));
+      fireEvent.click(screen.getByTestId("batch-create-users-classroom-cb-c-1"));
+
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => {
+        expect(mockCallClassroomTeachersAdd).toHaveBeenCalledTimes(1);
+      });
+      expect(mockCallClassroomStudentsAdd).not.toHaveBeenCalled();
+    });
+
+    it("클래스룸 미선택이면 배정 API 호출 없음", async () => {
+      mockCallUsersCreate.mockResolvedValueOnce({ primaryEmail: "hong1@cam.hs.kr", uid: "u1" });
+
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "abcd1234" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => {
+        expect(mockCallUsersCreate).toHaveBeenCalledTimes(1);
+      });
+      expect(mockCallClassroomStudentsAdd).not.toHaveBeenCalled();
+      expect(mockCallClassroomTeachersAdd).not.toHaveBeenCalled();
+    });
   });
 });
