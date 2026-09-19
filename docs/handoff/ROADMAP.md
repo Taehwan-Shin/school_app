@@ -105,6 +105,7 @@
 - **classroomDetail 복사 버튼** - v0.171 완료. 신규 `CopyButton` 컴포넌트 (navigator.clipboard.writeText 우선 · document.execCommand('copy') fallback · 성공 시 「복사됨 ✓」 2초 노출 · aria-label 에 value 포함) · classroomDetail 3곳 배치 (courseId 헤더 · 소유자 ID 정보 그리드 · Classroom URL 「URL 복사」 라벨) · 관리자가 Admin Console 이나 문서에 붙여넣기 원-클릭 지원 · 5 회귀 테스트 · 웹 1029 (+5) · lint clean · 서버 무변경.
 - **CopyButton 이식 (userDetail · groupDetail)** - v0.172 완료. v0.171 CopyButton 을 userDetail (이메일 + 조직 단위) · groupDetail (이메일 + 헤더 그룹 email) 두 페이지로 확장 · 3 detail 페이지 (classroom · user · group) UX 일관성 달성 · 재사용만 · 웹 1029 · lint clean · 서버 무변경.
 - **CreateGroup + EditGroup description textarea + 4096자 상한** - v0.173 완료 (v0.166 대칭). 신규 `lib/groupLimits.ts` shared `GROUP_DESCRIPTION_MAX = 4096` 상수 · CreateGroupDialog · EditGroupDialog description input 을 `<input type="text">` → `<textarea rows={3} className="resize-y">` 로 승격 · 실시간 「N / 4096 자」 카운터 (초과 시 red) · handleSubmit 상단 상한 초과 시 서버 요청 차단 · v0.166 BulkUpdate 도 shared 상수 사용으로 refactor (3 dialog 완전 통일) · 1 helper test · 웹 1030 (+1) · lint clean · 서버 무변경.
+- **CreateClassroomDialog description 30,000자 상한 + 카운터** - v0.174 완료 (v0.173 대칭). Google Classroom courses.description 상한 30,000자 강제 · 실시간 「N / 30,000 자」 카운터 (초과 시 red) · textarea resize-y · handleSubmit 상한 초과 시 서버 요청 차단 · 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX = 30000` 상수 · 1 helper test · 웹 1031 (+1) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

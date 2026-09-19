@@ -3666,3 +3666,40 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장 · UserDetail displayName textarea (동일 패턴 이식).
+
+---
+
+## 2026-09-20 · v0.174 CreateClassroomDialog description 30,000자 상한 + 카운터 (v0.173 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `58c830e` (`feat/classroom-description-limit-v174`) | feat: v0.174 CreateClassroomDialog description 30,000자 상한 + 카운터 (v0.173 대칭) |
+| 병합 | `1667e74` | Merge feat/classroom-description-limit-v174 into main - v0.174 CreateClassroomDialog description 30,000자 상한 (v0.173 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `1667e74` | skip (Head 폴백 규율) | 기계 관문(web 1031 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: CreateClassroomDialog description 은 이미 textarea 였지만 상한 검증 없음. Google Classroom courses.description 은 REST API 문서상 최대 30,000자 (초과 시 서버 400). 클라이언트가 미리 차단해서 서버 왕복 낭비 방지 + 관리자에게 원인 명확.
+- **해결**:
+  - 신규 `packages/web/src/lib/classroomLimits.ts` 에 `COURSE_DESCRIPTION_MAX = 30000` 상수 (v0.173 `groupLimits` 대칭 · 다른 courses 필드 상한 추가 여지 남김).
+  - 실시간 「현재 N / 30,000 자」 카운터. 초과 시 red 하이라이트.
+  - handleSubmit 상단에서 상한 초과 감지 → 서버 요청 차단 + validation error.
+  - textarea 에 `resize-y` 추가 (관리자가 긴 안내문 편집 편리).
+- **테스트**: `packages/web/tests/classroomLimits.test.ts` — 상수 = 30000.
+
+### 배운 것
+
+- **shared limits lib 패턴 확산**: v0.173 `groupLimits` 로 만들어진 shared 상수 lib 패턴이 v0.174 에서 `classroomLimits` 로 자연스럽게 이식됨. 리소스별 lib 파일을 만들어두면 후속 slice 에서 다른 필드 상한 (name 750 · section 2800 · room 650) 추가하기 저렴.
+- **이미 textarea 인 필드에 상한 추가**: 새 textarea 승격은 필요 없지만 카운터·차단만 추가하는 미니 slice. UI 변경 최소 (rendering 3줄 추가 · handleSubmit 2줄 추가) 로 UX 강화.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장 · CourseBulkCreate description 필드에도 동일 30,000 상한 이식 · CreateClassroom name/section/room 상한 추가 (COURSE_NAME_MAX 등).
