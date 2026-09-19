@@ -3233,3 +3233,36 @@ ROADMAP 남은 후보 (v0.154+):
 
 - v0.162: ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭 · 마지막 3번째 이식).
 - 그 뒤: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+
+---
+
+## 2026-09-20 · v0.162 ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭 · 트릴로지 완결)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `1393b4d` | feat: v0.162 ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭) |
+| 병합 | `4c9c0a0` | Merge feat/classroom-sort-persist-v162 into main - v0.162 ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `1393b4d` | skip (Head 폴백 규율) | v0.158 R1 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 966 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- v0.160/v0.161 패턴 그대로. `classroomTable.sort.v1` 키 · SortColumn allowlist 은 ClassroomTable 의 `name | section | state`.
+- URL authoritative · Mount hydrate · 「필터 초기화」 removeItem 규약 동일.
+- **트릴로지 완결**: Accounts (v0.160) · Groups (v0.161) · Classroom (v0.162) 세 테이블 모두 정렬 자동 복원.
+
+### 배운 것
+
+- **패턴 이식은 mechanical**: 3번 반복하니 완전히 muscle memory. SORT_STORAGE_KEY · SortColumn allowlist · testId prefix 만 바뀌고 나머지는 100% 동일. 향후 새 테이블 추가 시 15분 이내 이식 가능.
+- **정렬 헤더 name 매칭 상이**: AccountsTable=`Email`, GroupsTable=`이메일`, ClassroomTable=`이름/섹션/상태`. `getByRole('columnheader', { name: /... / })` 로 각각 접근.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid setup · 사용자 조치), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거 (서버 슬라이스), AutoInvite+AutoRemove diff 통합 (큰 슬라이스).
+- 새 후보: super_admin 대시보드 export 개선 · 반 그룹/챗방 unified diff 페이지 · classroom archive/restore bulk · groups bulk operations.

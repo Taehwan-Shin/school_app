@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.161 병합 완료** (`305813f`) - GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭) · 기계 관문 (lint clean · web 961 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.162 병합 완료** (`4c9c0a0`) - ClassroomTable 정렬 선호 localStorage 저장 (트릴로지 완결) · 기계 관문 (lint clean · web 966 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `4c9c0a0` v0.162 - ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭 · Accounts/Groups/Classroom 트릴로지 완결) · `classroomTable.sort.v1` 키 · SortColumn allowlist (name/section/state) · URL authoritative · Mount hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 966 (+5) · lint clean · 서버 무변경.
 - `305813f` v0.161 - GroupsTable 정렬 선호 localStorage 저장 (v0.160 AccountsTable 대칭) · `groupsTable.sort.v1` 키 · SortColumn allowlist (email/name/directMembersCount) · URL authoritative · Mount 시 URL 이 sort 없으면 저장값 hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 961 (+5) · lint clean · 서버 무변경 · v0.162 ClassroomTable 대칭 예정.
 - `ef322a6` v0.160 - AccountsTable 정렬 선호 localStorage 저장 · URL 이 authoritative · localStorage 는 URL 이 sort 없을 때만 default 로 hydrate · Mount 시 URL 에 sort 없으면 저장값(`accountsTable.sort.v1`) 을 URL 로 replace hydrate · sort 변경 시 자동 저장 · sort 없으면 removeItem · 손상 JSON · localStorage 비활성 조용히 무시 · 5 회귀 테스트 · 웹 956 (+5) · lint clean · 서버 무변경 · GroupsTable/ClassroomTable 후속 슬라이스 (v0.161/v0.162) 로 이식 예정.
 - `d7d95d9` v0.159 - BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 CreateUserDialog 대칭) · 학년말 새 OU 만들기 흔한 요구 대응 · state · reset · handler · UI 모두 v0.121 과 동일 구조 · 기본 접힘 · toggle 클릭 시 폼 전개 · 부모 경로 기본값 = 현재 orgUnitPath · 이름/부모 검증 규칙 동일 · 성공 시 orgUnitPath 자동 채움 · 폼 접힘 · 성공 메시지 · 5 회귀 테스트 · 웹 951 (+5) · lint clean · 서버 무변경 (기존 orgunitsCreate callable 재사용) · Codex R1 skip.
