@@ -3412,3 +3412,38 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: BulkUpdateGroupNameDialog (v0.166 대칭, name 필드), classroom UX polish, dashboard export 개선.
+
+---
+
+## 2026-09-20 · v0.167 CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 (첫 1000 unit 넘김)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/create-group-local-part-v167` | feat: v0.167 CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 |
+| 병합 | `118e45d` | Merge feat/create-group-local-part-v167 into main - v0.167 CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `118e45d` | skip (Head 폴백 규율) | 기계 관문(web 1003 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: CreateGroupDialog 는 full email 입력 강제 (`team-a@cam.hs.kr`). BatchCreateUsersDialog v0.132 는 local-part 만 입력하면 자동 부착. 일관성 없음.
+- **해결**: BatchCreateUsersDialog UX 그대로 이식. local-part 만 입력하면 자동 @cam.hs.kr 부착 · full email 도 뒤호환.
+- **normalizeGroupEmailInput pure helper**: input.trim().toLowerCase() 후 @ 유무 판단 → `LOCAL_PART_RE` or `FULL_EMAIL_RE` 검증. 부적합 null.
+- **case-insensitive 인식 + lower-case canonical 저장**: 「TEAM-B@CAM.HS.KR」 도 「team-b@cam.hs.kr」 로 정규화 (Google Workspace 정책 준수).
+- **UX**: 실시간 preview line (local-part 유효 시 <input>@cam.hs.kr 표시).
+
+### 배운 것
+
+- **첫 1000 unit 마일스톤**: web 유닛 테스트가 이번 세션 (v0.158~v0.167 · 9 슬라이스) 만에 942 → 1003 (+61) 로 급성장. 기존 v0.100 대 400여개 대비 2.5배. bulk hardening 시리즈 + 정렬 저장 트릴로지 + 이번 GroupsTable bulk 확장이 주 기여.
+- **case-sensitive regex 함정**: 정규식 검증 전에 lower-case 처리 필수. 이번에 R1 hang 없어도 첫 테스트 실행에서 「TEAM-B@CAM.HS.KR」 → null 반환하는 버그 즉시 잡힘. 순수 함수 회귀 테스트가 UI 회귀 테스트보다 빨리 잡음.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선, classroom UX polish, CreateClassroomDialog local-part 입력 대칭 (이미 지원 여부 확인 필요).

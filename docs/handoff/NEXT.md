@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.166 병합 완료** (`8eb8c54`) - BulkUpdateGroupDescriptionDialog · 기계 관문 (lint clean · web 994 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.167 병합 완료** (`118e45d`) - CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 · 기계 관문 (lint clean · web **1003 유닛 · 첫 1000 넘김**) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `118e45d` v0.167 - CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 (BatchCreateUsersDialog v0.132 UX 대칭) · 교사가 「team-a」 만 입력하면 서버에 「team-a@cam.hs.kr」 로 자동 전송 · full email 도 뒤호환 · `normalizeGroupEmailInput` pure helper (case-insensitive + lower-case canonical) · 실시간 preview line · 「이메일 아이디 (자동 @cam.hs.kr)」 라벨 · 잘못된 도메인/특수문자 preview 없음 + 실행 거부 · 9 회귀 테스트 · 웹 1003 (+9) · lint clean · 서버 무변경.
 - `8eb8c54` v0.166 - BulkUpdateGroupDescriptionDialog · v0.165 GroupsTable selection 재사용 · 학년 코호트 그룹 여러 개에 동일 설명 (예: 「2026학년도 3학년 5반」) 일괄 부여 · Textarea 입력 (모두 공통 값) · 4096자 상한 검증 (Workspace Directory 규격) · 빈 설명도 실행 허용 (설명 지우기) · 3-phase confirm/running/done · F99 emails+description snapshot · F100 htmlFor · 순차 호출 · 실패 격리 · done 배너에 적용된 설명 표시 · 기존 groupsUpdate callable 재사용 · GroupsTable bulk actions bar 「선택 설명 변경」 버튼 · 5 회귀 테스트 · 웹 994 (+5) · lint clean · 서버 무변경.
 - `b490459` v0.165 - GroupsTable 최초 bulk 액션 세트 (Accounts v0.155 · Classroom v0.164 대칭) · 체크박스 컬럼 (row + 헤더 전체선택 + indeterminate) · 필터 밖 선택 유지 · 필터/검색/정렬 변경 시 리셋 · 「N개 선택됨」 bulk actions bar · BulkDeleteGroupDialog (3-phase confirm/running/done · F99 emails snapshot · F100 htmlFor · 확인 개수 정확 입력 · 순차 호출 · 실패 격리) · 기존 groupsDelete callable 재사용 · conditional mount (QueryClient 조기 호출 방지) · 11 회귀 테스트 · 웹 989 (+11) · lint clean · 서버 무변경.
 - `ceb9997` v0.164 - BulkTransferClassroomOwnerDialog (일괄 소유자 이관) · 년말 담임 교체 등 반 여러 개 소유자를 새 교사에게 한 번에 이관 · 기존 classroomTransferOwnership callable 재사용 (서버 무변경) · 3-phase (confirm/running/done) · F99 courses+newOwner snapshot · F100 htmlFor · @cam.hs.kr 도메인 검증 · 확인 input 대상 개수 정확 입력 · ACTIVE 코스만 대상 (F118 대칭) · 실패 격리 · v0.116c F77 partial rollback 안내 유지 · ClassroomTable 「선택 소유자 이관」 버튼 · 6 회귀 테스트 · 웹 978 (+6) · lint clean · 서버 무변경.
