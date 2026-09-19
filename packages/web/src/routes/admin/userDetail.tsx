@@ -9,6 +9,7 @@ import { EditUserDialog, type EditUserTarget } from './EditUserDialog';
 import { SuspendUserDialog, type SuspendUserTarget } from './SuspendUserDialog';
 import { ResetPasswordDialog, type ResetPasswordTarget } from './ResetPasswordDialog';
 import { DeleteUserDialog, type DeleteUserTarget } from './DeleteUserDialog';
+import { CopyButton } from './CopyButton';
 
 export function UserDetailPage() {
   const { email = '' } = useParams<{ email: string }>();
@@ -144,7 +145,10 @@ export function UserDetailPage() {
             <dl className="grid grid-cols-2 gap-x-8 gap-y-3" data-testid="user-detail-info">
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">이메일</dt>
-                <dd className="text-body font-mono text-fg-primary">{user.email}</dd>
+                <dd className="text-body font-mono text-fg-primary" data-testid="user-detail-email">
+                  {user.email}
+                  <CopyButton value={user.email} data-testid="user-detail-copy-email" />
+                </dd>
               </div>
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">이름</dt>
@@ -152,7 +156,15 @@ export function UserDetailPage() {
               </div>
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">조직 단위</dt>
-                <dd className="text-body font-mono text-fg-secondary">{user.orgUnitPath || '/'}</dd>
+                <dd className="text-body font-mono text-fg-secondary" data-testid="user-detail-orgunit">
+                  {user.orgUnitPath || '/'}
+                  {user.orgUnitPath && (
+                    <CopyButton
+                      value={user.orgUnitPath}
+                      data-testid="user-detail-copy-orgunit"
+                    />
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">권한</dt>
