@@ -39,6 +39,9 @@ export function CourseMembersPanel({
   const [addEmail, setAddEmail] = useState('');
   const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
   const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+  // v0.156: 명단 선택 상태 (userId 기반). 선택 있으면 「선택 export」, 없으면
+  // 기존 대로 전체 export.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const addTeacherMutation = useClassroomTeachersAdd();
   const deleteTeacherMutation = useClassroomTeachersDelete();
   const addStudentMutation = useClassroomStudentsAdd();
@@ -73,6 +76,8 @@ export function CourseMembersPanel({
 
   useEffect(() => {
     setDeleteConfirmUserId(null);
+    // v0.156: 탭 (teachers ↔ students) 전환 시 선택 리셋 (다른 명단이므로 재선택).
+    setSelectedIds(new Set());
   }, [tab]);
 
   const handleAdd = async () => {
@@ -201,13 +206,19 @@ export function CourseMembersPanel({
         <>
           {courseId && (
             <div className="flex justify-end gap-2 mb-2">
-              {/* v0.148: 현재 탭 명단 CSV 내보내기 (원본 「명단 확인」 대응).
-                  파일명 = <코스이름>-<tab>-<YYYY-MM-DD>.csv. */}
+              {/* v0.148/v0.156: 현재 탭 명단 CSV 내보내기 (원본 「명단 확인」).
+                  v0.156: 개별 체크박스 선택 있으면 그 항목만 export ·
+                  파일명 접미사 -selected. AccountsTable v0.155 대칭. */}
               <Button
                 variant="secondary"
                 onClick={() => {
+                  const exportItems =
+                    selectedIds.size > 0
+                      ? items.filter((m) => selectedIds.has(m.userId))
+                      : items;
+                  const isSelected = selectedIds.size > 0;
                   const header = ['이름', '이메일', 'userId'];
-                  const rows = items.map((m) => [
+                  const rows = exportItems.map((m) => [
                     m.profile?.name?.fullName || '',
                     m.profile?.emailAddress || '',
                     m.userId,
@@ -225,23 +236,31 @@ export function CourseMembersPanel({
                   const url = URL.createObjectURL(blob);
                   const safeName = (courseName || courseId).replace(/[\\/:*?"<>|]/g, '_');
                   const today = new Date().toISOString().split('T')[0];
+                  const scopeSuffix = isSelected ? '-selected' : '';
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `${safeName}-${tab === 'teachers' ? '교사' : '학생'}-${today}.csv`;
+                  a.download = `${safeName}-${tab === 'teachers' ? '교사' : '학생'}${scopeSuffix}-${today}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                disabled={items.length === 0 || anyPending}
+                disabled={
+                  (selectedIds.size === 0 && items.length === 0) || anyPending
+                }
                 data-testid="course-members-export-csv-btn"
                 title={
                   items.length === 0
                     ? '내보낼 명단이 없습니다.'
-                    : `${items.length}명 CSV 내보내기`
+                    : selectedIds.size > 0
+                      ? `선택 ${selectedIds.size}명 CSV 내보내기`
+                      : `${items.length}명 CSV 내보내기`
                 }
               >
-                CSV 내보내기 ({items.length})
+                CSV 내보내기{' '}
+                {selectedIds.size > 0
+                  ? `(선택 ${selectedIds.size})`
+                  : `(${items.length})`}
               </Button>
               {tab === 'students' && (
                 <Button
@@ -262,6 +281,35 @@ export function CourseMembersPanel({
             <Table>
               <TableHeader className="sticky top-0 bg-canvas">
                 <TableRow>
+                  {/* v0.156: 선택 checkbox column. header 는 「전체 선택」 (현재 items). */}
+                  <TableHead className="w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="전체 선택"
+                      data-testid="course-members-select-all"
+                      checked={
+                        items.length > 0 &&
+                        items.every((m) => selectedIds.has(m.userId))
+                      }
+                      ref={(el) => {
+                        if (el) {
+                          const any = items.some((m) => selectedIds.has(m.userId));
+                          const all =
+                            items.length > 0 &&
+                            items.every((m) => selectedIds.has(m.userId));
+                          el.indeterminate = any && !all;
+                        }
+                      }}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(new Set(items.map((m) => m.userId)));
+                        } else {
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                      disabled={items.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>이름</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>userId</TableHead>
@@ -272,7 +320,7 @@ export function CourseMembersPanel({
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="text-center text-small text-fg-muted py-6"
                     >
                       {tab === 'teachers' ? '교사가 없습니다.' : '학생이 없습니다.'}
@@ -284,6 +332,22 @@ export function CourseMembersPanel({
                       key={m.userId}
                       data-testid={`course-member-row-${m.userId}`}
                     >
+                      <TableCell className="w-8">
+                        <input
+                          type="checkbox"
+                          aria-label={`${m.profile?.name?.fullName || m.userId} 선택`}
+                          data-testid={`course-member-select-${m.userId}`}
+                          checked={selectedIds.has(m.userId)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(m.userId);
+                              else next.delete(m.userId);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="text-small text-fg-primary">
                         {m.profile?.name?.fullName || m.userId}
                       </TableCell>
