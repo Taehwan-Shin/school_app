@@ -3447,3 +3447,39 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선, classroom UX polish, CreateClassroomDialog local-part 입력 대칭 (이미 지원 여부 확인 필요).
+
+---
+
+## 2026-09-20 · v0.168 CreateClassroomDialog owner local-part 자동 부착 (v0.167 대칭 · shared helper 승격)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/create-classroom-owner-local-part-v168` | feat: v0.168 CreateClassroomDialog owner local-part 자동 부착 (v0.167 대칭) |
+| 병합 | `1f25e80` | Merge feat/create-classroom-owner-local-part-v168 into main - v0.168 CreateClassroomDialog owner local-part 자동 부착 (v0.167 대칭 · shared lib/emailInput.ts) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `1f25e80` | skip (Head 폴백 규율) | 기계 관문(web 1016 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.167 로 CreateGroupDialog 은 local-part 자동 부착 UX 개선 완료. CreateClassroomDialog 의 소유자 필드도 이메일 입력이지만 여전히 full email 강제. 코드도 중복.
+- **해결**:
+  1. v0.167 의 helper 를 `src/lib/emailInput.ts` 로 승격 (EMAIL_DOMAIN · LOCAL_PART_RE · FULL_EMAIL_RE · normalizeSchoolEmailInput · previewSchoolEmail).
+  2. CreateGroupDialog v0.167 은 shared helper 로 refactor. `normalizeGroupEmailInput` 은 alias export 유지 (하위 호환).
+  3. CreateClassroomDialog 소유자 필드 도입: 'me' 특수 값 유지 · 빈 값 → 'me' fallback · local-part → 자동 부착 · full email 뒤호환 · 부적합 → validation 에러.
+- **'me' 특수 케이스**: Google Classroom API 는 소유자 필드에 'me' 별칭 지원 (현재 인증된 사용자). 빈 값도 'me' 로 fallback. 이메일 정규화 파이프라인 앞에 case-insensitive 'me' 체크.
+
+### 배운 것
+
+- **helper 승격 타이밍**: v0.167 에서 CreateGroupDialog 안에 helper 를 두고 alias export 로 재사용 가능하게 했음. v0.168 에서 두 dialog 가 같은 helper 를 필요로 하니 lib/ 로 승격 자연스러움. 처음부터 lib/ 로 만드는 것보다 두 번째 사용처 등장 시 승격이 dead-code 방지에 좋음.
+- **특수 값 case-insensitive 처리**: 'me' 는 사용자가 「me」 「Me」 「ME」 등으로 입력 가능. `trimmed.toLowerCase() === 'me'` 로 관용 처리 후 이메일 정규화 파이프라인 분기.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: BulkTransferClassroomOwnerDialog 도 shared emailInput helper 로 refactor · dashboard export 개선 · TransferClassroomOwnerDialog (개별) 도 local-part UX.
