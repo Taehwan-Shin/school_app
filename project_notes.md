@@ -2994,3 +2994,107 @@ ROADMAP 남은 후보 (v0.154+):
 - **계정 삭제 안내 메일**: SendGrid 등 3rd party.
 - **첫 audit fallback 검증**: v0.133 sink 실 데이터 흐름 smoke test.
 
+---
+
+## 2026-09-19 · v0.154 super_admin 대시보드 결과 분포 위젯 (로드맵 B-8)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `2de6575` | test: v0.154c F132 server resultCounts 회귀 (빈 결과 · sample aggregate) |
+| 병합 | `a4f0457` | Merge feat/dashboard-result-breakdown-v154 into main - v0.154 super_admin 결과 분포 위젯 (로드맵 B-8, Head 폴백 · Antigravity 20번째 무응답) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `7d7cb91` | 실패 1 / 통과 4 | F132: 5건 preview aggregate 왜곡 지적. |
+| 2 | `a90e382` | 보강 | 서버 auditLogSummary 에 resultCounts 필드 추가. |
+| 3 | `2de6575` | 통과 5 / 실패 0 | 서버 resultCounts 회귀 및 client fallback 검증. 웹 936 (+4) · functions 523 (+1) · lint clean. |
+
+### 설계
+
+- super_admin 대시보드 「액션별」 위젯 아래에 「결과 분포」 신규 section 추가.
+- ok/denied/error 3-card grid + count/percent 표시.
+- 각 카드에서 `/super_admin/audit?atMin=X&result=X` 링크 제공.
+
+---
+
+## 2026-09-19 · v0.155 AccountsTable 선택 계정만 export (로드맵 B-6 후속)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `89228d7` | fix: v0.155b F133 (선택은 기존 UX 대로 필터 변경 시 리셋 · 주석·테스트 정정) |
+| 병합 | `2b023f0` | Merge feat/accounts-selected-export-v155 into main - v0.155 AccountsTable 선택 계정만 export (로드맵 B-6 후속) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ab714db` | 실패 1 / 통과 4 | F133: 필터 밖 유지 주석 불일치 지적. |
+| 2 | `89228d7` | 통과 5 / 실패 0 | 주석 및 테스트 정정. 웹 933 (+3) · lint clean · 서버 무변경. |
+
+### 설계
+
+- 관리자 → 사용자 → 개별 체크박스 선택 시 CSV/JSON 내보내기 버튼 라벨 「(선택 N)」 자동 갱신.
+- 파일명: `accounts-selected-YYYY-MM-DD.csv|json`.
+- JSON payload 에 `scope: "selected"` 필드 추가.
+
+---
+
+## 2026-09-19 · v0.156 CourseMembersPanel 선택 명단 export (v0.148/v0.155 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `b0fd08f` | feat: v0.156 CourseMembersPanel 선택 명단 export (v0.148/v0.155 대칭) |
+| 병합 | `2e83e90` | Merge feat/course-members-selected-export-v156 into main - v0.156 CourseMembersPanel 선택 명단 export (Head 폴백 · Antigravity 22번째 무응답) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `b0fd08f` | skip (credits) | Codex 한도 재소진으로 기계 관문(web 939 유닛 · lint clean) 대체. |
+
+### 설계
+
+- classroom 상세 페이지 교사/학생 탭에 개별 체크박스 및 전체 선택(indeterminate) 헤더 추가.
+- 선택 항목 존재 시 「CSV 내보내기 (선택 N)」로 라벨 변경 및 파일명 `-selected` 접미사 부여.
+- 탭 전환 시 선택 상태 자동 리셋.
+
+---
+
+## 2026-09-19 · v0.157 GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `0addf18` | feat: v0.157 GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) |
+| 병합 | `f61b2f2` | Merge feat/groups-json-export-v157 into main - v0.157 GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `0addf18` | skip (credits) | Codex workspace credits 소진으로 기계 관문(web 942 유닛 · lint clean) 대체. |
+
+### 설계
+
+- GroupsTable CSV 내보내기 옆 「JSON 내보내기」 버튼 추가.
+- payload: `exportedAt`, `filters`, `totalCount`, `groups` (`email`, `name`, `description`, `directMembersCount`, `aliases`).
+- 파일명 `groups-YYYY-MM-DD.json`, 검색/필터/정렬 반영 및 0건 시 disabled.
+
+### 배운 것
+
+- **Antigravity CLI 환경 세션 안정성 및 태스크 완료 보장**:
+  - Buzz 멘션 기반 단발성 CLI 실행 환경에서는 장기 실행 태스크(배포/테스트 등) 발생 시 외부 비동기 깨움을 기다리며 턴을 조기 종료할 경우 프로세스 종료로 인해 태스크가 강제 취소(`Cancelling steps`)되는 문제 발생.
+  - 이를 해결하기 위해 에이전트가 동일 세션/턴 내에서 도구 호출을 유지하며 완료를 동기식으로 추적·완결한 후 최종 Buzz 보고(`buzz messages send`)를 완료해야 함.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은 후보: A-1 전입생 매크로, 계정 삭제 메일, 반 챗방 명단 밖 제거(서버 API 확장 연계).

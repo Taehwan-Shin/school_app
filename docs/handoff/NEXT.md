@@ -1,11 +1,15 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.153 병합 완료** (`324395b`) - AuditLogTable 무한 스크롤 (로드맵 B-7) · 1 라운드 Codex 통과.
-> **Antigravity 위임 18번째 시도 성공**: v0.136, v0.137, v0.138, v0.139, v0.140, v0.141, v0.142, v0.143, v0.144, v0.145, v0.146, v0.147, v0.148, v0.149, v0.150, v0.152 에 이어 v0.153 마무리 사이클 정상 응답 및 성공 완료 (18번째 성공, 위임 오더 19번째).
+> **v0.157 병합 완료** (`f61b2f2`) - GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) · 기계 관문 (lint clean · web 942 유닛) 통과 · Codex skip (credits 소진).
+> **Antigravity 위임 23번째**: v0.157 마무리 사이클 (배포, 문서 갱신, 채널 공지 및 스레드 보고) 완료.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `f61b2f2` v0.157 - GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, groups) · groups 필드 (email, name, description, directMembersCount, aliases) · 파일명 groups-YYYY-MM-DD.json · sortedFilteredGroups 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/GroupsTable.test.tsx`) · 웹 942 (+3) · lint clean · 서버 무변경 · Codex skip (credits 소진).
+- `2e83e90` v0.156 - CourseMembersPanel 선택 명단 export (v0.148/v0.155 대칭) · 개별 체크박스 + 전체 선택 header (indeterminate) · 선택 시 export 버튼 「(선택 N)」 · 파일명 <코스>-<탭>-selected-<날짜>.csv · 탭 전환 시 선택 리셋 · 3 회귀 테스트 (`tests/CourseMembersPanel.test.tsx`) · 웹 939 (+3) · lint clean · 서버 무변경 · Codex skip (한도 재소진).
+- `2b023f0` v0.155 - AccountsTable 선택 계정만 export (로드맵 B-6 후속) · CSV/JSON 버튼 라벨 「(선택 N)」 · 파일명 accounts-selected-YYYY-MM-DD.csv|json · JSON payload scope: 'selected'|'filtered' · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 933 (+3) · lint clean · 서버 무변경.
+- `a4f0457` v0.154 - super_admin 대시보드 결과 분포 위젯 (로드맵 B-8) · ok/denied/error 3-card grid + count/percent · 서버 resultCounts 확장 · 6 회귀 테스트 · 웹 936 (+4) · functions 523 (+1) · lint clean.
 - `324395b` v0.153 - AuditLogTable 무한 스크롤 (로드맵 B-7) · InfiniteScrollSentinel (IntersectionObserver rootMargin=200px) · sentinel 뷰포트 진입 시 자동 loadMore · 「더 보기」 버튼 병행 유지 · sentinel 조건 hasMore && !loading · effect deps [] + ref 로 최신 상태 참조 · 3 회귀 테스트 (`tests/AuditLogTable.test.tsx`) · 웹 928 (+3) · lint clean · 서버 무변경 · 1 라운드 Codex 통과.
 - `0d579fd` v0.152 - AccountsTable JSON 내보내기 (로드맵 B-6) · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, users) · users 필드 (email, firstName, lastName, orgUnitPath, isAdmin, isSuspended) · 파일명 accounts-YYYY-MM-DD.json · sortedFilteredUsers 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 920 (+3) · lint clean · 서버 무변경 · 1 라운드 Codex 통과.
 - `d831523` v0.151 - BatchCreateUsersDialog + 클래스룸 자동 배정 (로드맵 B-5) · 1 라운드 Codex 통과 · Head 폴백 병합.

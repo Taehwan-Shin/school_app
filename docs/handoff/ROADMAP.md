@@ -85,6 +85,10 @@
 - **exhaustive-deps auditLogList hook 재구성** - v0.143 완료 (v0.142 ESLint warning 4 → 0 완주). auditLogList.ts 의 filters 필드 원시 분해 및 filterActions key(useMemo + JSON.stringify) 도입으로 hook 의존성 배열 안정화 및 exhaustive-deps 경고 4건 전량 해소 (13→0 완주).
 - **AccountsTable JSON 내보내기** - v0.152 완료 (로드맵 B-6). 사용자 목록 감사·재적재 편의. CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, users) · users 필드 (email, firstName, lastName, orgUnitPath, isAdmin, isSuspended) · 파일명 accounts-YYYY-MM-DD.json · sortedFilteredUsers 반영 · 결과 0 이면 disabled · 1 라운드 Codex 통과.
 - **AuditLogTable 무한 스크롤** - v0.153 완료 (로드맵 B-7). 감사 로그 하단 sentinel (IntersectionObserver rootMargin=200px) 자동 loadMore · 기존 「더 보기」 버튼 병행 유지 · ref 기반 최신 상태 참조 · 3 회귀 테스트 · 웹 928 (+3) 유닛 · 1 라운드 Codex 통과.
+- **super_admin 대시보드 결과 분포 위젯** - v0.154 완료 (로드맵 B-8). 「액션별」 위젯 아래 신규 section, ok/denied/error 3-card grid + count/percent · 서버 resultCounts 확장 및 preview entries fallback · 6 회귀 테스트 · 웹 936 (+4) · functions 523 (+1) · lint clean.
+- **AccountsTable 선택 계정만 export** - v0.155 완료 (로드맵 B-6 후속). CSV/JSON 버튼 라벨 「(선택 N)」 · 파일명 accounts-selected-YYYY-MM-DD.csv|json · JSON payload scope: 'selected'|'filtered' · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 933 (+3) · lint clean · 서버 무변경.
+- **CourseMembersPanel 선택 명단 export** - v0.156 완료 (v0.148/v0.155 대칭). classroom 상세 명단 개별 체크박스 + 전체 선택 header (indeterminate) · 선택 시 export 버튼 「(선택 N)」 · 파일명 <코스>-<탭>-selected-<날짜>.csv · 탭 전환 시 선택 리셋 · 3 회귀 테스트 (`tests/CourseMembersPanel.test.tsx`) · 웹 939 (+3) · lint clean · 서버 무변경.
+- **GroupsTable JSON 내보내기** - v0.157 완료 (v0.152 AccountsTable 대칭). 그룹 목록 JSON export · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, groups) · groups 필드 (email, name, description, directMembersCount, aliases) · 파일명 groups-YYYY-MM-DD.json · sortedFilteredGroups 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/GroupsTable.test.tsx`) · 웹 942 (+3) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
