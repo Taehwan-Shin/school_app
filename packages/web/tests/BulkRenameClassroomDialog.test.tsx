@@ -358,4 +358,41 @@ describe('BulkRenameClassroomDialog component', () => {
     fireEvent.click(screen.getByTestId('bulk-rename-classroom-cancel-btn'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('v0.176: newName 이 750자 초과 → row-level 경고 + confirm 비활성', () => {
+    const courses = [{ id: 'a', name: '수학' }];
+    renderWithClient(
+      <BulkRenameClassroomDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courses={courses}
+      />,
+    );
+    const overLimit = 'x'.repeat(751);
+    fireEvent.change(screen.getByTestId('bulk-rename-classroom-row-input-a'), {
+      target: { value: overLimit },
+    });
+    expect(screen.getByTestId('bulk-rename-classroom-row-too-long-a')).toBeTruthy();
+    expect(screen.getByTestId('bulk-rename-classroom-too-long-summary')).toBeTruthy();
+    const btn = screen.getByTestId('bulk-rename-classroom-confirm-btn') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('v0.176: newName 이 정확히 750자 → row-level 경고 없음 + confirm 활성', () => {
+    const courses = [{ id: 'a', name: '수학' }];
+    renderWithClient(
+      <BulkRenameClassroomDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        courses={courses}
+      />,
+    );
+    const atLimit = 'x'.repeat(750);
+    fireEvent.change(screen.getByTestId('bulk-rename-classroom-row-input-a'), {
+      target: { value: atLimit },
+    });
+    expect(screen.queryByTestId('bulk-rename-classroom-row-too-long-a')).toBeNull();
+    const btn = screen.getByTestId('bulk-rename-classroom-confirm-btn') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
 });

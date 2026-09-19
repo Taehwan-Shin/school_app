@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { callClassroomPatch } from '../../api/classroomPatch';
+import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
 export interface BulkRenameClassroomDialogProps {
   open: boolean;
@@ -84,6 +85,11 @@ export function BulkRenameClassroomDialog({
     () => rows.filter((r) => r.newName.trim().length === 0),
     [rows],
   );
+  // v0.176: Google Classroom courses.name 상한 750자. row-level 초과 검증.
+  const overlyLongRows = useMemo(
+    () => rows.filter((r) => r.newName.length > COURSE_NAME_MAX),
+    [rows],
+  );
 
   const activeRows = snapshot ?? changedRows;
 
@@ -131,7 +137,10 @@ export function BulkRenameClassroomDialog({
   };
 
   const canConfirm =
-    changedRows.length > 0 && invalidRows.length === 0 && phase === 'confirm';
+    changedRows.length > 0 &&
+    invalidRows.length === 0 &&
+    overlyLongRows.length === 0 &&
+    phase === 'confirm';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -225,6 +234,8 @@ export function BulkRenameClassroomDialog({
                     {rows.map((r) => {
                       const changed = r.newName.trim() !== r.originalName.trim();
                       const invalid = r.newName.trim().length === 0;
+                      const tooLong = r.newName.length > COURSE_NAME_MAX;
+                      const rowError = invalid || tooLong;
                       const inputId = `bulk-rename-classroom-row-input-${r.id}`;
                       return (
                         <tr
@@ -244,15 +255,24 @@ export function BulkRenameClassroomDialog({
                               value={r.newName}
                               onChange={(e) => updateRowName(r.id, e.target.value)}
                               data-testid={`bulk-rename-classroom-row-input-${r.id}`}
-                              aria-invalid={invalid || undefined}
+                              aria-invalid={rowError || undefined}
                               className={`w-full border bg-canvas px-2 py-1 text-body focus:outline-none focus:ring-1 ${
-                                invalid
+                                rowError
                                   ? 'border-state-danger text-state-danger focus:border-state-danger focus:ring-state-danger'
                                   : changed
                                     ? 'border-fg-primary text-fg-primary focus:border-fg-primary focus:ring-fg-primary'
                                     : 'border-border-subtle text-fg-primary focus:border-border-strong focus:ring-border-strong'
                               }`}
                             />
+                            {tooLong && (
+                              <p
+                                className="mt-1 text-micro text-state-danger"
+                                data-testid={`bulk-rename-classroom-row-too-long-${r.id}`}
+                              >
+                                최대 {COURSE_NAME_MAX.toLocaleString()}자 초과 (현재{' '}
+                                {r.newName.length.toLocaleString()}자)
+                              </p>
+                            )}
                           </td>
                         </tr>
                       );
@@ -264,7 +284,8 @@ export function BulkRenameClassroomDialog({
               <p className="text-small text-fg-secondary" data-testid="bulk-rename-classroom-summary">
                 변경 대상:{' '}
                 <strong className="font-mono text-fg-primary">{changedRows.length}</strong>
-                개 · 무변경 {rows.length - changedRows.length - invalidRows.length}개
+                개 · 무변경{' '}
+                {rows.length - changedRows.length - invalidRows.length - overlyLongRows.length}개
                 {invalidRows.length > 0 && (
                   <>
                     {' · '}
@@ -272,6 +293,18 @@ export function BulkRenameClassroomDialog({
                       빈 이름 {invalidRows.length}
                     </span>
                     개 (수정 필요)
+                  </>
+                )}
+                {overlyLongRows.length > 0 && (
+                  <>
+                    {' · '}
+                    <span
+                      className="text-state-danger font-mono"
+                      data-testid="bulk-rename-classroom-too-long-summary"
+                    >
+                      상한 초과 {overlyLongRows.length}
+                    </span>
+                    개 (최대 {COURSE_NAME_MAX.toLocaleString()}자)
                   </>
                 )}
               </p>
