@@ -20,6 +20,30 @@ type SortDirection = 'asc' | 'desc';
 
 const PAGE_SIZE = 25;
 
+// v0.161: 정렬 선호 localStorage 키 (v0.160 AccountsTable 대칭).
+const SORT_STORAGE_KEY = 'groupsTable.sort.v1';
+
+interface StoredSortPref {
+  sort?: string;
+  dir?: string;
+}
+
+function readStoredSortPref(): StoredSortPref | null {
+  try {
+    const raw = localStorage.getItem(SORT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const rec = parsed as Record<string, unknown>;
+    return {
+      sort: typeof rec.sort === 'string' ? rec.sort : undefined,
+      dir: typeof rec.dir === 'string' ? rec.dir : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,6 +62,47 @@ export function GroupsTable() {
   useEffect(() => {
     setPage(0);
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
+
+  // v0.161: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
+  // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link) 저장값 무시.
+  useEffect(() => {
+    if (searchParams.has('sort')) return;
+    const stored = readStoredSortPref();
+    if (!stored) return;
+    const next = new URLSearchParams(searchParams);
+    if (
+      stored.sort === 'email' ||
+      stored.sort === 'name' ||
+      stored.sort === 'directMembersCount'
+    ) {
+      next.set('sort', stored.sort);
+    }
+    if (stored.dir === 'asc' || stored.dir === 'desc') {
+      next.set('dir', stored.dir);
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // Mount-only hydrate: intentionally empty deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // v0.161: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제
+  // (「필터 초기화」 후 재방문에서 정렬 재적용 방지).
+  useEffect(() => {
+    try {
+      if (sortColumn) {
+        localStorage.setItem(
+          SORT_STORAGE_KEY,
+          JSON.stringify({ sort: sortColumn, dir: sortDirection }),
+        );
+      } else {
+        localStorage.removeItem(SORT_STORAGE_KEY);
+      }
+    } catch {
+      // localStorage disabled or quota exceeded → no-op.
+    }
+  }, [sortColumn, sortDirection]);
 
   const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
     const next = new URLSearchParams(searchParams);
