@@ -3374,3 +3374,41 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: GroupsTable bulk description 편집 (v0.165 selection 재사용), CreateClassroomDialog UX polish, dashboard export 개선.
+
+---
+
+## 2026-09-20 · v0.166 BulkUpdateGroupDescriptionDialog
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/groups-bulk-description-v166` | feat: v0.166 BulkUpdateGroupDescriptionDialog (일괄 그룹 설명 변경) |
+| 병합 | `8eb8c54` | Merge feat/groups-bulk-description-v166 into main - v0.166 BulkUpdateGroupDescriptionDialog (일괄 그룹 설명 변경) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `8eb8c54` | skip (Head 폴백 규율) | 기계 관문(web 994 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.165 로 GroupsTable bulk delete 는 완비했으나 안전한 bulk 편집이 없음. 학년 코호트 그룹 여러 개에 동일한 설명 (예: 「2026학년도 3학년 5반」) 부여 시 반복 클릭 필요.
+- **해결**: v0.165 selection 그대로 재사용 · 새 dialog 하나 추가. 「선택 삭제」 옆에 「선택 설명 변경」.
+- **spec**:
+  - Textarea (rows=3) · 모두 공통 값.
+  - 4096자 상한 (Workspace Directory groups.description 규격).
+  - 빈 값 실행 허용 (설명 지우기 = 명시적 요구).
+  - 3-phase (confirm/running/done) · F99 emails+description snapshot · F100 htmlFor · 실패 격리.
+- **conditional mount**: v0.165 학습 그대로 `{isOpen && <...>}` 로 QueryClient hook 조기 호출 방지.
+
+### 배운 것
+
+- **bulk 편집 pattern 표준화**: bulk 삭제 (v0.128/v0.165) 는 대상 개수 정확 입력 gate · bulk 편집 (v0.130 password / v0.166 description) 은 값 입력 gate. 둘 다 F99 snapshot 필수.
+- **groupsUpdate 재사용 편리성**: v0.166 은 서버 변경 0줄. 기존 개별 EditGroupDialog 가 쓰는 callable 을 순차 호출만 하면 bulk 완성.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: BulkUpdateGroupNameDialog (v0.166 대칭, name 필드), classroom UX polish, dashboard export 개선.
