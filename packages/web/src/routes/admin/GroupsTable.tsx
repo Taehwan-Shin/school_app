@@ -13,6 +13,7 @@ import {
 import { CreateGroupDialog } from './CreateGroupDialog';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
+import { BulkDeleteGroupDialog } from './BulkDeleteGroupDialog';
 import { sortHeaderKbdProps } from './sortHeader';
 
 type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
@@ -52,6 +53,10 @@ export function GroupsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditGroupTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteGroupTarget | null>(null);
+  // v0.165: 선택 상태 (bulk delete 대상). 필터 밖 선택은 유지 —
+  // 사용자가 여러 필터로 나눠 담을 수 있어야 함 (AccountsTable v0.155 대칭).
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
@@ -61,6 +66,12 @@ export function GroupsTable() {
 
   useEffect(() => {
     setPage(0);
+  }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
+
+  // v0.165: 필터/검색/정렬 변경 시 selection 리셋 (AccountsTable v0.155 대칭 UX).
+  // bulk 작업이 필터 밖 그룹에 실행되는 것을 방지.
+  useEffect(() => {
+    setSelectedEmails(new Set());
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   // v0.161: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
@@ -156,6 +167,34 @@ export function GroupsTable() {
 
   const total = sortedFilteredGroups.length;
   const paginatedGroups = sortedFilteredGroups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // v0.165: 전체 선택 / indeterminate 계산 (현재 필터 결과 내 eligible).
+  const eligibleEmails = useMemo(
+    () => sortedFilteredGroups.map((g) => g.email),
+    [sortedFilteredGroups],
+  );
+  const selectedInFilter = eligibleEmails.filter((e) => selectedEmails.has(e));
+  const allSelectedInFilter =
+    eligibleEmails.length > 0 && selectedInFilter.length === eligibleEmails.length;
+  const someSelectedInFilter =
+    selectedInFilter.length > 0 && selectedInFilter.length < eligibleEmails.length;
+
+  const toggleOne = (email: string, checked: boolean) => {
+    setSelectedEmails((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(email);
+      else next.delete(email);
+      return next;
+    });
+  };
+  const toggleAllInFilter = (checked: boolean) => {
+    setSelectedEmails((prev) => {
+      const next = new Set(prev);
+      if (checked) eligibleEmails.forEach((e) => next.add(e));
+      else eligibleEmails.forEach((e) => next.delete(e));
+      return next;
+    });
+  };
 
   const handleExportCsv = () => {
     const header = ['이메일', '이름', '설명', '멤버 수'];
@@ -309,6 +348,36 @@ export function GroupsTable() {
 
       {!isLoading && !isError && data?.groups && data.groups.length > 0 && (
         <>
+          {/* v0.165: bulk actions bar — 선택된 그룹이 있을 때만 노출 (AccountsTable 대칭). */}
+          {selectedEmails.size > 0 && (
+            <div
+              className="flex justify-between items-center border border-border-subtle bg-elevated px-4 py-2"
+              data-testid="groups-bulk-actions"
+            >
+              <p className="text-small text-fg-primary">
+                <strong className="font-mono">{selectedEmails.size}</strong>개 선택됨
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmails(new Set())}
+                  className="text-fg-secondary hover:text-fg-primary text-small cursor-pointer"
+                  data-testid="groups-bulk-clear-btn"
+                >
+                  선택 해제
+                </button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsBulkDeleteOpen(true)}
+                  data-testid="groups-bulk-delete-btn"
+                  className="text-state-danger"
+                >
+                  선택 삭제
+                </Button>
+              </div>
+            </div>
+          )}
+
           {sortedFilteredGroups.length === 0 ? (
             <div className="py-12 text-center text-small text-fg-secondary" data-testid="groups-search-empty">
               검색 결과가 없습니다.
@@ -318,6 +387,18 @@ export function GroupsTable() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <input
+                        type="checkbox"
+                        checked={allSelectedInFilter}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someSelectedInFilter;
+                        }}
+                        onChange={(e) => toggleAllInFilter(e.target.checked)}
+                        aria-label="전체 선택 (현재 필터 결과)"
+                        data-testid="groups-bulk-check-all"
+                      />
+                    </TableHead>
                     <TableHead
                       onClick={() => handleSort('email')}
                       {...sortHeaderKbdProps(() => handleSort('email'))}
@@ -354,6 +435,15 @@ export function GroupsTable() {
 
                 return (
                   <TableRow key={group.email} data-testid={`group-row-${group.email}`}>
+                    <TableCell className="w-8">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmails.has(group.email)}
+                        onChange={(e) => toggleOne(group.email, e.target.checked)}
+                        aria-label={`선택: ${group.email}`}
+                        data-testid={`groups-bulk-check-${group.email}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-small text-fg-primary">
                       <Link
                         to={`/admin/groups/${encodeURIComponent(group.email)}`}
@@ -465,6 +555,15 @@ export function GroupsTable() {
         }}
         group={deleteTarget}
       />
+
+      {isBulkDeleteOpen && (
+        <BulkDeleteGroupDialog
+          open={true}
+          onOpenChange={setIsBulkDeleteOpen}
+          emails={Array.from(selectedEmails)}
+          onDone={() => setSelectedEmails(new Set())}
+        />
+      )}
     </div>
   );
 }

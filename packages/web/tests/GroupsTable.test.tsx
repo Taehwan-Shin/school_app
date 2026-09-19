@@ -1038,6 +1038,70 @@ describe('GroupsTable component', () => {
       expect(nameTh.getAttribute('aria-sort')).toBe('none');
     });
   });
+
+  // v0.165: bulk selection + bulk delete UI (AccountsTable v0.155 대칭).
+  describe('v0.165 bulk selection + bulk delete', () => {
+    const mockGroups = [
+      { email: 'a@cam.hs.kr', name: '그룹 A', description: '', directMembersCount: '2', aliases: [] },
+      { email: 'b@cam.hs.kr', name: '그룹 B', description: '', directMembersCount: '5', aliases: [] },
+      { email: 'c@cam.hs.kr', name: '그룹 C', description: '', directMembersCount: '0', aliases: [] },
+    ];
+
+    beforeEach(() => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('기본 상태 = bulk actions bar 미노출', () => {
+      renderWithRouter(<GroupsTable />);
+      expect(screen.queryByTestId('groups-bulk-actions')).toBeNull();
+    });
+
+    it('row 체크박스 클릭 시 bulk actions bar 노출 · count 반영', () => {
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-bulk-check-a@cam.hs.kr'));
+      expect(screen.getByTestId('groups-bulk-actions').textContent).toContain('1');
+      fireEvent.click(screen.getByTestId('groups-bulk-check-b@cam.hs.kr'));
+      expect(screen.getByTestId('groups-bulk-actions').textContent).toContain('2');
+    });
+
+    it('전체 선택 헤더 체크박스 → 모든 필터 결과 선택', () => {
+      renderWithRouter(<GroupsTable />);
+      const headerCb = screen.getByTestId('groups-bulk-check-all') as HTMLInputElement;
+      fireEvent.click(headerCb);
+      expect(screen.getByTestId('groups-bulk-actions').textContent).toContain('3');
+    });
+
+    it('일부 선택 시 헤더 checkbox indeterminate', () => {
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-bulk-check-a@cam.hs.kr'));
+      const headerCb = screen.getByTestId('groups-bulk-check-all') as HTMLInputElement;
+      expect(headerCb.indeterminate).toBe(true);
+      expect(headerCb.checked).toBe(false);
+    });
+
+    it('「선택 해제」 클릭 시 selection reset', () => {
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-bulk-check-a@cam.hs.kr'));
+      expect(screen.getByTestId('groups-bulk-actions')).toBeDefined();
+      fireEvent.click(screen.getByTestId('groups-bulk-clear-btn'));
+      expect(screen.queryByTestId('groups-bulk-actions')).toBeNull();
+    });
+
+    it('검색 변경 시 selection reset (bulk 필터 밖 실행 방지)', () => {
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-bulk-check-a@cam.hs.kr'));
+      expect(screen.getByTestId('groups-bulk-actions')).toBeDefined();
+      fireEvent.change(screen.getByTestId('groups-search-input'), {
+        target: { value: '그룹' },
+      });
+      expect(screen.queryByTestId('groups-bulk-actions')).toBeNull();
+    });
+  });
 });
 
 
