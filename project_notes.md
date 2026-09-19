@@ -3201,3 +3201,35 @@ ROADMAP 남은 후보 (v0.154+):
 - v0.161: GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭).
 - v0.162: ClassroomTable 정렬 선호 localStorage 저장 (v0.160 대칭).
 - 다른 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+
+---
+
+## 2026-09-20 · v0.161 GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `e0ada29` | feat: v0.161 GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭) |
+| 병합 | `305813f` | Merge feat/groups-sort-persist-v161 into main - v0.161 GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `e0ada29` | skip (Head 폴백 규율) | v0.158 R1 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 961 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- v0.160 AccountsTable 코드를 그대로 클론 · SORT_STORAGE_KEY 는 `groupsTable.sort.v1` · SortColumn allowlist 은 GroupsTable 의 `email | name | directMembersCount`.
+- URL authoritative · Mount hydrate · 「필터 초기화」 removeItem 규약 동일.
+
+### 배운 것
+
+- **패턴 반복 이식은 diff-driven**: v0.160 tsx/test 대비 변경점 = key 이름 · SortColumn allowlist 3가지 · testId 접두어 (`groups-` vs `accounts-`) · role 이름 매칭 (`이메일` vs `Email`). 나머지는 완전 동일.
+- **테스트 name 매칭 상이**: AccountsTable 은 헤더 `Email`, GroupsTable 은 `이메일`. `screen.getByRole('columnheader', { name: /이메일/ })` 로 접근.
+
+### 다음 세션에 이어갈 것
+
+- v0.162: ClassroomTable 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭 · 마지막 3번째 이식).
+- 그 뒤: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
