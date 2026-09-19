@@ -980,4 +980,130 @@ describe('CourseMembersPanel component', () => {
       spy.mockRestore();
     });
   });
+
+  // v0.156: 선택 명단만 export.
+  describe('v0.156 선택 명단 export', () => {
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+    });
+    afterAll(() => {
+      URL.createObjectURL = URL.createObjectURL;
+    });
+
+    const teachers = [
+      {
+        courseId: 'c-1',
+        userId: 't1',
+        profile: { emailAddress: 't1@x.kr', name: { fullName: '교사1' } },
+      },
+      {
+        courseId: 'c-1',
+        userId: 't2',
+        profile: { emailAddress: 't2@x.kr', name: { fullName: '교사2' } },
+      },
+      {
+        courseId: 'c-1',
+        userId: 't3',
+        profile: { emailAddress: 't3@x.kr', name: { fullName: '교사3' } },
+      },
+    ];
+
+    it('개별 체크박스 선택 · export 버튼 라벨에 「(선택 N)」 · 파일명 -selected', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: { teachers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: { students: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          (el as HTMLAnchorElement).click = () =>
+            clicks.push({ download: (el as HTMLAnchorElement).download });
+        }
+        return el;
+      });
+
+      render(<CourseMembersPanel courseId="c-1" courseName="1반" />);
+      // 초기 라벨 (전체 3).
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain('(3)');
+      // t1, t3 선택.
+      fireEvent.click(screen.getByTestId('course-member-select-t1'));
+      fireEvent.click(screen.getByTestId('course-member-select-t3'));
+      // 라벨 「(선택 2)」.
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain(
+        '(선택 2)',
+      );
+      // 클릭 → download 트리거 · 파일명 -selected.
+      fireEvent.click(screen.getByTestId('course-members-export-csv-btn'));
+      expect(clicks[0].download).toMatch(/^1반-교사-selected-\d{4}-\d{2}-\d{2}\.csv$/);
+
+      spy.mockRestore();
+    });
+
+    it('「전체 선택」 header checkbox → 모든 items · 해제 시 다시 0', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: { teachers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: { students: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      render(<CourseMembersPanel courseId="c-1" courseName="1반" />);
+      const selectAll = screen.getByTestId('course-members-select-all') as HTMLInputElement;
+      fireEvent.click(selectAll);
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain('(선택 3)');
+      // 다시 클릭 → 해제.
+      fireEvent.click(selectAll);
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain('(3)');
+    });
+
+    it('탭 (teachers ↔ students) 전환 시 선택 리셋', () => {
+      mockUseClassroomTeachersList.mockReturnValue({
+        data: { teachers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      mockUseClassroomStudentsList.mockReturnValue({
+        data: {
+          students: [
+            {
+              courseId: 'c-1',
+              userId: 's1',
+              profile: { emailAddress: 's1@x.kr', name: { fullName: '학생1' } },
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      render(<CourseMembersPanel courseId="c-1" courseName="1반" />);
+      fireEvent.click(screen.getByTestId('course-member-select-t1'));
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain(
+        '(선택 1)',
+      );
+      // 학생 탭으로 전환.
+      fireEvent.click(screen.getByTestId('course-members-tab-students'));
+      // 선택 리셋 · 학생 전체 1명 (선택 없음).
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).toContain('(1)');
+      expect(screen.getByTestId('course-members-export-csv-btn').textContent).not.toContain('선택');
+    });
+  });
 });
