@@ -3522,3 +3522,37 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · CreateClassroomDialog 상태 select 개선 · classroom detail page UX polish.
+
+---
+
+## 2026-09-20 · v0.170 courseState 3 dialog Korean label 통일 (helper lib 승격)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/course-state-labels-v170` | feat: v0.170 courseState 3 dialog Korean label 통일 + helper lib 승격 |
+| 병합 | `ec81745` | Merge feat/course-state-labels-v170 into main - v0.170 courseState 3 dialog Korean label 통일 + helper lib 승격 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ec81745` | skip (Head 폴백 규율) | 기계 관문(web 1024 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: CreateClassroomDialog · CourseBulkCreateDialog · ClassroomChatPairBulkCreateDialog 세 dialog 의 courseState `<select>` 가 raw 「PROVISIONED」/「ACTIVE」 English 만 표시. 교사에게 의미 불명확.
+- **해결**: v0.137 ClassroomTable 에 있던 `translateCourseState` 를 `src/lib/courseState.ts` 로 승격 · 신규 `courseStateOptionLabel` helper 「한글 (CODE)」 형태. 세 dialog select 에 적용.
+- **뒤호환**: classroomDetail.tsx 가 ClassroomTable 에서 `translateCourseState` 를 import 함 → ClassroomTable 에서 re-export 로 유지.
+- **English 원문 병기**: 「준비 중 (PROVISIONED)」 형태로 한글 primary + English 원문 유지 (개발자·admin 이 API 값과 매핑 확인 용이).
+
+### 배운 것
+
+- **helper 승격은 두 번째 소비처에서**: v0.137 은 ClassroomTable 안에 있어도 충분했음. v0.170 에서 세 dialog 가 필요해지자 lib/ 로 승격 자연스러움. dead-code 방지 규범.
+- **re-export 뒤호환 패턴**: 기존 소비자 (classroomDetail.tsx) import 경로 유지 위해 원본 위치에서 re-export. `export { translateCourseState } from '../../lib/courseState';` 한 줄로 마이그레이션 부담 0.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · classroom detail page UX polish · ClassroomTable 소유자 raw email 표시 개선.

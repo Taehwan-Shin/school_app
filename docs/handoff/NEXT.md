@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.169 병합 완료** (`550b406`) - TransferClassroomOwnerDialog + BulkTransfer shared emailInput refactor (이메일 입력 UX 6 dialog 완전 일관) · 기계 관문 (lint clean · web 1021 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.170 병합 완료** (`ec81745`) - courseState 3 dialog Korean label 통일 + helper lib 승격 · 기계 관문 (lint clean · web 1024 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `ec81745` v0.170 - courseState 3 dialog Korean label 통일 (CreateClassroom · CourseBulkCreate · ClassroomChatPairBulkCreate) · v0.137 ClassroomTable 의 `translateCourseState` 를 `src/lib/courseState.ts` 로 승격 · 신규 `courseStateOptionLabel` (「한글 (CODE)」 형태) · ClassroomTable 은 re-export 로 뒤호환 (classroomDetail.tsx 소비 유지) · 3 회귀 테스트 · 웹 1024 (+3) · lint clean · 서버 무변경.
 - `550b406` v0.169 - TransferClassroomOwnerDialog (개별) + BulkTransferClassroomOwnerDialog (v0.164) 도 shared `lib/emailInput.ts` helper 로 refactor (v0.168 대칭 완성) · 두 dialog 모두 local-part 자동 부착 + preview + 도메인 client-side 거부 + case-insensitive → lower-case canonical · 이메일 입력 UX 6 dialog 완전 일관 (CreateUser · BatchCreate · CreateGroup · CreateClassroom · TransferClassroomOwner · BulkTransferClassroomOwner) · TransferClassroom 기존 test 는 @example.com → @cam.hs.kr 로 갱신 (도메인 제한) · 5 회귀 테스트 · 웹 1021 (+5) · lint clean · 서버 무변경.
 - `1f25e80` v0.168 - CreateClassroomDialog owner local-part 자동 부착 (v0.167 CreateGroupDialog 대칭) · v0.167 helper 를 `src/lib/emailInput.ts` 로 승격 · CreateGroupDialog 는 shared helper 로 refactor (하위 호환 alias export) · 'me' 특수 값 유지 + 빈 값 → 'me' fallback + local-part 자동 부착 + full email 뒤호환 + 잘못된 도메인 validation 에러 · 13 회귀 테스트 (emailInput 7 + CreateClassroom 6) · 웹 1016 (+13) · lint clean · 서버 무변경.
 - `118e45d` v0.167 - CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 (BatchCreateUsersDialog v0.132 UX 대칭) · 교사가 「team-a」 만 입력하면 서버에 「team-a@cam.hs.kr」 로 자동 전송 · full email 도 뒤호환 · `normalizeGroupEmailInput` pure helper (case-insensitive + lower-case canonical) · 실시간 preview line · 「이메일 아이디 (자동 @cam.hs.kr)」 라벨 · 잘못된 도메인/특수문자 preview 없음 + 실행 거부 · 9 회귀 테스트 · 웹 1003 (+9) · lint clean · 서버 무변경.
