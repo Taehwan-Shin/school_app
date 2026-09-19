@@ -14,6 +14,7 @@ import {
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from "../../lib/emailInput";
+import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
 export interface CreateGroupDialogProps {
   open: boolean;
@@ -67,6 +68,14 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
     const trimmedName = name.trim();
     if (!trimmedName) {
       setValidationError("이름을 입력해주세요.");
+      return;
+    }
+
+    // v0.173: description 4096자 상한 (Workspace Directory 규격 · v0.166 대칭).
+    if (description.length > GROUP_DESCRIPTION_MAX) {
+      setValidationError(
+        `설명은 ${GROUP_DESCRIPTION_MAX}자 이하여야 합니다. (현재 ${description.length}자)`,
+      );
       return;
     }
 
@@ -157,16 +166,23 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
 
             <div>
               <label htmlFor="groupDescription" className="text-small text-fg-secondary mb-1 block">
-                설명
+                설명 <span className="text-fg-muted">(선택 · 최대 {GROUP_DESCRIPTION_MAX}자)</span>
               </label>
-              <input
+              <textarea
                 id="groupDescription"
-                type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="그룹 설명 (선택)"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                placeholder="그룹 설명 (예: 2026학년도 3학년 5반 학생 그룹)"
+                rows={3}
+                data-testid="create-group-description-input"
+                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong resize-y"
               />
+              <p
+                className="mt-1 text-micro text-fg-muted"
+                data-testid="create-group-description-counter"
+              >
+                현재 {description.length} / {GROUP_DESCRIPTION_MAX} 자
+              </p>
             </div>
           </div>
 
