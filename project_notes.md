@@ -3703,3 +3703,39 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장 · CourseBulkCreate description 필드에도 동일 30,000 상한 이식 · CreateClassroom name/section/room 상한 추가 (COURSE_NAME_MAX 등).
+
+---
+
+## 2026-09-20 · v0.175 classroomLimits name/section/room 상한 확장 + CreateClassroom 검증 (v0.174 후속)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `74c0ded` (`feat/classroom-name-limits-v175`) | feat: v0.175 classroomLimits name/section/room 상한 확장 + CreateClassroom 검증 (v0.174 후속) |
+| 병합 | `d914dd2` | Merge feat/classroom-name-limits-v175 into main - v0.175 classroomLimits name/section/room 상한 확장 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `d914dd2` | skip (Head 폴백 규율) | 기계 관문(web 1034 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.174 는 description 만 상한 검증. name/section/room 도 Google Classroom REST API 문서에 명시된 상한 초과 시 400. 셋 다 실무에서 상한을 넘길 가능성이 낮지만, 「2026학년도 3학년 5반 …」 같은 접두어를 자동 부착하는 매크로가 나올 때 놓치기 쉬움.
+- **해결**:
+  - shared `lib/classroomLimits.ts` 에 `COURSE_NAME_MAX = 750` · `COURSE_SECTION_MAX = 2800` · `COURSE_ROOM_MAX = 650` 상수 추가 (Google Classroom REST API 문서 기준).
+  - CreateClassroomDialog `fieldLengthError` state · handleSubmit 상단 3-branch 상한 검증 (name → section → room 순서) · 초과 시 배너 노출 + 서버 요청 차단.
+  - 카운터 UI 는 name/section/room 에는 붙이지 않음 (실무 값이 상한 대비 매우 짧아 UX 노이즈). description (30,000자) 카운터만 유지.
+- **테스트**: `classroomLimits.test.ts` 4 tests (기존 1 + 신규 3).
+
+### 배운 것
+
+- **shared limits lib 확장 저비용**: v0.174 에서 lib 파일 하나 만들어놓으니 이번 slice 는 상수 3개 추가 + 검증 3-branch 로 끝. 처음부터 모든 필드를 하나의 slice 로 묶기보다는, 문제 필드(description) 먼저 → 그 다음 나머지 로 나누는 게 리뷰·리스크 낮음.
+- **카운터 표시 여부는 실무 상한 대비 예상 값 비율**: description(30,000) 은 상한 근처까지 쓸 여지 있어 카운터가 유용하지만, name(750) 은 실무 값이 20~50자 → 카운터 노이즈. 상한 검증만 뒤에서 살짝 지키는 게 UX 정답.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: BulkRenameClassroomDialog 에도 name 상한 검증 이식 (row-level warning + confirm disable) · CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish.
