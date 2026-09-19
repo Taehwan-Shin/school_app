@@ -14,6 +14,7 @@ import { CreateGroupDialog } from './CreateGroupDialog';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
 import { BulkDeleteGroupDialog } from './BulkDeleteGroupDialog';
+import { BulkUpdateGroupDescriptionDialog } from './BulkUpdateGroupDescriptionDialog';
 import { sortHeaderKbdProps } from './sortHeader';
 
 type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
@@ -57,6 +58,7 @@ export function GroupsTable() {
   // 사용자가 여러 필터로 나눠 담을 수 있어야 함 (AccountsTable v0.155 대칭).
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkUpdateDescriptionOpen, setIsBulkUpdateDescriptionOpen] = useState(false);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
@@ -368,6 +370,13 @@ export function GroupsTable() {
                 </button>
                 <Button
                   variant="secondary"
+                  onClick={() => setIsBulkUpdateDescriptionOpen(true)}
+                  data-testid="groups-bulk-update-description-btn"
+                >
+                  선택 설명 변경
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={() => setIsBulkDeleteOpen(true)}
                   data-testid="groups-bulk-delete-btn"
                   className="text-state-danger"
@@ -560,6 +569,15 @@ export function GroupsTable() {
         <BulkDeleteGroupDialog
           open={true}
           onOpenChange={setIsBulkDeleteOpen}
+          emails={Array.from(selectedEmails)}
+          onDone={() => setSelectedEmails(new Set())}
+        />
+      )}
+
+      {isBulkUpdateDescriptionOpen && (
+        <BulkUpdateGroupDescriptionDialog
+          open={true}
+          onOpenChange={setIsBulkUpdateDescriptionOpen}
           emails={Array.from(selectedEmails)}
           onDone={() => setSelectedEmails(new Set())}
         />
