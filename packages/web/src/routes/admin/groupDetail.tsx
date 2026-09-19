@@ -7,6 +7,7 @@ import { MembersTable } from './MembersTable';
 import { GroupAuditTrail } from './GroupAuditTrail';
 import { EditGroupDialog, type EditGroupTarget } from './EditGroupDialog';
 import { DeleteGroupDialog, type DeleteGroupTarget } from './DeleteGroupDialog';
+import { CopyButton } from './CopyButton';
 
 export function GroupDetailPage() {
   const { email = '' } = useParams<{ email: string }>();
@@ -82,7 +83,10 @@ export function GroupDetailPage() {
             <dl className="grid grid-cols-2 gap-x-8 gap-y-3" data-testid="group-detail-info">
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">이메일</dt>
-                <dd className="text-body font-mono text-fg-primary">{group.email}</dd>
+                <dd className="text-body font-mono text-fg-primary" data-testid="group-detail-email">
+                  {group.email}
+                  <CopyButton value={group.email} data-testid="group-detail-copy-email" />
+                </dd>
               </div>
               <div>
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">이름</dt>
@@ -103,7 +107,10 @@ export function GroupDetailPage() {
         {/* 멤버 관리 (기존) */}
         <section className="bg-elevated p-8 border border-border-subtle space-y-4">
           <h2 className="text-h2 font-semibold text-fg-primary">멤버 관리</h2>
-          <p className="text-small text-fg-secondary font-mono">{groupEmail}</p>
+          <p className="text-small text-fg-secondary font-mono">
+            {groupEmail}
+            <CopyButton value={groupEmail} data-testid="group-detail-copy-header-email" />
+          </p>
           <MembersTable groupEmail={groupEmail} />
         </section>
 
