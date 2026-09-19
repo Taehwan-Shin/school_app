@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
+import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
 export interface BulkUpdateGroupDescriptionDialogProps {
   open: boolean;
@@ -20,8 +21,8 @@ export interface BulkUpdateGroupDescriptionDialogProps {
 
 type Phase = "confirm" | "running" | "done";
 
-// v0.166: Google Workspace group description 은 4096 chars 상한.
-const DESCRIPTION_MAX = 4096;
+// v0.166 → v0.173: shared constant (`lib/groupLimits`) 로 승격 · CreateGroup/EditGroup 과 통일.
+const DESCRIPTION_MAX = GROUP_DESCRIPTION_MAX;
 
 export function BulkUpdateGroupDescriptionDialog({
   open,
