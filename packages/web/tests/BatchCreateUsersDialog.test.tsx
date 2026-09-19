@@ -389,6 +389,42 @@ describe("BatchCreateUsersDialog component", () => {
     });
   });
 
+  // v0.158: 첫 로그인 시 비밀번호 변경 강제 toggle (모두 공통).
+  describe("v0.158: changePasswordAtNextLogin toggle", () => {
+    it("toggle 기본 checked · 각 row 에 동일 값 전달", async () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      const toggle = screen.getByTestId("batch-create-users-change-pw-toggle") as HTMLInputElement;
+      expect(toggle.checked).toBe(true);
+    });
+
+    it("toggle 해제 → 모든 row 에 changePasswordAtNextLogin:false 로 전송", async () => {
+      mockCallUsersCreate.mockResolvedValue({ primaryEmail: "x@cam.hs.kr", uid: "u1" });
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-id"), { target: { value: "kim2" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-family"), { target: { value: "김" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-given"), { target: { value: "철수" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "securePass123" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-change-pw-toggle"));
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("batch-create-users-done")).toBeDefined();
+      });
+      expect(mockCallUsersCreate).toHaveBeenCalledTimes(2);
+      expect(mockCallUsersCreate).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ changePasswordAtNextLogin: false })
+      );
+      expect(mockCallUsersCreate).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ changePasswordAtNextLogin: false })
+      );
+    });
+  });
+
   // v0.132 (== v0.124 F100 대칭): label htmlFor 로 프로그램적 연결.
   it("F100: 공통 필드 label 은 htmlFor 로 연결", () => {
     renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);

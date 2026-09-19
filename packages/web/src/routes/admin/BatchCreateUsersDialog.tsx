@@ -92,6 +92,8 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
   const [rows, setRows] = useState<RowInput[]>(makeInitialRows);
   const [orgUnitPath, setOrgUnitPath] = useState("/");
   const [initialPassword, setInitialPassword] = useState("");
+  // v0.158: 첫 로그인 시 비밀번호 변경 강제 toggle. 기본 true (안전). 교사 batch 는 해제.
+  const [changePasswordAtNextLogin, setChangePasswordAtNextLogin] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<RowResult[]>([]);
@@ -138,6 +140,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       setRows(makeInitialRows());
       setOrgUnitPath("/");
       setInitialPassword("");
+      setChangePasswordAtNextLogin(true);
       setValidationError(null);
       setProgress(0);
       setResults([]);
@@ -235,7 +238,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
           familyName: row.familyName,
           password: passwordForRun,
           orgUnitPath: orgu,
-          changePasswordAtNextLogin: true,
+          changePasswordAtNextLogin,
         });
         // 계정 생성 성공 → classroom 배정 (있으면).
         const classroomResults: ClassroomAssignRowResult[] = [];
@@ -360,10 +363,20 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                   type="password"
                   value={initialPassword}
                   onChange={(e) => setInitialPassword(e.target.value)}
-                  placeholder="8자 이상 · 첫 로그인 시 변경 강제"
+                  placeholder="8자 이상"
                   data-testid="batch-create-users-password-input"
                   className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                 />
+                {/* v0.158: 첫 로그인 시 비밀번호 변경 강제 toggle (모두 공통). */}
+                <label className="flex items-center gap-2 mt-2 text-small text-fg-primary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={changePasswordAtNextLogin}
+                    onChange={(e) => setChangePasswordAtNextLogin(e.target.checked)}
+                    data-testid="batch-create-users-change-pw-toggle"
+                  />
+                  첫 로그인 시 비밀번호 변경 강제 (모두 공통)
+                </label>
               </div>
             </div>
 

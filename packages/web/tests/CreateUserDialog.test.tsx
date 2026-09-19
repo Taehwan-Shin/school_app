@@ -93,7 +93,7 @@ describe('CreateUserDialog component', () => {
     expect(screen.getByLabelText(/이메일/)).toBeDefined();
     expect(screen.getByLabelText(/성/)).toBeDefined();
     expect(screen.getByLabelText(/이름/)).toBeDefined();
-    expect(screen.getByLabelText(/비밀번호/)).toBeDefined();
+    expect(screen.getByLabelText(/^비밀번호/)).toBeDefined();
     expect(screen.getByLabelText(/조직 단위/)).toBeDefined();
     expect(screen.getByTestId('create-user-submit')).toBeDefined();
     // v0.119: 클래스룸 role 라디오 + 리스트.
@@ -106,7 +106,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'test@gmail.com' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'pass12345' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'pass12345' } });
     fireEvent.click(screen.getByTestId('create-user-submit'));
     expect(mockMutateAsync).not.toHaveBeenCalled();
     expect(screen.getByTestId('create-user-error')).toBeDefined();
@@ -118,7 +118,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'test@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'short' } });
     fireEvent.click(screen.getByTestId('create-user-submit'));
     expect(mockMutateAsync).not.toHaveBeenCalled();
     expect(screen.getByText('비밀번호는 최소 8자 이상이어야 합니다.')).toBeDefined();
@@ -132,7 +132,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'new@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.change(screen.getByLabelText(/조직 단위/), { target: { value: '/학생/1학년' } });
     fireEvent.click(screen.getByTestId('create-user-submit'));
 
@@ -156,6 +156,33 @@ describe('CreateUserDialog component', () => {
     render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
     expect(screen.getByTestId('create-user-error')).toBeDefined();
     expect(screen.getByText('계정 생성 권한이 없거나 스코프가 부족합니다.')).toBeDefined();
+  });
+
+  // v0.158: 첫 로그인 시 비밀번호 변경 강제 toggle.
+  describe('v0.158: changePasswordAtNextLogin toggle', () => {
+    it('renders toggle checked by default', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      const toggle = screen.getByTestId('create-user-change-pw-toggle') as HTMLInputElement;
+      expect(toggle.checked).toBe(true);
+    });
+
+    it('submits changePasswordAtNextLogin:false when toggle unchecked', async () => {
+      mockMutateAsync.mockResolvedValueOnce({ primaryEmail: 't@cam.hs.kr', uid: 'u1' });
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 't@cam.hs.kr' } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: '김' } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '교사' } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-change-pw-toggle'));
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ changePasswordAtNextLogin: false })
+        );
+      });
+    });
+
   });
 
   // v0.119: OU datalist 렌더링.
@@ -219,7 +246,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-2'));
     fireEvent.click(screen.getByTestId('create-user-submit'));
@@ -258,7 +285,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 't@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '박' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '선생' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.click(screen.getByTestId('create-user-classroom-role-teacher'));
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
     fireEvent.click(screen.getByTestId('create-user-submit'));
@@ -296,7 +323,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-2'));
     fireEvent.click(screen.getByTestId('create-user-submit'));
@@ -352,7 +379,7 @@ describe('CreateUserDialog component', () => {
     expect((screen.getByLabelText(/이메일/) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByLabelText(/성/) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByLabelText(/이름/) as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText(/비밀번호/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/^비밀번호/) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByTestId('create-user-orgunit-input') as HTMLInputElement).disabled).toBe(
       true,
     );
@@ -384,14 +411,14 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
     fireEvent.click(screen.getByTestId('create-user-submit'));
     await waitFor(() => {
       expect(screen.getByTestId('create-user-assign-results')).toBeDefined();
     });
     // 배너가 뜬 상태에서도 password 입력값은 비어야.
-    const pw = screen.getByLabelText(/비밀번호/) as HTMLInputElement;
+    const pw = screen.getByLabelText(/^비밀번호/) as HTMLInputElement;
     expect(pw.value).toBe('');
   });
 
@@ -597,7 +624,7 @@ describe('CreateUserDialog component', () => {
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
     fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-    fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+    fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
     fireEvent.click(screen.getByTestId('create-user-classroom-cb-c-1'));
     fireEvent.click(screen.getByTestId('create-user-submit'));
 
@@ -679,7 +706,7 @@ describe('CreateUserDialog component', () => {
       fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 's@cam.hs.kr' } });
       fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
       fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
-      fireEvent.change(screen.getByLabelText(/비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
       fireEvent.click(screen.getByTestId('create-user-submit'));
 
       await waitFor(() => {
