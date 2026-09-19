@@ -1099,6 +1099,7 @@ describe("AccountsTable component", () => {
         const el = originalCreateElement(tag);
         if (tag === "a") {
           Object.defineProperty(el, "click", {
+            configurable: true,
             value: () =>
               clicks.push({
                 download: (el as HTMLAnchorElement).download,
@@ -1137,7 +1138,7 @@ describe("AccountsTable component", () => {
       const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
         const el = originalCreateElement(tag);
         if (tag === "a") {
-          Object.defineProperty(el, "click", { value: () => {} });
+          Object.defineProperty(el, "click", { configurable: true, value: () => {} });
         }
         return el;
       });
@@ -1549,6 +1550,176 @@ describe("AccountsTable component", () => {
       // 버튼도 다시 disabled.
       const btn = screen.getByTestId("accounts-clear-filters-btn") as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
+    });
+  });
+
+  // v0.155: 선택된 계정만 export.
+  describe("v0.155 선택 계정 export", () => {
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => "blob:mock");
+      URL.revokeObjectURL = vi.fn();
+    });
+    afterAll(() => {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    });
+
+    const mockUsers = [
+      {
+        email: "admin@cam.hs.kr",
+        firstName: "관",
+        lastName: "김",
+        orgUnitPath: "/",
+        isAdmin: true,
+        isSuspended: false,
+      },
+      {
+        email: "user1@cam.hs.kr",
+        firstName: "일",
+        lastName: "이",
+        orgUnitPath: "/학생",
+        isAdmin: false,
+        isSuspended: false,
+      },
+      {
+        email: "user2@cam.hs.kr",
+        firstName: "이",
+        lastName: "박",
+        orgUnitPath: "/교사",
+        isAdmin: false,
+        isSuspended: false,
+      },
+    ];
+
+    it("선택 계정 있으면 버튼 라벨에 「(선택 N)」 표시 + 파일명 -selected 접미사", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const clickSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          (el as HTMLAnchorElement).click = () =>
+            clicks.push({ download: (el as HTMLAnchorElement).download });
+        }
+        return el;
+      });
+
+      renderWithRouter(<AccountsTable />);
+      // 초기 라벨 (전체).
+      const csvBtn = screen.getByTestId("accounts-export-csv-btn") as HTMLButtonElement;
+      const jsonBtn = screen.getByTestId("accounts-export-json-btn") as HTMLButtonElement;
+      expect(csvBtn.textContent).toBe("CSV 내보내기");
+      expect(jsonBtn.textContent).toBe("JSON 내보내기");
+
+      // 2명 선택.
+      fireEvent.click(screen.getByTestId("bulk-check-user1@cam.hs.kr"));
+      fireEvent.click(screen.getByTestId("bulk-check-user2@cam.hs.kr"));
+
+      expect(csvBtn.textContent).toBe("CSV 내보내기 (선택 2)");
+      expect(jsonBtn.textContent).toBe("JSON 내보내기 (선택 2)");
+
+      // CSV click → 파일명 accounts-selected-*.
+      fireEvent.click(csvBtn);
+      expect(clicks[0].download).toMatch(/^accounts-selected-\d{4}-\d{2}-\d{2}\.csv$/);
+      // JSON click → 파일명 accounts-selected-*.json.
+      fireEvent.click(jsonBtn);
+      expect(clicks[1].download).toMatch(/^accounts-selected-\d{4}-\d{2}-\d{2}\.json$/);
+
+      clickSpy.mockRestore();
+    });
+
+    it("선택 없으면 기존대로 sortedFilteredUsers export · 파일명 접미사 없음", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const clickSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          (el as HTMLAnchorElement).click = () =>
+            clicks.push({ download: (el as HTMLAnchorElement).download });
+        }
+        return el;
+      });
+
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-export-csv-btn"));
+      expect(clicks[0].download).toMatch(/^accounts-\d{4}-\d{2}-\d{2}\.csv$/);
+      clickSpy.mockRestore();
+    });
+
+    it("JSON payload 에 scope: selected 필드 + 선택 count 반영", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      let blobText = "";
+      const originalCreateObj = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        blob.text().then((t) => {
+          blobText = t;
+        });
+        return "blob:mock";
+      });
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          Object.defineProperty(el, "click", { configurable: true, value: () => {} });
+        }
+        return el;
+      });
+
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("bulk-check-user1@cam.hs.kr"));
+      fireEvent.click(screen.getByTestId("accounts-export-json-btn"));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const parsed = JSON.parse(blobText);
+      expect(parsed.scope).toBe("selected");
+      expect(parsed.totalCount).toBe(1);
+      expect(parsed.users).toHaveLength(1);
+      expect(parsed.users[0].email).toBe("user1@cam.hs.kr");
+
+      spy.mockRestore();
+      URL.createObjectURL = originalCreateObj;
+    });
+
+    it("선택 후 필터/검색 변경 시 selection 리셋 (기존 UX 유지) · export 라벨도 리셋", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("bulk-check-user1@cam.hs.kr"));
+      // 선택 상태 반영.
+      const csvBtn = screen.getByTestId("accounts-export-csv-btn") as HTMLButtonElement;
+      expect(csvBtn.textContent).toBe("CSV 내보내기 (선택 1)");
+      // 검색 변경 → selectedEmails 리셋 (useEffect [searchQuery] deps).
+      fireEvent.change(screen.getByTestId("accounts-search-input"), {
+        target: { value: "user" },
+      });
+      // 라벨 원복 (「선택」 접미사 없음).
+      expect(csvBtn.textContent).toBe("CSV 내보내기");
     });
   });
 });
