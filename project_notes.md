@@ -3300,3 +3300,37 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: classroom archive/restore bulk (v0.163 pattern 대칭 · classroomPatch 재사용), GroupsTable bulk delete/rename, ClassroomTable bulk transfer ownership.
+
+---
+
+## 2026-09-20 · v0.164 BulkTransferClassroomOwnerDialog (일괄 소유자 이관)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/bulk-transfer-owner-v164` | feat: v0.164 BulkTransferClassroomOwnerDialog (일괄 소유자 이관) |
+| 병합 | `ceb9997` | Merge feat/bulk-transfer-owner-v164 into main - v0.164 BulkTransferClassroomOwnerDialog (일괄 소유자 이관) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ceb9997` | skip (Head 폴백 규율) | v0.158 R1 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 978 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: 년말 담임 교체 시 반 여러 개 (예: 3반 전체) 의 소유자를 새 교사에게 이관해야 하는데, 개별 TransferClassroomOwnerDialog 만 있어서 반복 클릭 불편.
+- **해결**: 기존 classroomTransferOwnership callable 그대로 재사용 · v0.163 BulkUpdateRoleDialog pattern 이식. Bulk hardening 시리즈 (v0.123~v0.131) F99/F100 규범 준수.
+- **ACTIVE 만 대상**: Classroom API 는 ARCHIVED 코스의 patch 를 거부 → v0.134b F118 대칭. `bulkTransferOwnerCourses = filter(courseState === 'ACTIVE')`.
+- **F77 partial rollback 안내 유지**: 개별 dialog 처럼 `err.details.addedTeacherButPatchFailed` 감지 · 「교사가 남아 있을 수 있음 — 수동 정리 필요」 경고 노출.
+
+### 배운 것
+
+- **Bulk 액션 세트 완비**: AccountsTable 는 MoveOu · Suspend · Restore · ResetPassword · UpdateRole (v0.163) · Delete 6개. ClassroomTable 은 Archive · Restore · Rename (v0.134) · TransferOwner (v0.164) 4개. 각 페이지 bulk 액션 커버리지 실 워크플로우 매치.
+- **파일 재-루팅 이슈**: 처음 main worktree 에서 pnpm --filter web test 가 실패 (recursive 캐시 이슈). 재실행하면 pass. 병합 후 첫 test 는 pnpm workspace resolution 이 stale 할 수 있음.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: GroupsTable bulk operations (아예 selection UI 부터 · v0.164 pattern 이식), CreateClassroomDialog UX polish, dashboard export 개선.

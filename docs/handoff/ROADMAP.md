@@ -95,6 +95,7 @@
 - **GroupsTable 정렬 선호 localStorage 저장** - v0.161 완료 (v0.160 대칭). 그룹 목록 재방문 시 정렬 자동 복원 · `groupsTable.sort.v1` 키 · SortColumn allowlist (email/name/directMembersCount) · URL authoritative · Mount 시 URL 이 sort 없으면 저장값 hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 961 (+5) · lint clean · 서버 무변경. v0.162 ClassroomTable 대칭 예정.
 - **ClassroomTable 정렬 선호 localStorage 저장** - v0.162 완료 (v0.160/v0.161 대칭 · **정렬 저장 트릴로지 완결**). 클래스룸 목록 재방문 시 정렬 자동 복원 · `classroomTable.sort.v1` 키 · SortColumn allowlist (name/section/state) · URL authoritative · Mount 시 URL 이 sort 없으면 저장값 hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 966 (+5) · lint clean · 서버 무변경. Accounts (v0.160) · Groups (v0.161) · Classroom (v0.162) 세 테이블 모두 정렬 자동 복원 완비.
 - **BulkUpdateRoleDialog** - v0.163 완료. AccountsTable 에 「선택 역할 변경」 버튼 추가 · 일괄 admin/teacher 역할 변경 · 기존 usersUpdateRole callable 재사용 (서버 무변경) · 3-phase (confirm/running/done) · F99 emails+role snapshot · F100 htmlFor · 역할 radio (admin/teacher — super_admin bootstrap 제외) · 확인 input 대상 개수 정확 입력 · 순차 호출 · 실패 격리 · 6 회귀 테스트 · 웹 972 (+6) · lint clean · 서버 무변경.
+- **BulkTransferClassroomOwnerDialog** - v0.164 완료. ClassroomTable 에 「선택 소유자 이관」 버튼 추가 · 년말 담임 교체 등 반 여러 개 소유자 일괄 이관 · 기존 classroomTransferOwnership callable 재사용 (서버 무변경) · 3-phase (confirm/running/done) · F99 courses+newOwner snapshot · F100 htmlFor · @cam.hs.kr 도메인 검증 · 확인 input 대상 개수 정확 입력 · ACTIVE 코스만 대상 (F118 대칭) · 실패 격리 · v0.116c F77 partial rollback 안내 유지 · 6 회귀 테스트 · 웹 978 (+6) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
