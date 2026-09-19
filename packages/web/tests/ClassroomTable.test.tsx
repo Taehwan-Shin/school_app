@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 
 function renderWithRouter(
@@ -114,6 +114,8 @@ import { ClassroomTable, translateCourseState } from '../src/routes/admin/Classr
 describe('ClassroomTable component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // v0.162: 정렬 선호 localStorage bleed 방지.
+    localStorage.clear();
   });
 
   it('scenario 1: renders loading indicator when isLoading is true', () => {
@@ -759,6 +761,77 @@ describe('ClassroomTable component', () => {
       fireEvent.change(input, { target: { value: 'Course 0' } });
       // Course 0/1/2/.../9 등이 매치 (부분 일치).
       expect(screen.getByTestId('classroom-row-c-000')).toBeDefined();
+    });
+  });
+
+  // v0.162: 정렬 선호 localStorage 저장 (v0.160/v0.161 대칭).
+  describe('v0.162 정렬 선호 localStorage 저장', () => {
+    const mockCourses = [
+      { id: 'c-1', name: '1학년 수학', section: '1반', courseState: 'ACTIVE' },
+      { id: 'c-2', name: '2학년 영어', section: '2반', courseState: 'ACTIVE' },
+    ];
+
+    beforeEach(() => {
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: mockCourses },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('URL 에 sort 없으면 localStorage 저장값을 URL 로 hydrate', async () => {
+      localStorage.setItem(
+        'classroomTable.sort.v1',
+        JSON.stringify({ sort: 'name', dir: 'desc' }),
+      );
+      renderWithRouter(<ClassroomTable />);
+      await waitFor(() => {
+        const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+        expect(nameTh.getAttribute('aria-sort')).toBe('descending');
+      });
+    });
+
+    it('URL 에 sort 있으면 localStorage 값 무시 (URL authoritative)', () => {
+      localStorage.setItem(
+        'classroomTable.sort.v1',
+        JSON.stringify({ sort: 'name', dir: 'desc' }),
+      );
+      renderWithRouter(<ClassroomTable />, ['/admin/classrooms?sort=section&dir=asc']);
+      const sectionTh = screen.getByRole('columnheader', { name: /섹션/ });
+      expect(sectionTh.getAttribute('aria-sort')).toBe('ascending');
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      expect(nameTh.getAttribute('aria-sort')).toBe('none');
+    });
+
+    it('정렬 헤더 클릭 시 localStorage 에 저장', async () => {
+      renderWithRouter(<ClassroomTable />);
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      fireEvent.click(nameTh);
+      await waitFor(() => {
+        const raw = localStorage.getItem('classroomTable.sort.v1');
+        expect(raw).not.toBeNull();
+        const parsed = JSON.parse(raw!);
+        expect(parsed).toEqual({ sort: 'name', dir: 'asc' });
+      });
+    });
+
+    it('「필터 초기화」 후 localStorage 도 제거', async () => {
+      renderWithRouter(<ClassroomTable />, ['/admin/classrooms?sort=name&dir=desc']);
+      await waitFor(() => {
+        expect(localStorage.getItem('classroomTable.sort.v1')).not.toBeNull();
+      });
+      fireEvent.click(screen.getByTestId('classroom-clear-filters-btn'));
+      await waitFor(() => {
+        expect(localStorage.getItem('classroomTable.sort.v1')).toBeNull();
+      });
+    });
+
+    it('localStorage 손상값은 무시', () => {
+      localStorage.setItem('classroomTable.sort.v1', 'not-json{{');
+      renderWithRouter(<ClassroomTable />);
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      expect(nameTh.getAttribute('aria-sort')).toBe('none');
     });
   });
 });
