@@ -39,20 +39,20 @@ describe("CreateGroupDialog component", () => {
     expect(screen.getByTestId("create-group-submit")).toBeDefined();
   });
 
-  // 2. 검증 (이메일 도메인 · 이름 필수)
+  // 2. 검증 (이메일 도메인 · 이름 필수) — v0.167 부터: local-part 허용, 잘못된 도메인 거부.
   it("validates email domain and required name", async () => {
     renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
 
-    // Test invalid domain
+    // Test invalid domain (@other.com)
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: "invalid@other.com" } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "Team A" } });
     fireEvent.click(screen.getByTestId("create-group-submit"));
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
     expect(screen.getByTestId("create-group-error")).toBeDefined();
-    expect(screen.getByText("이메일은 @cam.hs.kr 도메인이어야 합니다.")).toBeDefined();
+    expect(screen.getByTestId("create-group-error").textContent).toContain("이메일 형식");
 
-    // Test empty name
+    // Test empty name (full email 은 유효 · name 만 비어야 함)
     fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: "team-a@cam.hs.kr" } });
     fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "   " } });
     fireEvent.click(screen.getByTestId("create-group-submit"));
@@ -129,5 +129,118 @@ describe("CreateGroupDialog component", () => {
     const nameInputReopened = screen.getByLabelText(/이름/) as HTMLInputElement;
     expect(emailInputReopened.value).toBe("");
     expect(nameInputReopened.value).toBe("");
+  });
+
+  // v0.167: local-part 입력 + 자동 @cam.hs.kr 부착.
+  describe("v0.167: local-part input + auto-suffix", () => {
+    it("local-part 만 입력 시 preview 노출", () => {
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team-a" },
+      });
+      expect(screen.getByTestId("create-group-email-preview").textContent).toContain(
+        "team-a@cam.hs.kr",
+      );
+    });
+
+    it("local-part 입력 + 실행 → 서버에 team-a@cam.hs.kr 로 전송 (자동 부착)", async () => {
+      mockMutateAsync.mockResolvedValueOnce({ email: "team-a@cam.hs.kr", id: "g1" });
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team-a" },
+      });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "Team A" } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith({
+          email: "team-a@cam.hs.kr",
+          name: "Team A",
+          description: undefined,
+        });
+      });
+    });
+
+    it("대문자 local-part → lower-case canonical 로 전송", async () => {
+      mockMutateAsync.mockResolvedValueOnce({ email: "hong1@cam.hs.kr", id: "g1" });
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "HONG1" },
+      });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "홍1반" } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ email: "hong1@cam.hs.kr" }),
+        );
+      });
+    });
+
+    it("full email (뒤호환) 도 정상 수용", async () => {
+      mockMutateAsync.mockResolvedValueOnce({ email: "team-b@cam.hs.kr", id: "g2" });
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team-b@cam.hs.kr" },
+      });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "Team B" } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ email: "team-b@cam.hs.kr" }),
+        );
+      });
+    });
+
+    it("잘못된 도메인 (@other.com) 은 거부", () => {
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team-c@other.com" },
+      });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "Team C" } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      expect(screen.getByTestId("create-group-error").textContent).toContain("이메일 형식");
+    });
+
+    it("잘못된 local-part (특수문자 !) 는 preview 없음 · 거부", () => {
+      renderWithRouter(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team!" },
+      });
+      // preview 안 나옴.
+      expect(screen.queryByTestId("create-group-email-preview")).toBeNull();
+      // 실행 → 거부.
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "T" } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      expect(screen.getByTestId("create-group-error").textContent).toContain("이메일 형식");
+    });
+  });
+});
+
+// v0.167: normalizeGroupEmailInput 순수 함수 회귀 (helper 직접).
+import { normalizeGroupEmailInput } from "../src/routes/admin/CreateGroupDialog.js";
+
+describe("v0.167 normalizeGroupEmailInput", () => {
+  it("local-part → @cam.hs.kr 자동 부착 · lower-case", () => {
+    expect(normalizeGroupEmailInput("team-a")).toBe("team-a@cam.hs.kr");
+    expect(normalizeGroupEmailInput("Team-A")).toBe("team-a@cam.hs.kr");
+    expect(normalizeGroupEmailInput("  team_1  ")).toBe("team_1@cam.hs.kr");
+  });
+
+  it("full email 은 lower-case 로 그대로", () => {
+    expect(normalizeGroupEmailInput("team-b@cam.hs.kr")).toBe("team-b@cam.hs.kr");
+    expect(normalizeGroupEmailInput("TEAM-B@CAM.HS.KR")).toBe("team-b@cam.hs.kr");
+  });
+
+  it("다른 도메인 · 특수문자 · 빈 값 → null", () => {
+    expect(normalizeGroupEmailInput("")).toBeNull();
+    expect(normalizeGroupEmailInput("  ")).toBeNull();
+    expect(normalizeGroupEmailInput("team-c@other.com")).toBeNull();
+    expect(normalizeGroupEmailInput("team!")).toBeNull();
+    expect(normalizeGroupEmailInput("_team")).toBeNull(); // 첫 글자는 알파벳/숫자만.
   });
 });
