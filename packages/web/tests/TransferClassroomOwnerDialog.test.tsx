@@ -59,13 +59,15 @@ describe('TransferClassroomOwnerDialog component', () => {
       <TransferClassroomOwnerDialog
         open={true}
         onOpenChange={vi.fn()}
-        target={{ id: 'c-101', name: 'A반', currentOwnerId: 'old@example.com' }}
+        target={{ id: 'c-101', name: 'A반', currentOwnerId: 'old@cam.hs.kr' }}
       />,
     );
     const submit = screen.getByTestId('transfer-owner-submit-btn') as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
+    // v0.169: `not-an-email` 은 alnum+hyphen 이라 local-part 로 인정 (자동 부착).
+    // 실제 invalid 는 특수문자 (!) 또는 다른 도메인 (@other.com).
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'not-an-email' },
+      target: { value: 'not!valid' },
     });
     expect(submit.disabled).toBe(true);
     expect(screen.getByTestId('transfer-owner-email-hint')).toBeDefined();
@@ -76,12 +78,12 @@ describe('TransferClassroomOwnerDialog component', () => {
       <TransferClassroomOwnerDialog
         open={true}
         onOpenChange={vi.fn()}
-        target={{ id: 'c-101', currentOwnerId: 'owner@example.com' }}
+        target={{ id: 'c-101', currentOwnerId: 'owner@cam.hs.kr' }}
       />,
     );
     const submit = screen.getByTestId('transfer-owner-submit-btn') as HTMLButtonElement;
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'OWNER@example.com' },
+      target: { value: 'OWNER@cam.hs.kr' },
     });
     expect(submit.disabled).toBe(true);
     expect(screen.getByTestId('transfer-owner-same-hint')).toBeDefined();
@@ -89,7 +91,7 @@ describe('TransferClassroomOwnerDialog component', () => {
 
   it('정상 이메일 → callTransferOwnership 호출 · 성공 배너 표시', async () => {
     mockCallTransferOwnership.mockResolvedValueOnce({
-      course: { id: 'c-101', ownerId: 'new@example.com' },
+      course: { id: 'c-101', ownerId: 'new@cam.hs.kr' },
       addedAsTeacher: false,
     });
     const onSuccess = vi.fn();
@@ -97,19 +99,19 @@ describe('TransferClassroomOwnerDialog component', () => {
       <TransferClassroomOwnerDialog
         open={true}
         onOpenChange={vi.fn()}
-        target={{ id: 'c-101', currentOwnerId: 'old@example.com' }}
+        target={{ id: 'c-101', currentOwnerId: 'old@cam.hs.kr' }}
         onSuccess={onSuccess}
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
 
     await waitFor(() => {
       expect(mockCallTransferOwnership).toHaveBeenCalledWith({
         courseId: 'c-101',
-        newOwnerEmail: 'new@example.com',
+        newOwnerEmail: 'new@cam.hs.kr',
       });
     });
     await waitFor(() => {
@@ -120,7 +122,7 @@ describe('TransferClassroomOwnerDialog component', () => {
 
   it('addedAsTeacher=true 시 안내 문구 노출', async () => {
     mockCallTransferOwnership.mockResolvedValueOnce({
-      course: { id: 'c-101', ownerId: 'new@example.com' },
+      course: { id: 'c-101', ownerId: 'new@cam.hs.kr' },
       addedAsTeacher: true,
     });
     renderWithClient(
@@ -131,7 +133,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -150,7 +152,7 @@ describe('TransferClassroomOwnerDialog component', () => {
     err.details = {
       addedTeacherButPatchFailed: true,
       rollback: 'ok',
-      newOwnerEmail: 'new@example.com',
+      newOwnerEmail: 'new@cam.hs.kr',
     };
     mockCallTransferOwnership.mockRejectedValueOnce(err);
     renderWithClient(
@@ -161,7 +163,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -185,7 +187,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -209,7 +211,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -231,7 +233,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -242,7 +244,7 @@ describe('TransferClassroomOwnerDialog component', () => {
 
   it('open false → true 재열림 시 email 필드·result 초기화', async () => {
     mockCallTransferOwnership.mockResolvedValueOnce({
-      course: { id: 'c-101', ownerId: 'new@example.com' },
+      course: { id: 'c-101', ownerId: 'new@cam.hs.kr' },
       addedAsTeacher: false,
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -258,7 +260,7 @@ describe('TransferClassroomOwnerDialog component', () => {
       </QueryClientProvider>,
     );
     fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
-      target: { value: 'new@example.com' },
+      target: { value: 'new@cam.hs.kr' },
     });
     fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
     await waitFor(() => {
@@ -290,5 +292,76 @@ describe('TransferClassroomOwnerDialog component', () => {
     const input = screen.getByTestId('transfer-owner-email-input') as HTMLInputElement;
     expect(input.value).toBe('');
     expect(screen.queryByTestId('transfer-owner-success')).toBeNull();
+  });
+
+  // v0.169: shared emailInput helper 사용 (local-part 자동 부착 · 다른 도메인 client 거부).
+  describe('v0.169: shared emailInput helper', () => {
+    it('local-part 입력 → preview 노출 + canonical 로 전송', async () => {
+      mockCallTransferOwnership.mockResolvedValue({
+        course: { id: 'c-101', ownerId: 'newteacher@cam.hs.kr' },
+        addedAsTeacher: true,
+      });
+      renderWithClient(
+        <TransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          target={{ id: 'c-101', currentOwnerId: 'old@cam.hs.kr' }}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+        target: { value: 'newteacher' },
+      });
+      expect(
+        screen.getByTestId('transfer-owner-email-preview').textContent,
+      ).toContain('newteacher@cam.hs.kr');
+
+      fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
+      await waitFor(() => {
+        expect(mockCallTransferOwnership).toHaveBeenCalledWith({
+          courseId: 'c-101',
+          newOwnerEmail: 'newteacher@cam.hs.kr',
+        });
+      });
+    });
+
+    it('잘못된 도메인 (@other.com) client-side 거부 · submit disabled', () => {
+      renderWithClient(
+        <TransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          target={{ id: 'c-101' }}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+        target: { value: 'newowner@other.com' },
+      });
+      const submit = screen.getByTestId('transfer-owner-submit-btn') as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+      expect(screen.getByTestId('transfer-owner-email-hint')).toBeDefined();
+    });
+
+    it('full email 도 뒤호환 (case-insensitive · lower-case canonical 로 전송)', async () => {
+      mockCallTransferOwnership.mockResolvedValue({
+        course: { id: 'c-101', ownerId: 'newowner@cam.hs.kr' },
+        addedAsTeacher: false,
+      });
+      renderWithClient(
+        <TransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          target={{ id: 'c-101', currentOwnerId: 'old@cam.hs.kr' }}
+        />,
+      );
+      fireEvent.change(screen.getByTestId('transfer-owner-email-input'), {
+        target: { value: 'NEWOWNER@CAM.HS.KR' },
+      });
+      fireEvent.click(screen.getByTestId('transfer-owner-submit-btn'));
+      await waitFor(() => {
+        expect(mockCallTransferOwnership).toHaveBeenCalledWith({
+          courseId: 'c-101',
+          newOwnerEmail: 'newowner@cam.hs.kr',
+        });
+      });
+    });
   });
 });
