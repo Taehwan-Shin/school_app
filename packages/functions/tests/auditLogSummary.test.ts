@@ -424,6 +424,39 @@ describe('auditLogSummary callable unit tests', () => {
     expect(result.actionCounts).toEqual({});
     expect(result.sampleSize).toBe(0);
     expect(result.sampleTruncated).toBe(false);
+    // v0.154: resultCounts 도 함께 0.
+    expect(result.resultCounts).toEqual({ ok: 0, denied: 0, error: 0 });
+  });
+
+  // v0.154 F132: resultCounts 는 sample 500건 기반 aggregate.
+  it('v0.154: sample entries 의 result 별 count aggregate (ok/denied/error)', async () => {
+    const sampleEntries: AuditLogEntryRead[] = [
+      // ok 3건.
+      { id: '1', actor: 'a', role: 'admin' as const, action: 'users.read', target: '*', request_id: 'r1', result: 'ok' as const, at: 1 },
+      { id: '2', actor: 'a', role: 'admin' as const, action: 'users.read', target: '*', request_id: 'r2', result: 'ok' as const, at: 2 },
+      { id: '3', actor: 'a', role: 'admin' as const, action: 'users.write', target: '*', request_id: 'r3', result: 'ok' as const, at: 3 },
+      // denied 2건.
+      { id: '4', actor: 'a', role: 'admin' as const, action: 'users.write', target: '*', request_id: 'r4', result: 'denied' as const, at: 4 },
+      { id: '5', actor: 'a', role: 'admin' as const, action: 'audit.read', target: '*', request_id: 'r5', result: 'denied' as const, at: 5 },
+      // error 1건.
+      { id: '6', actor: 'a', role: 'admin' as const, action: 'chat.read', target: '*', request_id: 'r6', result: 'error' as const, at: 6 },
+    ];
+    mockCountAuditEntries.mockResolvedValueOnce(6);
+    mockReadAuditEntries
+      .mockResolvedValueOnce({ entries: sampleEntries.slice(0, 5), nextCursor: null })
+      .mockResolvedValueOnce({ entries: sampleEntries, nextCursor: null });
+
+    const result = await auditLogSummary.run(
+      createRequest({ email: 'super@cam.hs.kr', role: 'super_admin' }),
+    );
+    expect(result.resultCounts).toEqual({ ok: 3, denied: 2, error: 1 });
+    // actionCounts 도 정확 유지 (regression).
+    expect(result.actionCounts).toEqual({
+      'users.read': 2,
+      'users.write': 2,
+      'audit.read': 1,
+      'chat.read': 1,
+    });
   });
 
   // v0.126: exact aggregation
