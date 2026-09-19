@@ -3483,3 +3483,42 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: BulkTransferClassroomOwnerDialog 도 shared emailInput helper 로 refactor · dashboard export 개선 · TransferClassroomOwnerDialog (개별) 도 local-part UX.
+
+---
+
+## 2026-09-20 · v0.169 TransferClassroomOwnerDialog + BulkTransfer shared emailInput refactor (이메일 입력 UX 완전 일관 · 6 dialog)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/transfer-owner-local-part-v169` | feat: v0.169 TransferClassroomOwnerDialog + BulkTransfer shared emailInput refactor (v0.168 대칭) |
+| 병합 | `550b406` | Merge feat/transfer-owner-local-part-v169 into main - v0.169 TransferClassroomOwnerDialog + BulkTransfer shared emailInput refactor (v0.168 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `550b406` | skip (Head 폴백 규율) | 기계 관문(web 1021 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: TransferClassroomOwnerDialog (개별) 는 generic email regex 사용 (any 도메인 허용). BulkTransferClassroomOwnerDialog (v0.164) 는 자체 EMAIL_RE 로 @cam.hs.kr 만 허용. 3개 dialog 가 서로 다른 검증 로직.
+- **해결**: v0.168 lib/emailInput.ts 로 통일. 두 dialog 모두 normalizeSchoolEmailInput 사용. local-part 자동 부착 · 실시간 preview · client-side 도메인 검증.
+- **이메일 입력 UX 완전 일관 (6 dialog)**:
+  - v0.132 BatchCreateUsersDialog (신규 계정 아이디)
+  - v0.146 CreateUserDialog (신규 계정 이메일)
+  - v0.167 CreateGroupDialog (신규 그룹 이메일)
+  - v0.168 CreateClassroomDialog (owner)
+  - v0.169 TransferClassroomOwnerDialog (new owner)
+  - v0.169 BulkTransferClassroomOwnerDialog (new owner · bulk)
+
+### 배운 것
+
+- **behavior change 는 test 도 갱신 필수**: TransferClassroomOwnerDialog 기존 tests 는 `@example.com` 사용했음 — v0.169 이후 client 가 이 도메인 거부. `sed 's/example.com/cam.hs.kr/g'` 로 일괄 갱신.
+- **`not-an-email` 이 valid local-part 라는 함정**: alnum + hyphen 만 있으니 LOCAL_PART_RE 통과. 정말 invalid 인 예제는 `not!valid` (특수문자) 또는 `@other.com` (다른 도메인). test 갱신 시 함정 fix.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · CreateClassroomDialog 상태 select 개선 · classroom detail page UX polish.

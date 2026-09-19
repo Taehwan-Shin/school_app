@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.168 병합 완료** (`1f25e80`) - CreateClassroomDialog owner local-part 자동 부착 (v0.167 대칭 · shared lib/emailInput.ts 승격) · 기계 관문 (lint clean · web 1016 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.169 병합 완료** (`550b406`) - TransferClassroomOwnerDialog + BulkTransfer shared emailInput refactor (이메일 입력 UX 6 dialog 완전 일관) · 기계 관문 (lint clean · web 1021 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `550b406` v0.169 - TransferClassroomOwnerDialog (개별) + BulkTransferClassroomOwnerDialog (v0.164) 도 shared `lib/emailInput.ts` helper 로 refactor (v0.168 대칭 완성) · 두 dialog 모두 local-part 자동 부착 + preview + 도메인 client-side 거부 + case-insensitive → lower-case canonical · 이메일 입력 UX 6 dialog 완전 일관 (CreateUser · BatchCreate · CreateGroup · CreateClassroom · TransferClassroomOwner · BulkTransferClassroomOwner) · TransferClassroom 기존 test 는 @example.com → @cam.hs.kr 로 갱신 (도메인 제한) · 5 회귀 테스트 · 웹 1021 (+5) · lint clean · 서버 무변경.
 - `1f25e80` v0.168 - CreateClassroomDialog owner local-part 자동 부착 (v0.167 CreateGroupDialog 대칭) · v0.167 helper 를 `src/lib/emailInput.ts` 로 승격 · CreateGroupDialog 는 shared helper 로 refactor (하위 호환 alias export) · 'me' 특수 값 유지 + 빈 값 → 'me' fallback + local-part 자동 부착 + full email 뒤호환 + 잘못된 도메인 validation 에러 · 13 회귀 테스트 (emailInput 7 + CreateClassroom 6) · 웹 1016 (+13) · lint clean · 서버 무변경.
 - `118e45d` v0.167 - CreateGroupDialog local-part 입력 + 자동 @cam.hs.kr 부착 (BatchCreateUsersDialog v0.132 UX 대칭) · 교사가 「team-a」 만 입력하면 서버에 「team-a@cam.hs.kr」 로 자동 전송 · full email 도 뒤호환 · `normalizeGroupEmailInput` pure helper (case-insensitive + lower-case canonical) · 실시간 preview line · 「이메일 아이디 (자동 @cam.hs.kr)」 라벨 · 잘못된 도메인/특수문자 preview 없음 + 실행 거부 · 9 회귀 테스트 · 웹 1003 (+9) · lint clean · 서버 무변경.
 - `8eb8c54` v0.166 - BulkUpdateGroupDescriptionDialog · v0.165 GroupsTable selection 재사용 · 학년 코호트 그룹 여러 개에 동일 설명 (예: 「2026학년도 3학년 5반」) 일괄 부여 · Textarea 입력 (모두 공통 값) · 4096자 상한 검증 (Workspace Directory 규격) · 빈 설명도 실행 허용 (설명 지우기) · 3-phase confirm/running/done · F99 emails+description snapshot · F100 htmlFor · 순차 호출 · 실패 격리 · done 배너에 적용된 설명 표시 · 기존 groupsUpdate callable 재사용 · GroupsTable bulk actions bar 「선택 설명 변경」 버튼 · 5 회귀 테스트 · 웹 994 (+5) · lint clean · 서버 무변경.
