@@ -22,6 +22,7 @@ import {
   type RenameClassroomTarget,
 } from './RenameClassroomDialog';
 import { translateCourseState } from './ClassroomTable';
+import { CopyButton } from './CopyButton';
 
 export function ClassroomDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -66,7 +67,10 @@ export function ClassroomDetailPage() {
           <div className="flex justify-between items-start gap-4">
             <div>
               <h2 className="text-h2 font-semibold text-fg-primary">코스 정보</h2>
-              <p className="text-small text-fg-secondary font-mono mt-1">{courseId}</p>
+              <p className="text-small text-fg-secondary font-mono mt-1">
+                {courseId}
+                <CopyButton value={courseId} data-testid="classroom-detail-copy-course-id" />
+              </p>
             </div>
             {course && (
               <div className="flex items-center gap-3 flex-wrap justify-end">
@@ -193,6 +197,12 @@ export function ClassroomDetailPage() {
                 <dt className="text-micro uppercase tracking-wide text-fg-secondary">소유자 ID</dt>
                 <dd className="text-body font-mono text-fg-primary" data-testid="classroom-detail-owner-id">
                   {course.ownerId || '-'}
+                  {course.ownerId && (
+                    <CopyButton
+                      value={course.ownerId}
+                      data-testid="classroom-detail-copy-owner-id"
+                    />
+                  )}
                 </dd>
               </div>
               {course.description && (
@@ -216,6 +226,11 @@ export function ClassroomDetailPage() {
                     >
                       Google Classroom 에서 열기
                     </a>
+                    <CopyButton
+                      value={course.alternateLink}
+                      label="URL 복사"
+                      data-testid="classroom-detail-copy-link"
+                    />
                   </dd>
                 </div>
               )}
