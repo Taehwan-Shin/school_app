@@ -15,6 +15,30 @@ export interface CreateGroupDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// v0.167: BatchCreateUsersDialog v0.132 대칭 UX. local-part 입력 (아이디만) →
+// 자동으로 @cam.hs.kr 붙여서 서버에 전송. 전체 이메일 입력도 뒤호환.
+const EMAIL_DOMAIN = "cam.hs.kr";
+// Google Workspace local-part 규칙: 알파벳/숫자/`.`/`_`/`-` 만, 64자 이하.
+const LOCAL_PART_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const FULL_EMAIL_RE = new RegExp(
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@${EMAIL_DOMAIN.replace(/\./g, "\\.")}$`,
+);
+
+// 입력값을 canonical (lower-case + @cam.hs.kr) email 로 정규화. 부적합하면 null.
+// 대소문자는 인식만 case-insensitive 로 하고 저장은 lower-case canonical.
+export function normalizeGroupEmailInput(input: string): string | null {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return null;
+  // @ 없으면 local-part 로 간주.
+  if (!trimmed.includes("@")) {
+    if (!LOCAL_PART_RE.test(trimmed)) return null;
+    return `${trimmed}@${EMAIL_DOMAIN}`;
+  }
+  // @ 있으면 full email — 도메인 일치 + local-part 규칙 만족해야 함.
+  if (!FULL_EMAIL_RE.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -41,14 +65,17 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
     e.preventDefault();
     setValidationError(null);
 
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setValidationError("이메일을 입력해주세요.");
+    const trimmedRaw = email.trim();
+    if (!trimmedRaw) {
+      setValidationError("이메일 (아이디) 를 입력해주세요.");
       return;
     }
-
-    if (!trimmedEmail.endsWith("@cam.hs.kr")) {
-      setValidationError("이메일은 @cam.hs.kr 도메인이어야 합니다.");
+    // v0.167: local-part 입력 시 @cam.hs.kr 자동 부착. full email 도 뒤호환.
+    const canonicalEmail = normalizeGroupEmailInput(trimmedRaw);
+    if (!canonicalEmail) {
+      setValidationError(
+        `이메일 형식이 올바르지 않습니다. 아이디만 입력하거나 @${EMAIL_DOMAIN} 도메인의 전체 이메일을 입력해주세요.`,
+      );
       return;
     }
 
@@ -60,7 +87,7 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
 
     try {
       await createGroup({
-        email: trimmedEmail,
+        email: canonicalEmail,
         name: trimmedName,
         description: description.trim() || undefined,
       });
@@ -69,6 +96,15 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
       // Mutation error handled below
     }
   };
+
+  // v0.167: 실시간 preview — local-part 입력 시 <input>@cam.hs.kr 표시.
+  const previewEmail = (() => {
+    const trimmed = email.trim();
+    if (!trimmed) return "";
+    if (trimmed.includes("@")) return trimmed.toLowerCase();
+    if (!LOCAL_PART_RE.test(trimmed)) return "";
+    return `${trimmed.toLowerCase()}@${EMAIL_DOMAIN}`;
+  })();
 
   const errorMessage =
     validationError ||
@@ -103,17 +139,26 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
           <div className="space-y-4">
             <div>
               <label htmlFor="groupEmail" className="text-small text-fg-secondary mb-1 block">
-                이메일 *
+                이메일 아이디 * <span className="text-fg-muted">(자동 @{EMAIL_DOMAIN})</span>
               </label>
               <input
                 id="groupEmail"
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="team-a@cam.hs.kr"
+                placeholder="team-a"
+                data-testid="create-group-email-input"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              {previewEmail && (
+                <p
+                  className="mt-1 text-micro text-fg-muted"
+                  data-testid="create-group-email-preview"
+                >
+                  미리보기: <span className="font-mono">{previewEmail}</span>
+                </p>
+              )}
             </div>
 
             <div>
