@@ -3165,3 +3165,39 @@ ROADMAP 남은 후보 (v0.154+):
 ### 다음 세션에 이어갈 것
 
 - 로드맵 남은 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거, AutoInvite+AutoRemove diff 통합.
+
+---
+
+## 2026-09-20 · v0.160 AccountsTable 정렬 선호 localStorage 저장
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `a405bdc` | feat: v0.160 AccountsTable 정렬 선호 localStorage 저장 |
+| 병합 | `ef322a6` | Merge feat/accounts-sort-persist-v160 into main - v0.160 AccountsTable 정렬 선호 localStorage 저장 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `a405bdc` | skip (Head 폴백 규율) | v0.158 R1 40분 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 956 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: /admin 페이지 재방문 시 사용자가 매번 다시 정렬 클릭 필요. URL bookmark 는 되지만 매번 URL 을 관리하는 것도 불편.
+- **해결**: 사용자가 선택한 sort/dir 을 localStorage 에 자동 저장 · 다음 방문에서 URL 이 비어있으면 자동 hydrate.
+- **URL 이 authoritative**: 명시적 deep link (`/admin?sort=name`) 는 localStorage 값보다 우선. 공유 URL 이 원본 그대로 보여야 함.
+- **「필터 초기화」 반영**: 사용자가 초기화 누르면 localStorage 도 removeItem → 다음 방문에서 정렬 재적용 안 함.
+
+### 배운 것
+
+- **localStorage bleed 방지**: hydrate effect 가 URL 을 재-write 하므로 test 간 localStorage 초기화 필수. `beforeEach` 에서 `localStorage.clear()` 추가.
+- **URL vs localStorage 우선순위**: URL 이 있으면 무조건 우선. 첫 mount 만 hydrate — 사용자 명시 clear 후 재 hydrate 안 함.
+- **손상값 방어**: try/catch 로 JSON parse · localStorage getItem 실패 조용히 무시. quota exceeded 도 catch.
+
+### 다음 세션에 이어갈 것
+
+- v0.161: GroupsTable 정렬 선호 localStorage 저장 (v0.160 대칭).
+- v0.162: ClassroomTable 정렬 선호 localStorage 저장 (v0.160 대칭).
+- 다른 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
