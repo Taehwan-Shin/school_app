@@ -699,6 +699,117 @@ export function SuperAdminPage() {
           })()}
         </section>
 
+        {/* v0.154: 결과 분포 위젯 (로드맵 B-8). breakdownSummaryQuery entries
+            를 result 별 (ok / denied / error) client aggregate. denied/error 이
+            급증하면 감시 편의. window 는 상단 액션별 위젯과 동일. 각 chip 은
+            audit 페이지 result 필터 링크. */}
+        <section
+          className="bg-elevated p-8 border border-border-subtle space-y-4"
+          data-testid="super-admin-result-breakdown-section"
+          aria-labelledby="result-breakdown-heading"
+        >
+          <div>
+            <h2
+              id="result-breakdown-heading"
+              className="text-h2 font-semibold text-fg-primary"
+            >
+              {breakdownLabel} 결과 분포
+            </h2>
+            <p className="text-small text-fg-secondary mt-1">
+              {breakdownLabel} 감사 이벤트를 결과 (ok / denied / error) 별로 집계.
+              denied / error 이 갑자기 늘어나면 정책·권한·업스트림 이슈 신호.
+              클릭하면 감사 페이지에서 해당 결과만 필터.
+            </p>
+          </div>
+          {breakdownSummaryQuery.isLoading ? (
+            <p
+              className="text-small text-fg-muted"
+              data-testid="super-admin-result-breakdown-loading"
+            >
+              불러오는 중...
+            </p>
+          ) : breakdownSummaryQuery.isError ? (
+            <p
+              className="text-small text-state-danger"
+              data-testid="super-admin-result-breakdown-error"
+            >
+              결과 분포를 불러오지 못했습니다:{' '}
+              {breakdownSummaryQuery.error?.message || '알 수 없는 오류'}
+            </p>
+          ) : (() => {
+            const breakdownEntries = breakdownSummaryQuery.data?.entries ?? [];
+            if (breakdownEntries.length === 0) {
+              return (
+                <p
+                  className="text-small text-fg-muted"
+                  data-testid="super-admin-result-breakdown-empty"
+                >
+                  {breakdownLabel} 기록된 이벤트가 없습니다.
+                </p>
+              );
+            }
+            const counts: Record<'ok' | 'denied' | 'error', number> = {
+              ok: 0,
+              denied: 0,
+              error: 0,
+            };
+            for (const e of breakdownEntries) {
+              const r = (e.result as 'ok' | 'denied' | 'error' | undefined) ?? 'error';
+              if (r in counts) counts[r] += 1;
+            }
+            const total = counts.ok + counts.denied + counts.error;
+            const truncated = breakdownSummaryQuery.data?.sampleTruncated ?? false;
+            const items: Array<{
+              key: 'ok' | 'denied' | 'error';
+              label: string;
+              count: number;
+              cls: string;
+            }> = [
+              { key: 'ok', label: '성공', count: counts.ok, cls: 'border-state-success text-state-success' },
+              { key: 'denied', label: '거부', count: counts.denied, cls: 'border-state-warning text-state-warning' },
+              { key: 'error', label: '오류', count: counts.error, cls: 'border-state-danger text-state-danger' },
+            ];
+            return (
+              <>
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+                  data-testid="super-admin-result-breakdown-cards"
+                >
+                  {items.map((it) => {
+                    const href = `/super_admin/audit?atMin=${breakdownAtIso}&result=${it.key}`;
+                    const pct = total > 0 ? Math.round((it.count / total) * 100) : 0;
+                    return (
+                      <Link
+                        key={it.key}
+                        to={href}
+                        data-testid={`super-admin-result-breakdown-card-${it.key}`}
+                        className={`block border ${it.cls} bg-canvas p-4 hover:bg-surface transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong`}
+                      >
+                        <div className="text-micro uppercase tracking-wide">{it.label}</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-h1 font-mono">{it.count}</span>
+                          <span className="text-small text-fg-muted">
+                            ({pct}%)
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <p
+                  className="text-micro text-fg-muted"
+                  data-testid="super-admin-result-breakdown-note"
+                >
+                  {breakdownLabel} 이벤트 <strong>{total}</strong>건 기준
+                  {truncated && ' (최신 500건 sample)'}
+                  . 정확 카운트는 상단 「액션별」 위젯의 「정확 카운트 보기」 토글
+                  참조.
+                </p>
+              </>
+            );
+          })()}
+        </section>
+
         {/* v0.106: role_split 경고 (Auth claim ≠ Firestore role) — server-side action 필터 */}
         <section
           id="role-split-section"
