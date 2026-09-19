@@ -101,4 +101,99 @@ describe('CreateClassroomDialog component', () => {
     expect(errorBanner).toBeDefined();
     expect(errorBanner.textContent).toContain('코스 생성 권한이 없거나 스코프가 부족합니다.');
   });
+
+  // v0.168: owner local-part 자동 부착 (v0.167 CreateGroupDialog 대칭).
+  describe('v0.168: owner local-part 자동 부착', () => {
+    it("owner 「me」 는 preview 없음 (특수 값)", () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const owner = screen.getByTestId('create-classroom-owner') as HTMLInputElement;
+      expect(owner.value).toBe('me');
+      expect(screen.queryByTestId('create-classroom-owner-preview')).toBeNull();
+    });
+
+    it("owner 로 local-part 입력 시 preview 노출", () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('create-classroom-owner'), {
+        target: { value: 'teacher-b' },
+      });
+      expect(
+        screen.getByTestId('create-classroom-owner-preview').textContent,
+      ).toContain('teacher-b@cam.hs.kr');
+    });
+
+    it("owner 로 local-part + 실행 → 서버에 teacher-b@cam.hs.kr 로 전송", async () => {
+      mockMutateAsync.mockResolvedValueOnce({
+        course: { id: 'c1', name: 'x', section: 's', ownerId: 'teacher-b@cam.hs.kr', courseState: 'PROVISIONED' },
+      });
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('create-classroom-name'), {
+        target: { value: '테스트 코스' },
+      });
+      fireEvent.change(screen.getByTestId('create-classroom-owner'), {
+        target: { value: 'teacher-b' },
+      });
+      fireEvent.click(screen.getByTestId('create-classroom-submit'));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ ownerId: 'teacher-b@cam.hs.kr' }),
+        );
+      });
+    });
+
+    it("owner 로 full email 도 뒤호환 (lower-case canonical)", async () => {
+      mockMutateAsync.mockResolvedValueOnce({
+        course: { id: 'c2', name: 'x', section: 's', ownerId: 'teacher-c@cam.hs.kr', courseState: 'PROVISIONED' },
+      });
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('create-classroom-name'), {
+        target: { value: '테스트 코스' },
+      });
+      fireEvent.change(screen.getByTestId('create-classroom-owner'), {
+        target: { value: 'TEACHER-C@cam.hs.kr' },
+      });
+      fireEvent.click(screen.getByTestId('create-classroom-submit'));
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ ownerId: 'teacher-c@cam.hs.kr' }),
+        );
+      });
+    });
+
+    it("owner 잘못된 도메인 → validation 에러 · mutation 미호출", () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('create-classroom-name'), {
+        target: { value: '테스트' },
+      });
+      fireEvent.change(screen.getByTestId('create-classroom-owner'), {
+        target: { value: 'teacher@other.com' },
+      });
+      fireEvent.click(screen.getByTestId('create-classroom-submit'));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      expect(
+        screen.getByTestId('create-classroom-owner-error').textContent,
+      ).toContain('cam.hs.kr');
+    });
+
+    it("빈 owner → 자동으로 'me' fallback", async () => {
+      mockMutateAsync.mockResolvedValueOnce({
+        course: { id: 'c3', name: 'x', section: 's', ownerId: 'me', courseState: 'PROVISIONED' },
+      });
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('create-classroom-name'), {
+        target: { value: '테스트' },
+      });
+      // owner 를 명시적으로 비움.
+      fireEvent.change(screen.getByTestId('create-classroom-owner'), {
+        target: { value: '   ' },
+      });
+      fireEvent.click(screen.getByTestId('create-classroom-submit'));
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ ownerId: 'me' }),
+        );
+      });
+    });
+  });
 });

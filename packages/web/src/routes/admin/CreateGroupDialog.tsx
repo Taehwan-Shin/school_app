@@ -9,35 +9,20 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { useCreateGroup } from "../../api/groupsCreate";
+import {
+  EMAIL_DOMAIN,
+  normalizeSchoolEmailInput,
+  previewSchoolEmail,
+} from "../../lib/emailInput";
 
 export interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// v0.167: BatchCreateUsersDialog v0.132 대칭 UX. local-part 입력 (아이디만) →
-// 자동으로 @cam.hs.kr 붙여서 서버에 전송. 전체 이메일 입력도 뒤호환.
-const EMAIL_DOMAIN = "cam.hs.kr";
-// Google Workspace local-part 규칙: 알파벳/숫자/`.`/`_`/`-` 만, 64자 이하.
-const LOCAL_PART_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const FULL_EMAIL_RE = new RegExp(
-  `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@${EMAIL_DOMAIN.replace(/\./g, "\\.")}$`,
-);
-
-// 입력값을 canonical (lower-case + @cam.hs.kr) email 로 정규화. 부적합하면 null.
-// 대소문자는 인식만 case-insensitive 로 하고 저장은 lower-case canonical.
-export function normalizeGroupEmailInput(input: string): string | null {
-  const trimmed = input.trim().toLowerCase();
-  if (!trimmed) return null;
-  // @ 없으면 local-part 로 간주.
-  if (!trimmed.includes("@")) {
-    if (!LOCAL_PART_RE.test(trimmed)) return null;
-    return `${trimmed}@${EMAIL_DOMAIN}`;
-  }
-  // @ 있으면 full email — 도메인 일치 + local-part 규칙 만족해야 함.
-  if (!FULL_EMAIL_RE.test(trimmed)) return null;
-  return trimmed;
-}
+// v0.167 → v0.168: local-part 자동 부착 helper 는 `lib/emailInput` 으로 승격.
+// 하위 호환용 alias export (기존 테스트 · 다른 import 유지).
+export const normalizeGroupEmailInput = normalizeSchoolEmailInput;
 
 export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps) {
   const [email, setEmail] = useState("");
@@ -97,14 +82,8 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
     }
   };
 
-  // v0.167: 실시간 preview — local-part 입력 시 <input>@cam.hs.kr 표시.
-  const previewEmail = (() => {
-    const trimmed = email.trim();
-    if (!trimmed) return "";
-    if (trimmed.includes("@")) return trimmed.toLowerCase();
-    if (!LOCAL_PART_RE.test(trimmed)) return "";
-    return `${trimmed.toLowerCase()}@${EMAIL_DOMAIN}`;
-  })();
+  // v0.167 → v0.168: preview 계산은 shared helper 로 위임.
+  const previewEmail = previewSchoolEmail(email);
 
   const errorMessage =
     validationError ||
