@@ -30,6 +30,31 @@ type SortDirection = 'asc' | 'desc';
 
 const PAGE_SIZE = 25;
 
+// v0.160: 정렬 선호 localStorage 키. URL 이 authoritative — localStorage 는 URL 이
+// 비어있을 때만 default 로 hydrate. 손상된 값은 조용히 무시.
+const SORT_STORAGE_KEY = 'accountsTable.sort.v1';
+
+interface StoredSortPref {
+  sort?: string;
+  dir?: string;
+}
+
+function readStoredSortPref(): StoredSortPref | null {
+  try {
+    const raw = localStorage.getItem(SORT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const rec = parsed as Record<string, unknown>;
+    return {
+      sort: typeof rec.sort === 'string' ? rec.sort : undefined,
+      dir: typeof rec.dir === 'string' ? rec.dir : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AccountsTable() {
   const { user: currentUser, role: currentRole } = useAuth();
   const { data, isLoading, isError, error } = useUsersList();
@@ -50,6 +75,44 @@ export function AccountsTable() {
   })();
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
+
+  // v0.160: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
+  // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link 등) 저장값 무시.
+  useEffect(() => {
+    if (searchParams.has('sort')) return;
+    const stored = readStoredSortPref();
+    if (!stored) return;
+    const next = new URLSearchParams(searchParams);
+    if (stored.sort === 'email' || stored.sort === 'name' || stored.sort === 'orgUnitPath') {
+      next.set('sort', stored.sort);
+    }
+    if (stored.dir === 'asc' || stored.dir === 'desc') {
+      next.set('dir', stored.dir);
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // Mount-only hydrate: intentionally empty deps. searchParams / setSearchParams
+    // 는 매 렌더 신규 참조라 dep 에 넣으면 무한 loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // v0.160: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제
+  // (「필터 초기화」 후 재방문에서 다시 정렬 안 씌우게).
+  useEffect(() => {
+    try {
+      if (sortColumn) {
+        localStorage.setItem(
+          SORT_STORAGE_KEY,
+          JSON.stringify({ sort: sortColumn, dir: sortDirection }),
+        );
+      } else {
+        localStorage.removeItem(SORT_STORAGE_KEY);
+      }
+    } catch {
+      // localStorage disabled or quota exceeded → no-op.
+    }
+  }, [sortColumn, sortDirection]);
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);
