@@ -722,6 +722,128 @@ describe('GroupsTable component', () => {
     expect(exportBtn.disabled).toBe(true);
   });
 
+  // v0.157: JSON 내보내기 (v0.152 AccountsTable JSON 대칭).
+  describe('v0.157 JSON 내보내기', () => {
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    const mockGroups = [
+      {
+        id: 'g1',
+        email: 'group-a@cam.hs.kr',
+        name: '그룹 A',
+        description: '설명 A',
+        aliases: ['alias-a'],
+        directMembersCount: 5,
+      },
+      {
+        id: 'g2',
+        email: 'group-b@cam.hs.kr',
+        name: '그룹 B',
+        description: '',
+        aliases: [],
+        directMembersCount: 0,
+      },
+    ];
+
+    it('JSON 버튼 표시 · 데이터 있으면 enabled · 필터 결과 0 이면 disabled', () => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<GroupsTable />);
+      const btn = screen.getByTestId('groups-export-json-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+      expect(btn.textContent).toContain('JSON 내보내기');
+
+      fireEvent.change(screen.getByTestId('groups-search-input'), {
+        target: { value: 'zzz-nomatch' },
+      });
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('JSON 클릭 시 download 트리거 · 파일명 groups-YYYY-MM-DD.json', () => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      const clicks: Array<{ download: string }> = [];
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          (el as HTMLAnchorElement).click = () =>
+            clicks.push({ download: (el as HTMLAnchorElement).download });
+        }
+        return el;
+      });
+
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-export-json-btn'));
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+      expect(clicks[0].download).toMatch(/^groups-\d{4}-\d{2}-\d{2}\.json$/);
+      spy.mockRestore();
+    });
+
+    it('JSON payload 는 exportedAt · filters · totalCount · groups 배열 포함', async () => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+
+      let blobText = '';
+      const originalCreate = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        blob.text().then((t) => {
+          blobText = t;
+        });
+        return 'blob:mock';
+      });
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          (el as HTMLAnchorElement).click = () => {};
+        }
+        return el;
+      });
+
+      renderWithRouter(<GroupsTable />, ['/admin/groups?q=A&filter=with-members&sort=name&dir=asc']);
+      fireEvent.click(screen.getByTestId('groups-export-json-btn'));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const parsed = JSON.parse(blobText);
+      expect(parsed.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(parsed.filters).toEqual({
+        q: 'A',
+        filter: 'with-members',
+        sort: 'name',
+        dir: 'asc',
+      });
+      expect(parsed.totalCount).toBe(1);
+      expect(parsed.groups[0]).toMatchObject({
+        email: 'group-a@cam.hs.kr',
+        name: '그룹 A',
+        description: '설명 A',
+        directMembersCount: 5,
+        aliases: ['alias-a'],
+      });
+
+      spy.mockRestore();
+      URL.createObjectURL = originalCreate;
+    });
+  });
+
   // v0.127: 「필터 초기화」 버튼 — v0.125 AccountsTable 대칭.
   describe('v0.127 clear filters button', () => {
     const mockGroups = [
