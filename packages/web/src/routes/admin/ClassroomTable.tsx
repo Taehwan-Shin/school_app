@@ -28,6 +28,7 @@ import {
   type BulkArchiveDirection,
 } from './BulkArchiveClassroomDialog';
 import { BulkRenameClassroomDialog } from './BulkRenameClassroomDialog';
+import { BulkTransferClassroomOwnerDialog } from './BulkTransferClassroomOwnerDialog';
 import {
   TransferClassroomOwnerDialog,
   type TransferClassroomOwnerTarget,
@@ -93,6 +94,7 @@ export function ClassroomTable() {
   const [transferTarget, setTransferTarget] = useState<TransferClassroomOwnerTarget | null>(null);
   // v0.134: 일괄 이름 변경.
   const [isBulkRenameOpen, setIsBulkRenameOpen] = useState(false);
+  const [isBulkTransferOwnerOpen, setIsBulkTransferOwnerOpen] = useState(false);
 
   // v0.137: URL 기반 검색·필터·정렬. AccountsTable (v0.125) · GroupsTable (v0.127) 대칭.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -257,6 +259,14 @@ export function ClassroomTable() {
   // 변경을 거부한다 (upstream 403/failed_precondition). 이름 변경 대상은
   // ACTIVE 만 허용하여 부분 실패를 사전 차단.
   const bulkRenameCourses = useMemo(
+    () =>
+      courses
+        .filter((c) => selectedIds.has(c.id) && c.courseState === 'ACTIVE')
+        .map((c) => ({ id: c.id, name: c.name })),
+    [courses, selectedIds],
+  );
+  // v0.164: 소유자 이관도 ACTIVE 만 (Classroom API 는 ARCHIVED 코스의 patch 를 거부).
+  const bulkTransferOwnerCourses = useMemo(
     () =>
       courses
         .filter((c) => selectedIds.has(c.id) && c.courseState === 'ACTIVE')
@@ -438,6 +448,14 @@ export function ClassroomTable() {
               data-testid="classroom-bulk-rename-btn"
             >
               선택 이름 변경 ({bulkRenameCourses.length})
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkTransferOwnerOpen(true)}
+              disabled={bulkTransferOwnerCourses.length === 0}
+              data-testid="classroom-bulk-transfer-owner-btn"
+            >
+              선택 소유자 이관 ({bulkTransferOwnerCourses.length})
             </Button>
           </div>
         </div>
@@ -678,6 +696,15 @@ export function ClassroomTable() {
           open={true}
           onOpenChange={setIsBulkRenameOpen}
           courses={bulkRenameCourses}
+          onDone={() => setSelectedIds(new Set())}
+        />
+      )}
+
+      {isBulkTransferOwnerOpen && (
+        <BulkTransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={setIsBulkTransferOwnerOpen}
+          courses={bulkTransferOwnerCourses}
           onDone={() => setSelectedIds(new Set())}
         />
       )}
