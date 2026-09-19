@@ -10,6 +10,11 @@ import {
 import { Button } from '../../components/ui/button';
 import { useClassroomCreate } from '../../api/classroomCreate';
 import type { ClassroomCourse } from '../../api/classroomList';
+import {
+  EMAIL_DOMAIN,
+  normalizeSchoolEmailInput,
+  previewSchoolEmail,
+} from '../../lib/emailInput';
 
 export interface CreateClassroomDialogProps {
   open: boolean;
@@ -27,6 +32,7 @@ export function CreateClassroomDialog({
   const [description, setDescription] = useState('');
   const [room, setRoom] = useState('');
   const [ownerId, setOwnerId] = useState('me');
+  const [ownerValidationError, setOwnerValidationError] = useState<string | null>(null);
   const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
 
   const {
@@ -44,6 +50,7 @@ export function CreateClassroomDialog({
     setDescription('');
     setRoom('');
     setOwnerId('me');
+    setOwnerValidationError(null);
     setCourseState('PROVISIONED');
     resetMutation?.();
   }, [resetMutation]);
@@ -62,9 +69,26 @@ export function CreateClassroomDialog({
     onOpenChange(newOpen);
   };
 
+  // v0.168: 'me' 특수 값 · local-part → 자동 @cam.hs.kr · full email 뒤호환.
+  const resolveOwnerId = (raw: string): string | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return 'me';
+    if (trimmed.toLowerCase() === 'me') return 'me';
+    return normalizeSchoolEmailInput(trimmed);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || isPending) return;
+
+    setOwnerValidationError(null);
+    const resolvedOwner = resolveOwnerId(ownerId);
+    if (!resolvedOwner) {
+      setOwnerValidationError(
+        `소유자는 「me」 · 아이디 (예: teacher-a) · 또는 @${EMAIL_DOMAIN} 도메인의 전체 이메일이어야 합니다.`,
+      );
+      return;
+    }
 
     try {
       const res = await createClassroom({
@@ -72,7 +96,7 @@ export function CreateClassroomDialog({
         section: section.trim() || undefined,
         description: description.trim() || undefined,
         room: room.trim() || undefined,
-        ownerId: ownerId.trim() || 'me',
+        ownerId: resolvedOwner,
         courseState,
       });
       onOpenChange(false);
@@ -81,6 +105,13 @@ export function CreateClassroomDialog({
       // Error handled by mutationError
     }
   };
+
+  // v0.168: preview — 'me' 는 그대로, local-part 는 @cam.hs.kr 부착, invalid 는 없음.
+  const ownerPreview = (() => {
+    const trimmed = ownerId.trim();
+    if (!trimmed || trimmed.toLowerCase() === 'me') return '';
+    return previewSchoolEmail(trimmed);
+  })();
 
   const errorMessage = mutationError
     ? mutationError.message.includes('permission-denied')
@@ -185,17 +216,33 @@ export function CreateClassroomDialog({
 
             <div>
               <label htmlFor="courseOwner" className="text-small text-fg-secondary mb-1 block">
-                소유자
+                소유자 <span className="text-fg-muted">(「me」 또는 아이디 · 자동 @{EMAIL_DOMAIN})</span>
               </label>
               <input
                 id="courseOwner"
                 type="text"
                 value={ownerId}
                 onChange={(e) => setOwnerId(e.target.value)}
-                placeholder="me"
+                placeholder="me 또는 teacher-a"
                 data-testid="create-classroom-owner"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              {ownerPreview && (
+                <p
+                  className="mt-1 text-micro text-fg-muted"
+                  data-testid="create-classroom-owner-preview"
+                >
+                  미리보기: <span className="font-mono">{ownerPreview}</span>
+                </p>
+              )}
+              {ownerValidationError && (
+                <p
+                  className="mt-1 text-micro text-state-danger"
+                  data-testid="create-classroom-owner-error"
+                >
+                  {ownerValidationError}
+                </p>
+              )}
             </div>
 
             <div>
