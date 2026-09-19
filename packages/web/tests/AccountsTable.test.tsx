@@ -1702,23 +1702,25 @@ describe("AccountsTable component", () => {
       URL.createObjectURL = originalCreateObj;
     });
 
-    it("선택된 계정이 현재 필터로 안 보여도 export 에 포함 (data.users 전체 기반)", () => {
+    it("선택 후 필터/검색 변경 시 selection 리셋 (기존 UX 유지) · export 라벨도 리셋", () => {
       mockUseUsersList.mockReturnValue({
         data: { users: mockUsers },
         isLoading: false,
         isError: false,
         error: null,
       });
-
-      // 초기 URL 을 filter=admin 으로 렌더 → user1 은 필터 밖.
-      renderWithRouter(<AccountsTable />, ['/admin?filter=admin']);
-      // filter=admin 은 user1 을 표시 안 함 확인.
-      expect(screen.queryByTestId("bulk-check-user1@cam.hs.kr")).toBeNull();
-      // selectedEmails 를 직접 set 하는 방법이 없으니 URL 재초기화 후 선택.
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("bulk-check-user1@cam.hs.kr"));
+      // 선택 상태 반영.
+      const csvBtn = screen.getByTestId("accounts-export-csv-btn") as HTMLButtonElement;
+      expect(csvBtn.textContent).toBe("CSV 내보내기 (선택 1)");
+      // 검색 변경 → selectedEmails 리셋 (useEffect [searchQuery] deps).
+      fireEvent.change(screen.getByTestId("accounts-search-input"), {
+        target: { value: "user" },
+      });
+      // 라벨 원복 (「선택」 접미사 없음).
+      expect(csvBtn.textContent).toBe("CSV 내보내기");
     });
-
-    // (이전 「선택 계정이 현재 필터로 안 보여도 export 에 포함」 테스트가 이미
-    // 검색 후 라벨 유지를 커버하므로 여기 별도 시뮬은 생략.)
   });
 });
 

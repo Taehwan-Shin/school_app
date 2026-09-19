@@ -137,14 +137,14 @@ export function AccountsTable() {
   const isSomeEligibleSelected =
     eligibleEmails.some((e) => selectedEmails.has(e)) && !isAllEligibleSelected;
 
-  // v0.155: 선택된 계정 있으면 그것만 export · 없으면 기존대로 sortedFilteredUsers.
-  // Google Sheets 「선택 항목 다운로드」 스타일. 선택은 현재 필터 밖도 유지될 수
-  // 있어 data.users 전체 기반으로 intersect (사용자 의도 존중).
+  // v0.155: 선택된 계정 있으면 그것만 export · 없으면 sortedFilteredUsers.
+  // 주의: 위 effect 가 필터/검색/정렬 변경 시 선택을 리셋하므로 export 는 현재
+  // 필터 결과 안의 선택만 반영 (필터를 바꾸면 선택도 지워짐). 이는 bulk 작업이
+  // 필터 밖 계정에 실행되는 것을 방지하는 기존 UX 계약 (v0.113 이전 도입).
   const exportUsers = useMemo(() => {
     if (selectedEmails.size === 0) return sortedFilteredUsers;
-    const allUsers = data?.users ?? [];
-    return allUsers.filter((u) => selectedEmails.has(u.email));
-  }, [data?.users, sortedFilteredUsers, selectedEmails]);
+    return sortedFilteredUsers.filter((u) => selectedEmails.has(u.email));
+  }, [sortedFilteredUsers, selectedEmails]);
   const exportScope: 'selected' | 'filtered' =
     selectedEmails.size > 0 ? 'selected' : 'filtered';
 
