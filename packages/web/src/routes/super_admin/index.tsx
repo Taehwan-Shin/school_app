@@ -737,8 +737,25 @@ export function SuperAdminPage() {
               {breakdownSummaryQuery.error?.message || '알 수 없는 오류'}
             </p>
           ) : (() => {
-            const breakdownEntries = breakdownSummaryQuery.data?.entries ?? [];
-            if (breakdownEntries.length === 0) {
+            // v0.154b F132: 서버가 반환한 resultCounts (sample 기반) 우선.
+            // 구 서버 (resultCounts 미제공) 는 preview entries 로 fallback (정확
+            // 하지 않음 안내).
+            const serverResultCounts = breakdownSummaryQuery.data?.resultCounts;
+            let counts: Record<'ok' | 'denied' | 'error', number>;
+            let source: 'server' | 'preview' = 'server';
+            if (serverResultCounts) {
+              counts = { ...serverResultCounts };
+            } else {
+              source = 'preview';
+              counts = { ok: 0, denied: 0, error: 0 };
+              const previewEntries = breakdownSummaryQuery.data?.entries ?? [];
+              for (const e of previewEntries) {
+                const r = (e.result as 'ok' | 'denied' | 'error' | undefined) ?? 'error';
+                if (r in counts) counts[r] += 1;
+              }
+            }
+            const total = counts.ok + counts.denied + counts.error;
+            if (total === 0) {
               return (
                 <p
                   className="text-small text-fg-muted"
@@ -748,16 +765,6 @@ export function SuperAdminPage() {
                 </p>
               );
             }
-            const counts: Record<'ok' | 'denied' | 'error', number> = {
-              ok: 0,
-              denied: 0,
-              error: 0,
-            };
-            for (const e of breakdownEntries) {
-              const r = (e.result as 'ok' | 'denied' | 'error' | undefined) ?? 'error';
-              if (r in counts) counts[r] += 1;
-            }
-            const total = counts.ok + counts.denied + counts.error;
             const truncated = breakdownSummaryQuery.data?.sampleTruncated ?? false;
             const items: Array<{
               key: 'ok' | 'denied' | 'error';
@@ -801,8 +808,9 @@ export function SuperAdminPage() {
                   data-testid="super-admin-result-breakdown-note"
                 >
                   {breakdownLabel} 이벤트 <strong>{total}</strong>건 기준
-                  {truncated && ' (최신 500건 sample)'}
-                  . 정확 카운트는 상단 「액션별」 위젯의 「정확 카운트 보기」 토글
+                  {source === 'server' && truncated && ' (최신 500건 sample)'}
+                  {source === 'preview' && ' (구 서버 · 최신 preview 만 반영)'}.
+                  정확 카운트는 상단 「액션별」 위젯의 「정확 카운트 보기」 토글
                   참조.
                 </p>
               </>

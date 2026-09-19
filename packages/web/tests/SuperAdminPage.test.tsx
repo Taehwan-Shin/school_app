@@ -2105,20 +2105,15 @@ describe('SuperAdminPage', () => {
       mockUseUnresolvedRoleSplits.mockReturnValue(baseUnresolved);
     });
 
-    it('result 별 (ok/denied/error) count aggregate + 링크 href · pct 표시', () => {
-      // entries = ok 3 · denied 1 · error 1 = 총 5.
+    it('server resultCounts 우선 · count/pct 표시 + 링크 href', () => {
+      // server 가 resultCounts (sample 500 기반) 반환 · client 는 그대로 사용.
       mockUseAuditLogSummary.mockReturnValue({
         data: {
-          count: 5,
-          entries: [
-            { id: '1', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r1', result: 'ok', at: 1 },
-            { id: '2', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r2', result: 'ok', at: 2 },
-            { id: '3', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r3', result: 'ok', at: 3 },
-            { id: '4', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r4', result: 'denied', at: 4 },
-            { id: '5', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r5', result: 'error', at: 5 },
-          ],
+          count: 100,
+          entries: [], // preview 는 별도, 여기 result 계산에 미사용.
           snapshotAt: Date.now(),
           generatedAt: Date.now(),
+          resultCounts: { ok: 60, denied: 20, error: 20 },
         },
         isLoading: false,
         isError: false,
@@ -2130,11 +2125,11 @@ describe('SuperAdminPage', () => {
       const okCard = screen.getByTestId('super-admin-result-breakdown-card-ok');
       const deniedCard = screen.getByTestId('super-admin-result-breakdown-card-denied');
       const errorCard = screen.getByTestId('super-admin-result-breakdown-card-error');
-      expect(okCard.textContent).toContain('3');
+      expect(okCard.textContent).toContain('60');
       expect(okCard.textContent).toContain('60%');
-      expect(deniedCard.textContent).toContain('1');
+      expect(deniedCard.textContent).toContain('20');
       expect(deniedCard.textContent).toContain('20%');
-      expect(errorCard.textContent).toContain('1');
+      expect(errorCard.textContent).toContain('20');
       expect(errorCard.textContent).toContain('20%');
       // 링크 href.
       expect(okCard.getAttribute('href')).toContain('result=ok');
@@ -2142,16 +2137,44 @@ describe('SuperAdminPage', () => {
       expect(deniedCard.getAttribute('href')).toContain('result=denied');
       expect(errorCard.getAttribute('href')).toContain('result=error');
       // note.
-      expect(screen.getByTestId('super-admin-result-breakdown-note').textContent).toContain('5');
+      expect(screen.getByTestId('super-admin-result-breakdown-note').textContent).toContain('100');
     });
 
-    it('entries 없음 (오늘 기록 0건) → empty 문구', () => {
+    it('구 서버 (resultCounts 미제공) → preview entries fallback + 안내 문구', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [
+            { id: '1', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r1', result: 'ok', at: 1 },
+            { id: '2', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r2', result: 'ok', at: 2 },
+            { id: '3', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r3', result: 'denied', at: 3 },
+          ],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const okCard = screen.getByTestId('super-admin-result-breakdown-card-ok');
+      const deniedCard = screen.getByTestId('super-admin-result-breakdown-card-denied');
+      expect(okCard.textContent).toContain('2');
+      expect(deniedCard.textContent).toContain('1');
+      // note: 「구 서버 · 최신 preview 만 반영」 문구.
+      expect(screen.getByTestId('super-admin-result-breakdown-note').textContent).toContain(
+        '구 서버',
+      );
+    });
+
+    it('resultCounts 전부 0 → empty 문구', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 0,
           entries: [],
           snapshotAt: Date.now(),
           generatedAt: Date.now(),
+          resultCounts: { ok: 0, denied: 0, error: 0 },
         },
         isLoading: false,
         isError: false,
@@ -2162,15 +2185,14 @@ describe('SuperAdminPage', () => {
       expect(screen.queryByTestId('super-admin-result-breakdown-cards')).toBeNull();
     });
 
-    it('sampleTruncated 이면 note 에 500건 sample 표시', () => {
+    it('sampleTruncated + resultCounts 존재 시 note 에 500건 sample 표시', () => {
       mockUseAuditLogSummary.mockReturnValue({
         data: {
           count: 999,
-          entries: [
-            { id: '1', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r1', result: 'ok', at: 1 },
-          ],
+          entries: [],
           snapshotAt: Date.now(),
           generatedAt: Date.now(),
+          resultCounts: { ok: 400, denied: 50, error: 50 },
           sampleTruncated: true,
         },
         isLoading: false,

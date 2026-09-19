@@ -11,6 +11,9 @@ export interface AuditLogSummaryResponse {
   // v0.120: 대시보드 위젯 — action 별 카운트. sampleTruncated=true 이면 최신
   // sampleSize 건만 반영 (정확 count 는 `count` 필드).
   actionCounts?: Record<string, number>;
+  // v0.154: result 별 카운트 (sample 기반, action 과 동일 sample). client
+  // aggregate 이 preview 5건만 반영해 왜곡되는 것을 방지.
+  resultCounts?: { ok: number; denied: number; error: number };
   sampleSize?: number;
   sampleTruncated?: boolean;
   // v0.126: exact=true 요청 시 AUDIT_ACTIONS 각각을 Firestore count()
