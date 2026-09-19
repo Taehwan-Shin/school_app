@@ -114,6 +114,39 @@ export function GroupsTable() {
     URL.revokeObjectURL(url);
   };
 
+  // v0.157: JSON \uB0B4\uBCF4\uB0B4\uAE30 (AccountsTable v0.152 \uB300\uCE6D). exportedAt \u00B7 filters \u00B7
+  // totalCount \u00B7 groups[] (email \u00B7 name \u00B7 description \u00B7 directMembersCount \u00B7 aliases).
+  const handleExportJson = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      filters: {
+        q: searchQuery.trim(),
+        filter: kpiFilter,
+        sort: sortColumn,
+        dir: sortDirection,
+      },
+      totalCount: sortedFilteredGroups.length,
+      groups: sortedFilteredGroups.map((g) => ({
+        email: g.email,
+        name: g.name ?? '',
+        description: g.description ?? '',
+        directMembersCount: g.directMembersCount ?? 0,
+        aliases: g.aliases ?? [],
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `groups-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
@@ -160,6 +193,19 @@ export function GroupsTable() {
             disabled={sortedFilteredGroups.length === 0}
           >
             CSV 내보내기
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportJson}
+            data-testid="groups-export-json-btn"
+            disabled={sortedFilteredGroups.length === 0}
+            title={
+              sortedFilteredGroups.length === 0
+                ? '내보낼 그룹이 없습니다.'
+                : '현재 필터 반영 JSON 다운로드 (exportedAt · filters 메타 포함)'
+            }
+          >
+            JSON 내보내기
           </Button>
           <Button
             onClick={() => setIsCreateOpen(true)}
