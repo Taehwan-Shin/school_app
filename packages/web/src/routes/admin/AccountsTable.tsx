@@ -24,6 +24,7 @@ import { BulkRestoreDialog } from "./BulkRestoreDialog";
 import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
+import { BulkUpdateRoleDialog } from "./BulkUpdateRoleDialog";
 
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
@@ -120,6 +121,7 @@ export function AccountsTable() {
   const [isBulkRestoreOpen, setIsBulkRestoreOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkResetPasswordOpen, setIsBulkResetPasswordOpen] = useState(false);
+  const [isBulkUpdateRoleOpen, setIsBulkUpdateRoleOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -413,6 +415,13 @@ export function AccountsTable() {
               data-testid="bulk-reset-password-btn"
             >
               선택 비밀번호 변경
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkUpdateRoleOpen(true)}
+              data-testid="bulk-update-role-btn"
+            >
+              선택 역할 변경
             </Button>
             <Button
               variant="secondary"
@@ -796,6 +805,13 @@ export function AccountsTable() {
       <BulkResetPasswordDialog
         open={isBulkResetPasswordOpen}
         onOpenChange={setIsBulkResetPasswordOpen}
+        emails={Array.from(selectedEmails)}
+        onDone={() => setSelectedEmails(new Set())}
+      />
+
+      <BulkUpdateRoleDialog
+        open={isBulkUpdateRoleOpen}
+        onOpenChange={setIsBulkUpdateRoleOpen}
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />
