@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.170 병합 완료** (`ec81745`) - courseState 3 dialog Korean label 통일 + helper lib 승격 · 기계 관문 (lint clean · web 1024 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.171 병합 완료** (`bdcefa3`) - classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) · 신규 CopyButton 컴포넌트 · 기계 관문 (lint clean · web 1029 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `bdcefa3` v0.171 - classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) · 신규 `CopyButton` 컴포넌트 (navigator.clipboard.writeText 우선 · execCommand fallback · 성공 시 「복사됨 ✓」 2초 노출 · aria-label 에 value 포함) · classroomDetail 3곳 배치 · 관리자가 Admin Console 붙여넣기 원-클릭 · 5 회귀 테스트 · 웹 1029 (+5) · lint clean · 서버 무변경.
 - `ec81745` v0.170 - courseState 3 dialog Korean label 통일 (CreateClassroom · CourseBulkCreate · ClassroomChatPairBulkCreate) · v0.137 ClassroomTable 의 `translateCourseState` 를 `src/lib/courseState.ts` 로 승격 · 신규 `courseStateOptionLabel` (「한글 (CODE)」 형태) · ClassroomTable 은 re-export 로 뒤호환 (classroomDetail.tsx 소비 유지) · 3 회귀 테스트 · 웹 1024 (+3) · lint clean · 서버 무변경.
 - `550b406` v0.169 - TransferClassroomOwnerDialog (개별) + BulkTransferClassroomOwnerDialog (v0.164) 도 shared `lib/emailInput.ts` helper 로 refactor (v0.168 대칭 완성) · 두 dialog 모두 local-part 자동 부착 + preview + 도메인 client-side 거부 + case-insensitive → lower-case canonical · 이메일 입력 UX 6 dialog 완전 일관 (CreateUser · BatchCreate · CreateGroup · CreateClassroom · TransferClassroomOwner · BulkTransferClassroomOwner) · TransferClassroom 기존 test 는 @example.com → @cam.hs.kr 로 갱신 (도메인 제한) · 5 회귀 테스트 · 웹 1021 (+5) · lint clean · 서버 무변경.
 - `1f25e80` v0.168 - CreateClassroomDialog owner local-part 자동 부착 (v0.167 CreateGroupDialog 대칭) · v0.167 helper 를 `src/lib/emailInput.ts` 로 승격 · CreateGroupDialog 는 shared helper 로 refactor (하위 호환 alias export) · 'me' 특수 값 유지 + 빈 값 → 'me' fallback + local-part 자동 부착 + full email 뒤호환 + 잘못된 도메인 validation 에러 · 13 회귀 테스트 (emailInput 7 + CreateClassroom 6) · 웹 1016 (+13) · lint clean · 서버 무변경.

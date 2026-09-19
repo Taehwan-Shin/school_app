@@ -3556,3 +3556,41 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · classroom detail page UX polish · ClassroomTable 소유자 raw email 표시 개선.
+
+---
+
+## 2026-09-20 · v0.171 classroomDetail 복사 버튼 (courseId · ownerId · alternateLink)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/classroom-detail-copy-v171` | feat: v0.171 classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) |
+| 병합 | `bdcefa3` | Merge feat/classroom-detail-copy-v171 into main - v0.171 classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `bdcefa3` | skip (Head 폴백 규율) | 기계 관문(web 1029 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: 관리자가 classroomDetail 페이지의 courseId · 소유자 ID · Classroom URL 을 Admin Console 이나 문서에 붙여넣을 때 텍스트 선택 필요. font-mono 로 표시돼도 selection 정확도 낮음.
+- **해결**: 신규 `CopyButton` 컴포넌트 · classroomDetail 3곳 배치.
+- **CopyButton spec**:
+  - navigator.clipboard.writeText 우선 사용.
+  - insecure origin · 구 브라우저에서 fallback = document.execCommand('copy') (임시 textarea).
+  - 성공 시 「복사됨 ✓」 라벨 2초 노출 후 「복사」 원복 (setTimeout).
+  - aria-label 에 value 포함 (screen reader 접근성).
+  - 재사용 가능 (props: value · label · className · data-testid).
+
+### 배운 것
+
+- **clipboard API 이중 fallback pattern**: production URL 은 HTTPS 이므로 navigator.clipboard 항상 사용 가능하지만 localhost:5173 (dev) 이나 http://server-name/ (staging) 에서는 fail 가능. 임시 textarea + execCommand 는 legacy fallback 이 확실.
+- **timers + waitFor 조합**: vi.useFakeTimers({ shouldAdvanceTime: true }) 로 async resolve 는 실제 시간 진행 · setTimeout 은 vi.advanceTimersByTime 로 제어. Reasonably clean fake-timer pattern.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · CopyButton 을 다른 페이지에도 활용 (AccountsTable ID · GroupsTable email) · classroom detail 소유자 email 매핑 서버 확장.
