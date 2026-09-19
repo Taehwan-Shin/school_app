@@ -16,7 +16,12 @@ import {
   previewSchoolEmail,
 } from '../../lib/emailInput';
 import { courseStateOptionLabel } from '../../lib/courseState';
-import { COURSE_DESCRIPTION_MAX } from '../../lib/classroomLimits';
+import {
+  COURSE_DESCRIPTION_MAX,
+  COURSE_NAME_MAX,
+  COURSE_ROOM_MAX,
+  COURSE_SECTION_MAX,
+} from '../../lib/classroomLimits';
 
 export interface CreateClassroomDialogProps {
   open: boolean;
@@ -80,6 +85,7 @@ export function CreateClassroomDialog({
   };
 
   const [descriptionValidationError, setDescriptionValidationError] = useState<string | null>(null);
+  const [fieldLengthError, setFieldLengthError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -87,6 +93,26 @@ export function CreateClassroomDialog({
 
     setOwnerValidationError(null);
     setDescriptionValidationError(null);
+    setFieldLengthError(null);
+
+    if (name.length > COURSE_NAME_MAX) {
+      setFieldLengthError(
+        `이름은 최대 ${COURSE_NAME_MAX.toLocaleString()}자까지 입력할 수 있습니다. (현재 ${name.length.toLocaleString()}자)`,
+      );
+      return;
+    }
+    if (section.length > COURSE_SECTION_MAX) {
+      setFieldLengthError(
+        `섹션은 최대 ${COURSE_SECTION_MAX.toLocaleString()}자까지 입력할 수 있습니다. (현재 ${section.length.toLocaleString()}자)`,
+      );
+      return;
+    }
+    if (room.length > COURSE_ROOM_MAX) {
+      setFieldLengthError(
+        `강의실은 최대 ${COURSE_ROOM_MAX.toLocaleString()}자까지 입력할 수 있습니다. (현재 ${room.length.toLocaleString()}자)`,
+      );
+      return;
+    }
 
     if (description.length > COURSE_DESCRIPTION_MAX) {
       setDescriptionValidationError(
@@ -162,6 +188,15 @@ export function CreateClassroomDialog({
               data-testid="create-classroom-error"
             >
               {errorMessage}
+            </div>
+          )}
+
+          {fieldLengthError && (
+            <div
+              className="border border-state-danger p-3 text-small text-state-danger"
+              data-testid="create-classroom-field-length-error"
+            >
+              {fieldLengthError}
             </div>
           )}
 
