@@ -25,6 +25,9 @@ export interface AuditLogSummaryResponse {
   // 이면 sampleSize (=SAMPLE_LIMIT) 만 대상. count > sampleSize 인 경우 breakdown
   // 은 최신 sampleSize 건 기준이며 전체와 다를 수 있음. sample 순서는 at DESC.
   actionCounts: Record<string, number>;
+  // v0.154: result 별 카운트 (sample 기반, action 과 동일 sample). preview
+  // entries 5건이 아닌 sample 500건 대상이라 client aggregate 왜곡 방지.
+  resultCounts: { ok: number; denied: number; error: number };
   sampleSize: number;
   sampleTruncated: boolean;
   // v0.126: `exact=true` 요청 시 AUDIT_ACTIONS 각각을 count() 로 조회한 정확
@@ -125,8 +128,19 @@ export const auditLogSummary = onCall(
 
       // sample 에서 action 별 카운트 계산. sample 은 at DESC 로 최신 SAMPLE_LIMIT 건.
       const actionCounts: Record<string, number> = {};
+      // v0.154 F132: result 별 카운트도 sample 에서 aggregate (client 는 preview
+      // 5건만 받으므로 client aggregate 하면 왜곡). action 과 동일 sample.
+      const resultCounts: Record<'ok' | 'denied' | 'error', number> = {
+        ok: 0,
+        denied: 0,
+        error: 0,
+      };
       for (const entry of sampleResult.entries) {
         actionCounts[entry.action] = (actionCounts[entry.action] ?? 0) + 1;
+        const r = entry.result;
+        if (r === 'ok' || r === 'denied' || r === 'error') {
+          resultCounts[r] += 1;
+        }
       }
       const sampleSize = sampleResult.entries.length;
       // sampleTruncated = true 이면 전체 count 가 sample 크기를 넘어서 breakdown
@@ -170,6 +184,7 @@ export const auditLogSummary = onCall(
         snapshotAt,
         generatedAt,
         actionCounts,
+        resultCounts,
         sampleSize,
         sampleTruncated,
         ...(exactActionCounts !== undefined ? { exactActionCounts } : {}),

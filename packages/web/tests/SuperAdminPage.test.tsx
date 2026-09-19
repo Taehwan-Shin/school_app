@@ -553,8 +553,9 @@ describe('SuperAdminPage', () => {
     renderWithRouter(<SuperAdminPage />);
 
     expect(screen.getByTestId('super-admin-preview-loading')).toBeDefined();
-    // v0.120: super-admin-breakdown-loading 도 「불러오는 중...」 이므로 3.
-    expect(screen.getAllByText('불러오는 중...')).toHaveLength(3);
+    // v0.120: breakdown-loading · v0.154: result-breakdown-loading 도 「불러오는
+    // 중...」 이라 헤더 · preview · action-breakdown · result-breakdown = 4.
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(4);
     expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
     expect(screen.queryByTestId('super-admin-recent-events')).toBeNull();
     expect(screen.queryByTestId('super-admin-preview-error')).toBeNull();
@@ -614,8 +615,9 @@ describe('SuperAdminPage', () => {
     });
     const { unmount: unmountLoading } = renderWithRouter(<SuperAdminPage />);
     expect(screen.queryByText('오늘 이벤트가 없습니다.')).toBeNull();
-    // v0.120: super-admin-breakdown-loading 도 「불러오는 중...」 이므로 3.
-    expect(screen.getAllByText('불러오는 중...')).toHaveLength(3);
+    // v0.120: breakdown-loading · v0.154: result-breakdown-loading 도 「불러오는
+    // 중...」 이라 헤더 · preview · action-breakdown · result-breakdown = 4.
+    expect(screen.getAllByText('불러오는 중...')).toHaveLength(4);
     unmountLoading();
 
     // 2. error
@@ -2059,6 +2061,147 @@ describe('SuperAdminPage', () => {
       fireEvent.change(input, { target: { value: '30' } });
       expect(input.getAttribute('aria-invalid')).toBeNull();
       expect(screen.queryByTestId('super-admin-breakdown-ndays-fallback')).toBeNull();
+    });
+  });
+
+  // v0.154: 결과 분포 위젯 (로드맵 B-8).
+  describe('v0.154 result breakdown', () => {
+    const baseUsers = {
+      data: { users: [] as UserItem[] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    const baseGroups = {
+      data: { groups: [] as GroupItem[] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    const baseAuditList = {
+      entries: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reload: vi.fn(),
+    };
+    const baseUnresolved = {
+      data: {
+        entries: [],
+        scannedDetected: 0,
+        scannedResolved: 0,
+        detectedHasMore: false,
+        resolvedHasMore: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    beforeEach(() => {
+      mockUseUsersList.mockReturnValue(baseUsers);
+      mockUseGroupsList.mockReturnValue(baseGroups);
+      mockUseAuditLogList.mockReturnValue(baseAuditList);
+      mockUseUnresolvedRoleSplits.mockReturnValue(baseUnresolved);
+    });
+
+    it('server resultCounts 우선 · count/pct 표시 + 링크 href', () => {
+      // server 가 resultCounts (sample 500 기반) 반환 · client 는 그대로 사용.
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 100,
+          entries: [], // preview 는 별도, 여기 result 계산에 미사용.
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          resultCounts: { ok: 60, denied: 20, error: 20 },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const cards = screen.getByTestId('super-admin-result-breakdown-cards');
+      expect(cards).toBeDefined();
+      const okCard = screen.getByTestId('super-admin-result-breakdown-card-ok');
+      const deniedCard = screen.getByTestId('super-admin-result-breakdown-card-denied');
+      const errorCard = screen.getByTestId('super-admin-result-breakdown-card-error');
+      expect(okCard.textContent).toContain('60');
+      expect(okCard.textContent).toContain('60%');
+      expect(deniedCard.textContent).toContain('20');
+      expect(deniedCard.textContent).toContain('20%');
+      expect(errorCard.textContent).toContain('20');
+      expect(errorCard.textContent).toContain('20%');
+      // 링크 href.
+      expect(okCard.getAttribute('href')).toContain('result=ok');
+      expect(okCard.getAttribute('href')).toMatch(/atMin=\d{4}-\d{2}-\d{2}/);
+      expect(deniedCard.getAttribute('href')).toContain('result=denied');
+      expect(errorCard.getAttribute('href')).toContain('result=error');
+      // note.
+      expect(screen.getByTestId('super-admin-result-breakdown-note').textContent).toContain('100');
+    });
+
+    it('구 서버 (resultCounts 미제공) → preview entries fallback + 안내 문구', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 5,
+          entries: [
+            { id: '1', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r1', result: 'ok', at: 1 },
+            { id: '2', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r2', result: 'ok', at: 2 },
+            { id: '3', actor: 'a', role: 'super_admin', action: 'x', target: '*', request_id: 'r3', result: 'denied', at: 3 },
+          ],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const okCard = screen.getByTestId('super-admin-result-breakdown-card-ok');
+      const deniedCard = screen.getByTestId('super-admin-result-breakdown-card-denied');
+      expect(okCard.textContent).toContain('2');
+      expect(deniedCard.textContent).toContain('1');
+      // note: 「구 서버 · 최신 preview 만 반영」 문구.
+      expect(screen.getByTestId('super-admin-result-breakdown-note').textContent).toContain(
+        '구 서버',
+      );
+    });
+
+    it('resultCounts 전부 0 → empty 문구', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 0,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          resultCounts: { ok: 0, denied: 0, error: 0 },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      expect(screen.getByTestId('super-admin-result-breakdown-empty')).toBeDefined();
+      expect(screen.queryByTestId('super-admin-result-breakdown-cards')).toBeNull();
+    });
+
+    it('sampleTruncated + resultCounts 존재 시 note 에 500건 sample 표시', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 999,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          resultCounts: { ok: 400, denied: 50, error: 50 },
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const note = screen.getByTestId('super-admin-result-breakdown-note');
+      expect(note.textContent).toContain('500');
     });
   });
 });
