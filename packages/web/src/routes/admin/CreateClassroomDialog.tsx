@@ -16,6 +16,7 @@ import {
   previewSchoolEmail,
 } from '../../lib/emailInput';
 import { courseStateOptionLabel } from '../../lib/courseState';
+import { COURSE_DESCRIPTION_MAX } from '../../lib/classroomLimits';
 
 export interface CreateClassroomDialogProps {
   open: boolean;
@@ -78,11 +79,22 @@ export function CreateClassroomDialog({
     return normalizeSchoolEmailInput(trimmed);
   };
 
+  const [descriptionValidationError, setDescriptionValidationError] = useState<string | null>(null);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || isPending) return;
 
     setOwnerValidationError(null);
+    setDescriptionValidationError(null);
+
+    if (description.length > COURSE_DESCRIPTION_MAX) {
+      setDescriptionValidationError(
+        `설명은 최대 ${COURSE_DESCRIPTION_MAX.toLocaleString()}자까지 입력할 수 있습니다. (현재 ${description.length.toLocaleString()}자)`,
+      );
+      return;
+    }
+
     const resolvedOwner = resolveOwnerId(ownerId);
     if (!resolvedOwner) {
       setOwnerValidationError(
@@ -196,8 +208,26 @@ export function CreateClassroomDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="코스에 대한 설명 (선택)"
                 data-testid="create-classroom-description"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                className="w-full resize-y border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-micro ${
+                  description.length > COURSE_DESCRIPTION_MAX
+                    ? 'text-red-600 font-semibold'
+                    : 'text-fg-muted'
+                }`}
+                data-testid="create-classroom-description-counter"
+              >
+                현재 {description.length.toLocaleString()} / {COURSE_DESCRIPTION_MAX.toLocaleString()} 자
+              </p>
+              {descriptionValidationError && (
+                <p
+                  className="mt-1 text-micro text-state-danger"
+                  data-testid="create-classroom-description-error"
+                >
+                  {descriptionValidationError}
+                </p>
+              )}
             </div>
 
             <div>
