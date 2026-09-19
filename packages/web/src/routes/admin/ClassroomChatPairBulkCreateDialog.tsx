@@ -14,6 +14,7 @@ import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
 import { callChatCreate } from '../../api/chatCreate';
 import { callChatList } from '../../api/chatList';
+import { courseStateOptionLabel } from '../../lib/courseState';
 import {
   courseName,
   isYearValid,
@@ -403,8 +404,8 @@ function ClassroomChatPairBulkCreateDialogContent({
                     data-testid="pair-state"
                     className="w-full border border-border-subtle bg-canvas px-3 py-1.5 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                   >
-                    <option value="PROVISIONED">PROVISIONED</option>
-                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="PROVISIONED">{courseStateOptionLabel('PROVISIONED')}</option>
+                    <option value="ACTIVE">{courseStateOptionLabel('ACTIVE')}</option>
                   </select>
                 </div>
               </div>

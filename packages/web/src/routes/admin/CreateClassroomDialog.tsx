@@ -15,6 +15,7 @@ import {
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from '../../lib/emailInput';
+import { courseStateOptionLabel } from '../../lib/courseState';
 
 export interface CreateClassroomDialogProps {
   open: boolean;
@@ -256,8 +257,8 @@ export function CreateClassroomDialog({
                 data-testid="create-classroom-state"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               >
-                <option value="PROVISIONED">PROVISIONED</option>
-                <option value="ACTIVE">ACTIVE</option>
+                <option value="PROVISIONED">{courseStateOptionLabel('PROVISIONED')}</option>
+                <option value="ACTIVE">{courseStateOptionLabel('ACTIVE')}</option>
               </select>
             </div>
           </div>

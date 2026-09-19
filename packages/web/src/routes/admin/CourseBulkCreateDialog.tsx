@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
+import { courseStateOptionLabel } from '../../lib/courseState';
 
 export interface CourseBulkCreateDialogProps {
   open: boolean;
@@ -390,8 +391,8 @@ function CourseBulkCreateDialogContent({
                     data-testid="bulk-create-state"
                     className="w-full border border-border-subtle bg-canvas px-3 py-1.5 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
                   >
-                    <option value="PROVISIONED">PROVISIONED</option>
-                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="PROVISIONED">{courseStateOptionLabel('PROVISIONED')}</option>
+                    <option value="ACTIVE">{courseStateOptionLabel('ACTIVE')}</option>
                   </select>
                 </div>
               </div>
