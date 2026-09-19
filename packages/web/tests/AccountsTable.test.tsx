@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation, useSearchParams } from "react-router-dom";
 
 const mockUseUsersList = vi.fn();
@@ -70,6 +70,8 @@ function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/
 describe("AccountsTable component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // v0.160: 정렬 선호 localStorage bleed 방지 (hydrate effect 가 URL 을 재-write).
+    localStorage.clear();
   });
 
   it("renders loading state indicator while data is fetching", () => {
@@ -1720,6 +1722,80 @@ describe("AccountsTable component", () => {
       });
       // 라벨 원복 (「선택」 접미사 없음).
       expect(csvBtn.textContent).toBe("CSV 내보내기");
+    });
+  });
+
+  // v0.160: 정렬 선호 localStorage 저장 · URL 이 authoritative.
+  describe("v0.160 정렬 선호 localStorage 저장", () => {
+    const mockUsers = [
+      { email: "a@cam.hs.kr", firstName: "일", lastName: "김", orgUnitPath: "/", isAdmin: false, isSuspended: false },
+      { email: "b@cam.hs.kr", firstName: "이", lastName: "박", orgUnitPath: "/", isAdmin: false, isSuspended: false },
+    ];
+
+    beforeEach(() => {
+      localStorage.clear();
+      mockUseUsersList.mockReturnValue({
+        data: { users: mockUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it("URL 에 sort 없으면 localStorage 저장값을 URL 로 hydrate", async () => {
+      localStorage.setItem(
+        "accountsTable.sort.v1",
+        JSON.stringify({ sort: "email", dir: "desc" }),
+      );
+      renderWithRouter(<AccountsTable />, ["/admin"]);
+      // hydrate 는 useEffect → 다음 tick 에 aria-sort=descending 반영.
+      await waitFor(() => {
+        const emailTh = screen.getByRole("columnheader", { name: /Email/i });
+        expect(emailTh.getAttribute("aria-sort")).toBe("descending");
+      });
+    });
+
+    it("URL 에 sort 있으면 localStorage 값 무시 (URL authoritative)", () => {
+      localStorage.setItem(
+        "accountsTable.sort.v1",
+        JSON.stringify({ sort: "email", dir: "desc" }),
+      );
+      renderWithRouter(<AccountsTable />, ["/admin?sort=name&dir=asc"]);
+      const nameTh = screen.getByRole("columnheader", { name: /이름/ });
+      expect(nameTh.getAttribute("aria-sort")).toBe("ascending");
+      const emailTh = screen.getByRole("columnheader", { name: /Email/i });
+      expect(emailTh.getAttribute("aria-sort")).toBe("none");
+    });
+
+    it("정렬 헤더 클릭 시 localStorage 에 저장", async () => {
+      renderWithRouter(<AccountsTable />, ["/admin"]);
+      const emailTh = screen.getByRole("columnheader", { name: /Email/i });
+      fireEvent.click(emailTh);
+      await waitFor(() => {
+        const raw = localStorage.getItem("accountsTable.sort.v1");
+        expect(raw).not.toBeNull();
+        const parsed = JSON.parse(raw!);
+        expect(parsed).toEqual({ sort: "email", dir: "asc" });
+      });
+    });
+
+    it("「필터 초기화」 후 localStorage 도 제거", async () => {
+      renderWithRouter(<AccountsTable />, ["/admin?sort=email&dir=desc"]);
+      await waitFor(() => {
+        expect(localStorage.getItem("accountsTable.sort.v1")).not.toBeNull();
+      });
+      fireEvent.click(screen.getByTestId("accounts-clear-filters-btn"));
+      await waitFor(() => {
+        expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
+      });
+    });
+
+    it("localStorage 손상값은 무시 (JSON parse 실패)", () => {
+      localStorage.setItem("accountsTable.sort.v1", "not-json{{");
+      renderWithRouter(<AccountsTable />, ["/admin"]);
+      // 어떤 컬럼도 aria-sort=ascending/descending 이 아니어야 함 (기본 none).
+      const emailTh = screen.getByRole("columnheader", { name: /Email/i });
+      expect(emailTh.getAttribute("aria-sort")).toBe("none");
     });
   });
 });
