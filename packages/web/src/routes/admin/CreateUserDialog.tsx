@@ -45,6 +45,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [assignResults, setAssignResults] = useState<ClassroomAssignResult[] | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  // v0.158: 첫 로그인 시 비밀번호 변경 강제 옵션. 기본 true (안전 · 학생 계정).
+  // 교사 계정 등 강제 안 하려면 해제.
+  const [changePasswordAtNextLogin, setChangePasswordAtNextLogin] = useState(true);
 
   // v0.121: 신규 OU 인라인 생성 UI. 기본은 접힘, 「+ 새 OU 만들기」 누르면
   // 아래에 폼이 펼쳐진다. 성공 시 orgunits 캐시 invalidate + orgUnitPath 자동
@@ -98,6 +101,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     setClassroomRole('student');
     setSelectedClassroomIds(new Set());
     setClassroomSearch('');
+    setChangePasswordAtNextLogin(true);
     setValidationError(null);
     setAssignResults(null);
     setIsAssigning(false);
@@ -206,7 +210,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         givenName: givenName.trim(),
         password,
         orgUnitPath: orgUnitPath.trim() || '/',
-        changePasswordAtNextLogin: true,
+        changePasswordAtNextLogin,
       });
     } catch {
       // Mutation error rendered below; do NOT proceed to classroom assign.
@@ -369,6 +373,18 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 disabled={isBusy}
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
+              {/* v0.158: 첫 로그인 시 비밀번호 변경 강제 toggle. 학생 계정은 켜두고
+                  (안전 · 초기값 노출 방지) 교사 계정 등은 해제 가능. */}
+              <label className="flex items-center gap-2 mt-2 text-small text-fg-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={changePasswordAtNextLogin}
+                  onChange={(e) => setChangePasswordAtNextLogin(e.target.checked)}
+                  disabled={isBusy}
+                  data-testid="create-user-change-pw-toggle"
+                />
+                첫 로그인 시 비밀번호 변경 강제
+              </label>
             </div>
 
             {/* v0.119 / v0.119b F91: OU combobox — datalist 기반. 기존 OU 를
