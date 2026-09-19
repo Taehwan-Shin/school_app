@@ -3334,3 +3334,43 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: GroupsTable bulk operations (아예 selection UI 부터 · v0.164 pattern 이식), CreateClassroomDialog UX polish, dashboard export 개선.
+
+---
+
+## 2026-09-20 · v0.165 GroupsTable bulk selection + BulkDeleteGroupDialog
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/groups-bulk-delete-v165` | feat: v0.165 GroupsTable bulk selection + BulkDeleteGroupDialog |
+| 병합 | `b490459` | Merge feat/groups-bulk-delete-v165 into main - v0.165 GroupsTable bulk selection + BulkDeleteGroupDialog |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `b490459` | skip (Head 폴백 규율) | v0.158 R1 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 989 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: GroupsTable 은 개별 편집/삭제만 있었고 bulk 액션 세트 자체가 없음. 학년말 졸업 코호트 그룹 (「2024학년도 3학년 5반」 등) 여러 개 정리 시 반복 삭제 필요.
+- **해결**: AccountsTable v0.155 bulk 세트 패턴 이식 · ClassroomTable v0.164 conditional mount 학습 반영.
+  - Row 체크박스 + 헤더 전체선택 (indeterminate 지원).
+  - 필터 밖 선택 유지 · 필터/검색/정렬 변경 시 리셋 (bulk 필터 밖 실행 방지 · v0.113 이전 도입 규범).
+  - 「N개 선택됨」 bulk actions bar (선택 시만 노출).
+  - BulkDeleteGroupDialog: v0.128 BulkDeleteDialog pattern 그대로 (F99 emails snapshot · F100 htmlFor · 확인 대상 개수 정확 입력 · 실패 격리).
+- **conditional mount 학습**: BulkDeleteGroupDialog 는 `useQueryClient` 사용 → GroupsTable.test 는 QueryClientProvider 없이 renderWithRouter 로 렌더하므로 unconditional mount 하면 open=false 상태에서도 useQueryClient 호출로 43개 기존 테스트 실패. 해결: `{isBulkDeleteOpen && <...>}` conditional mount. ClassroomTable v0.164 BulkTransferClassroomOwnerDialog 도 동일 패턴이었음.
+
+### 배운 것
+
+- **QueryClient hook 조기 호출 방지 패턴**: `useQueryClient` 를 쓰는 dialog 는 conditional mount 필수. 이유: 부모 컴포넌트 테스트가 QueryClientProvider 없이 렌더할 수 있음. Unconditional mount 는 dialog open=false 여도 hook 호출 → 「No QueryClient set」 폭탄.
+- **bulk 액션 세트 표준화**: 이제 3 관리 페이지 모두 bulk 세트 완비.
+  - Accounts (v0.155): 6개 (MoveOu · Suspend · Restore · ResetPassword · UpdateRole v0.163 · Delete).
+  - Classroom (v0.164): 4개 (Archive · Restore · Rename v0.134 · TransferOwner v0.164).
+  - Groups (v0.165): 1개 (Delete v0.165) — 다음 후속 슬라이스 후보: bulk email/description 편집.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: GroupsTable bulk description 편집 (v0.165 selection 재사용), CreateClassroomDialog UX polish, dashboard export 개선.
