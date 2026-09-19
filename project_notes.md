@@ -3098,3 +3098,36 @@ ROADMAP 남은 후보 (v0.154+):
 ### 다음 세션에 이어갈 것
 
 - 로드맵 남은 후보: A-1 전입생 매크로, 계정 삭제 메일, 반 챗방 명단 밖 제거(서버 API 확장 연계).
+
+---
+
+## 2026-09-19 · v0.158 CreateUser/BatchCreate changePasswordAtNextLogin toggle
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `34af611` | feat: v0.158 changePasswordAtNextLogin toggle (CreateUser/BatchCreate) |
+| 병합 | `1a4e966` | Merge feat/change-pw-toggle-v158 into main - v0.158 첫 로그인 시 비밀번호 변경 강제 toggle |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `34af611` | skip (Codex hang 40분 · 프로세스 종료) | Codex CLI R1 40분 무응답으로 kill · 기계 관문(web 946 유닛 · lint clean) 로 대체. Antigravity 위임 대신 사용자 재촉 응답으로 Head 폴백 즉시 진행. |
+
+### 설계
+
+- **문제**: v0.121 이후 CreateUserDialog · v0.132 이후 BatchCreateUsersDialog 는 `changePasswordAtNextLogin: true` 를 하드코딩 → 교사·관리자 계정 생성 시 매번 비번을 바꿔야 하는 불편.
+- **해결**: 비밀번호 입력 필드 아래 checkbox toggle. 기본 `true` (학생 안전 · 초기 비번 노출 방지 유지) · 교사·관리자용은 UI 에서 해제.
+- **UI**: 단일 다이얼로그는 「첫 로그인 시 비밀번호 변경 강제」 · 배치 다이얼로그는 「첫 로그인 시 비밀번호 변경 강제 (모두 공통)」 — 한 번 설정으로 10 rows 전체 적용.
+- **테스트 라벨 충돌 fix**: `screen.getByLabelText(/비밀번호/)` 가 새 checkbox label 도 매치 → `/^비밀번호/` (start-anchored) 로 변경.
+
+### 배운 것
+
+- **Codex CLI 무기한 hang**: v0.158 R1 호출은 40 분 무응답 (PID 정상 · output 0 byte). 이전 「credits 소진」 케이스는 명시적 에러였으나, 이번엔 조용한 hang. 대응: 5~10 분 넘으면 kill 후 기계 관문 대체.
+- **Head 폴백 즉시 실행 가능 조건**: bliss00 이 이미 실행 권한 (병합·배포) 을 승인해두었으므로 Antigravity 미응답 / Codex hang 시 지체 없이 진행. 사용자가 「왜 이어지지 않느냐」 재촉하면 대기 대신 즉시 실행.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거, AutoInvite+AutoRemove diff 통합.

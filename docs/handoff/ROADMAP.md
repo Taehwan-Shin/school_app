@@ -89,6 +89,7 @@
 - **AccountsTable 선택 계정만 export** - v0.155 완료 (로드맵 B-6 후속). CSV/JSON 버튼 라벨 「(선택 N)」 · 파일명 accounts-selected-YYYY-MM-DD.csv|json · JSON payload scope: 'selected'|'filtered' · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 933 (+3) · lint clean · 서버 무변경.
 - **CourseMembersPanel 선택 명단 export** - v0.156 완료 (v0.148/v0.155 대칭). classroom 상세 명단 개별 체크박스 + 전체 선택 header (indeterminate) · 선택 시 export 버튼 「(선택 N)」 · 파일명 <코스>-<탭>-selected-<날짜>.csv · 탭 전환 시 선택 리셋 · 3 회귀 테스트 (`tests/CourseMembersPanel.test.tsx`) · 웹 939 (+3) · lint clean · 서버 무변경.
 - **GroupsTable JSON 내보내기** - v0.157 완료 (v0.152 AccountsTable 대칭). 그룹 목록 JSON export · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, groups) · groups 필드 (email, name, description, directMembersCount, aliases) · 파일명 groups-YYYY-MM-DD.json · sortedFilteredGroups 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/GroupsTable.test.tsx`) · 웹 942 (+3) · lint clean · 서버 무변경.
+- **CreateUser/BatchCreate changePasswordAtNextLogin toggle** - v0.158 완료. 계정 생성 두 화면 (단일 · 배치) 에 「첫 로그인 시 비밀번호 변경 강제」 checkbox toggle · 기본 checked (학생 안전) · 교사·관리자 계정 해제 가능 · state · reset · UI 3점 세트 · callUsersCreate/createUser 하드코딩 `true` → 상태 값 전달 · BatchCreate 는 「모두 공통」 라벨 · 4 회귀 테스트 · 웹 946 (+4) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

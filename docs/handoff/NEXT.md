@@ -1,11 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.157 병합 완료** (`f61b2f2`) - GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) · 기계 관문 (lint clean · web 942 유닛) 통과 · Codex skip (credits 소진).
-> **Antigravity 위임 23번째**: v0.157 마무리 사이클 (배포, 문서 갱신, 채널 공지 및 스레드 보고) 완료.
+> **v0.158 병합 완료** (`1a4e966`) - CreateUser/BatchCreate 「첫 로그인 시 비밀번호 변경 강제」 checkbox toggle · 기계 관문 (lint clean · web 946 유닛) 통과 · Codex R1 40분 hang → skip · Antigravity 대신 Head 폴백 즉시 진행.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `1a4e966` v0.158 - CreateUser/BatchCreate 「첫 로그인 시 비밀번호 변경 강제」 checkbox toggle · 기본 checked (학생 안전 · 초기 비번 노출 방지) · 교사·관리자 계정 해제 가능 · CreateUserDialog · BatchCreateUsersDialog 두 다이얼로그 대칭 · state · reset · UI 3점 세트 · callUsersCreate/createUser 하드코딩 `true` → 상태 값 전달 · BatchCreate 는 「모두 공통」 라벨 · CreateUserDialog test regex `/^비밀번호/` (start-anchored) 로 새 checkbox label 매치 회피 · 4 회귀 테스트 · 웹 946 (+4) · lint clean · 서버 무변경 · Codex R1 hang → skip.
 - `f61b2f2` v0.157 - GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, groups) · groups 필드 (email, name, description, directMembersCount, aliases) · 파일명 groups-YYYY-MM-DD.json · sortedFilteredGroups 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/GroupsTable.test.tsx`) · 웹 942 (+3) · lint clean · 서버 무변경 · Codex skip (credits 소진).
 - `2e83e90` v0.156 - CourseMembersPanel 선택 명단 export (v0.148/v0.155 대칭) · 개별 체크박스 + 전체 선택 header (indeterminate) · 선택 시 export 버튼 「(선택 N)」 · 파일명 <코스>-<탭>-selected-<날짜>.csv · 탭 전환 시 선택 리셋 · 3 회귀 테스트 (`tests/CourseMembersPanel.test.tsx`) · 웹 939 (+3) · lint clean · 서버 무변경 · Codex skip (한도 재소진).
 - `2b023f0` v0.155 - AccountsTable 선택 계정만 export (로드맵 B-6 후속) · CSV/JSON 버튼 라벨 「(선택 N)」 · 파일명 accounts-selected-YYYY-MM-DD.csv|json · JSON payload scope: 'selected'|'filtered' · 3 회귀 테스트 (`tests/AccountsTable.test.tsx`) · 웹 933 (+3) · lint clean · 서버 무변경.
