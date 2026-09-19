@@ -3739,3 +3739,40 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: BulkRenameClassroomDialog 에도 name 상한 검증 이식 (row-level warning + confirm disable) · CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish.
+
+---
+
+## 2026-09-20 · v0.176 BulkRenameClassroomDialog row-level 상한 검증 (COURSE_NAME_MAX 이식)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `df16df7` (`feat/bulk-rename-name-limit-v176`) | feat: v0.176 BulkRenameClassroomDialog row-level 상한 검증 (COURSE_NAME_MAX 이식) |
+| 병합 | `c4eae3b` | Merge feat/bulk-rename-name-limit-v176 into main - v0.176 BulkRenameClassroomDialog row-level 상한 검증 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `c4eae3b` | skip (Head 폴백 규율) | 기계 관문(web 1036 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.175 로 CreateClassroom 단일 폼은 상한 보호되지만, BulkRename 은 여러 row 를 동시에 편집하며 「2026학년도 - <원본 이름>」 같은 접두어를 패턴 적용하면 상한(750) 을 실수로 넘길 위험이 큼.
+- **해결**:
+  - `overlyLongRows` useMemo — `rows.filter(r => r.newName.length > COURSE_NAME_MAX)`.
+  - `canConfirm` 에 `overlyLongRows.length === 0` 조건 추가.
+  - row loop: 기존 `invalid` (빈 이름) + 신규 `tooLong` 을 `rowError` 로 통합, danger 스타일 재사용. tooLong row 아래에 「최대 750자 초과 (현재 N자)」 노출.
+  - 하단 summary 에 「상한 초과 N개」 카운트 (invalid 카운트와 병렬).
+- **테스트**: 2 시나리오 (`751자 초과 → warning + confirm disabled` · `750자 정확 → 정상`). 기존 `toBeInTheDocument` 매처 미설치 문제로 `toBeTruthy` / `toBeNull` 로 대체.
+
+### 배운 것
+
+- **테스트 매처 관례**: 이 프로젝트는 `@testing-library/jest-dom` 미설치. `toBeInTheDocument` 대신 `queryByTestId(...).toBeTruthy()` / `.toBeNull()` 로 존재/부재 assert.
+- **rowError 통합**: 기존 boolean flag (`invalid`) 에 새 조건(`tooLong`) 을 or 결합해 하나의 스타일 branch (rowError) 로 통합. 새 danger 스타일 branch 추가하지 않고 재사용해 diff 최소화.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · UserDetail displayName 상한 이식 (Directory User familyName/givenName 40자).

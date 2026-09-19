@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.175 병합 완료** (`d914dd2`) - classroomLimits name/section/room 상한 확장 + CreateClassroom 검증 (v0.174 후속) · 기계 관문 (lint clean · web 1034 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.176 병합 완료** (`c4eae3b`) - BulkRenameClassroomDialog row-level 상한 검증 · 기계 관문 (lint clean · web 1036 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `c4eae3b` v0.176 - v0.175 shared `COURSE_NAME_MAX` 를 BulkRenameClassroomDialog 각 row 에도 이식 · `overlyLongRows` useMemo · `canConfirm` 조건 · row 별 tooLong 경고 (기존 invalid + 신규 tooLong 통합 rowError) · summary 「상한 초과 N개」 카운트 · 2 회귀 테스트 · 웹 1036 (+2) · lint clean · 서버 무변경.
 - `d914dd2` v0.175 - v0.174 shared `lib/classroomLimits.ts` 에 Google Classroom courses.name (750) · section (2800) · room (650) 상수 추가 · CreateClassroomDialog handleSubmit 상단 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너 · 3 helper test 확장 · 웹 1034 (+3) · lint clean · 서버 무변경.
 - `1667e74` v0.174 - CreateClassroomDialog description 필드에 Google Classroom courses.description 상한 30,000자 강제 + 실시간 「N / 30,000 자」 카운터 (초과 시 red) + textarea resize-y + handleSubmit 상한 초과 시 서버 요청 차단 · 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX` 상수 · 1 helper test · 웹 1031 (+1) · lint clean · 서버 무변경.
 - `ecb7fe1` v0.173 - CreateGroupDialog + EditGroupDialog description input 을 textarea (rows=3, resize-y) 로 승격 + 4096자 상한 강제 + 실시간 「N / 4096 자」 카운터 · 신규 `lib/groupLimits.ts` shared `GROUP_DESCRIPTION_MAX` 상수 · v0.166 BulkUpdateGroupDescriptionDialog 도 shared 상수 사용으로 refactor (Workspace Directory 규격 3 dialog 완전 통일) · 상한 초과 handleSubmit 차단 · 1 helper test · 웹 1030 (+1) · lint clean · 서버 무변경.

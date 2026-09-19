@@ -107,6 +107,7 @@
 - **CreateGroup + EditGroup description textarea + 4096자 상한** - v0.173 완료 (v0.166 대칭). 신규 `lib/groupLimits.ts` shared `GROUP_DESCRIPTION_MAX = 4096` 상수 · CreateGroupDialog · EditGroupDialog description input 을 `<input type="text">` → `<textarea rows={3} className="resize-y">` 로 승격 · 실시간 「N / 4096 자」 카운터 (초과 시 red) · handleSubmit 상단 상한 초과 시 서버 요청 차단 · v0.166 BulkUpdate 도 shared 상수 사용으로 refactor (3 dialog 완전 통일) · 1 helper test · 웹 1030 (+1) · lint clean · 서버 무변경.
 - **CreateClassroomDialog description 30,000자 상한 + 카운터** - v0.174 완료 (v0.173 대칭). Google Classroom courses.description 상한 30,000자 강제 · 실시간 「N / 30,000 자」 카운터 (초과 시 red) · textarea resize-y · handleSubmit 상한 초과 시 서버 요청 차단 · 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX = 30000` 상수 · 1 helper test · 웹 1031 (+1) · lint clean · 서버 무변경.
 - **classroomLimits name/section/room 상한 확장** - v0.175 완료 (v0.174 후속). shared `lib/classroomLimits.ts` 에 `COURSE_NAME_MAX = 750` · `COURSE_SECTION_MAX = 2800` · `COURSE_ROOM_MAX = 650` 상수 추가 · CreateClassroomDialog handleSubmit 상단 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너 · 3 helper test 확장 · 웹 1034 (+3) · lint clean · 서버 무변경.
+- **BulkRenameClassroomDialog row-level 상한 검증** - v0.176 완료 (v0.175 이식). shared `COURSE_NAME_MAX` 를 BulkRename 각 row 에도 이식 · `overlyLongRows` useMemo · `canConfirm` 조건 · row 별 tooLong 경고 (rowError 통합) · summary 「상한 초과 N개」 카운트 · 2 회귀 테스트 · 웹 1036 (+2) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
