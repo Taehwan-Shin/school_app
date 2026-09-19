@@ -3628,3 +3628,41 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장.
+
+---
+
+## 2026-09-20 · v0.173 CreateGroup + EditGroup description textarea + 4096자 상한 (v0.166 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `4c4c290` (`feat/group-description-textarea-v173`) | feat: v0.173 CreateGroup + EditGroup description textarea + 4096자 상한 (v0.166 대칭) |
+| 병합 | `ecb7fe1` | Merge feat/group-description-textarea-v173 into main - v0.173 CreateGroup + EditGroup description textarea + 4096자 상한 (v0.166 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `ecb7fe1` | skip (Head 폴백 규율) | 기계 관문(web 1030 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.166 BulkUpdateGroupDescriptionDialog 는 Workspace Directory 규격 4096자 상한을 강제하지만 개별 CreateGroupDialog · EditGroupDialog 는 상한 검증 없음. 4097자 이상 서버 요청 → Directory API 400 실패 → 관리자에게 원인 불명 에러 노출. 개별 dialog 도 대칭 강제 필요.
+- **해결**:
+  - 신규 `packages/web/src/lib/groupLimits.ts` 에 `GROUP_DESCRIPTION_MAX = 4096` 상수.
+  - v0.166 BulkUpdateGroupDescriptionDialog 는 기존 하드코딩 4096 을 shared 상수 사용으로 refactor.
+  - CreateGroupDialog · EditGroupDialog description input 을 `<input type="text">` → `<textarea rows={3} className="resize-y">` 로 승격 (긴 반 설명 다행 편집).
+  - 실시간 「현재 N / 4096 자」 카운터 표시. 초과 시 `text-red-600 font-semibold` (시각적 경고).
+  - handleSubmit 상단에 `if (description.trim().length > GROUP_DESCRIPTION_MAX) { setError(...); return; }` 로 서버 요청 차단.
+- **테스트**: `packages/web/tests/groupLimits.test.ts` — 상한 상수 = 4096 (helper unit test).
+
+### 배운 것
+
+- **shared 상수 파일 승격**: v0.166 하드코딩 상수를 slice 3개 뒤 shared lib 로 올린 사례. 다중 소비자가 나올 때 자연스러운 refactor 타이밍 (v0.166 은 상한 = 4096 을 단독 사용 → v0.173 에서 3 dialog 공유). 초기부터 shared 로 만드는 것보다 발생 시점 refactor 가 YAGNI 원칙에 부합.
+- **input → textarea 승격 UX**: 짧은 label 로 시작한 필드가 실제로는 긴 텍스트를 담을 수 있으면, textarea 승격은 카운터·상한과 함께 세트로 도입해야 관리자가 초과 상황을 이해할 수 있음.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장 · UserDetail displayName textarea (동일 패턴 이식).

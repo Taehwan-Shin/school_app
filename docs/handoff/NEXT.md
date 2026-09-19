@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.172 병합 완료** (`75e53a5`) - CopyButton 이식 (userDetail · groupDetail) · 기계 관문 (lint clean · web 1029 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.173 병합 완료** (`ecb7fe1`) - CreateGroup + EditGroup description textarea + 4096자 상한 (v0.166 대칭) · 기계 관문 (lint clean · web 1030 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `ecb7fe1` v0.173 - CreateGroupDialog + EditGroupDialog description input 을 textarea (rows=3, resize-y) 로 승격 + 4096자 상한 강제 + 실시간 「N / 4096 자」 카운터 · 신규 `lib/groupLimits.ts` shared `GROUP_DESCRIPTION_MAX` 상수 · v0.166 BulkUpdateGroupDescriptionDialog 도 shared 상수 사용으로 refactor (Workspace Directory 규격 3 dialog 완전 통일) · 상한 초과 handleSubmit 차단 · 1 helper test · 웹 1030 (+1) · lint clean · 서버 무변경.
 - `75e53a5` v0.172 - v0.171 CopyButton 을 userDetail · groupDetail 두 페이지로 확장 · userDetail (이메일 + 조직 단위) · groupDetail (이메일 + 헤더 그룹 email) · 재사용만 · 웹 1029 · lint clean · 서버 무변경.
 - `bdcefa3` v0.171 - classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) · 신규 `CopyButton` 컴포넌트 (navigator.clipboard.writeText 우선 · execCommand fallback · 성공 시 「복사됨 ✓」 2초 노출 · aria-label 에 value 포함) · classroomDetail 3곳 배치 · 관리자가 Admin Console 붙여넣기 원-클릭 · 5 회귀 테스트 · 웹 1029 (+5) · lint clean · 서버 무변경.
 - `ec81745` v0.170 - courseState 3 dialog Korean label 통일 (CreateClassroom · CourseBulkCreate · ClassroomChatPairBulkCreate) · v0.137 ClassroomTable 의 `translateCourseState` 를 `src/lib/courseState.ts` 로 승격 · 신규 `courseStateOptionLabel` (「한글 (CODE)」 형태) · ClassroomTable 은 re-export 로 뒤호환 (classroomDetail.tsx 소비 유지) · 3 회귀 테스트 · 웹 1024 (+3) · lint clean · 서버 무변경.
