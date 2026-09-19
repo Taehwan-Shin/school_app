@@ -9,6 +9,11 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { useClassroomTransferOwnership } from '../../api/classroomTransferOwnership';
+import {
+  EMAIL_DOMAIN,
+  normalizeSchoolEmailInput,
+  previewSchoolEmail,
+} from '../../lib/emailInput';
 
 export interface TransferClassroomOwnerTarget {
   id: string;
@@ -51,21 +56,31 @@ export function TransferClassroomOwnerDialog({
   if (!target) return null;
 
   const trimmed = newOwnerEmail.trim();
-  const isValidEmail = /^[A-Za-z0-9._+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(trimmed);
+  // v0.169: shared emailInput helper 로 client-side 검증 승격. local-part 만 입력해도
+  // 자동 @cam.hs.kr · 다른 도메인은 client 에서 즉시 거부 (server round-trip 절약).
+  const canonicalEmail = normalizeSchoolEmailInput(trimmed);
+  const isValidEmail = canonicalEmail !== null;
   const isSameAsCurrent =
-    !!target.currentOwnerId && trimmed.toLowerCase() === target.currentOwnerId.toLowerCase();
+    !!canonicalEmail &&
+    !!target.currentOwnerId &&
+    canonicalEmail.toLowerCase() === target.currentOwnerId.toLowerCase();
   const canSubmit = isValidEmail && !isSameAsCurrent && !isPending;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || !canonicalEmail) return;
     try {
-      await transferOwnership({ courseId: target.id, newOwnerEmail: trimmed });
+      await transferOwnership({ courseId: target.id, newOwnerEmail: canonicalEmail });
       onSuccess?.();
     } catch {
       // Mutation error rendered below.
     }
   };
+
+  // v0.169: 실시간 preview (local-part 입력 시 canonical 노출).
+  const preview = previewSchoolEmail(trimmed);
+  const showPreview =
+    trimmed && preview && preview !== trimmed.toLowerCase() && preview !== trimmed;
 
   // v0.116c F77: server 가 partial 실패 시 HttpsError.details 로 rollback 상태를
   // 전달. `useMutation` 은 raw Error 를 전달하므로 fetch 계층에서 붙인 `details`
@@ -167,21 +182,29 @@ export function TransferClassroomOwnerDialog({
               htmlFor="transfer-owner-new-email"
               className="text-small text-fg-primary block mb-2"
             >
-              새 소유자 이메일:
+              새 소유자 이메일 <span className="text-fg-muted">(아이디 또는 @{EMAIL_DOMAIN})</span>
             </label>
             <input
               id="transfer-owner-new-email"
-              type="email"
+              type="text"
               value={newOwnerEmail}
               onChange={(e) => setNewOwnerEmail(e.target.value)}
-              placeholder="newowner@example.com"
+              placeholder="newteacher 또는 newteacher@cam.hs.kr"
               disabled={isPending || !!mutationResult}
               data-testid="transfer-owner-email-input"
               className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60"
             />
+            {showPreview && (
+              <p
+                className="mt-1 text-micro text-fg-muted"
+                data-testid="transfer-owner-email-preview"
+              >
+                미리보기: <span className="font-mono">{preview}</span>
+              </p>
+            )}
             {trimmed && !isValidEmail && (
               <p className="mt-1 text-small text-state-danger" data-testid="transfer-owner-email-hint">
-                이메일 형식이 아닙니다.
+                이메일 형식이 아닙니다. 아이디만 입력하거나 @{EMAIL_DOMAIN} 도메인의 전체 이메일을 입력해주세요.
               </p>
             )}
             {isSameAsCurrent && (

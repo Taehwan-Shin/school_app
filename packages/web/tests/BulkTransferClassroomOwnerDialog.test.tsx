@@ -198,4 +198,64 @@ describe("BulkTransferClassroomOwnerDialog component", () => {
     const ids = mockCallClassroomTransferOwnership.mock.calls.map((c) => c[0].courseId);
     expect(ids.sort()).toEqual(["c-1", "c-2"]);
   });
+
+  // v0.169: shared emailInput helper — local-part 자동 부착 + preview.
+  describe("v0.169: shared emailInput helper", () => {
+    it("local-part 입력 → preview 노출 + canonical 로 순차 전송", async () => {
+      mockCallClassroomTransferOwnership.mockResolvedValue({
+        course: { id: "x" },
+        addedAsTeacher: true,
+      });
+      renderWithClient(
+        <BulkTransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courses={courses}
+        />
+      );
+      fireEvent.change(screen.getByTestId("bulk-transfer-owner-email-input"), {
+        target: { value: "newowner" },
+      });
+      expect(
+        screen.getByTestId("bulk-transfer-owner-email-preview").textContent,
+      ).toContain("newowner@cam.hs.kr");
+      fireEvent.change(screen.getByTestId("bulk-transfer-owner-confirm-input"), {
+        target: { value: "2" },
+      });
+      fireEvent.click(screen.getByTestId("bulk-transfer-owner-confirm-btn"));
+      await waitFor(() => {
+        expect(screen.getByTestId("bulk-transfer-owner-done")).toBeDefined();
+      });
+      expect(mockCallClassroomTransferOwnership).toHaveBeenCalledWith(
+        expect.objectContaining({ newOwnerEmail: "newowner@cam.hs.kr" }),
+      );
+    });
+
+    it("case-insensitive full email → lower-case canonical", async () => {
+      mockCallClassroomTransferOwnership.mockResolvedValue({
+        course: { id: "x" },
+        addedAsTeacher: true,
+      });
+      renderWithClient(
+        <BulkTransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courses={courses}
+        />
+      );
+      fireEvent.change(screen.getByTestId("bulk-transfer-owner-email-input"), {
+        target: { value: "NEWOWNER@CAM.HS.KR" },
+      });
+      fireEvent.change(screen.getByTestId("bulk-transfer-owner-confirm-input"), {
+        target: { value: "2" },
+      });
+      fireEvent.click(screen.getByTestId("bulk-transfer-owner-confirm-btn"));
+      await waitFor(() => {
+        expect(screen.getByTestId("bulk-transfer-owner-done")).toBeDefined();
+      });
+      expect(mockCallClassroomTransferOwnership).toHaveBeenCalledWith(
+        expect.objectContaining({ newOwnerEmail: "newowner@cam.hs.kr" }),
+      );
+    });
+  });
 });

@@ -10,6 +10,11 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
+import {
+  EMAIL_DOMAIN,
+  normalizeSchoolEmailInput,
+  previewSchoolEmail,
+} from "../../lib/emailInput";
 
 export interface BulkTransferClassroomOwnerDialogProps {
   open: boolean;
@@ -28,10 +33,8 @@ interface RowResult {
   addedTeacherButPatchFailed?: boolean;
 }
 
-const EMAIL_DOMAIN = "cam.hs.kr";
-const EMAIL_RE = new RegExp(
-  `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@${EMAIL_DOMAIN.replace(/\./g, "\\.")}$`,
-);
+// v0.169: v0.164 의 local EMAIL_DOMAIN/EMAIL_RE 는 shared lib/emailInput 로 승격.
+// EMAIL_DOMAIN 은 import 로 재사용 (라벨 · 에러 문구용).
 
 export function BulkTransferClassroomOwnerDialog({
   open,
@@ -73,24 +76,29 @@ export function BulkTransferClassroomOwnerDialog({
 
   const handleConfirm = async () => {
     setValidationError(null);
-    const email = newOwnerEmail.trim();
-    if (!email) return setValidationError("새 소유자 이메일을 입력해주세요.");
-    if (!EMAIL_RE.test(email))
+    const raw = newOwnerEmail.trim();
+    if (!raw) return setValidationError("새 소유자 이메일을 입력해주세요.");
+    // v0.169: shared helper — local-part 자동 부착 · lower-case canonical.
+    const canonicalEmail = normalizeSchoolEmailInput(raw);
+    if (!canonicalEmail)
       return setValidationError(
-        `새 소유자 이메일은 @${EMAIL_DOMAIN} 도메인이어야 합니다.`,
+        `새 소유자 이메일 형식이 올바르지 않습니다. 아이디만 입력하거나 @${EMAIL_DOMAIN} 도메인의 전체 이메일을 입력해주세요.`,
       );
 
     // F99: snapshot 을 phase 전환과 동시에 확정.
     const coursesSnapshot = [...courses];
     setRunCourses(coursesSnapshot);
-    setRunOwner(email);
+    setRunOwner(canonicalEmail);
     setPhase("running");
 
     const localResults: RowResult[] = [];
     for (let i = 0; i < coursesSnapshot.length; i++) {
       const c = coursesSnapshot[i];
       try {
-        await callClassroomTransferOwnership({ courseId: c.id, newOwnerEmail: email });
+        await callClassroomTransferOwnership({
+          courseId: c.id,
+          newOwnerEmail: canonicalEmail,
+        });
         localResults.push({ courseId: c.id, courseName: c.name, ok: true });
       } catch (e) {
         const err = e as Error & { details?: { addedTeacherButPatchFailed?: boolean } };
@@ -134,17 +142,30 @@ export function BulkTransferClassroomOwnerDialog({
                 htmlFor="bulk-transfer-owner-email"
                 className="text-small text-fg-primary block mb-1"
               >
-                새 소유자 이메일 (@{EMAIL_DOMAIN})
+                새 소유자 <span className="text-fg-muted">(아이디 또는 @{EMAIL_DOMAIN})</span>
               </label>
               <input
                 id="bulk-transfer-owner-email"
-                type="email"
+                type="text"
                 value={newOwnerEmail}
                 onChange={(e) => setNewOwnerEmail(e.target.value)}
-                placeholder={`teacher@${EMAIL_DOMAIN}`}
+                placeholder={`teacher 또는 teacher@${EMAIL_DOMAIN}`}
                 data-testid="bulk-transfer-owner-email-input"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              {(() => {
+                // v0.169: 실시간 preview — local-part 입력 시 canonical 노출.
+                const preview = previewSchoolEmail(newOwnerEmail);
+                if (!preview || preview === newOwnerEmail.trim().toLowerCase()) return null;
+                return (
+                  <p
+                    className="mt-1 text-micro text-fg-muted"
+                    data-testid="bulk-transfer-owner-email-preview"
+                  >
+                    미리보기: <span className="font-mono">{preview}</span>
+                  </p>
+                );
+              })()}
             </div>
 
             <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
