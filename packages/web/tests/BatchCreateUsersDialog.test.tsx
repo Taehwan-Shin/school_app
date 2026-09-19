@@ -38,6 +38,20 @@ vi.mock("../src/api/classroomStudentsAdd", () => ({
   callClassroomStudentsAdd: (data: unknown) => mockCallClassroomStudentsAdd(data),
 }));
 
+// v0.159: OU 인라인 생성.
+const mockOrgunitsCreateMutate = vi.fn();
+const mockOrgunitsCreateReset = vi.fn();
+let mockOrgunitsCreateIsPending = false;
+let mockOrgunitsCreateError: Error | null = null;
+vi.mock("../src/api/orgunitsCreate", () => ({
+  useOrgunitsCreate: () => ({
+    mutateAsync: mockOrgunitsCreateMutate,
+    isPending: mockOrgunitsCreateIsPending,
+    error: mockOrgunitsCreateError,
+    reset: mockOrgunitsCreateReset,
+  }),
+}));
+
 import {
   BatchCreateUsersDialog,
   buildRunRowsSnapshot,
@@ -57,6 +71,10 @@ function renderWithClient(ui: React.ReactElement) {
 describe("BatchCreateUsersDialog component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockOrgunitsCreateMutate.mockReset();
+    mockOrgunitsCreateReset.mockReset();
+    mockOrgunitsCreateIsPending = false;
+    mockOrgunitsCreateError = null;
   });
 
   it("최대 10 rows 렌더", () => {
@@ -422,6 +440,73 @@ describe("BatchCreateUsersDialog component", () => {
         2,
         expect.objectContaining({ changePasswordAtNextLogin: false })
       );
+    });
+  });
+
+  // v0.159: 신규 OU 인라인 생성 (v0.121 CreateUserDialog 대칭).
+  describe("v0.159: OU 인라인 생성 폼", () => {
+    it("기본은 toggle 버튼만 보이고 폼은 접힘", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      expect(screen.getByTestId("batch-create-users-new-ou-toggle")).toBeDefined();
+      expect(screen.queryByTestId("batch-create-users-new-ou-form")).toBeNull();
+    });
+
+    it("toggle 클릭 시 폼 전개 · 부모 경로 = 현재 OU", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-orgunit-input"), {
+        target: { value: "/학생" },
+      });
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-toggle"));
+      expect(screen.getByTestId("batch-create-users-new-ou-form")).toBeDefined();
+      const parent = screen.getByTestId("batch-create-users-new-ou-parent") as HTMLInputElement;
+      expect(parent.value).toBe("/학생");
+    });
+
+    it("OU 이름 비어있으면 validation 에러 · createOrgunit 미호출", async () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-toggle"));
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-submit"));
+      await waitFor(() => {
+        expect(screen.getByTestId("batch-create-users-new-ou-error")).toBeDefined();
+      });
+      expect(mockOrgunitsCreateMutate).not.toHaveBeenCalled();
+    });
+
+    it("정상 생성 → orgUnitPath 자동 채움 · 폼 접힘 · 성공 메시지", async () => {
+      mockOrgunitsCreateMutate.mockResolvedValueOnce({ orgUnitPath: "/학생/3학년" });
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-toggle"));
+      fireEvent.change(screen.getByTestId("batch-create-users-new-ou-name"), {
+        target: { value: "3학년" },
+      });
+      fireEvent.change(screen.getByTestId("batch-create-users-new-ou-parent"), {
+        target: { value: "/학생" },
+      });
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-submit"));
+
+      await waitFor(() => {
+        expect(mockOrgunitsCreateMutate).toHaveBeenCalledWith({
+          name: "3학년",
+          parentOrgUnitPath: "/학생",
+          description: undefined,
+        });
+      });
+      // orgUnitPath 자동 채움.
+      const orgu = screen.getByTestId("batch-create-users-orgunit-input") as HTMLInputElement;
+      expect(orgu.value).toBe("/학생/3학년");
+      // 폼 접힘 · 성공 메시지.
+      expect(screen.queryByTestId("batch-create-users-new-ou-form")).toBeNull();
+      expect(screen.getByTestId("batch-create-users-new-ou-success").textContent).toContain(
+        "/학생/3학년",
+      );
+    });
+
+    it("취소 버튼 클릭 시 폼 접힘", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-toggle"));
+      expect(screen.getByTestId("batch-create-users-new-ou-form")).toBeDefined();
+      fireEvent.click(screen.getByTestId("batch-create-users-new-ou-cancel"));
+      expect(screen.queryByTestId("batch-create-users-new-ou-form")).toBeNull();
     });
   });
 

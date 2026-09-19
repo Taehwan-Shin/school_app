@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
+import { useOrgunitsCreate } from "../../api/orgunitsCreate";
 import { useClassroomList } from "../../api/classroomList";
 import { callClassroomTeachersAdd } from "../../api/classroomTeachersAdd";
 import { callClassroomStudentsAdd } from "../../api/classroomStudentsAdd";
@@ -103,6 +104,21 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
 
   const orgunitsQuery = useOrgunitsList(open);
 
+  // v0.159: 신규 OU 인라인 생성 UI (v0.121 CreateUserDialog 대칭).
+  // 기본 접힘, 「+ 새 OU 만들기」 누르면 폼 전개. 성공 시 orgUnitPath 자동 채움 + 접힘.
+  const [showNewOuForm, setShowNewOuForm] = useState(false);
+  const [newOuName, setNewOuName] = useState("");
+  const [newOuParent, setNewOuParent] = useState("/");
+  const [newOuDescription, setNewOuDescription] = useState("");
+  const [newOuValidationError, setNewOuValidationError] = useState<string | null>(null);
+  const [newOuSuccess, setNewOuSuccess] = useState<string | null>(null);
+  const {
+    mutateAsync: createOrgunit,
+    isPending: isCreatingOu,
+    error: newOuMutationError,
+    reset: resetNewOuMutation,
+  } = useOrgunitsCreate();
+
   // v0.151: 공통 classroom 배정 (v0.144 UX 재사용). 모든 batch row 가 동일한
   // classroom 세트에 동일 역할로 배정. CreateUserDialog 대칭이지만 폼 폭
   // 제약 (max-w-3xl · 10 rows 표) 로 별도 컬럼 대신 하단 세션 방식.
@@ -149,13 +165,52 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       setClassroomRole("student");
       setSelectedClassroomIds(new Set());
       setClassroomSearch("");
+      // v0.159: OU inline form reset.
+      setShowNewOuForm(false);
+      setNewOuName("");
+      setNewOuParent("/");
+      setNewOuDescription("");
+      setNewOuValidationError(null);
+      setNewOuSuccess(null);
+      resetNewOuMutation();
     }
-  }, [open]);
+  }, [open, resetNewOuMutation]);
 
   const handleOpenChange = (newOpen: boolean) => {
     // 실행 중 X · Escape · outside 로 닫히지 않게 gate.
     if (phase === "running") return;
     onOpenChange(newOpen);
+  };
+
+  // v0.159: 신규 OU 인라인 생성. v0.121 CreateUserDialog 대칭 (동일 검증 규칙).
+  const handleCreateOrgunit = async () => {
+    setNewOuValidationError(null);
+    setNewOuSuccess(null);
+    resetNewOuMutation();
+
+    const name = newOuName.trim();
+    const parent = newOuParent.trim();
+    if (!name) return setNewOuValidationError("OU 이름을 입력해주세요.");
+    if (name.length > 100) return setNewOuValidationError("OU 이름은 100자 이하여야 합니다.");
+    if (name.includes("/") || name.includes("\\"))
+      return setNewOuValidationError("OU 이름에 슬래시(/, \\)를 사용할 수 없습니다.");
+    if (!parent || !parent.startsWith("/"))
+      return setNewOuValidationError("부모 경로는 「/」 로 시작해야 합니다.");
+
+    try {
+      const res = await createOrgunit({
+        name,
+        parentOrgUnitPath: parent,
+        description: newOuDescription.trim() || undefined,
+      });
+      setOrgUnitPath(res.orgUnitPath);
+      setNewOuSuccess(`OU 「${res.orgUnitPath}」 를 생성했습니다.`);
+      setNewOuName("");
+      setNewOuDescription("");
+      setShowNewOuForm(false);
+    } catch {
+      // 렌더에서 newOuMutationError 로 표시.
+    }
   };
 
   const updateRow = (i: number, patch: Partial<RowInput>) => {
@@ -349,6 +404,139 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                     </option>
                   ))}
                 </datalist>
+                <p className="mt-1 text-micro text-fg-muted">
+                  기존 조직 단위에서 선택하거나 아래에서 새 OU 를 만들 수 있습니다.
+                </p>
+
+                {/* v0.159: 신규 OU 인라인 생성 (v0.121 CreateUserDialog 대칭). */}
+                {newOuSuccess && !showNewOuForm && (
+                  <p
+                    className="mt-2 text-small text-state-success"
+                    data-testid="batch-create-users-new-ou-success"
+                  >
+                    {newOuSuccess}
+                  </p>
+                )}
+
+                {!showNewOuForm ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewOuForm(true);
+                      setNewOuValidationError(null);
+                      setNewOuSuccess(null);
+                      resetNewOuMutation();
+                      setNewOuParent(orgUnitPath.trim() || "/");
+                    }}
+                    data-testid="batch-create-users-new-ou-toggle"
+                    className="mt-2 text-small text-fg-primary underline underline-offset-2"
+                  >
+                    + 새 OU 만들기
+                  </button>
+                ) : (
+                  <div
+                    className="mt-2 space-y-2 border border-border-subtle p-3 bg-elevated"
+                    data-testid="batch-create-users-new-ou-form"
+                  >
+                    <p className="text-small text-fg-primary font-medium">새 OU 만들기</p>
+                    <div>
+                      <label
+                        htmlFor="batch-create-users-new-ou-name"
+                        className="text-small text-fg-secondary mb-1 block"
+                      >
+                        이름 *
+                      </label>
+                      <input
+                        id="batch-create-users-new-ou-name"
+                        type="text"
+                        value={newOuName}
+                        onChange={(e) => setNewOuName(e.target.value)}
+                        placeholder="예: 3학년"
+                        disabled={isCreatingOu}
+                        data-testid="batch-create-users-new-ou-name"
+                        className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="batch-create-users-new-ou-parent"
+                        className="text-small text-fg-secondary mb-1 block"
+                      >
+                        부모 경로 *
+                      </label>
+                      <input
+                        id="batch-create-users-new-ou-parent"
+                        type="text"
+                        value={newOuParent}
+                        onChange={(e) => setNewOuParent(e.target.value)}
+                        placeholder="/학생"
+                        list="batch-create-users-orgunits-list"
+                        disabled={isCreatingOu}
+                        data-testid="batch-create-users-new-ou-parent"
+                        className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                      <p className="mt-1 text-micro text-fg-muted">
+                        최상위는 「/」 하나만 입력. 기존 OU 목록에서 선택 가능.
+                      </p>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="batch-create-users-new-ou-description"
+                        className="text-small text-fg-secondary mb-1 block"
+                      >
+                        설명 (선택)
+                      </label>
+                      <input
+                        id="batch-create-users-new-ou-description"
+                        type="text"
+                        value={newOuDescription}
+                        onChange={(e) => setNewOuDescription(e.target.value)}
+                        placeholder="예: 3학년 학생 소속 OU"
+                        disabled={isCreatingOu}
+                        data-testid="batch-create-users-new-ou-description"
+                        className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    {(newOuValidationError || newOuMutationError) && (
+                      <p
+                        className="text-small text-state-danger"
+                        data-testid="batch-create-users-new-ou-error"
+                      >
+                        {newOuValidationError ??
+                          (newOuMutationError!.message.includes("already-exists") ||
+                          newOuMutationError!.message.includes("orgunit_already_exists")
+                            ? "이미 존재하는 OU 입니다."
+                            : newOuMutationError!.message.includes("permission-denied")
+                              ? "OU 생성 권한이 없거나 스코프가 부족합니다."
+                              : `OU 생성 실패: ${newOuMutationError!.message}`)}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={handleCreateOrgunit}
+                        disabled={isCreatingOu}
+                        data-testid="batch-create-users-new-ou-submit"
+                      >
+                        {isCreatingOu ? "OU 생성 중..." : "OU 만들기"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setShowNewOuForm(false);
+                          setNewOuValidationError(null);
+                          resetNewOuMutation();
+                        }}
+                        disabled={isCreatingOu}
+                        data-testid="batch-create-users-new-ou-cancel"
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
