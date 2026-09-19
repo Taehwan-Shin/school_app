@@ -3594,3 +3594,37 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: dashboard export 개선 · CopyButton 을 다른 페이지에도 활용 (AccountsTable ID · GroupsTable email) · classroom detail 소유자 email 매핑 서버 확장.
+
+---
+
+## 2026-09-20 · v0.172 CopyButton 이식 (userDetail · groupDetail)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/detail-copy-buttons-v172` | feat: v0.172 CopyButton 이식 (userDetail · groupDetail) |
+| 병합 | `75e53a5` | Merge feat/detail-copy-buttons-v172 into main - v0.172 CopyButton 이식 (userDetail · groupDetail) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `75e53a5` | skip (Head 폴백 규율) | 기계 관문(web 1029 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: v0.171 로 classroomDetail 에만 CopyButton 도입. userDetail · groupDetail 페이지는 여전히 이메일 · orgunitpath 등을 텍스트로 selection 해야 함. 3 detail 페이지 UX 일관성.
+- **해결**: CopyButton 을 두 페이지로 확장. 재사용만 · 서버 무변경 · 새 helper 없음 · 회귀 테스트 없음 (컴포넌트 자체는 v0.171 5건 그대로).
+- **CopyButton 배치**:
+  - userDetail: 이메일 (data-testid `user-detail-copy-email`) + 조직 단위 (`user-detail-copy-orgunit`).
+  - groupDetail: 이메일 (`group-detail-copy-email`) + 헤더 그룹 email (`group-detail-copy-header-email`).
+
+### 배운 것
+
+- **재사용 컴포넌트 확산 slice**: CopyButton 이 v0.171 에서 clean, testable 로 나와서 v0.172 에서 확산이 매우 저렴 (23 라인 추가). 재사용 컴포넌트 확산은 원본 슬라이스 뒷 배포에 하는 게 리스크 낮음 (원본 컴포넌트 안정성 확인 후).
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: dashboard export 개선 · basicData panel UX polish · classroomDetail owner email 매핑 서버 확장.
