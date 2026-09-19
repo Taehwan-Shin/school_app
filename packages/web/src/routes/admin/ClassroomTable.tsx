@@ -35,17 +35,11 @@ import {
 } from './TransferClassroomOwnerDialog';
 import { Button } from '../../components/ui/button';
 import { sortHeaderKbdProps } from './sortHeader';
+import { translateCourseState } from '../../lib/courseState';
 
-export function translateCourseState(s?: string): string {
-  switch (s) {
-    case 'ACTIVE': return '활성';
-    case 'ARCHIVED': return '보관됨';
-    case 'PROVISIONED': return '준비 중';
-    case 'DECLINED': return '거절됨';
-    case 'SUSPENDED': return '일시중지';
-    default: return s || '-';
-  }
-}
+// v0.170: v0.137 에서 이 모듈에 정의됐던 `translateCourseState` 는 `lib/courseState`
+// 로 승격. 기존 소비자 (classroomDetail.tsx) 는 아래 re-export 로 뒤호환.
+export { translateCourseState };
 
 type SortColumn = 'name' | 'section' | 'state' | null;
 type SortDirection = 'asc' | 'desc';
