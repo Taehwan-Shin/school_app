@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom';
 
 const mockUseGroupsList = vi.fn();
@@ -42,6 +42,8 @@ function renderWithRouter(ui: React.ReactElement, initialEntries: string[] = ['/
 describe('GroupsTable component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // v0.161: 정렬 선호 localStorage bleed 방지.
+    localStorage.clear();
   });
 
   it('renders loading state indicator while data is fetching', () => {
@@ -963,6 +965,77 @@ describe('GroupsTable component', () => {
       expect(screen.getByText('그룹 B')).toBeDefined();
       const btn = screen.getByTestId('groups-clear-filters-btn') as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
+    });
+  });
+
+  // v0.161: 정렬 선호 localStorage 저장 (v0.160 AccountsTable 대칭).
+  describe('v0.161 정렬 선호 localStorage 저장', () => {
+    const mockGroups = [
+      { email: 'a@cam.hs.kr', name: '그룹 A', description: '', directMembersCount: '2', aliases: [] },
+      { email: 'b@cam.hs.kr', name: '그룹 B', description: '', directMembersCount: '5', aliases: [] },
+    ];
+
+    beforeEach(() => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: mockGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('URL 에 sort 없으면 localStorage 저장값을 URL 로 hydrate', async () => {
+      localStorage.setItem(
+        'groupsTable.sort.v1',
+        JSON.stringify({ sort: 'name', dir: 'desc' }),
+      );
+      renderWithRouter(<GroupsTable />, ['/admin/groups']);
+      await waitFor(() => {
+        const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+        expect(nameTh.getAttribute('aria-sort')).toBe('descending');
+      });
+    });
+
+    it('URL 에 sort 있으면 localStorage 값 무시 (URL authoritative)', () => {
+      localStorage.setItem(
+        'groupsTable.sort.v1',
+        JSON.stringify({ sort: 'name', dir: 'desc' }),
+      );
+      renderWithRouter(<GroupsTable />, ['/admin/groups?sort=email&dir=asc']);
+      const emailTh = screen.getByRole('columnheader', { name: /이메일/ });
+      expect(emailTh.getAttribute('aria-sort')).toBe('ascending');
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      expect(nameTh.getAttribute('aria-sort')).toBe('none');
+    });
+
+    it('정렬 헤더 클릭 시 localStorage 에 저장', async () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups']);
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      fireEvent.click(nameTh);
+      await waitFor(() => {
+        const raw = localStorage.getItem('groupsTable.sort.v1');
+        expect(raw).not.toBeNull();
+        const parsed = JSON.parse(raw!);
+        expect(parsed).toEqual({ sort: 'name', dir: 'asc' });
+      });
+    });
+
+    it('「필터 초기화」 후 localStorage 도 제거', async () => {
+      renderWithRouter(<GroupsTable />, ['/admin/groups?sort=name&dir=desc']);
+      await waitFor(() => {
+        expect(localStorage.getItem('groupsTable.sort.v1')).not.toBeNull();
+      });
+      fireEvent.click(screen.getByTestId('groups-clear-filters-btn'));
+      await waitFor(() => {
+        expect(localStorage.getItem('groupsTable.sort.v1')).toBeNull();
+      });
+    });
+
+    it('localStorage 손상값은 무시', () => {
+      localStorage.setItem('groupsTable.sort.v1', 'not-json{{');
+      renderWithRouter(<GroupsTable />, ['/admin/groups']);
+      const nameTh = screen.getByRole('columnheader', { name: /이름/ });
+      expect(nameTh.getAttribute('aria-sort')).toBe('none');
     });
   });
 });
