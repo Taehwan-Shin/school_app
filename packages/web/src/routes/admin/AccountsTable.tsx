@@ -137,9 +137,20 @@ export function AccountsTable() {
   const isSomeEligibleSelected =
     eligibleEmails.some((e) => selectedEmails.has(e)) && !isAllEligibleSelected;
 
+  // v0.155: 선택된 계정 있으면 그것만 export · 없으면 기존대로 sortedFilteredUsers.
+  // Google Sheets 「선택 항목 다운로드」 스타일. 선택은 현재 필터 밖도 유지될 수
+  // 있어 data.users 전체 기반으로 intersect (사용자 의도 존중).
+  const exportUsers = useMemo(() => {
+    if (selectedEmails.size === 0) return sortedFilteredUsers;
+    const allUsers = data?.users ?? [];
+    return allUsers.filter((u) => selectedEmails.has(u.email));
+  }, [data?.users, sortedFilteredUsers, selectedEmails]);
+  const exportScope: 'selected' | 'filtered' =
+    selectedEmails.size > 0 ? 'selected' : 'filtered';
+
   const handleExportCsv = () => {
     const header = ['이메일', '이름', '조직 단위', '관리자', '상태'];
-    const rows = sortedFilteredUsers.map((u) => [
+    const rows = exportUsers.map((u) => [
       u.email,
       `${u.lastName ?? ''}${u.firstName ?? ''}`.trim() || '-',
       u.orgUnitPath || '/',
@@ -153,7 +164,9 @@ export function AccountsTable() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `accounts-${new Date().toISOString().split('T')[0]}.csv`;
+    // v0.155: \uC120\uD0DD \uC2A4\uCF54\uD504\uBA74 \uD30C\uC77C\uBA85\uC5D0 -selected \uC811\uBBF8\uC0AC.
+    const scopeSuffix = exportScope === 'selected' ? '-selected' : '';
+    a.download = `accounts${scopeSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -166,14 +179,16 @@ export function AccountsTable() {
   const handleExportJson = () => {
     const payload = {
       exportedAt: new Date().toISOString(),
+      // v0.155: scope 필드 추가 · selected 인 경우 filters 는 참고용.
+      scope: exportScope,
       filters: {
         q: searchQuery.trim(),
         filter: kpiFilter,
         sort: sortColumn,
         dir: sortDirection,
       },
-      totalCount: sortedFilteredUsers.length,
-      users: sortedFilteredUsers.map((u) => ({
+      totalCount: exportUsers.length,
+      users: exportUsers.map((u) => ({
         email: u.email,
         firstName: u.firstName ?? '',
         lastName: u.lastName ?? '',
@@ -188,7 +203,8 @@ export function AccountsTable() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `accounts-${new Date().toISOString().split('T')[0]}.json`;
+    const scopeSuffix = exportScope === 'selected' ? '-selected' : '';
+    a.download = `accounts${scopeSuffix}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -241,22 +257,29 @@ export function AccountsTable() {
             variant="secondary"
             onClick={handleExportCsv}
             data-testid="accounts-export-csv-btn"
-            disabled={sortedFilteredUsers.length === 0}
+            disabled={exportUsers.length === 0}
+            title={
+              exportScope === 'selected'
+                ? `선택 ${exportUsers.length}개 계정 CSV 다운로드`
+                : `필터 결과 ${exportUsers.length}개 계정 CSV 다운로드`
+            }
           >
-            CSV 내보내기
+            CSV 내보내기{exportScope === 'selected' ? ` (선택 ${exportUsers.length})` : ''}
           </Button>
           <Button
             variant="secondary"
             onClick={handleExportJson}
             data-testid="accounts-export-json-btn"
-            disabled={sortedFilteredUsers.length === 0}
+            disabled={exportUsers.length === 0}
             title={
-              sortedFilteredUsers.length === 0
+              exportUsers.length === 0
                 ? '내보낼 계정이 없습니다.'
-                : '현재 필터 반영 JSON 다운로드 (exportedAt · filters 메타 포함)'
+                : exportScope === 'selected'
+                  ? `선택 ${exportUsers.length}개 계정 JSON 다운로드 (scope=selected)`
+                  : '현재 필터 반영 JSON 다운로드 (exportedAt · filters 메타 포함)'
             }
           >
-            JSON 내보내기
+            JSON 내보내기{exportScope === 'selected' ? ` (선택 ${exportUsers.length})` : ''}
           </Button>
           <Button
             onClick={() => setIsCreateOpen(true)}
