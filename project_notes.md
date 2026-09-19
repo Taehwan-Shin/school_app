@@ -3266,3 +3266,37 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid setup · 사용자 조치), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거 (서버 슬라이스), AutoInvite+AutoRemove diff 통합 (큰 슬라이스).
 - 새 후보: super_admin 대시보드 export 개선 · 반 그룹/챗방 unified diff 페이지 · classroom archive/restore bulk · groups bulk operations.
+
+---
+
+## 2026-09-20 · v0.163 BulkUpdateRoleDialog (일괄 admin/teacher 역할 변경)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `feat/bulk-update-role-v163` | feat: v0.163 BulkUpdateRoleDialog (일괄 admin/teacher 역할 변경) |
+| 병합 | `9856a0c` | Merge feat/bulk-update-role-v163 into main - v0.163 BulkUpdateRoleDialog (일괄 admin/teacher 역할 변경) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `9856a0c` | skip (Head 폴백 규율) | v0.158 R1 hang 학습 후 Codex 대기 없이 진행. 기계 관문(web 972 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: 개별 EditUserRoleDialog 은 이미 있지만 교사 여러명 admin 승격 등 반복 클릭 불편. AccountsTable bulk 액션 세트 (MoveOu, Suspend, Restore, ResetPassword, Delete) 에 「역할 변경」 만 빠져있었음.
+- **해결**: 기존 usersUpdateRole callable 그대로 재사용 · Bulk hardening 시리즈 (v0.123~v0.131) 의 F99/F100 규범 패턴 그대로 적용.
+- **역할 제약**: super_admin 은 bootstrap 전용 (`scripts/bootstrap_admin.ts`) 이므로 UI 는 admin/teacher radio 만 노출. `SelectableRole = Extract<Role, 'admin' | 'teacher'>`.
+- **snapshot**: emails 뿐 아니라 targetRole 도 confirm 순간 snapshot — 실행 중 부모/사용자가 값 바꿔도 원래 승인대로 처리.
+
+### 배운 것
+
+- **bulk dialog 클론 pattern**: BulkSuspendDialog 를 template 로 하면 30분 이내 새 bulk dialog 만들기 가능. 필요한 diff: (1) callable import, (2) 추가 폼 필드 (여기선 role radio), (3) snapshot 추가 필드, (4) done 배너 문구.
+- **radio + snapshot 조합**: bulk 작업에서 사용자가 선택하는 옵션은 emails 와 함께 snapshot. 각 옵션마다 `runXxx` state 추가.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙 · 사용자 답 대기), A-2 계정 삭제 안내 메일 (SendGrid · 사용자 조치), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: classroom archive/restore bulk (v0.163 pattern 대칭 · classroomPatch 재사용), GroupsTable bulk delete/rename, ClassroomTable bulk transfer ownership.

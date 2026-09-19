@@ -94,6 +94,7 @@
 - **AccountsTable 정렬 선호 localStorage 저장** - v0.160 완료. /admin 재방문 시 사용자 선호 정렬 자동 복원 · URL 이 authoritative · localStorage 는 URL 이 sort 없을 때만 default 로 hydrate · Mount 시 URL 에 sort 없으면 저장값 (`accountsTable.sort.v1`) 을 URL 로 replace hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 손상 JSON 조용히 무시 · 5 회귀 테스트 · 웹 956 (+5) · lint clean · 서버 무변경. GroupsTable/ClassroomTable 후속 슬라이스 (v0.161/v0.162) 로 이식 예정.
 - **GroupsTable 정렬 선호 localStorage 저장** - v0.161 완료 (v0.160 대칭). 그룹 목록 재방문 시 정렬 자동 복원 · `groupsTable.sort.v1` 키 · SortColumn allowlist (email/name/directMembersCount) · URL authoritative · Mount 시 URL 이 sort 없으면 저장값 hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 961 (+5) · lint clean · 서버 무변경. v0.162 ClassroomTable 대칭 예정.
 - **ClassroomTable 정렬 선호 localStorage 저장** - v0.162 완료 (v0.160/v0.161 대칭 · **정렬 저장 트릴로지 완결**). 클래스룸 목록 재방문 시 정렬 자동 복원 · `classroomTable.sort.v1` 키 · SortColumn allowlist (name/section/state) · URL authoritative · Mount 시 URL 이 sort 없으면 저장값 hydrate · sort 변경 시 자동 저장 · 「필터 초기화」 후 removeItem · 5 회귀 테스트 · 웹 966 (+5) · lint clean · 서버 무변경. Accounts (v0.160) · Groups (v0.161) · Classroom (v0.162) 세 테이블 모두 정렬 자동 복원 완비.
+- **BulkUpdateRoleDialog** - v0.163 완료. AccountsTable 에 「선택 역할 변경」 버튼 추가 · 일괄 admin/teacher 역할 변경 · 기존 usersUpdateRole callable 재사용 (서버 무변경) · 3-phase (confirm/running/done) · F99 emails+role snapshot · F100 htmlFor · 역할 radio (admin/teacher — super_admin bootstrap 제외) · 확인 input 대상 개수 정확 입력 · 순차 호출 · 실패 격리 · 6 회귀 테스트 · 웹 972 (+6) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
