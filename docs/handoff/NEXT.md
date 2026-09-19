@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.158 병합 완료** (`1a4e966`) - CreateUser/BatchCreate 「첫 로그인 시 비밀번호 변경 강제」 checkbox toggle · 기계 관문 (lint clean · web 946 유닛) 통과 · Codex R1 40분 hang → skip · Antigravity 대신 Head 폴백 즉시 진행.
+> **v0.159 병합 완료** (`d7d95d9`) - BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 CreateUserDialog 대칭) · 기계 관문 (lint clean · web 951 유닛) 통과 · Codex R1 skip (v0.158 hang 학습 후 즉시 Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `d7d95d9` v0.159 - BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 CreateUserDialog 대칭) · 학년말 새 OU 만들기 흔한 요구 대응 · state · reset · handler · UI 모두 v0.121 과 동일 구조 · 기본 접힘 · toggle 클릭 시 폼 전개 · 부모 경로 기본값 = 현재 orgUnitPath · 이름/부모 검증 규칙 동일 · 성공 시 orgUnitPath 자동 채움 · 폼 접힘 · 성공 메시지 · 5 회귀 테스트 · 웹 951 (+5) · lint clean · 서버 무변경 (기존 orgunitsCreate callable 재사용) · Codex R1 skip.
 - `1a4e966` v0.158 - CreateUser/BatchCreate 「첫 로그인 시 비밀번호 변경 강제」 checkbox toggle · 기본 checked (학생 안전 · 초기 비번 노출 방지) · 교사·관리자 계정 해제 가능 · CreateUserDialog · BatchCreateUsersDialog 두 다이얼로그 대칭 · state · reset · UI 3점 세트 · callUsersCreate/createUser 하드코딩 `true` → 상태 값 전달 · BatchCreate 는 「모두 공통」 라벨 · CreateUserDialog test regex `/^비밀번호/` (start-anchored) 로 새 checkbox label 매치 회피 · 4 회귀 테스트 · 웹 946 (+4) · lint clean · 서버 무변경 · Codex R1 hang → skip.
 - `f61b2f2` v0.157 - GroupsTable JSON 내보내기 (v0.152 AccountsTable 대칭) · CSV 옆 「JSON 내보내기」 버튼 · payload (exportedAt, filters, totalCount, groups) · groups 필드 (email, name, description, directMembersCount, aliases) · 파일명 groups-YYYY-MM-DD.json · sortedFilteredGroups 반영 · 결과 0 이면 disabled · 3 회귀 테스트 (`tests/GroupsTable.test.tsx`) · 웹 942 (+3) · lint clean · 서버 무변경 · Codex skip (credits 소진).
 - `2e83e90` v0.156 - CourseMembersPanel 선택 명단 export (v0.148/v0.155 대칭) · 개별 체크박스 + 전체 선택 header (indeterminate) · 선택 시 export 버튼 「(선택 N)」 · 파일명 <코스>-<탭>-selected-<날짜>.csv · 탭 전환 시 선택 리셋 · 3 회귀 테스트 (`tests/CourseMembersPanel.test.tsx`) · 웹 939 (+3) · lint clean · 서버 무변경 · Codex skip (한도 재소진).

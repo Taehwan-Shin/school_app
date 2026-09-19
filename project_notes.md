@@ -3131,3 +3131,37 @@ ROADMAP 남은 후보 (v0.154+):
 ### 다음 세션에 이어갈 것
 
 - 로드맵 남은 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거, AutoInvite+AutoRemove diff 통합.
+
+---
+
+## 2026-09-19 · v0.159 BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `2098061` | feat: v0.159 BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 대칭) |
+| 병합 | `d7d95d9` | Merge feat/batch-inline-ou-v159 into main - v0.159 BatchCreateUsersDialog 「+ 새 OU 만들기」 인라인 폼 (v0.121 대칭) |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `2098061` | skip (v0.158 hang 학습 후 Head 폴백) | Codex CLI R1 은 v0.158 에서 40분 hang 확인. v0.159 는 즉시 Head 폴백 · 기계 관문(web 951 유닛 · lint clean) 을 gate 로 사용. |
+
+### 설계
+
+- **문제**: BatchCreateUsersDialog 는 조직 단위 선택 datalist 만 있고 신규 OU 만들기 기능이 없음. CreateUserDialog v0.121 은 「+ 새 OU 만들기」 인라인 폼이 있어 계정 만들기 도중에도 새 OU 만들 수 있음. 학년말 새 OU 준비 시 배치 다이얼로그 열어놓고 별도로 다시 관리자 페이지 → OU 만들기 → 배치 다이얼로그 다시 열기 반복 불편.
+- **해결**: v0.121 CreateUserDialog 인라인 폼 UI 를 그대로 대칭 이식. state 6개 · handler 1개 · UI 컴포넌트 하나.
+- **재사용**: `useOrgunitsCreate` callable 그대로 재사용 · 서버 무변경 · 검증 규칙 (100자, 슬래시 금지, 부모 / 시작) 동일.
+- **재설정 시점**: dialog 열림 시 (useEffect open) · 성공 시 · 취소 클릭 시 · dialog 닫힘 시.
+
+### 배운 것
+
+- **pnpm workspace worktree 첫 셋업**: `pnpm install` 후에도 `@school-app/shared` 의 `dist/` 가 없으면 vite import 해결 실패. 새 worktree 첫 test 실행 전에 `pnpm --filter @school-app/shared build` 필수.
+- **테스트 dependency 명시성**: v0.132 이후 BatchCreateUsersDialog.test.tsx 는 `useOrgunitsCreate` 를 mock 하지 않았음 (당시 사용 안 함). v0.159 는 `useOrgunitsCreate` import 추가로 mock 필요. `vi.mock('../src/api/orgunitsCreate', ...)` 추가.
+- **eslint exhaustive-deps + tanstack-query reset**: `useEffect (open)` 안에서 `resetNewOuMutation()` 호출은 F126 학습 (react-query mutation.reset 은 observer stable bind) 대로 deps 배열에 넣어도 무한 재실행 없음. 명시적으로 추가.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은 후보: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 안내 메일 (SendGrid), chat member userId→email 서버 확장 → 반 챗방 명단 밖 제거, AutoInvite+AutoRemove diff 통합.
