@@ -1,10 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.188 병합 완료** (`052d0d3`) - CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 대칭) + description 카운터 v0.180 스타일 통일 · 기계 관문 (lint clean · web 1089 유닛) 통과 · Codex R1 skip.
+> **v0.190 병합 완료** (`7fe90a7`) - BulkRenameClassroomDialog row-level 실시간 카운터 (v0.180/v0.188 스타일) · 기계 관문 (lint clean · web 1092 유닛) 통과. **v0.189** (`7e03374`) - RenameClassroomDialog 카운터 이식 + shared classroomLimits 참조 · 웹 1091.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `7fe90a7` v0.190 - BulkRenameClassroomDialog 각 row input 밑에 v0.180 스타일 실시간 카운터 (`mt-1 text-small` conditional-danger, 「N / 750 자」) · 기존 tooLong warn 은 유지 · 1 회귀 · 웹 1092 (+1) · lint clean · 서버 무변경.
+- `7e03374` v0.189 - RenameClassroomDialog 에 shared `COURSE_NAME_MAX` / `COURSE_SECTION_MAX` import (v0.175 재사용) · hardcoded 상수 alias 로 유지 · name/section input 밑에 v0.180 스타일 카운터 신규 (「N / MAX 자」) · 2 회귀 · 웹 1091 (+2) · lint clean · 서버 무변경.
 - `052d0d3` v0.188 - CreateClassroomDialog name(750)/section(2800)/room(650) 세 필드에 v0.180 스타일 카운터 신규 추가 · description(30000) 카운터 옛 스타일 (`text-micro` + `text-red-600` + 「현재」 prefix) 을 통일 (`text-small` + `text-state-danger` + prefix 제거) · 4 회귀 (v0.188 describe) · 웹 1089 (+4) · lint clean · 서버 무변경.
 - `971a90f` v0.187 - CreateGroupDialog + EditGroupDialog description counter 통일 · `mt-1 text-small ${description.length > MAX ? 'text-state-danger' : 'text-fg-muted'}` · 「현재 N / 4096 자」 → 「N / 4096 자」 · 4 회귀 (v0.187 describe: 각 dialog 「4096 이내 muted + 텍스트 포맷」 · 「4097 초과 red」) · 웹 1085 (+4) · lint clean · 서버 무변경.
 - `69044f1` v0.186 - AuditLogTable handleExportJson 에 `sourceQuery` (`?<params>` 또는 빈 문자열) + `sourcePath` (`/super_admin/audit${sourceQuery}`) 필드 추가 · export 파일만 들고 다른 세션/기기에서 동일 조회를 재현 가능 · 2 회귀 (빈 URL · action+result 필터 URL) · 웹 1081 (+2) · lint clean · 서버 무변경.

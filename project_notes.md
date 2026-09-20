@@ -4217,6 +4217,72 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.191**: BatchCreateUsersDialog password field 표시 여부 toggle (기존 raw 표시).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.189 RenameClassroomDialog 카운터 이식 + shared classroomLimits 참조
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `97b51df` (`feat/rename-classroom-counter-v189`) | feat: v0.189 RenameClassroomDialog 카운터 이식 |
+| 병합 | `7e03374` | Merge feat/rename-classroom-counter-v189 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `7e03374` | skip (Head 폴백) | 기계 관문 (web 1091 유닛 · lint clean). |
+
+### 설계
+
+- **문제**: v0.136 개별 이름 변경 다이얼로그는 hardcoded `NAME_MAX = 750`, `SECTION_MAX = 2800` 두 상수 + tooLong warn (초과 시에만 노출). shared `lib/classroomLimits.ts` (v0.175) 도입 후 hardcoded 유지 상태. 카운터 UI 없음.
+- **해결**: shared 상수 import + module-scope alias (`const NAME_MAX = COURSE_NAME_MAX`) 로 하위 호환 유지 (기존 코드 base 최소 변경). 각 input 밑 v0.180 스타일 카운터 신규.
+- **테스트**: 2 시나리오 (name/section 각 pre-fill + red toggle).
+
+## 2026-09-20 · v0.190 BulkRenameClassroomDialog row-level 실시간 카운터
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `d107834` (`feat/bulk-rename-row-counter-v190`) | feat: v0.190 BulkRenameClassroomDialog row-level 실시간 카운터 |
+| 병합 | `7fe90a7` | Merge feat/bulk-rename-row-counter-v190 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `7fe90a7` | skip (Head 폴백) | 기계 관문 (web 1092 유닛 · lint clean). |
+
+### 설계
+
+- **문제**: v0.176 은 각 row 에 tooLong warn (초과 시에만 노출) 만 있음 → 사용자가 상한 임박을 미리 인지 어려움.
+- **해결**: 각 row input 밑에 v0.180/v0.188 스타일 카운터 신규. 기존 tooLong warn 은 유지 (초과 시 명시적 안내 병행).
+- **테스트**: 1 시나리오 (row 카운터 pre-fill 반영 + red toggle).
+
+### 배운 것
+
+- **counter + warn 병행**: v0.190 은 「카운터 (실시간)」 + 「warn (초과 시 명시 안내)」 두 계층 UX. 카운터만 있으면 초과 원인이 tooLong 인지 다른 것인지 불명확 → warn 이 명시 문구를 제공. 이 pattern 을 다른 bulk row-level dialog 에도 이식 가능.
+- **counter 시리즈 통계 (v0.178~v0.190)**:
+  - v0.178: CreateUser + BatchCreate family/given (60자).
+  - v0.179: EditUser 동일.
+  - v0.180: CreateGroup + EditGroup name (60자).
+  - v0.181: CreateUser email local-part (64자).
+  - v0.185: CreateUser + BatchCreate 새 OU name (100자).
+  - v0.187: CreateGroup + EditGroup description 스타일 통일 (4096자).
+  - v0.188: CreateClassroom name/section/description/room 4 필드 (750/2800/30000/650) + description 스타일 통일.
+  - v0.189: RenameClassroom name/section (750/2800).
+  - v0.190: BulkRenameClassroom row-level (750).
+  - **총 11개 dialog · 20+ 필드 counter 통일**. 「app-standard counter」 pattern 이 사실상 codebase 표준으로 확립.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.191**: BulkTransferClassroomOwnerDialog 카운터 (이메일 local-part 64자).
+  - **v0.192**: CreateGroupDialog local-part 카운터 (v0.181 CreateUser 대칭 · groups.email local-part 64자).
+  - **v0.193**: users detail 페이지 name/OU 편집 인라인 카운터.
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 

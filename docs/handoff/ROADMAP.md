@@ -120,6 +120,7 @@
 - **AuditLog JSON export sourceQuery/sourcePath** - v0.186 완료 (v0.108 F55 payload 확장). handleExportJson 에 `sourceQuery` + `sourcePath` 재현용 필드 추가 · export 파일만 들고 다른 세션에서 sourcePath 로 동일 조회 재현 가능 · 2 회귀 · 웹 1081 (+2) · lint clean · 서버 무변경.
 - **CreateGroup/EditGroup description counter 통일** - v0.187 완료 (v0.180 name counter 스타일 대칭). `text-micro text-fg-muted` → `text-small` conditional-danger · 「현재」 prefix 제거하여 「N / 4096 자」 포맷으로 통일 · 4 회귀 · 웹 1085 (+4) · lint clean · 서버 무변경.
 - **CreateClassroom name/section/room 카운터 이식 + description 스타일 통일** - v0.188 완료 (v0.175 검증 대칭 + v0.187 통일 확장). name/section/room 카운터 신규 추가 · description 카운터 옛 스타일 (`text-micro` + `text-red-600` + 「현재」) → v0.180 통일 스타일 · 4 회귀 · 웹 1089 (+4) · lint clean · 서버 무변경.
+- **RenameClassroom + BulkRenameClassroom row-level 카운터 이식** - v0.189/v0.190 완료 (counter 시리즈 완결). RenameClassroom: shared `COURSE_NAME_MAX` / `COURSE_SECTION_MAX` 참조 + name/section 카운터 신규 (v0.189, 웹 1091 +2). BulkRenameClassroom: 각 row input 밑 실시간 카운터 (v0.190, 웹 1092 +1) — 기존 tooLong warn 은 유지 (초과 시 명시적 안내 병행). Counter 스타일 통일 시리즈 (v0.178~v0.190) 사실상 완결.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
