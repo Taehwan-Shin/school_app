@@ -835,4 +835,42 @@ describe('CreateUserDialog component', () => {
       });
     });
   });
+
+  // v0.185: 새 OU 만들기 폼에 ORG_UNIT_NAME_MAX (100자) 카운터 + 상세 에러 이식.
+  describe('v0.185: 새 OU 이름 100자 상한', () => {
+    it('카운터: OU 이름 실시간 반영 · 초과 시 red · 100자 정확 정상', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+      const counter = screen.getByTestId('create-user-new-ou-name-counter');
+      expect(counter.textContent).toContain('0 / 100');
+      fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+        target: { value: 'X'.repeat(100) },
+      });
+      expect(counter.textContent).toContain('100 / 100');
+      expect(counter.className).not.toContain('text-state-danger');
+      fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+        target: { value: 'X'.repeat(101) },
+      });
+      expect(counter.textContent).toContain('101 / 100');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('OU 이름 101자 이상 시 상세 에러 · mutate 호출 안 함', async () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('create-user-new-ou-toggle'));
+      fireEvent.change(screen.getByTestId('create-user-new-ou-name'), {
+        target: { value: 'X'.repeat(101) },
+      });
+      fireEvent.change(screen.getByTestId('create-user-new-ou-parent'), {
+        target: { value: '/' },
+      });
+      fireEvent.click(screen.getByTestId('create-user-new-ou-submit'));
+      await waitFor(() => {
+        const err = screen.getByTestId('create-user-new-ou-error');
+        expect(err.textContent).toContain('OU 이름은 100자 이하');
+        expect(err.textContent).toContain('현재 101자');
+      });
+      expect(mockOrgunitsCreateMutate).not.toHaveBeenCalled();
+    });
+  });
 });
