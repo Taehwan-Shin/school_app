@@ -1,10 +1,13 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.192 병합 완료** (`53ca8b1`) - CreateGroup + CreateClassroom + TransferClassroomOwner 세 dialog local-part 64자 카운터 이식 · 기계 관문 (lint clean · web 1102 유닛). **v0.191** (`c903a86`) - BulkTransferClassroomOwner local-part 카운터 + emailInput helper 확장.
+> **v0.195 병합 완료** (`75d1279`) - ClassroomTable 페이지 크기 셀렉터 (v0.193/v0.194 대칭 · **page-size 시리즈 완결**) · 웹 1115. **v0.194** (`3caef6f`) - GroupsTable · 웹 1111. **v0.193** (`42c8e58`) - AccountsTable · 웹 1107. 3 테이블 모두 25/50/100 select + localStorage.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `75d1279` v0.195 - ClassroomTable 페이지 크기 셀렉터 (`classroomTable.pageSize.v1`) · 4 회귀 · 웹 1115 (+4) · lint clean · 서버 무변경.
+- `3caef6f` v0.194 - GroupsTable 페이지 크기 셀렉터 (`groupsTable.pageSize.v1`) · 4 회귀 · 웹 1111 (+4).
+- `42c8e58` v0.193 - AccountsTable 페이지 크기 셀렉터 (`accountsTable.pageSize.v1`) · pattern 정립 (module-scope constants · `readStoredPageSize()` · `handlePageSizeChange` helper) · 5 회귀 · 웹 1107 (+5).
 - `53ca8b1` v0.192 - CreateGroupDialog · CreateClassroomDialog · TransferClassroomOwnerDialog 세 dialog 에 v0.181/v0.191 대칭 local-part 64자 카운터 이식 · 각 dialog 특수 미노출 조건 (빈 값 · CreateClassroom 은 「me」 도 미노출) · 6 회귀 · 웹 1102 (+6) · lint clean · 서버 무변경. **Local-part 카운터 시리즈 완결** (v0.181/v0.191/v0.192 총 5 dialog).
 - `c903a86` v0.191 - BulkTransferClassroomOwnerDialog local-part 64자 카운터 + emailInput.ts 확장 (`EMAIL_LOCAL_PART_MAX` 상수 · `extractEmailLocalPart` helper) · 4 회귀 · 웹 1096 (+4).
 - `7fe90a7` v0.190 - BulkRenameClassroomDialog 각 row input 밑에 v0.180 스타일 실시간 카운터 (`mt-1 text-small` conditional-danger, 「N / 750 자」) · 기존 tooLong warn 은 유지 · 1 회귀 · 웹 1092 (+1) · lint clean · 서버 무변경.

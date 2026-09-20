@@ -4341,6 +4341,54 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.195**: classroomDetail 페이지 편집 UI 최소화 (이미 v0.171 CopyButton 만).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.193/v0.194/v0.195 페이지 크기 셀렉터 시리즈 (Accounts · Groups · Classroom 3 테이블)
+
+### 커밋 표
+
+| 슬라이스 | 커밋 | 병합 |
+|---|---|---|
+| v0.193 (Accounts) | `61cfc07` | `42c8e58` |
+| v0.194 (Groups) | `362f769` | `3caef6f` |
+| v0.195 (Classroom) | `a443730` | `75d1279` |
+
+### 라운드 표
+
+| 슬라이스 | HEAD | 결과 |
+|---|---|---|
+| v0.193 | `42c8e58` | skip (Head 폴백 · web 1107) |
+| v0.194 | `3caef6f` | skip · web 1111 |
+| v0.195 | `75d1279` | skip · web 1115 |
+
+### 설계
+
+- **문제**: 3 테이블 모두 하드코딩 `PAGE_SIZE = 25`. 대량 데이터 (수백~수천 계정) 관리자에게 페이지 넘김 부담. 사용자 선택권 제로.
+- **해결 pattern** (v0.193 확립, v0.194/v0.195 그대로 이식):
+  - Module-scope: `PAGE_SIZE_OPTIONS = [25, 50, 100] as const` · `PageSize` type · `DEFAULT_PAGE_SIZE = 25` · `PAGE_SIZE_STORAGE_KEY = '<table>Table.pageSize.v1'` · `readStoredPageSize()` (JSON int + allowlist + fallback).
+  - 컴포넌트 state: `pageSize` (lazy init from localStorage) + `handlePageSizeChange` (state 갱신 · page=0 리셋 · try/catch localStorage write).
+  - 기존 `PAGE_SIZE` 상수 제거 → 3~4 참조 모두 state 로 교체.
+  - Pagination controls 좌측에 `<select>` (label htmlFor 연결) 추가.
+- **테스트 pattern** (각 4~5 회귀):
+  - 기본 25 · select 값 확인 · 「다음」 활성.
+  - 50 선택 → localStorage 저장 · page=0 리셋 · pagination boundary.
+  - localStorage 「100」 hydrate.
+  - 잘못된 값 (`abc`) fallback.
+  - options 밖 값 (`200`) fallback (v0.193 만).
+
+### 배운 것
+
+- **shared lib 승격 vs 각자 상수 정의**: 3 테이블 동일 pattern 이지만 각 파일의 module-scope constants 로 두는 게 diff 최소화 (shared lib 승격 시 storage key generator 추가 필요 · 오히려 복잡). "3 회 동일 pattern = 승격" 규칙의 예외 — key 별 파일 명시가 더 명확한 케이스.
+- **as const array + typeof indexed access**: `const PAGE_SIZE_OPTIONS = [25, 50, 100] as const; type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]` 로 union type `25 | 50 | 100` 자동 유도. 새 옵션 추가 시 array 만 수정하면 type 도 자동 확장.
+- **totalization (v0.178~v0.195 통산)**: 웹 유닛 1054 → 1115 (**+61 슬라이스 통산**). Counter (v0.178~v0.190) + local-part (v0.181/v0.191/v0.192) + page-size (v0.193~v0.195) 세 시리즈로 관리자 테이블/다이얼로그 UX polish 완결에 근접.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.196**: Table 3 개에 총 페이지 수 표시 (`page N of M`).
+  - **v0.197**: audit log page-size 셀렉터 (AuditLogTable 도 25 하드코딩).
+  - **v0.198**: Column visibility toggle (선택 컬럼 숨기기).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
