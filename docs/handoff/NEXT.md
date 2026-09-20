@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.183 병합 완료** (`0211e6c`) - super_admin 대시보드 「액션별 breakdown」 위젯 CSV/JSON 내보내기 (AccountsTable v0.152 · GroupsTable v0.157 대칭 · audit-scope export 로 확장) · 기계 관문 (lint clean · web 1071 유닛) 통과 · Codex R1 skip.
+> **v0.184 병합 완료** (`34240a3`) - BasicDataPanel 9개 버튼을 3 role-그룹으로 시각+접근성 그룹핑 (편집 · 자동 워크플로우 · 데이터 I/O) · 기계 관문 (lint clean · web 1074 유닛) 통과 · Codex R1 skip.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `34240a3` v0.184 - BasicDataPanel 헤더 버튼 9개를 `role="group" aria-label="..."` 세 그룹으로 시각 분리 (좌측 border) · 편집 그룹 (편집 · 학생 명단 편집) · 자동 워크플로우 그룹 (그룹 자동 생성 · 부서 그룹 자동 생성 · 학생 자동 초대 · 반 챗방 자동 초대 · 명단 밖 자동 제거) · 데이터 입출력 그룹 (JSON 불러오기 · JSON 내보내기) · 「명단 밖 자동 제거」 를 자동 그룹 마지막으로 (파괴적 액션 뒤로 재정렬) · 기존 testid 모두 유지 (16 회귀 무영향) + 3 신규 회귀 · 웹 1074 (+3) · lint clean · 서버 무변경.
 - `0211e6c` v0.183 - SuperAdminPage breakdown 위젯 header 에 CSV/JSON 두 버튼 추가 · CSV 컬럼 (action,count) · JSON payload (exportedAt · window · windowLabel · atMin · source ('exact'|'sample') · sampleTruncated · sampleSize · breakdownCount · totalActions · actions[]) · 파일명 breakdown-<slug>-YYYY-MM-DD (slug: today/week/month/last{N}days) · displayCounts undefined/empty 이면 disabled + title 안내 · 3 회귀 (enabled+파일명, empty disabled, JSON exact 우선/정렬) · 웹 1071 (+3) · lint clean · 서버 무변경.
 - `6c60b80` v0.182 - NeisCsvImportDialog preview 단계에 courseName > `COURSE_NAME_MAX` (750) 감지 · 신규 순수 helper `findOverlyLongPlanRows(plan, max)` (회귀 4건) · preview 상단 red 배너 「상한 초과 N개 행 — 실행 불가」 · 초과 row 는 셀 red + 「N / 750 자 초과」 접미사 · 실행 버튼 disabled + title 안내 · 웹 1068 (+4) · lint clean · 서버 무변경.
 - `534c05f` v0.181 - `lib/userLimits.ts` 에 `USER_LOCAL_PART_MAX = 64` (RFC 5321 · Google Workspace 규격) 추가 · CreateUserDialog handleSubmit 에 email.slice(0, lastIndexOf('@')) local-part 길이 검증 · 이메일 input 밑 「이메일 아이디 N / 64 자」 실시간 카운터 (@ 없이도 로컬로 간주 · 초과 시 red) · 4 회귀 (userLimits 1 신규 · CreateUser v0.181 3) · 웹 1064 (+4) · lint clean · 서버 무변경. CreateGroup/BatchCreate 는 이미 `lib/emailInput.ts` LOCAL_PART_RE (`{0,63}`) 로 강제 → CreateUser 만 남았던 gap 커버.

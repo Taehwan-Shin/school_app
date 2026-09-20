@@ -4026,6 +4026,46 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.186**: AuditLogTable JSON export (v0.108) 의 filter reflect 개선 (v0.108 은 있지만 최근 filter 규칙 (kpiFilter/preset) 이 payload 에 반영되는지 재검토).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-20 · v0.184 BasicDataPanel 버튼 3-그룹핑 (편집 / 자동 워크플로우 / 데이터 I/O)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `b1b6e93` (`feat/basic-data-panel-ux-v184`) | feat: v0.184 BasicDataPanel 버튼 3-그룹핑 |
+| 병합 | `34240a3` | Merge feat/basic-data-panel-ux-v184 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `34240a3` | skip (Head 폴백) | 기계 관문 (web 1074 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: BasicDataPanel 헤더에 9 개 버튼이 `flex-wrap` 으로 무질서 나열. 관리자가 「자동 워크플로우」 (일괄 파괴/생성 액션) 과 「일반 편집」 을 시각적으로 구분 어려움. 특히 「명단 밖 자동 제거」 는 파괴적 액션인데 다른 자동 액션과 뒤섞임.
+- **해결**: 3 role/역할 카테고리로 시각+접근성 그룹핑.
+  - **편집** (2): 편집 · 학생 명단 편집.
+  - **자동 워크플로우** (5): 그룹 자동 생성 · 부서 그룹 자동 생성 · 학생 자동 초대 · 반 챗방 자동 초대 · 명단 밖 자동 제거 — 파괴적 액션을 마지막에 배치.
+  - **데이터 입출력** (2): JSON 불러오기 · JSON 내보내기.
+  - 각 그룹: `<div role="group" aria-label="..." className="border-l border-border-subtle pl-4">` · gap-2 within · outer gap-4 between.
+- **기존 testid 유지 원칙**: `basic-data-*-btn` 모든 testid 를 그대로 유지 → 기존 16 회귀 무영향. 신규 `basic-data-group-{edit,auto,io}` 3 testid 만 추가.
+
+### 배운 것
+
+- **접근성 그룹핑은 시각 그룹핑과 결합**: `role="group" + aria-label` 을 붙이면 스크린 리더가 버튼 배치를 카테고리 단위로 announce. 시각 border 만 있으면 sighted 사용자만 혜택. 두 층위 동시 (visual+ARIA) 가 표준.
+- **파괴적 액션은 그룹 마지막**: 「명단 밖 자동 제거」 는 groupsMembers.delete 호출 → 파괴적. UX 관례상 파괴적 액션은 시각적 마지막 (뒤로) 배치 → 실수 클릭 방지.
+- **testid 유지의 회귀 절약**: 기존 16 회귀가 자동 pass — 리팩터링 슬라이스에서 testid 를 바꾸지 말고 신규 그룹 testid 만 추가하면 회귀 부담 최소.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.185**: CreateOrgUnit name/description 상한 shared `orgUnitLimits.ts` 승격 (v0.121 은 inline 규칙, 다른 dialog 에도 재사용 가능하게).
+  - **v0.186**: AuditLogTable JSON export (v0.108) 의 filter reflect 개선 (payload 에 최근 filter 규칙 반영 재검토).
+  - **v0.187**: EditGroupDialog description counter 개선 (v0.173 은 이미 있지만 v0.180 name counter 스타일에 통일).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
