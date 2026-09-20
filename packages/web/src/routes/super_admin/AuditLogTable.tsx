@@ -139,8 +139,17 @@ export function AuditLogTable() {
   // v0.108b F53/F54/F55: hasMore + before/after 포함 · metadata 는 URL 원문이 아니라 실제
   // 서버로 넘긴 정규화된 hook 인자 사용.
   const handleExportJson = () => {
+    // v0.186: sourceQuery — 이 export 를 재현할 수 있는 URL search 문자열. F55 payload
+    // 는 정규화된 hook 인자를 담지만 원본 URL query 를 그대로 복원하려면 사용자가
+    // 파일 → 조건 매핑을 손으로 해야 한다. sourceQuery 를 함께 저장하면 export 파일만
+    // 들고 다른 세션에서 동일 URL 로 열어 재조회 가능.
+    const sourceQueryRaw = searchParams.toString();
+    const sourceQuery = sourceQueryRaw ? `?${sourceQueryRaw}` : '';
     const payload = {
       exportedAt: new Date().toISOString(),
+      // v0.186: sourceQuery/sourcePath — 재현용. sourcePath 는 라우터 상대 경로.
+      sourceQuery,
+      sourcePath: `/super_admin/audit${sourceQuery}`,
       // F55: 정규화된 실제 hook 인자를 그대로 반영 (actionList 는 dedup 완료 · atMin/Max
       // 는 유효 검증 통과한 ms). URL 원문과 다를 수 있는 사례: 중복 action 제거, 잘못된
       // 날짜 무시. 사용자가 export 파일만 봐도 실제 어떤 조건으로 조회됐는지 정확히 알 수

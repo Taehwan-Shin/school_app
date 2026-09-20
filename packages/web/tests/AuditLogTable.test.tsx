@@ -1917,5 +1917,74 @@ describe('AuditLogTable component', () => {
       });
     });
   });
+
+  // v0.186: JSON export payload 에 sourceQuery/sourcePath 재현용 필드 추가.
+  describe('v0.186: JSON export sourceQuery/sourcePath', () => {
+    beforeEach(() => {
+      mockUseAuditLogList.mockReturnValue({
+        ...defaultMockReturn,
+        entries: [
+          {
+            id: 'log-1',
+            actor: 'super@cam.hs.kr',
+            role: 'super_admin',
+            action: 'users.read',
+            target: '*',
+            request_id: 'r1',
+            result: 'ok',
+            at: 1725150000000,
+          } as AuditLogEntryRead,
+        ],
+      });
+    });
+
+    it('빈 URL 이면 sourceQuery 는 빈 문자열 · sourcePath 는 /super_admin/audit', async () => {
+      let capturedBlob: Blob | null = null;
+      const origCreate = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((b: Blob) => {
+        capturedBlob = b;
+        return 'blob:mock';
+      });
+      URL.revokeObjectURL = vi.fn();
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      try {
+        renderWithRouter(<AuditLogTable />);
+        fireEvent.click(screen.getByTestId('audit-log-export-json'));
+        const text = await (capturedBlob as unknown as Blob).text();
+        const payload = JSON.parse(text);
+        expect(payload.sourceQuery).toBe('');
+        expect(payload.sourcePath).toBe('/super_admin/audit');
+      } finally {
+        URL.createObjectURL = origCreate;
+        clickSpy.mockRestore();
+      }
+    });
+
+    it('URL 에 필터 있으면 sourceQuery=?<params> · sourcePath 에 그대로 붙음 (재현용)', async () => {
+      let capturedBlob: Blob | null = null;
+      const origCreate = URL.createObjectURL;
+      URL.createObjectURL = vi.fn((b: Blob) => {
+        capturedBlob = b;
+        return 'blob:mock';
+      });
+      URL.revokeObjectURL = vi.fn();
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      try {
+        renderWithRouter(<AuditLogTable />, [
+          '/super_admin/audit?action=users.read&result=error',
+        ]);
+        fireEvent.click(screen.getByTestId('audit-log-export-json'));
+        const text = await (capturedBlob as unknown as Blob).text();
+        const payload = JSON.parse(text);
+        expect(payload.sourceQuery).toMatch(/^\?/);
+        expect(payload.sourceQuery).toContain('action=users.read');
+        expect(payload.sourceQuery).toContain('result=error');
+        expect(payload.sourcePath).toBe(`/super_admin/audit${payload.sourceQuery}`);
+      } finally {
+        URL.createObjectURL = origCreate;
+        clickSpy.mockRestore();
+      }
+    });
+  });
 });
 
