@@ -3853,3 +3853,35 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · AuditLogTable JSON 내보내기 filter reflect 개선 · users API primaryEmail 상한 (Google Workspace: 64자 local + 253자 domain).
+
+## 2026-09-20 · v0.179 EditUserDialog 성/이름 60자 상한 이식 (Create/Batch/Edit 3 진입점 대칭 완결)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `9ec3a83` (`feat/edit-user-name-limit-v179`) | feat: v0.179 EditUserDialog 성/이름 60자 상한 이식 (v0.178 Create/Batch 대칭 완결) |
+| 병합 | `f54f3a9` | Merge feat/edit-user-name-limit-v179 into main - v0.179 EditUserDialog 성/이름 60자 상한 이식 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `f54f3a9` | skip (Head 폴백 규율) | 기계 관문 (web 1054 유닛 · lint clean · tsc + eslint) 을 gate 로 사용. Codex 한도 소진 대응. |
+
+### 설계
+
+- **문제**: v0.178 로 신규 생성 (Create · Batch) 은 60자 상한 갖췄으나 편집 (EditUserDialog) 은 미검증 → 관리자가 편집으로 61자+ 시도 시 서버 400 라운드트립 낭비.
+- **해결**: shared `USER_FAMILY_NAME_MAX` / `USER_GIVEN_NAME_MAX` 를 EditUserDialog 에도 import. handleSubmit 에 v0.178 대칭 검증 (문구 완전 동일) · 각 input 밑 `edit-user-familyName-counter` / `edit-user-givenName-counter` 실시간 카운터. Create/Batch/Edit 3 진입점 완전 대칭.
+- **테스트**: 4 시나리오 (v0.179 describe): family 61자 차단 · given 100자 차단 · 카운터 실시간 red toggle (pre-fill 「홍」=1자 · 「길동」=2자 → 60자 정확 · 61자 red) · 60자 경계 정상 mutate 호출.
+
+### 배운 것
+
+- **shared 상수 재사용의 힘**: v0.178 이 `userLimits.ts` 를 shared 로 뽑아둔 덕에 v0.179 는 import + 2 line 검증 + counter UI 만 추가 (36 line diff). 상수를 shared 로 뽑는 초기 결정이 후속 슬라이스를 극단적으로 단순화.
+- **pre-filled input 카운터 검증**: EditUserDialog 는 mount 시 user 데이터로 pre-fill 되므로 카운터도 pre-fill 자릿수 (예: 「홍」=1) 로 시작. 테스트에서 초기값도 assertion 대상으로 잡음.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · AuditLogTable JSON 내보내기 filter reflect 개선 · users API primaryEmail 상한 · CreateGroup/EditGroup name 상한 (Directory Group name 60자) · CreateOrgUnit name 상한 (100자, v0.121 은 이미 검증 있음 재확인).
+

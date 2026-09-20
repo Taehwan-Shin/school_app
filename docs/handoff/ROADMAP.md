@@ -110,6 +110,7 @@
 - **BulkRenameClassroomDialog row-level 상한 검증** - v0.176 완료 (v0.175 이식). shared `COURSE_NAME_MAX` 를 BulkRename 각 row 에도 이식 · `overlyLongRows` useMemo · `canConfirm` 조건 · row 별 tooLong 경고 (rowError 통합) · summary 「상한 초과 N개」 카운트 · 2 회귀 테스트 · 웹 1036 (+2) · lint clean · 서버 무변경.
 - **ClassroomTable CSV/JSON 내보내기** - v0.177 완료 (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭 · 3 테이블 export 트릴로지 완결). 툴바 필터 초기화 옆 CSV/JSON 두 버튼 · CSV 컬럼 (id · 이름 · 섹션 · 상태 · 설명 · 링크 · 소유자 id · 생성/수정 시각) · JSON payload (exportedAt · scope · filters · totalCount · courses[]) · 파일명 classrooms-YYYY-MM-DD.csv|json (선택 있으면 -selected 접미사) · 선택 있으면 라벨 「(선택 N)」 · scope 필드 · exportCourses.length===0 이면 disabled · UTF-8 BOM · 5 회귀 테스트 · 웹 1041 (+5) · lint clean · 서버 무변경.
 - **CreateUser/BatchCreate 성/이름 60자 상한 검증** - v0.178 완료 (v0.173/v0.174/v0.175/v0.176 시리즈 대칭 · Google Directory User 규격). 신규 `lib/userLimits.ts` (USER_FAMILY_NAME_MAX=60 · USER_GIVEN_NAME_MAX=60) · CreateUserDialog handleSubmit 검증 + 카운터 · BatchCreate row loop 검증 + aria-invalid + inline warn + summary count (v0.176 패턴) · 9 회귀 테스트 · 웹 1050 (+9) · lint clean · 서버 무변경.
+- **EditUserDialog 성/이름 60자 상한 이식** - v0.179 완료 (v0.178 Create/Batch 대칭 완결). 관리자 → 사용자 → 편집 다이얼로그도 shared 상수 재사용 · handleSubmit 검증 + 카운터 (v0.178 문구 대칭) · Create/Batch/Edit 3 진입점 이름 상한 완전 대칭 · 4 회귀 테스트 · 웹 1054 (+4) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
