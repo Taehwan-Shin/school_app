@@ -12,6 +12,8 @@ import { useClassroomCreate } from '../../api/classroomCreate';
 import type { ClassroomCourse } from '../../api/classroomList';
 import {
   EMAIL_DOMAIN,
+  EMAIL_LOCAL_PART_MAX,
+  extractEmailLocalPart,
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from '../../lib/emailInput';
@@ -326,6 +328,25 @@ export function CreateClassroomDialog({
                   미리보기: <span className="font-mono">{ownerPreview}</span>
                 </p>
               )}
+              {/* v0.192: owner local-part 64자 카운터. 「me」 또는 빈 값이면 미노출. */}
+              {(() => {
+                const trimmed = ownerId.trim();
+                if (trimmed === '' || trimmed === 'me') return null;
+                const local = extractEmailLocalPart(trimmed);
+                if (local.length === 0) return null;
+                return (
+                  <p
+                    className={`mt-1 text-small ${
+                      local.length > EMAIL_LOCAL_PART_MAX
+                        ? 'text-state-danger'
+                        : 'text-fg-muted'
+                    }`}
+                    data-testid="create-classroom-owner-local-counter"
+                  >
+                    이메일 아이디 {local.length} / {EMAIL_LOCAL_PART_MAX} 자
+                  </p>
+                );
+              })()}
               {ownerValidationError && (
                 <p
                   className="mt-1 text-micro text-state-danger"

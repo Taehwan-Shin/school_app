@@ -268,6 +268,27 @@ describe("CreateGroupDialog component", () => {
       expect(counter.className).toContain("text-state-danger");
     });
   });
+
+  // v0.192: local-part 64자 카운터 (v0.181/v0.191 대칭).
+  describe("v0.192: local-part 카운터", () => {
+    it("빈 값이면 카운터 미노출", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      expect(screen.queryByTestId("create-group-email-local-counter")).toBeNull();
+    });
+
+    it("local-part 실시간 반영 · 64 이내 muted · 65+ red", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      const input = screen.getByTestId("create-group-email-input");
+      fireEvent.change(input, { target: { value: "team-a" } });
+      const counter = screen.getByTestId("create-group-email-local-counter");
+      expect(counter.textContent).toContain("6 / 64");
+      expect(counter.className).toContain("text-fg-muted");
+      // 65자 초과 (@ 없이도 local 로 간주)
+      fireEvent.change(input, { target: { value: "a".repeat(65) } });
+      expect(counter.textContent).toContain("65 / 64");
+      expect(counter.className).toContain("text-state-danger");
+    });
+  });
 });
 
 // v0.167: normalizeGroupEmailInput 순수 함수 회귀 (helper 직접).

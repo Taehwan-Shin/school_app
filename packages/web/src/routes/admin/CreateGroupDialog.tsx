@@ -11,6 +11,8 @@ import { Button } from "../../components/ui/button";
 import { useCreateGroup } from "../../api/groupsCreate";
 import {
   EMAIL_DOMAIN,
+  EMAIL_LOCAL_PART_MAX,
+  extractEmailLocalPart,
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from "../../lib/emailInput";
@@ -155,6 +157,23 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
                   미리보기: <span className="font-mono">{previewEmail}</span>
                 </p>
               )}
+              {/* v0.192: local-part 64자 카운터 (v0.181/v0.191 대칭 · counter 통일). */}
+              {(() => {
+                const local = extractEmailLocalPart(email.trim());
+                if (local.length === 0) return null;
+                return (
+                  <p
+                    className={`mt-1 text-small ${
+                      local.length > EMAIL_LOCAL_PART_MAX
+                        ? "text-state-danger"
+                        : "text-fg-muted"
+                    }`}
+                    data-testid="create-group-email-local-counter"
+                  >
+                    이메일 아이디 {local.length} / {EMAIL_LOCAL_PART_MAX} 자
+                  </p>
+                );
+              })()}
             </div>
 
             <div>

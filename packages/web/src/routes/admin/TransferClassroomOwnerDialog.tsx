@@ -11,6 +11,8 @@ import { Button } from '../../components/ui/button';
 import { useClassroomTransferOwnership } from '../../api/classroomTransferOwnership';
 import {
   EMAIL_DOMAIN,
+  EMAIL_LOCAL_PART_MAX,
+  extractEmailLocalPart,
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from '../../lib/emailInput';
@@ -202,6 +204,23 @@ export function TransferClassroomOwnerDialog({
                 미리보기: <span className="font-mono">{preview}</span>
               </p>
             )}
+            {/* v0.192: local-part 64자 카운터 (v0.181/v0.191 대칭). */}
+            {(() => {
+              const local = extractEmailLocalPart(trimmed);
+              if (local.length === 0) return null;
+              return (
+                <p
+                  className={`mt-1 text-small ${
+                    local.length > EMAIL_LOCAL_PART_MAX
+                      ? 'text-state-danger'
+                      : 'text-fg-muted'
+                  }`}
+                  data-testid="transfer-owner-email-local-counter"
+                >
+                  이메일 아이디 {local.length} / {EMAIL_LOCAL_PART_MAX} 자
+                </p>
+              );
+            })()}
             {trimmed && !isValidEmail && (
               <p className="mt-1 text-small text-state-danger" data-testid="transfer-owner-email-hint">
                 이메일 형식이 아닙니다. 아이디만 입력하거나 @{EMAIL_DOMAIN} 도메인의 전체 이메일을 입력해주세요.
