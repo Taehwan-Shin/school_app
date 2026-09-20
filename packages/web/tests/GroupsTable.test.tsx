@@ -1102,6 +1102,70 @@ describe('GroupsTable component', () => {
       expect(screen.queryByTestId('groups-bulk-actions')).toBeNull();
     });
   });
+
+  // v0.194: 페이지 크기 셀렉터 (v0.193 AccountsTable 대칭).
+  describe('v0.194: 페이지 크기 셀렉터', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const groups30 = Array.from({ length: 30 }, (_, i) => ({
+      email: `g${i}@cam.hs.kr`,
+      name: `그룹 ${i}`,
+      description: '',
+      directMembersCount: 0,
+      aliases: [],
+    }));
+
+    const setup = () => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: groups30 },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    };
+
+    it('기본 25개 · select 값 = 25', () => {
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+      expect(
+        (screen.getByTestId('groups-pagination-next') as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    it('50 선택 시 30개 한 페이지 · 「다음」 disabled · localStorage 저장', async () => {
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: '50' } });
+      expect(select.value).toBe('50');
+      await waitFor(() => {
+        expect(localStorage.getItem('groupsTable.pageSize.v1')).toBe('50');
+      });
+      expect(
+        (screen.getByTestId('groups-pagination-next') as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+
+    it('localStorage 저장값 「100」 이면 mount 시 자동 hydrate', () => {
+      localStorage.setItem('groupsTable.pageSize.v1', '100');
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('100');
+    });
+
+    it('잘못된 localStorage 값 → default 25 fallback', () => {
+      localStorage.setItem('groupsTable.pageSize.v1', 'abc');
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+    });
+  });
 });
 
 
