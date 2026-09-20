@@ -51,6 +51,34 @@ function readStoredPageSize(): PageSize {
 // 비어있을 때만 default 로 hydrate. 손상된 값은 조용히 무시.
 const SORT_STORAGE_KEY = 'accountsTable.sort.v1';
 
+// v0.199: 컬럼 표시 여부 선택. 선택/이메일/관리 3 개는 필수 (항상 표시).
+// 나머지 4개 (이름 · 조직 단위 · 관리자 · 정지) 는 사용자가 숨김/표시 가능.
+type ToggleColumnKey = 'name' | 'orgUnitPath' | 'admin' | 'suspended';
+const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
+  { key: 'name', label: '이름' },
+  { key: 'orgUnitPath', label: '조직 단위' },
+  { key: 'admin', label: '관리자' },
+  { key: 'suspended', label: '정지' },
+];
+const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = ['name', 'orgUnitPath', 'admin', 'suspended'];
+const VISIBLE_COLUMNS_STORAGE_KEY = 'accountsTable.visibleColumns.v1';
+
+function readStoredVisibleColumns(): Set<ToggleColumnKey> {
+  try {
+    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
+    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
+    const filtered = parsed.filter((k): k is ToggleColumnKey =>
+      typeof k === 'string' && validKeys.includes(k),
+    );
+    return new Set(filtered);
+  } catch {
+    return new Set(DEFAULT_VISIBLE_COLUMNS);
+  }
+}
+
 interface StoredSortPref {
   sort?: string;
   dir?: string;
@@ -94,6 +122,28 @@ export function AccountsTable() {
   const [page, setPage] = useState(0);
   // v0.193: 페이지 크기 선택 (25/50/100). localStorage hydrate + 저장.
   const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+  // v0.199: 컬럼 표시 여부. lazy init from localStorage.
+  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
+    () => readStoredVisibleColumns(),
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+
+  const toggleColumn = (key: ToggleColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(
+          VISIBLE_COLUMNS_STORAGE_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // localStorage disabled → no-op.
+      }
+      return next;
+    });
+  };
 
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
@@ -374,6 +424,43 @@ export function AccountsTable() {
           >
             JSON 내보내기{exportScope === 'selected' ? ` (선택 ${exportUsers.length})` : ''}
           </Button>
+          {/* v0.199: 컬럼 표시 토글. 클릭 시 checkbox 목록 pop. localStorage 저장. */}
+          <div className="relative">
+            <Button
+              variant="secondary"
+              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              data-testid="accounts-column-menu-btn"
+              aria-expanded={isColumnMenuOpen}
+              aria-haspopup="menu"
+              title="컬럼 표시 여부 선택"
+            >
+              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
+            </Button>
+            {isColumnMenuOpen && (
+              <div
+                role="menu"
+                aria-label="컬럼 표시"
+                data-testid="accounts-column-menu"
+                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
+              >
+                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(key)}
+                      onChange={() => toggleColumn(key)}
+                      data-testid={`accounts-column-toggle-${key}`}
+                      className="cursor-pointer"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             onClick={() => setIsCreateOpen(true)}
             data-testid="add-account-btn"
@@ -530,24 +617,28 @@ export function AccountsTable() {
                     >
                       Email {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                    <TableHead
-                      onClick={() => handleSort('name')}
-                      {...sortHeaderKbdProps(() => handleSort('name'))}
-                      data-testid="accounts-sort-name"
-                      aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </TableHead>
-                    <TableHead
-                      onClick={() => handleSort('orgUnitPath')}
-                      {...sortHeaderKbdProps(() => handleSort('orgUnitPath'))}
-                      data-testid="accounts-sort-orgUnitPath"
-                      aria-sort={sortColumn === 'orgUnitPath' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      조직 단위 {sortColumn === 'orgUnitPath' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </TableHead>
-                    <TableHead className="text-center">관리자</TableHead>
-                    <TableHead className="text-center">정지</TableHead>
+                    {visibleColumns.has('name') && (
+                      <TableHead
+                        onClick={() => handleSort('name')}
+                        {...sortHeaderKbdProps(() => handleSort('name'))}
+                        data-testid="accounts-sort-name"
+                        aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      >
+                        이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                    )}
+                    {visibleColumns.has('orgUnitPath') && (
+                      <TableHead
+                        onClick={() => handleSort('orgUnitPath')}
+                        {...sortHeaderKbdProps(() => handleSort('orgUnitPath'))}
+                        data-testid="accounts-sort-orgUnitPath"
+                        aria-sort={sortColumn === 'orgUnitPath' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      >
+                        조직 단위 {sortColumn === 'orgUnitPath' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                    )}
+                    {visibleColumns.has('admin') && <TableHead className="text-center">관리자</TableHead>}
+                    {visibleColumns.has('suspended') && <TableHead className="text-center">정지</TableHead>}
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -579,32 +670,40 @@ export function AccountsTable() {
                             {user.email}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-fg-primary">{fullName}</TableCell>
-                        <TableCell className="font-mono text-small text-fg-secondary">
-                          {user.orgUnitPath || "/"}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {user.isAdmin ? (
-                            <span className="text-micro font-medium text-fg-primary">
-                              관리자
-                            </span>
-                          ) : (
-                            <span className="text-micro text-fg-muted">
-                              일반
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {user.isSuspended ? (
-                            <span className="text-micro font-medium text-state-danger">
-                              정지됨
-                            </span>
-                          ) : (
-                            <span className="text-micro text-fg-muted">
-                              정상
-                            </span>
-                          )}
-                        </TableCell>
+                        {visibleColumns.has('name') && (
+                          <TableCell className="text-fg-primary">{fullName}</TableCell>
+                        )}
+                        {visibleColumns.has('orgUnitPath') && (
+                          <TableCell className="font-mono text-small text-fg-secondary">
+                            {user.orgUnitPath || "/"}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has('admin') && (
+                          <TableCell className="text-center">
+                            {user.isAdmin ? (
+                              <span className="text-micro font-medium text-fg-primary">
+                                관리자
+                              </span>
+                            ) : (
+                              <span className="text-micro text-fg-muted">
+                                일반
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has('suspended') && (
+                          <TableCell className="text-center">
+                            {user.isSuspended ? (
+                              <span className="text-micro font-medium text-state-danger">
+                                정지됨
+                              </span>
+                            ) : (
+                              <span className="text-micro text-fg-muted">
+                                정상
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
                           <div className="flex justify-end items-center gap-3">
                             <button

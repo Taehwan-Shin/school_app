@@ -1901,6 +1901,111 @@ describe("AccountsTable component", () => {
       });
     });
   });
+
+  // v0.199: 컬럼 표시 토글 (name/orgUnitPath/admin/suspended).
+  describe("v0.199: 컬럼 표시 토글", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const sampleUsers = [
+      {
+        email: "one@cam.hs.kr",
+        firstName: "길동",
+        lastName: "홍",
+        isAdmin: false,
+        isSuspended: false,
+        orgUnitPath: "/학생",
+      },
+    ];
+
+    it("기본 4 columns 모두 표시 · 버튼 라벨 「컬럼 표시 (4 / 4)」", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      const btn = screen.getByTestId("accounts-column-menu-btn");
+      expect(btn.textContent).toBe("컬럼 표시 (4 / 4)");
+      expect(screen.getByTestId("accounts-sort-name")).toBeDefined();
+      expect(screen.getByTestId("accounts-sort-orgUnitPath")).toBeDefined();
+    });
+
+    it("「이름」 uncheck → name 컬럼 미표시 · localStorage 저장", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(screen.getByTestId("accounts-column-menu")).toBeDefined();
+      fireEvent.click(screen.getByTestId("accounts-column-toggle-name"));
+      expect(screen.queryByTestId("accounts-sort-name")).toBeNull();
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (3 / 4)",
+      );
+      await waitFor(() => {
+        const raw = localStorage.getItem("accountsTable.visibleColumns.v1");
+        expect(raw).toBeTruthy();
+        const parsed = JSON.parse(raw!) as string[];
+        expect(parsed).not.toContain("name");
+        expect(parsed).toContain("orgUnitPath");
+      });
+    });
+
+    it("localStorage 저장값 hydrate: [「admin」만] → 1 컬럼만 표시", () => {
+      localStorage.setItem(
+        "accountsTable.visibleColumns.v1",
+        JSON.stringify(["admin"]),
+      );
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (1 / 4)",
+      );
+      expect(screen.queryByTestId("accounts-sort-name")).toBeNull();
+      expect(screen.queryByTestId("accounts-sort-orgUnitPath")).toBeNull();
+    });
+
+    it("잘못된 localStorage 값 → default 4 columns", () => {
+      localStorage.setItem("accountsTable.visibleColumns.v1", "not-json{{");
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (4 / 4)",
+      );
+    });
+
+    it("모든 컬럼 uncheck 시 「컬럼 표시 (0 / 4)」 · 4 컬럼 모두 미표시", () => {
+      localStorage.setItem("accountsTable.visibleColumns.v1", JSON.stringify([]));
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (0 / 4)",
+      );
+      expect(screen.queryByTestId("accounts-sort-name")).toBeNull();
+      expect(screen.queryByTestId("accounts-sort-orgUnitPath")).toBeNull();
+    });
+  });
 });
 
 
