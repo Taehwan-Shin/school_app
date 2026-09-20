@@ -779,4 +779,60 @@ describe('CreateUserDialog component', () => {
       });
     });
   });
+
+  // v0.181: primaryEmail local-part 64자 상한 (RFC 5321 / Google Workspace).
+  describe('v0.181: email local-part 64자', () => {
+    it('local-part 가 64자 초과이면 validation error · mutate 미호출', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      const longLocal = 'a'.repeat(65);
+      fireEvent.change(screen.getByLabelText(/이메일/), {
+        target: { value: `${longLocal}@cam.hs.kr` },
+      });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId('create-user-error');
+      expect(err.textContent).toContain('이메일 아이디 (@ 앞부분) 는 최대 64자');
+      expect(err.textContent).toContain('현재 65자');
+    });
+
+    it('카운터: local-part 실시간 반영 · 초과 시 red · 정확 64자 정상', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      // @ 없이도 로컬로 간주
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'test' } });
+      const counter = screen.getByTestId('create-user-email-local-counter');
+      expect(counter.textContent).toContain('4 / 64');
+      // 64자 정확 + 도메인
+      fireEvent.change(screen.getByLabelText(/이메일/), {
+        target: { value: `${'a'.repeat(64)}@cam.hs.kr` },
+      });
+      expect(counter.textContent).toContain('64 / 64');
+      expect(counter.className).not.toContain('text-state-danger');
+      // 65자 초과
+      fireEvent.change(screen.getByLabelText(/이메일/), {
+        target: { value: `${'a'.repeat(65)}@cam.hs.kr` },
+      });
+      expect(counter.textContent).toContain('65 / 64');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('64자 정확이면 mutate 정상 호출 (경계 케이스)', async () => {
+      const local = 'a'.repeat(64);
+      const email = `${local}@cam.hs.kr`;
+      mockMutateAsync.mockResolvedValueOnce({ primaryEmail: email, uid: 'u-edge' });
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: email } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ primaryEmail: email }),
+        );
+      });
+    });
+  });
 });
