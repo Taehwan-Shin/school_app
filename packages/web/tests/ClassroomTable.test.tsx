@@ -1066,5 +1066,76 @@ describe('ClassroomTable component', () => {
       });
     });
   });
+
+  // v0.201: 컬럼 표시 토글 (v0.199/v0.200 대칭).
+  describe('v0.201: 컬럼 표시 토글', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const sampleCoursesOne = [
+      { id: 'c-1', name: '1학년 수학', section: '1학기', courseState: 'ACTIVE' },
+    ];
+
+    const setupOne = () => {
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: sampleCoursesOne },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    };
+
+    it('기본 5 columns 모두 표시 · 「컬럼 표시 (5 / 5)」', () => {
+      setupOne();
+      renderWithRouter(<ClassroomTable />);
+      expect(screen.getByTestId('classroom-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (5 / 5)',
+      );
+      expect(screen.getByTestId('classroom-sort-name')).toBeDefined();
+      expect(screen.getByTestId('classroom-sort-section')).toBeDefined();
+      expect(screen.getByTestId('classroom-sort-state')).toBeDefined();
+    });
+
+    it('「이름」 uncheck → name 컬럼 미표시 · localStorage 저장', async () => {
+      setupOne();
+      renderWithRouter(<ClassroomTable />);
+      fireEvent.click(screen.getByTestId('classroom-column-menu-btn'));
+      fireEvent.click(screen.getByTestId('classroom-column-toggle-name'));
+      expect(screen.queryByTestId('classroom-sort-name')).toBeNull();
+      expect(screen.getByTestId('classroom-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (4 / 5)',
+      );
+      await waitFor(() => {
+        const raw = localStorage.getItem('classroomTable.visibleColumns.v1');
+        expect(raw).toBeTruthy();
+        const parsed = JSON.parse(raw!) as string[];
+        expect(parsed).not.toContain('name');
+      });
+    });
+
+    it('localStorage 저장값 hydrate: [「id」만] → 1 컬럼만', () => {
+      localStorage.setItem(
+        'classroomTable.visibleColumns.v1',
+        JSON.stringify(['id']),
+      );
+      setupOne();
+      renderWithRouter(<ClassroomTable />);
+      expect(screen.getByTestId('classroom-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (1 / 5)',
+      );
+      expect(screen.queryByTestId('classroom-sort-name')).toBeNull();
+      expect(screen.queryByTestId('classroom-sort-section')).toBeNull();
+    });
+
+    it('잘못된 localStorage 값 → default 5 columns', () => {
+      localStorage.setItem('classroomTable.visibleColumns.v1', 'not-json{{');
+      setupOne();
+      renderWithRouter(<ClassroomTable />);
+      expect(screen.getByTestId('classroom-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (5 / 5)',
+      );
+    });
+  });
 });
 
