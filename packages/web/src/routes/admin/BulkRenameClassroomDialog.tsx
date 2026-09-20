@@ -264,6 +264,17 @@ export function BulkRenameClassroomDialog({
                                     : 'border-border-subtle text-fg-primary focus:border-border-strong focus:ring-border-strong'
                               }`}
                             />
+                            {/* v0.190: row-level 실시간 카운터 (v0.180/v0.188 스타일 통일).
+                                기존 tooLong warn 은 유지 (더 명시적 안내). */}
+                            <p
+                              className={`mt-1 text-small ${
+                                tooLong ? 'text-state-danger' : 'text-fg-muted'
+                              }`}
+                              data-testid={`bulk-rename-classroom-row-counter-${r.id}`}
+                            >
+                              {r.newName.length.toLocaleString()} /{' '}
+                              {COURSE_NAME_MAX.toLocaleString()} 자
+                            </p>
                             {tooLong && (
                               <p
                                 className="mt-1 text-micro text-state-danger"

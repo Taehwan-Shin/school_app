@@ -395,4 +395,28 @@ describe('BulkRenameClassroomDialog component', () => {
     const btn = screen.getByTestId('bulk-rename-classroom-confirm-btn') as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
+
+  // v0.190: row-level 실시간 카운터 (v0.180/v0.188 스타일 통일).
+  describe('v0.190: row-level 카운터', () => {
+    it('row 카운터: pre-fill 반영 · 「N / 750 자」 · 이내 muted · 초과 red', () => {
+      const courses = [{ id: 'a', name: '수학' }];
+      renderWithClient(
+        <BulkRenameClassroomDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courses={courses}
+        />,
+      );
+      const counter = screen.getByTestId('bulk-rename-classroom-row-counter-a');
+      // pre-filled 「수학」 = 2자
+      expect(counter.textContent).toBe('2 / 750 자');
+      expect(counter.className).toContain('text-fg-muted');
+      // 751자 → red
+      fireEvent.change(screen.getByTestId('bulk-rename-classroom-row-input-a'), {
+        target: { value: 'x'.repeat(751) },
+      });
+      expect(counter.textContent).toBe('751 / 750 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+  });
 });
