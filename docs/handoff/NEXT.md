@@ -1,10 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.190 병합 완료** (`7fe90a7`) - BulkRenameClassroomDialog row-level 실시간 카운터 (v0.180/v0.188 스타일) · 기계 관문 (lint clean · web 1092 유닛) 통과. **v0.189** (`7e03374`) - RenameClassroomDialog 카운터 이식 + shared classroomLimits 참조 · 웹 1091.
+> **v0.192 병합 완료** (`53ca8b1`) - CreateGroup + CreateClassroom + TransferClassroomOwner 세 dialog local-part 64자 카운터 이식 · 기계 관문 (lint clean · web 1102 유닛). **v0.191** (`c903a86`) - BulkTransferClassroomOwner local-part 카운터 + emailInput helper 확장.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `53ca8b1` v0.192 - CreateGroupDialog · CreateClassroomDialog · TransferClassroomOwnerDialog 세 dialog 에 v0.181/v0.191 대칭 local-part 64자 카운터 이식 · 각 dialog 특수 미노출 조건 (빈 값 · CreateClassroom 은 「me」 도 미노출) · 6 회귀 · 웹 1102 (+6) · lint clean · 서버 무변경. **Local-part 카운터 시리즈 완결** (v0.181/v0.191/v0.192 총 5 dialog).
+- `c903a86` v0.191 - BulkTransferClassroomOwnerDialog local-part 64자 카운터 + emailInput.ts 확장 (`EMAIL_LOCAL_PART_MAX` 상수 · `extractEmailLocalPart` helper) · 4 회귀 · 웹 1096 (+4).
 - `7fe90a7` v0.190 - BulkRenameClassroomDialog 각 row input 밑에 v0.180 스타일 실시간 카운터 (`mt-1 text-small` conditional-danger, 「N / 750 자」) · 기존 tooLong warn 은 유지 · 1 회귀 · 웹 1092 (+1) · lint clean · 서버 무변경.
 - `7e03374` v0.189 - RenameClassroomDialog 에 shared `COURSE_NAME_MAX` / `COURSE_SECTION_MAX` import (v0.175 재사용) · hardcoded 상수 alias 로 유지 · name/section input 밑에 v0.180 스타일 카운터 신규 (「N / MAX 자」) · 2 회귀 · 웹 1091 (+2) · lint clean · 서버 무변경.
 - `052d0d3` v0.188 - CreateClassroomDialog name(750)/section(2800)/room(650) 세 필드에 v0.180 스타일 카운터 신규 추가 · description(30000) 카운터 옛 스타일 (`text-micro` + `text-red-600` + 「현재」 prefix) 을 통일 (`text-small` + `text-state-danger` + prefix 제거) · 4 회귀 (v0.188 describe) · 웹 1089 (+4) · lint clean · 서버 무변경.

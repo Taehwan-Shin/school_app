@@ -4282,6 +4282,66 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.193**: users detail 페이지 name/OU 편집 인라인 카운터.
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-20 · v0.191 BulkTransferClassroomOwner local-part 카운터 + emailInput helper 확장
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `7591da7` (`feat/bulk-transfer-local-part-counter-v191`) | feat: v0.191 BulkTransferClassroomOwner local-part 64자 카운터 + emailInput helper 확장 |
+| 병합 | `c903a86` | Merge feat/bulk-transfer-local-part-counter-v191 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `c903a86` | skip (Head 폴백) | 기계 관문 (web 1096 유닛 · lint clean). |
+
+### 설계
+
+- **문제**: 소유자 일괄 이관 다이얼로그의 새 소유자 이메일 입력은 `normalizeSchoolEmailInput` helper 를 통과하지만 (LOCAL_PART_RE 로 64자 강제) 카운터 UI 없음. v0.181 CreateUser 는 카운터 이식됐지만 BulkTransfer 는 미커버.
+- **해결**: `lib/emailInput.ts` 에 `EMAIL_LOCAL_PART_MAX` 상수 + `extractEmailLocalPart(input)` helper 승격 (재사용). 왜 여기? 이메일 인프라의 semantic home 은 `emailInput.ts`. `userLimits.USER_LOCAL_PART_MAX` 는 동일 값이지만 v0.181 scope 에 남겨두고, `EMAIL_LOCAL_PART_MAX` 는 dialog 무관 이메일 상한. Import 통일 (다음 슬라이스 v0.192 도 이걸 쓸 수 있게).
+- **테스트**: helper 2 (상수 값 · extractEmailLocalPart edge cases) · dialog 회귀 2 (미노출 · 실시간 red toggle).
+
+## 2026-09-20 · v0.192 CreateGroup + CreateClassroom + TransferClassroomOwner local-part 카운터
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `57e4250` (`feat/local-part-counters-v192`) | feat: v0.192 CreateGroup + CreateClassroom + TransferClassroomOwner local-part 카운터 |
+| 병합 | `53ca8b1` | Merge feat/local-part-counters-v192 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `53ca8b1` | skip (Head 폴백) | 기계 관문 (web 1102 유닛 · lint clean). |
+
+### 설계
+
+- **문제**: v0.191 BulkTransfer 는 local-part 카운터 완료. 하지만 개별 (CreateGroup · CreateClassroom owner · TransferClassroomOwner) 3 dialog 도 이메일 입력 있는데 카운터 없음.
+- **해결**: v0.191 이 승격한 `EMAIL_LOCAL_PART_MAX` + `extractEmailLocalPart` 재사용. 각 dialog 특수 미노출 조건:
+  - CreateGroup: 빈 값이면 미노출 (아직 안 입력).
+  - CreateClassroom: 빈 값 OR「me」 이면 미노출 (기본값이 「me」 이므로).
+  - TransferClassroomOwner: 빈 값이면 미노출.
+- **테스트**: 각 dialog 2건 (미노출 조건 · 이내 muted/초과 red).
+
+### 배운 것
+
+- **Local-part 카운터 시리즈 완결**: v0.181 (CreateUser 1) + v0.191 (BulkTransfer 1) + v0.192 (CreateGroup · CreateClassroom · TransferClassroomOwner 3) = **5 dialog 완결**. 이메일 입력이 있는 모든 관리자 UI 에 카운터 완비.
+- **미노출 조건 유연성**: 카운터는 정보 밀도 UI 이지만 「기본값 상태」 에서는 노이즈. `me` (CreateClassroom 특수) · 빈 값 (전 dialog) 은 미노출 유지 → 정보 필요할 때만 노출.
+- **counter 승격 vs 인라인 판정**: v0.191 은 3 dialog 이상 재사용 예상 → 승격. v0.190 BulkRename row-level 카운터는 1 dialog 만 → 인라인 유지 (extractEmailLocalPart 는 v0.191/v0.192 두 세션 걸쳐 3 dialog 재사용 확정 후 승격).
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.193**: users detail 페이지 (userDetail.tsx) name/OU 편집 인라인 카운터 이식.
+  - **v0.194**: groupDetail 페이지 name/description 편집 인라인 카운터.
+  - **v0.195**: classroomDetail 페이지 편집 UI 최소화 (이미 v0.171 CopyButton 만).
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 
