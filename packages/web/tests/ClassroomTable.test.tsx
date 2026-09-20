@@ -834,5 +834,162 @@ describe('ClassroomTable component', () => {
       expect(nameTh.getAttribute('aria-sort')).toBe('none');
     });
   });
+
+  // v0.177: CSV/JSON 내보내기 (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭).
+  describe('v0.177 CSV/JSON 내보내기', () => {
+    const mockCourses = [
+      {
+        id: 'c-101',
+        name: '1학년 1반 수학',
+        section: '1학기',
+        courseState: 'ACTIVE',
+        description: '기초 수학',
+        alternateLink: 'https://classroom.google.com/c/c-101',
+        ownerId: 'owner-1',
+        creationTime: '2026-03-01T00:00:00Z',
+        updateTime: '2026-03-02T00:00:00Z',
+      },
+      {
+        id: 'c-102',
+        name: '1학년 2반 영어',
+        section: '1학기',
+        courseState: 'ARCHIVED',
+        alternateLink: 'https://classroom.google.com/c/c-102',
+      },
+    ];
+
+    beforeEach(() => {
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: mockCourses },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('CSV/JSON 버튼은 코스가 있으면 enabled · 파일명은 classrooms-<날짜>.<ext>', () => {
+      const anchorClicks: HTMLAnchorElement[] = [];
+      const originalClick = HTMLAnchorElement.prototype.click;
+      const originalCreate = URL.createObjectURL;
+      const originalRevoke = URL.revokeObjectURL;
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+      HTMLAnchorElement.prototype.click = function () {
+        anchorClicks.push(this as HTMLAnchorElement);
+      };
+      try {
+        renderWithRouter(<ClassroomTable />);
+        const csvBtn = screen.getByTestId('classroom-export-csv-btn') as HTMLButtonElement;
+        const jsonBtn = screen.getByTestId('classroom-export-json-btn') as HTMLButtonElement;
+        expect(csvBtn.disabled).toBe(false);
+        expect(jsonBtn.disabled).toBe(false);
+        expect(csvBtn.textContent).toBe('CSV 내보내기');
+        expect(jsonBtn.textContent).toBe('JSON 내보내기');
+
+        fireEvent.click(csvBtn);
+        fireEvent.click(jsonBtn);
+        expect(anchorClicks.length).toBe(2);
+        expect(anchorClicks[0].download).toMatch(/^classrooms-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(anchorClicks[1].download).toMatch(/^classrooms-\d{4}-\d{2}-\d{2}\.json$/);
+      } finally {
+        HTMLAnchorElement.prototype.click = originalClick;
+        URL.createObjectURL = originalCreate;
+        URL.revokeObjectURL = originalRevoke;
+      }
+    });
+
+    it('빈 목록이면 CSV/JSON 버튼 disabled', () => {
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<ClassroomTable />);
+      const csvBtn = screen.getByTestId('classroom-export-csv-btn') as HTMLButtonElement;
+      const jsonBtn = screen.getByTestId('classroom-export-json-btn') as HTMLButtonElement;
+      expect(csvBtn.disabled).toBe(true);
+      expect(jsonBtn.disabled).toBe(true);
+    });
+
+    it('필터 결과 0 이면 CSV/JSON disabled (원본은 있어도)', () => {
+      renderWithRouter(<ClassroomTable />, ['/admin/classrooms?q=zzz-no-match']);
+      const csvBtn = screen.getByTestId('classroom-export-csv-btn') as HTMLButtonElement;
+      const jsonBtn = screen.getByTestId('classroom-export-json-btn') as HTMLButtonElement;
+      expect(csvBtn.disabled).toBe(true);
+      expect(jsonBtn.disabled).toBe(true);
+    });
+
+    it('선택 있으면 버튼 라벨에 「(선택 N)」 · 파일명에 -selected 접미사', () => {
+      const anchorClicks: HTMLAnchorElement[] = [];
+      const originalClick = HTMLAnchorElement.prototype.click;
+      const originalCreate = URL.createObjectURL;
+      const originalRevoke = URL.revokeObjectURL;
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+      HTMLAnchorElement.prototype.click = function () {
+        anchorClicks.push(this as HTMLAnchorElement);
+      };
+      try {
+        renderWithRouter(<ClassroomTable />);
+        // c-101 (ACTIVE) 선택
+        const cb = screen.getByTestId('classroom-select-c-101') as HTMLInputElement;
+        fireEvent.click(cb);
+        const csvBtn = screen.getByTestId('classroom-export-csv-btn') as HTMLButtonElement;
+        const jsonBtn = screen.getByTestId('classroom-export-json-btn') as HTMLButtonElement;
+        expect(csvBtn.textContent).toBe('CSV 내보내기 (선택 1)');
+        expect(jsonBtn.textContent).toBe('JSON 내보내기 (선택 1)');
+
+        fireEvent.click(csvBtn);
+        fireEvent.click(jsonBtn);
+        expect(anchorClicks.length).toBe(2);
+        expect(anchorClicks[0].download).toMatch(/^classrooms-selected-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(anchorClicks[1].download).toMatch(/^classrooms-selected-\d{4}-\d{2}-\d{2}\.json$/);
+      } finally {
+        HTMLAnchorElement.prototype.click = originalClick;
+        URL.createObjectURL = originalCreate;
+        URL.revokeObjectURL = originalRevoke;
+      }
+    });
+
+    it('JSON payload 는 filters · scope · totalCount · courses 포함', async () => {
+      const captured: string[] = [];
+      const originalCreateObjectURL = URL.createObjectURL;
+      URL.createObjectURL = ((blob: Blob) => {
+        // Blob → text 로 payload 캡처 (JSON 만).
+        if (blob.type.startsWith('application/json')) {
+          void blob.text().then((t) => captured.push(t));
+        }
+        return 'blob:mock';
+      }) as typeof URL.createObjectURL;
+      const originalRevoke = URL.revokeObjectURL;
+      URL.revokeObjectURL = () => {};
+      const originalClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () {};
+      try {
+        renderWithRouter(<ClassroomTable />, ['/admin/classrooms?q=수학&sort=name&dir=asc']);
+        fireEvent.click(screen.getByTestId('classroom-export-json-btn'));
+        await waitFor(() => expect(captured.length).toBe(1));
+        const payload = JSON.parse(captured[0]);
+        expect(payload.scope).toBe('filtered');
+        expect(payload.filters).toEqual({
+          q: '수학',
+          filter: null,
+          sort: 'name',
+          dir: 'asc',
+        });
+        expect(payload.totalCount).toBe(1);
+        expect(payload.courses).toHaveLength(1);
+        expect(payload.courses[0].id).toBe('c-101');
+        expect(payload.courses[0].description).toBe('기초 수학');
+        expect(payload.courses[0].alternateLink).toBe('https://classroom.google.com/c/c-101');
+        expect(payload.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      } finally {
+        URL.createObjectURL = originalCreateObjectURL;
+        URL.revokeObjectURL = originalRevoke;
+        HTMLAnchorElement.prototype.click = originalClick;
+      }
+    });
+  });
 });
 
