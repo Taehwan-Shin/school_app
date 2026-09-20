@@ -16,6 +16,7 @@ import { useClassroomList } from "../../api/classroomList";
 import { callClassroomTeachersAdd } from "../../api/classroomTeachersAdd";
 import { callClassroomStudentsAdd } from "../../api/classroomStudentsAdd";
 import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from "../../lib/userLimits";
+import { ORG_UNIT_NAME_MAX } from "../../lib/orgUnitLimits";
 
 export interface BatchCreateUsersDialogProps {
   open: boolean;
@@ -192,7 +193,11 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
     const name = newOuName.trim();
     const parent = newOuParent.trim();
     if (!name) return setNewOuValidationError("OU 이름을 입력해주세요.");
-    if (name.length > 100) return setNewOuValidationError("OU 이름은 100자 이하여야 합니다.");
+    // v0.185: hardcoded 100 → shared ORG_UNIT_NAME_MAX 로 승격.
+    if (name.length > ORG_UNIT_NAME_MAX)
+      return setNewOuValidationError(
+        `OU 이름은 ${ORG_UNIT_NAME_MAX}자 이하여야 합니다. (현재 ${name.length}자)`,
+      );
     if (name.includes("/") || name.includes("\\"))
       return setNewOuValidationError("OU 이름에 슬래시(/, \\)를 사용할 수 없습니다.");
     if (!parent || !parent.startsWith("/"))
@@ -466,6 +471,16 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                         data-testid="batch-create-users-new-ou-name"
                         className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
                       />
+                      <p
+                        className={`mt-1 text-small ${
+                          newOuName.trim().length > ORG_UNIT_NAME_MAX
+                            ? "text-state-danger"
+                            : "text-fg-muted"
+                        }`}
+                        data-testid="batch-create-users-new-ou-name-counter"
+                      >
+                        {newOuName.trim().length} / {ORG_UNIT_NAME_MAX} 자
+                      </p>
                     </div>
                     <div>
                       <label
