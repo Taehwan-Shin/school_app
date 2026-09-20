@@ -991,5 +991,68 @@ describe('ClassroomTable component', () => {
       }
     });
   });
+
+  // v0.195: 페이지 크기 셀렉터 (v0.193/v0.194 대칭).
+  describe('v0.195: 페이지 크기 셀렉터', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const courses30 = Array.from({ length: 30 }, (_, i) => ({
+      id: `c-${i}`,
+      name: `코스 ${i}`,
+      section: '1학기',
+      courseState: 'ACTIVE',
+    }));
+
+    const setup = () => {
+      mockUseClassroomList.mockReturnValue({
+        data: { courses: courses30 },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    };
+
+    it('기본 25개 · select 값 = 25', () => {
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+      expect(
+        (screen.getByTestId('classroom-pagination-next') as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    it('50 선택 시 30개 한 페이지 · 「다음」 disabled · localStorage 저장', async () => {
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: '50' } });
+      expect(select.value).toBe('50');
+      await waitFor(() => {
+        expect(localStorage.getItem('classroomTable.pageSize.v1')).toBe('50');
+      });
+      expect(
+        (screen.getByTestId('classroom-pagination-next') as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+
+    it('localStorage 저장값 「100」 → mount 시 자동 hydrate', () => {
+      localStorage.setItem('classroomTable.pageSize.v1', '100');
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('100');
+    });
+
+    it('잘못된 localStorage 값 → default 25 fallback', () => {
+      localStorage.setItem('classroomTable.pageSize.v1', 'abc');
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+    });
+  });
 });
 

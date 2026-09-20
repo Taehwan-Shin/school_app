@@ -69,7 +69,23 @@ function readStoredSortPref(): StoredSortPref | null {
 }
 type KpiFilter = 'active' | 'archived' | null;
 
-const PAGE_SIZE = 25;
+// v0.195: 페이지 크기 셀렉터 (v0.193/v0.194 대칭).
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+const DEFAULT_PAGE_SIZE: PageSize = 25;
+const PAGE_SIZE_STORAGE_KEY = 'classroomTable.pageSize.v1';
+
+function readStoredPageSize(): PageSize {
+  try {
+    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    if (!raw) return DEFAULT_PAGE_SIZE;
+    const parsed = Number.parseInt(raw, 10);
+    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
+    return DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
 
 export function ClassroomTable() {
   const { role: currentRole } = useAuth();
@@ -103,6 +119,18 @@ export function ClassroomTable() {
   })();
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
+  // v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭).
+  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+
+  const handlePageSizeChange = (size: PageSize) => {
+    setPageSize(size);
+    setPage(0);
+    try {
+      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
 
   useEffect(() => {
     setPage(0);
@@ -196,8 +224,8 @@ export function ClassroomTable() {
 
   const total = sortedFilteredCourses.length;
   const paginatedCourses = sortedFilteredCourses.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE,
+    page * pageSize,
+    (page + 1) * pageSize,
   );
 
   // v0.137: eligibleIds 는 필터 결과 기반 (「전체 선택」 = 현재 보이는 eligible 만).
@@ -743,9 +771,26 @@ export function ClassroomTable() {
           <span data-testid="classroom-pagination-info">
             {total === 0
               ? '결과 없음'
-              : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} / ${total}`}
+              : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} / ${total}`}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {/* v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭). */}
+            <label htmlFor="classroom-page-size" className="text-small text-fg-secondary">
+              페이지 크기:
+            </label>
+            <select
+              id="classroom-page-size"
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value) as PageSize)}
+              data-testid="classroom-page-size-select"
+              className="border border-border-subtle bg-canvas text-fg-primary px-2 py-1 text-small focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -758,7 +803,7 @@ export function ClassroomTable() {
             <button
               type="button"
               onClick={() => setPage((p) => p + 1)}
-              disabled={(page + 1) * PAGE_SIZE >= total}
+              disabled={(page + 1) * pageSize >= total}
               data-testid="classroom-pagination-next"
               className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
             >
