@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.186 병합 완료** (`69044f1`) - AuditLog JSON export 에 sourceQuery/sourcePath 재현용 필드 추가 (v0.108 F55 payload 확장) · 기계 관문 (lint clean · web 1081 유닛) 통과 · Codex R1 skip.
+> **v0.187 병합 완료** (`971a90f`) - CreateGroup/EditGroup description counter 를 v0.180 name counter 스타일로 통일 (`text-micro text-fg-muted` → `text-small` conditional-danger, 「현재」 prefix 제거) · 기계 관문 (lint clean · web 1085 유닛) 통과 · Codex R1 skip.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `971a90f` v0.187 - CreateGroupDialog + EditGroupDialog description counter 통일 · `mt-1 text-small ${description.length > MAX ? 'text-state-danger' : 'text-fg-muted'}` · 「현재 N / 4096 자」 → 「N / 4096 자」 · 4 회귀 (v0.187 describe: 각 dialog 「4096 이내 muted + 텍스트 포맷」 · 「4097 초과 red」) · 웹 1085 (+4) · lint clean · 서버 무변경.
 - `69044f1` v0.186 - AuditLogTable handleExportJson 에 `sourceQuery` (`?<params>` 또는 빈 문자열) + `sourcePath` (`/super_admin/audit${sourceQuery}`) 필드 추가 · export 파일만 들고 다른 세션/기기에서 동일 조회를 재현 가능 · 2 회귀 (빈 URL · action+result 필터 URL) · 웹 1081 (+2) · lint clean · 서버 무변경.
 - `3bb8ff9` v0.185 - 신규 `lib/orgUnitLimits.ts` (`ORG_UNIT_NAME_MAX = 100`, Google Admin SDK Directory OrgUnit 규격) · CreateUserDialog 「새 OU 만들기」 폼 hardcoded 100 → 상수 참조 + input 밑 「N / 100 자」 카운터 (초과 시 red) + 상세 에러 (현재 N자 포함) · BatchCreateUsersDialog 「새 OU 만들기」 폼 동일 이식 (대칭) · 5 회귀 (orgUnitLimits helper 1 · CreateUser v0.185 2 · Batch v0.185 2) · 웹 1079 (+5) · lint clean · 서버 무변경.
 - `34240a3` v0.184 - BasicDataPanel 헤더 버튼 9개를 `role="group" aria-label="..."` 세 그룹으로 시각 분리 (좌측 border) · 편집 그룹 (편집 · 학생 명단 편집) · 자동 워크플로우 그룹 (그룹 자동 생성 · 부서 그룹 자동 생성 · 학생 자동 초대 · 반 챗방 자동 초대 · 명단 밖 자동 제거) · 데이터 입출력 그룹 (JSON 불러오기 · JSON 내보내기) · 「명단 밖 자동 제거」 를 자동 그룹 마지막으로 (파괴적 액션 뒤로 재정렬) · 기존 testid 모두 유지 (16 회귀 무영향) + 3 신규 회귀 · 웹 1074 (+3) · lint clean · 서버 무변경.

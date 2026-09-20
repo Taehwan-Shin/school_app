@@ -118,6 +118,7 @@
 - **BasicDataPanel 버튼 3-그룹핑** - v0.184 완료 (UX polish · 접근성 개선). 9개 버튼을 `role="group" aria-label` 세 그룹 (편집 / 자동 워크플로우 / 데이터 입출력) 으로 시각+ARIA 분리 · 좌측 border 로 그룹 구분 · 「명단 밖 자동 제거」 를 자동 그룹 마지막 (파괴적 액션 뒤) 으로 재정렬 · 기존 testid 유지 (16 회귀 무영향) + 3 신규 회귀 · 웹 1074 (+3) · lint clean · 서버 무변경.
 - **OrgUnit 이름 100자 상한 shared lib 승격** - v0.185 완료 (v0.121/v0.159 hardcoded 정리 · v0.178 카운터 pattern 이식). shared `lib/orgUnitLimits.ts` (`ORG_UNIT_NAME_MAX = 100`) · CreateUser + Batch 두 폼에 상수 참조 + 카운터 「N / 100 자」 (초과 시 red) + 상세 에러 · 5 회귀 · 웹 1079 (+5) · lint clean · 서버 무변경.
 - **AuditLog JSON export sourceQuery/sourcePath** - v0.186 완료 (v0.108 F55 payload 확장). handleExportJson 에 `sourceQuery` + `sourcePath` 재현용 필드 추가 · export 파일만 들고 다른 세션에서 sourcePath 로 동일 조회 재현 가능 · 2 회귀 · 웹 1081 (+2) · lint clean · 서버 무변경.
+- **CreateGroup/EditGroup description counter 통일** - v0.187 완료 (v0.180 name counter 스타일 대칭). `text-micro text-fg-muted` → `text-small` conditional-danger · 「현재」 prefix 제거하여 「N / 4096 자」 포맷으로 통일 · 4 회귀 · 웹 1085 (+4) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

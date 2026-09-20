@@ -4142,6 +4142,44 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.189**: RenameClassroomDialog (v0.136 개별 이름 변경) 카운터 이식.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.187 CreateGroup/EditGroup description counter 스타일 통일 (v0.180 대칭)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `944385e` (`feat/group-description-counter-unify-v187`) | feat: v0.187 CreateGroup/EditGroup description counter v0.180 스타일 통일 |
+| 병합 | `971a90f` | Merge feat/group-description-counter-unify-v187 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `971a90f` | skip (Head 폴백) | 기계 관문 (web 1085 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: v0.173 에서 도입한 description counter 는 항상 muted (`text-micro text-fg-muted` + 「현재 N / 4096 자」 prefix). v0.180 에서 도입한 name counter 는 초과 시 red (`text-small` conditional-danger + prefix 없이 「N / MAX 자」). 두 counter 시각 관례 불일치 → 사용자가 상한 초과를 description 에서 인지하기 어려움.
+- **해결**:
+  - `text-micro` → `text-small` (name counter 와 크기 통일).
+  - `text-fg-muted` (상수) → `${description.length > MAX ? 'text-state-danger' : 'text-fg-muted'}` (초과 시 red toggle).
+  - 「현재 N / 4096 자」 → 「N / 4096 자」 (v0.180/v0.185 name counter 포맷과 통일).
+- **테스트**: 4 회귀 (각 dialog 「이내 muted + 텍스트 포맷」 · 「초과 red」).
+
+### 배운 것
+
+- **counter 스타일 3-요소 통일**: (1) `text-small` 크기 · (2) `mt-1` 간격 · (3) `${...danger : muted}` conditional class 이 세 요소가 「app-standard counter」 정의. v0.178 (userLimits) · v0.180 (groupName) · v0.185 (orgUnitName) 모두 이 3-요소 준수. v0.173 description 은 예외였는데 v0.187 로 정리.
+- **텍스트 포맷 통일**: 「N / MAX 자」 (name counter 관례). 「현재」 같은 명시 prefix 는 label 이나 title 에서 이미 「설명」 이라 문맥상 중복. 카운터 자체는 숫자만 강조.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.188**: CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 있지만 카운터 없음).
+  - **v0.189**: RenameClassroomDialog 카운터 이식 (v0.136 개별 이름 변경).
+  - **v0.190**: BulkRenameClassroomDialog row-level 카운터 (v0.176 은 warn 만 있고 실시간 counter 없음).
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 
