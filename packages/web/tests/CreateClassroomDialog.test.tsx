@@ -196,4 +196,56 @@ describe('CreateClassroomDialog component', () => {
       });
     });
   });
+
+  // v0.188: name/section/room 카운터 이식 + description counter v0.180 스타일 통일.
+  describe('v0.188: name/section/room 카운터 + description 스타일 통일', () => {
+    it('name 카운터: 초기 「0 / 750 자」 muted · 751자 red', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId('create-classroom-name-counter');
+      expect(counter.textContent).toBe('0 / 750 자');
+      expect(counter.className).toContain('text-fg-muted');
+      fireEvent.change(screen.getByTestId('create-classroom-name'), {
+        target: { value: 'x'.repeat(751) },
+      });
+      expect(counter.textContent).toBe('751 / 750 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('section 카운터: 초기 「0 / 2,800 자」 muted · 2801자 red', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId('create-classroom-section-counter');
+      expect(counter.textContent).toBe('0 / 2,800 자');
+      expect(counter.className).toContain('text-fg-muted');
+      fireEvent.change(screen.getByTestId('create-classroom-section'), {
+        target: { value: 'x'.repeat(2801) },
+      });
+      expect(counter.textContent).toBe('2,801 / 2,800 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('room 카운터: 초기 「0 / 650 자」 muted · 651자 red', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId('create-classroom-room-counter');
+      expect(counter.textContent).toBe('0 / 650 자');
+      expect(counter.className).toContain('text-fg-muted');
+      fireEvent.change(screen.getByTestId('create-classroom-room'), {
+        target: { value: 'x'.repeat(651) },
+      });
+      expect(counter.textContent).toBe('651 / 650 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('description 카운터: v0.180 스타일 통일 (text-small · text-state-danger · 「현재」 prefix 제거)', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId('create-classroom-description-counter');
+      expect(counter.textContent).toBe('0 / 30,000 자'); // 「현재」 prefix 없음
+      expect(counter.className).toContain('text-small');
+      expect(counter.className).not.toContain('text-red-600'); // 옛 스타일 제거
+      fireEvent.change(screen.getByTestId('create-classroom-description'), {
+        target: { value: 'x'.repeat(30001) },
+      });
+      expect(counter.textContent).toBe('30,001 / 30,000 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+  });
 });
