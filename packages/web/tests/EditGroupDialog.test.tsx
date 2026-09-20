@@ -143,4 +143,26 @@ describe("EditGroupDialog component", () => {
       });
     });
   });
+
+  // v0.187: description counter v0.180 name counter 스타일 통일.
+  describe("v0.187: description counter 스타일 통일", () => {
+    it("설명 카운터는 pre-fill 반영 · 「N / 4096 자」 · muted", () => {
+      renderWithRouter(<EditGroupDialog open={true} onOpenChange={vi.fn()} group={sampleGroup} />);
+      const counter = screen.getByTestId("edit-group-description-counter");
+      // pre-filled 「교직원 안내용 그룹」 = 10자
+      expect(counter.textContent).toBe("10 / 4096 자");
+      expect(counter.className).toContain("text-small");
+      expect(counter.className).toContain("text-fg-muted");
+      expect(counter.className).not.toContain("text-state-danger");
+    });
+
+    it("4096자 초과 시 카운터 red · text-state-danger class 추가", () => {
+      renderWithRouter(<EditGroupDialog open={true} onOpenChange={vi.fn()} group={sampleGroup} />);
+      const textarea = screen.getByTestId("edit-group-description-input");
+      fireEvent.change(textarea, { target: { value: "x".repeat(4097) } });
+      const counter = screen.getByTestId("edit-group-description-counter");
+      expect(counter.textContent).toBe("4097 / 4096 자");
+      expect(counter.className).toContain("text-state-danger");
+    });
+  });
 });

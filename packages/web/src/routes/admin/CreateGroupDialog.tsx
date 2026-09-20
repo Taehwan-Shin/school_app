@@ -194,10 +194,14 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong resize-y"
               />
               <p
-                className="mt-1 text-micro text-fg-muted"
+                className={`mt-1 text-small ${
+                  description.length > GROUP_DESCRIPTION_MAX
+                    ? 'text-state-danger'
+                    : 'text-fg-muted'
+                }`}
                 data-testid="create-group-description-counter"
               >
-                현재 {description.length} / {GROUP_DESCRIPTION_MAX} 자
+                {description.length} / {GROUP_DESCRIPTION_MAX} 자
               </p>
             </div>
           </div>
