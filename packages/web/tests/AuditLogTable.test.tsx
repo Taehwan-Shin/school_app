@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AuditLogTable } from '../src/routes/super_admin/AuditLogTable';
 import type { AuditLogEntryRead } from '../src/api/auditLogList';
@@ -1984,6 +1984,51 @@ describe('AuditLogTable component', () => {
         URL.createObjectURL = origCreate;
         clickSpy.mockRestore();
       }
+    });
+  });
+
+  // v0.197: 페이지 크기 셀렉터 (v0.193 시리즈 대칭 · 서버 요청 pageSize 변경).
+  describe('v0.197: 페이지 크기 셀렉터', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it('기본 25 · select 값 = 25 · useAuditLogList 첫 인자 25', () => {
+      mockUseAuditLogList.mockReturnValue(defaultMockReturn);
+      renderWithRouter(<AuditLogTable />);
+      const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+      expect(mockUseAuditLogList).toHaveBeenLastCalledWith(25, expect.any(Object));
+    });
+
+    it('50 선택 시 useAuditLogList 두 번째 인자로 50 전달 · localStorage 저장', async () => {
+      mockUseAuditLogList.mockReturnValue(defaultMockReturn);
+      renderWithRouter(<AuditLogTable />);
+      const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: '50' } });
+      expect(select.value).toBe('50');
+      await waitFor(() => {
+        expect(localStorage.getItem('auditLogTable.pageSize.v1')).toBe('50');
+      });
+      // 다음 렌더 (state 변경 후) 에서 useAuditLogList 가 50 으로 호출.
+      expect(mockUseAuditLogList).toHaveBeenLastCalledWith(50, expect.any(Object));
+    });
+
+    it('localStorage 저장값 「100」 이면 mount 시 자동 hydrate · useAuditLogList 100 호출', () => {
+      localStorage.setItem('auditLogTable.pageSize.v1', '100');
+      mockUseAuditLogList.mockReturnValue(defaultMockReturn);
+      renderWithRouter(<AuditLogTable />);
+      const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('100');
+      expect(mockUseAuditLogList).toHaveBeenLastCalledWith(100, expect.any(Object));
+    });
+
+    it('잘못된 localStorage 값 → default 25 fallback', () => {
+      localStorage.setItem('auditLogTable.pageSize.v1', 'abc');
+      mockUseAuditLogList.mockReturnValue(defaultMockReturn);
+      renderWithRouter(<AuditLogTable />);
+      const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
     });
   });
 });
