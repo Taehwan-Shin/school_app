@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.197 병합 완료** (`a4ad11a`) - AuditLogTable 페이지 크기 셀렉터 (page-size 시리즈 4 테이블 최종 완결 · 서버 요청 pageSize 도 변경) · 웹 1122. **v0.196** (`76caeec`) - 3 테이블 pagination-info 에 「N / M 페이지」 표기 · 웹 1118. **v0.195** (`75d1279`) - Classroom · v0.194 GroupsTable · v0.193 AccountsTable page-size selector.
+> **v0.198 병합 완료** (`fd7ecdd`) - AuditLog 「더 보기」 pageSize 반영 + hasMore 시각화 (v0.197 후속) · 웹 1125. **v0.197** (`a4ad11a`) - AuditLogTable page-size selector. **v0.196** (`76caeec`) - 3 테이블 「N / M 페이지」 표기.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `fd7ecdd` v0.198 - AuditLogTable 「더 보기 (25 건)」 하드코딩을 pageSize state 반영으로 변경 · 로드 정보 헤더에 hasMore 여부 `(더 있음)` / `(마지막)` 추가 (`data-testid="audit-log-loaded-info"`) · 3 회귀 · 웹 1125 (+3) · lint clean · 서버 무변경.
 - `a4ad11a` v0.197 - AuditLogTable page-size 셀렉터 (`auditLogTable.pageSize.v1`) · `useAuditLogList(pageSize, ...)` 로 서버 요청 크기 변경 · JSON export payload `filter.pageSize` 도 state 값 반영 · 4 회귀 · 웹 1122 (+4) · lint clean · 서버 무변경.
 - `76caeec` v0.196 - 3 테이블 pagination-info 문자열에 `(N / M 페이지)` 접미사 추가 · 기존 회귀 18 개 `.toBe → .toContain` 완화 · v0.196 신규 회귀 3건 (각 테이블 next-page toggle) · 웹 1118 (+3) · lint clean · 서버 무변경.
 - `75d1279` v0.195 - ClassroomTable 페이지 크기 셀렉터 (`classroomTable.pageSize.v1`) · 4 회귀 · 웹 1115 (+4) · lint clean · 서버 무변경.

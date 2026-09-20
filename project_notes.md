@@ -4438,6 +4438,36 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.200**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150 통합).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.198 AuditLog 「더 보기」 pageSize + hasMore 시각화 (v0.197 후속 마감)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `ba1c460` | feat: v0.198 AuditLog 「더 보기」 pageSize + hasMore 시각화 |
+| 병합 | `fd7ecdd` | Merge feat/audit-loaded-count-v198 |
+
+### 설계
+
+- **문제**: v0.197 로 서버 요청 pageSize 는 state 로 변경됐지만 화면상 「더 보기 (25 건)」 버튼 라벨은 하드코딩 25 → pageSize=50/100 선택 시 라벨과 실제 로드량 mismatch. 또 hasMore 상태가 헤더 정보에 노출 안 됨.
+- **해결**:
+  - 「더 보기 (25 건)」 → `더 보기 (${pageSize} 건)` — state 참조.
+  - 로드 정보 헤더에 `(더 있음)` / `(마지막)` 접미사. testid `audit-log-loaded-info` 신규.
+
+### 배운 것
+
+- **후속 마감 슬라이스의 가치**: v0.197 이 큰 pattern 을 이식했지만 label 하드코딩 하나가 남아있었음. v0.198 은 30 line diff 로 완결감 제공. 큰 슬라이스 이후 「소소한 마감」 슬라이스를 별도로 두는 게 오히려 diff 리뷰 편함.
+- **hasMore 시각화의 UX 가치**: 무한 스크롤은 「끝났는지」 사용자가 알기 어려움. `(마지막)` 뱃지가 명시적 신호.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.199**: Column visibility toggle (선택 컬럼 숨기기 · 3 테이블).
+  - **v0.200**: AutoInvite + AutoRemove 통합 diff dialog.
+  - **v0.201**: 감사 로그 정렬 옵션.
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
