@@ -2031,5 +2031,59 @@ describe('AuditLogTable component', () => {
       expect(select.value).toBe('25');
     });
   });
+
+  // v0.198: 「더 보기」 버튼 pageSize 반영 + hasMore 시각화.
+  describe('v0.198: 로드 정보 + 「더 보기」 pageSize', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const sampleEntry = {
+      id: 'log-1',
+      actor: 'super@cam.hs.kr',
+      role: 'super_admin',
+      action: 'users.read',
+      target: '*',
+      request_id: 'r1',
+      result: 'ok',
+      at: 1725150000000,
+    } as AuditLogEntryRead;
+
+    it('hasMore=true → 로드 정보 「(더 있음)」 · 「더 보기 (25 건)」', () => {
+      mockUseAuditLogList.mockReturnValue({
+        ...defaultMockReturn,
+        entries: [sampleEntry],
+        hasMore: true,
+      });
+      renderWithRouter(<AuditLogTable />);
+      const info = screen.getByTestId('audit-log-loaded-info');
+      expect(info.textContent).toContain('(더 있음)');
+      const btn = screen.getByTestId('audit-log-load-more');
+      expect(btn.textContent).toBe('더 보기 (25 건)');
+    });
+
+    it('hasMore=false → 「(마지막)」 · 「더 보기」 버튼 미노출', () => {
+      mockUseAuditLogList.mockReturnValue({
+        ...defaultMockReturn,
+        entries: [sampleEntry],
+        hasMore: false,
+      });
+      renderWithRouter(<AuditLogTable />);
+      const info = screen.getByTestId('audit-log-loaded-info');
+      expect(info.textContent).toContain('(마지막)');
+      expect(screen.queryByTestId('audit-log-load-more')).toBeNull();
+    });
+
+    it('pageSize=50 저장 시 「더 보기 (50 건)」', () => {
+      localStorage.setItem('auditLogTable.pageSize.v1', '50');
+      mockUseAuditLogList.mockReturnValue({
+        ...defaultMockReturn,
+        entries: [sampleEntry],
+        hasMore: true,
+      });
+      renderWithRouter(<AuditLogTable />);
+      expect(screen.getByTestId('audit-log-load-more').textContent).toBe('더 보기 (50 건)');
+    });
+  });
 });
 
