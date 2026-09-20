@@ -3916,4 +3916,39 @@ ROADMAP 남은 후보 (v0.154+):
 - 로드맵 남은: A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 - 새 후보: primaryEmail/local-part 상한 (v0.180 groups.email 후속 · CreateUser/CreateGroup 두 곳 확장) · CourseBulkCreate CSV row 상한 표시 · CreateOrgUnit 재확인 · dashboard export 개선.
 
+## 2026-09-20 · v0.181 CreateUserDialog primaryEmail local-part 64자 상한 (RFC 5321)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `8c88bd3` (`feat/user-email-local-limit-v181`) | feat: v0.181 CreateUserDialog primaryEmail local-part 64자 상한 검증 |
+| 병합 | `534c05f` | Merge feat/user-email-local-limit-v181 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `534c05f` | skip (Head 폴백) | 기계 관문 (web 1064 유닛 · lint clean) 을 gate. Codex 한도 소진 대응. |
+
+### 설계
+
+- **문제**: CreateGroupDialog · BatchCreateUsersDialog · CreateClassroomDialog owner · TransferClassroomOwner 는 모두 `lib/emailInput.ts` LOCAL_PART_RE (`{0,63}`) 로 64자 강제. CreateUserDialog 만 full email 직접 입력 + `endsWith('@cam.hs.kr')` 만 검사 → 65자+ local-part 시 서버 400.
+- **해결**: `USER_LOCAL_PART_MAX = 64` shared 상수 추가 + CreateUserDialog handleSubmit 에서 `email.slice(0, lastIndexOf('@'))` 로 local 추출 후 길이 체크. 이메일 input 밑 카운터 (@ 없이도 로컬로 간주해 실시간 반영).
+- **테스트**: 3 시나리오 (65자 초과 차단 · 카운터 실시간 red toggle · 64자 정확 mutate 정상). 초기 draft 에 `@cam.hs.kr` empty-local 테스트 추가했지만 HTML5 `<input type="email">` required 가 form submit 을 사전 차단해 JS 검증까지 도달 안 함 → 해당 테스트는 defensive 이지만 회귀는 removeToo.
+
+### 배운 것
+
+- **HTML5 input type="email" required 는 JS submit 검증 상위**: `fireEvent.click(submit)` 이 무효 이메일 (예: `@cam.hs.kr`) 에서는 form.submit 을 발생시키지 않음 → 내부 handleSubmit 이 실행 안 됨. defensive check 는 코드에 남기되 테스트는 HTML5 valid 값으로만 트리거.
+- **helper 재사용 vs 신규 검증**: `normalizeSchoolEmailInput` 을 CreateUserDialog 에도 이식할 수 있었으나, 현재 UX (full email 필수) 를 그대로 두면서 상한만 강제하는 게 diff 최소. helper 통합은 별도 UX 결정 슬라이스로 남김.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.182**: `EditUserDialog` primaryEmail 는 read-only 라 검증 불필요. 대신 **NEIS CSV import 시 로컬 성/이름 60자 상한 표시** (v0.145 dialog 확장 · v0.176 pattern).
+  - **v0.183**: CourseBulkCreate 자동 생성 name 은 짧지만 유저 지정 「년도 접두어」 등으로 상한 표시 방어.
+  - **v0.184**: dashboard export 개선 (audit result 카드 CSV/JSON) 또는 basicData panel UX polish.
+- 로드맵 남은 (blocked): A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+
+
 
