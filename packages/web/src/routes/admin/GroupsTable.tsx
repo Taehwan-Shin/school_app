@@ -41,6 +41,39 @@ function readStoredPageSize(): PageSize {
 // v0.161: 정렬 선호 localStorage 키 (v0.160 AccountsTable 대칭).
 const SORT_STORAGE_KEY = 'groupsTable.sort.v1';
 
+// v0.200: 컬럼 표시 여부 (v0.199 AccountsTable 대칭). 선택/이메일/관리 3 개는 필수.
+// name · description · aliases · directMembersCount 4 개는 사용자 토글.
+type ToggleColumnKey = 'name' | 'description' | 'aliases' | 'directMembersCount';
+const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
+  { key: 'name', label: '이름' },
+  { key: 'description', label: '설명' },
+  { key: 'aliases', label: '별칭' },
+  { key: 'directMembersCount', label: '멤버 수' },
+];
+const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = [
+  'name',
+  'description',
+  'aliases',
+  'directMembersCount',
+];
+const VISIBLE_COLUMNS_STORAGE_KEY = 'groupsTable.visibleColumns.v1';
+
+function readStoredVisibleColumns(): Set<ToggleColumnKey> {
+  try {
+    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
+    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
+    const filtered = parsed.filter((k): k is ToggleColumnKey =>
+      typeof k === 'string' && validKeys.includes(k),
+    );
+    return new Set(filtered);
+  } catch {
+    return new Set(DEFAULT_VISIBLE_COLUMNS);
+  }
+}
+
 interface StoredSortPref {
   sort?: string;
   dir?: string;
@@ -92,6 +125,29 @@ export function GroupsTable() {
     } catch {
       // localStorage disabled → no-op.
     }
+  };
+
+  // v0.200: 컬럼 표시 여부 (v0.199 AccountsTable 대칭).
+  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
+    () => readStoredVisibleColumns(),
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+
+  const toggleColumn = (key: ToggleColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(
+          VISIBLE_COLUMNS_STORAGE_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // localStorage disabled → no-op.
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -341,6 +397,43 @@ export function GroupsTable() {
           >
             JSON 내보내기
           </Button>
+          {/* v0.200: 컬럼 표시 토글 (v0.199 AccountsTable 대칭). */}
+          <div className="relative">
+            <Button
+              variant="secondary"
+              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              data-testid="groups-column-menu-btn"
+              aria-expanded={isColumnMenuOpen}
+              aria-haspopup="menu"
+              title="컬럼 표시 여부 선택"
+            >
+              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
+            </Button>
+            {isColumnMenuOpen && (
+              <div
+                role="menu"
+                aria-label="컬럼 표시"
+                data-testid="groups-column-menu"
+                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
+              >
+                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(key)}
+                      onChange={() => toggleColumn(key)}
+                      data-testid={`groups-column-toggle-${key}`}
+                      className="cursor-pointer"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             onClick={() => setIsCreateOpen(true)}
             data-testid="add-group-btn"
@@ -444,24 +537,28 @@ export function GroupsTable() {
                     >
                       이메일 {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                    <TableHead
-                      onClick={() => handleSort('name')}
-                      {...sortHeaderKbdProps(() => handleSort('name'))}
-                      data-testid="groups-sort-name"
-                      aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </TableHead>
-                    <TableHead>설명</TableHead>
-                    <TableHead>별칭</TableHead>
-                    <TableHead
-                      onClick={() => handleSort('directMembersCount')}
-                      {...sortHeaderKbdProps(() => handleSort('directMembersCount'), 'text-right')}
-                      data-testid="groups-sort-directMembersCount"
-                      aria-sort={sortColumn === 'directMembersCount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      멤버 수 {sortColumn === 'directMembersCount' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </TableHead>
+                    {visibleColumns.has('name') && (
+                      <TableHead
+                        onClick={() => handleSort('name')}
+                        {...sortHeaderKbdProps(() => handleSort('name'))}
+                        data-testid="groups-sort-name"
+                        aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      >
+                        이름 {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                    )}
+                    {visibleColumns.has('description') && <TableHead>설명</TableHead>}
+                    {visibleColumns.has('aliases') && <TableHead>별칭</TableHead>}
+                    {visibleColumns.has('directMembersCount') && (
+                      <TableHead
+                        onClick={() => handleSort('directMembersCount')}
+                        {...sortHeaderKbdProps(() => handleSort('directMembersCount'), 'text-right')}
+                        data-testid="groups-sort-directMembersCount"
+                        aria-sort={sortColumn === 'directMembersCount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      >
+                        멤버 수 {sortColumn === 'directMembersCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                    )}
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -489,21 +586,29 @@ export function GroupsTable() {
                         {group.email}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-fg-primary">
-                      {group.name || '-'}
-                    </TableCell>
-                    <TableCell
-                      className="text-small text-fg-secondary truncate max-w-xs"
-                      title={group.description || ''}
-                    >
-                      {group.description || '-'}
-                    </TableCell>
-                    <TableCell className="text-small font-mono text-fg-secondary">
-                      {aliasText}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-small text-fg-primary">
-                      {group.directMembersCount}
-                    </TableCell>
+                    {visibleColumns.has('name') && (
+                      <TableCell className="text-fg-primary">
+                        {group.name || '-'}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('description') && (
+                      <TableCell
+                        className="text-small text-fg-secondary truncate max-w-xs"
+                        title={group.description || ''}
+                      >
+                        {group.description || '-'}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('aliases') && (
+                      <TableCell className="text-small font-mono text-fg-secondary">
+                        {aliasText}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('directMembersCount') && (
+                      <TableCell className="text-right font-mono text-small text-fg-primary">
+                        {group.directMembersCount}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-3">
                         <button
