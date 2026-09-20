@@ -304,4 +304,46 @@ describe('RenameClassroomDialog component', () => {
       (screen.getByTestId('rename-classroom-confirm-btn') as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  // v0.189: name/section 카운터 (v0.180/v0.188 스타일 통일).
+  describe('v0.189: name/section 카운터', () => {
+    it('name 카운터: pre-fill 반영 · 「N / 750 자」 · 이내 muted · 초과 red', () => {
+      renderWithClient(
+        <RenameClassroomDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          target={{ id: 'c1', name: '수학', section: '1학기' }}
+        />,
+      );
+      const counter = screen.getByTestId('rename-classroom-name-counter');
+      // pre-filled 「수학」 = 2자
+      expect(counter.textContent).toBe('2 / 750 자');
+      expect(counter.className).toContain('text-fg-muted');
+      // 751자 초과 → red
+      fireEvent.change(screen.getByTestId('rename-classroom-name-input'), {
+        target: { value: 'x'.repeat(751) },
+      });
+      expect(counter.textContent).toBe('751 / 750 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+
+    it('section 카운터: pre-fill 반영 · 「N / 2,800 자」 · 초과 red', () => {
+      renderWithClient(
+        <RenameClassroomDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          target={{ id: 'c1', name: '수학', section: '1학기' }}
+        />,
+      );
+      const counter = screen.getByTestId('rename-classroom-section-counter');
+      expect(counter.textContent).toBe('3 / 2,800 자');
+      expect(counter.className).toContain('text-fg-muted');
+      // 2801자 초과 → red
+      fireEvent.change(screen.getByTestId('rename-classroom-section-input'), {
+        target: { value: 'y'.repeat(2801) },
+      });
+      expect(counter.textContent).toBe('2,801 / 2,800 자');
+      expect(counter.className).toContain('text-state-danger');
+    });
+  });
 });
