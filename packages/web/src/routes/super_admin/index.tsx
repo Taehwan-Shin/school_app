@@ -123,6 +123,65 @@ export function SuperAdminPage() {
     exact: exactAggregation,
   });
 
+  // v0.183: 액션별 위젯 CSV/JSON 내보내기 (AccountsTable v0.152 · GroupsTable v0.157 대칭).
+  // exactActionCounts 있으면 우선, 없으면 sample-scope actionCounts. 두 케이스 모두
+  // 없으면 undefined → 버튼 disabled.
+  const breakdownDisplayCounts =
+    breakdownSummaryQuery.data?.exactActionCounts ??
+    breakdownSummaryQuery.data?.actionCounts;
+  const breakdownSortedActions: Array<[string, number]> = breakdownDisplayCounts
+    ? Object.entries(breakdownDisplayCounts).sort((a, b) => b[1] - a[1])
+    : [];
+  const breakdownExportSource: 'exact' | 'sample' =
+    breakdownSummaryQuery.data?.exactActionCounts !== undefined ? 'exact' : 'sample';
+  const breakdownFileSlug =
+    breakdownWindow === 'nDays' ? `last${nDaysSanitized}days` : breakdownWindow;
+
+  const handleBreakdownExportCsv = () => {
+    if (breakdownSortedActions.length === 0) return;
+    const header = ['action', 'count'];
+    const rows = breakdownSortedActions.map(([action, count]) => [action, String(count)]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `breakdown-${breakdownFileSlug}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBreakdownExportJson = () => {
+    if (breakdownSortedActions.length === 0) return;
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      window: breakdownWindow,
+      windowLabel: breakdownLabel,
+      atMin: breakdownAtIso,
+      source: breakdownExportSource,
+      sampleTruncated: breakdownSummaryQuery.data?.sampleTruncated ?? false,
+      sampleSize: breakdownSummaryQuery.data?.sampleSize ?? 0,
+      breakdownCount: breakdownSummaryQuery.data?.count ?? 0,
+      totalActions: breakdownSortedActions.length,
+      actions: breakdownSortedActions.map(([action, count]) => ({ action, count })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `breakdown-${breakdownFileSlug}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const suspendedCount = users.data?.users?.filter((u) => u.isSuspended).length ?? 0;
 
   // v0.106: role_split 감사 감시 — server 필터로 전환.
@@ -540,6 +599,33 @@ export function SuperAdminPage() {
                   })()}
                 </div>
               )}
+              {/* v0.183: 액션별 위젯 CSV/JSON export. displayCounts 없거나 empty 이면 disabled. */}
+              <Button
+                variant="secondary"
+                onClick={handleBreakdownExportCsv}
+                disabled={breakdownSortedActions.length === 0}
+                data-testid="super-admin-breakdown-export-csv-btn"
+                title={
+                  breakdownSortedActions.length === 0
+                    ? '내보낼 액션 집계가 없습니다.'
+                    : `${breakdownLabel} 액션별 집계 ${breakdownSortedActions.length}건 CSV 다운로드 (source=${breakdownExportSource})`
+                }
+              >
+                CSV 내보내기
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleBreakdownExportJson}
+                disabled={breakdownSortedActions.length === 0}
+                data-testid="super-admin-breakdown-export-json-btn"
+                title={
+                  breakdownSortedActions.length === 0
+                    ? '내보낼 액션 집계가 없습니다.'
+                    : `${breakdownLabel} 액션별 집계 ${breakdownSortedActions.length}건 JSON 다운로드 (exportedAt · window · source · sample 메타 포함)`
+                }
+              >
+                JSON 내보내기
+              </Button>
             </div>
           </div>
           {breakdownSummaryQuery.isLoading && (

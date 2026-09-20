@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SuperAdminPage } from '../src/routes/super_admin/index';
 import type { AuditLogEntryRead } from '../src/api/auditLogList';
@@ -2202,6 +2202,120 @@ describe('SuperAdminPage', () => {
       renderWithRouter(<SuperAdminPage />);
       const note = screen.getByTestId('super-admin-result-breakdown-note');
       expect(note.textContent).toContain('500');
+    });
+  });
+
+  // v0.183: 액션별 위젯 CSV/JSON 내보내기 (AccountsTable v0.152 · GroupsTable v0.157 대칭).
+  describe('v0.183: 액션별 위젯 CSV/JSON 내보내기', () => {
+    it('actionCounts 있으면 두 버튼 enabled · 파일명은 breakdown-<slug>-<날짜>.<ext>', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 10,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.create': 3, 'groups.delete': 2 },
+          sampleSize: 10,
+          sampleTruncated: false,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      const originalCreate = URL.createObjectURL;
+      const originalRevoke = URL.revokeObjectURL;
+      const originalClick = HTMLAnchorElement.prototype.click;
+      const clicks: HTMLAnchorElement[] = [];
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+      HTMLAnchorElement.prototype.click = function () {
+        clicks.push(this as HTMLAnchorElement);
+      };
+      try {
+        renderWithRouter(<SuperAdminPage />);
+        const csvBtn = screen.getByTestId('super-admin-breakdown-export-csv-btn') as HTMLButtonElement;
+        const jsonBtn = screen.getByTestId('super-admin-breakdown-export-json-btn') as HTMLButtonElement;
+        expect(csvBtn.disabled).toBe(false);
+        expect(jsonBtn.disabled).toBe(false);
+        fireEvent.click(csvBtn);
+        fireEvent.click(jsonBtn);
+        expect(clicks).toHaveLength(2);
+        expect(clicks[0].download).toMatch(/^breakdown-today-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(clicks[1].download).toMatch(/^breakdown-today-\d{4}-\d{2}-\d{2}\.json$/);
+      } finally {
+        URL.createObjectURL = originalCreate;
+        URL.revokeObjectURL = originalRevoke;
+        HTMLAnchorElement.prototype.click = originalClick;
+      }
+    });
+
+    it('actionCounts 미제공/빈 이면 두 버튼 disabled', () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 0,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<SuperAdminPage />);
+      const csvBtn = screen.getByTestId('super-admin-breakdown-export-csv-btn') as HTMLButtonElement;
+      const jsonBtn = screen.getByTestId('super-admin-breakdown-export-json-btn') as HTMLButtonElement;
+      expect(csvBtn.disabled).toBe(true);
+      expect(jsonBtn.disabled).toBe(true);
+    });
+
+    it('JSON payload 는 window · source · sampleSize · actions 포함 · exactActionCounts 있으면 source=exact', async () => {
+      mockUseAuditLogSummary.mockReturnValue({
+        data: {
+          count: 750,
+          entries: [],
+          snapshotAt: Date.now(),
+          generatedAt: Date.now(),
+          actionCounts: { 'users.create': 10 },
+          exactActionCounts: { 'users.create': 500, 'groups.delete': 250 },
+          sampleSize: 500,
+          sampleTruncated: true,
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      const captured: string[] = [];
+      const originalCreate = URL.createObjectURL;
+      const originalRevoke = URL.revokeObjectURL;
+      const originalClick = HTMLAnchorElement.prototype.click;
+      URL.createObjectURL = ((blob: Blob) => {
+        if (blob.type.startsWith('application/json')) {
+          void blob.text().then((t) => captured.push(t));
+        }
+        return 'blob:mock';
+      }) as typeof URL.createObjectURL;
+      URL.revokeObjectURL = () => {};
+      HTMLAnchorElement.prototype.click = function () {};
+      try {
+        renderWithRouter(<SuperAdminPage />);
+        fireEvent.click(screen.getByTestId('super-admin-breakdown-export-json-btn'));
+        await waitFor(() => expect(captured.length).toBe(1));
+        const payload = JSON.parse(captured[0]);
+        expect(payload.source).toBe('exact');
+        expect(payload.window).toBe('today');
+        expect(payload.sampleSize).toBe(500);
+        expect(payload.sampleTruncated).toBe(true);
+        expect(payload.breakdownCount).toBe(750);
+        expect(payload.totalActions).toBe(2);
+        // exactActionCounts 우선 · 내림차순 정렬 (users.create=500 먼저).
+        expect(payload.actions[0]).toEqual({ action: 'users.create', count: 500 });
+        expect(payload.actions[1]).toEqual({ action: 'groups.delete', count: 250 });
+        expect(payload.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      } finally {
+        URL.createObjectURL = originalCreate;
+        URL.revokeObjectURL = originalRevoke;
+        HTMLAnchorElement.prototype.click = originalClick;
+      }
     });
   });
 });
