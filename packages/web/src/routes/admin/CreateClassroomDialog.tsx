@@ -215,6 +215,14 @@ export function CreateClassroomDialog({
                 data-testid="create-classroom-name"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  name.length > COURSE_NAME_MAX ? 'text-state-danger' : 'text-fg-muted'
+                }`}
+                data-testid="create-classroom-name-counter"
+              >
+                {name.length.toLocaleString()} / {COURSE_NAME_MAX.toLocaleString()} 자
+              </p>
             </div>
 
             <div>
@@ -230,6 +238,14 @@ export function CreateClassroomDialog({
                 data-testid="create-classroom-section"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  section.length > COURSE_SECTION_MAX ? 'text-state-danger' : 'text-fg-muted'
+                }`}
+                data-testid="create-classroom-section-counter"
+              >
+                {section.length.toLocaleString()} / {COURSE_SECTION_MAX.toLocaleString()} 자
+              </p>
             </div>
 
             <div>
@@ -245,15 +261,16 @@ export function CreateClassroomDialog({
                 data-testid="create-classroom-description"
                 className="w-full resize-y border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              {/* v0.188: v0.180 name counter 스타일로 통일 (text-micro → text-small, text-red-600 → text-state-danger, 「현재」 prefix 제거). */}
               <p
-                className={`mt-1 text-micro ${
+                className={`mt-1 text-small ${
                   description.length > COURSE_DESCRIPTION_MAX
-                    ? 'text-red-600 font-semibold'
+                    ? 'text-state-danger'
                     : 'text-fg-muted'
                 }`}
                 data-testid="create-classroom-description-counter"
               >
-                현재 {description.length.toLocaleString()} / {COURSE_DESCRIPTION_MAX.toLocaleString()} 자
+                {description.length.toLocaleString()} / {COURSE_DESCRIPTION_MAX.toLocaleString()} 자
               </p>
               {descriptionValidationError && (
                 <p
@@ -278,6 +295,14 @@ export function CreateClassroomDialog({
                 data-testid="create-classroom-room"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  room.length > COURSE_ROOM_MAX ? 'text-state-danger' : 'text-fg-muted'
+                }`}
+                data-testid="create-classroom-room-counter"
+              >
+                {room.length.toLocaleString()} / {COURSE_ROOM_MAX.toLocaleString()} 자
+              </p>
             </div>
 
             <div>
