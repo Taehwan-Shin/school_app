@@ -23,6 +23,24 @@ import {
 
 const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
 
+// v0.197: 페이지 크기 셀렉터 (v0.193/v0.194/v0.195 대칭). 서버 요청 pageSize 도 변경.
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+const DEFAULT_PAGE_SIZE: PageSize = 25;
+const PAGE_SIZE_STORAGE_KEY = 'auditLogTable.pageSize.v1';
+
+function readStoredPageSize(): PageSize {
+  try {
+    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    if (!raw) return DEFAULT_PAGE_SIZE;
+    const parsed = Number.parseInt(raw, 10);
+    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
+    return DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
+
 function renderActor(actor: string) {
   if (typeof actor === 'string' && actor.toLowerCase().endsWith(ALLOWED_DOMAIN_SUFFIX)) {
     return (
@@ -67,7 +85,18 @@ export function AuditLogTable() {
     return isNaN(d.getTime()) ? undefined : d.getTime();
   })();
 
-  const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(25, {
+  // v0.197: 페이지 크기 선택 (v0.193/v0.194/v0.195 대칭 · 서버 요청 pageSize 변경).
+  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+  const handlePageSizeChange = (size: PageSize) => {
+    setPageSize(size);
+    try {
+      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
+
+  const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(pageSize, {
     filterActor: actorFilter || undefined,
     filterTarget: targetFilter || undefined,
     filterResult: resultFilter !== 'all' ? resultFilter : undefined,
@@ -164,7 +193,7 @@ export function AuditLogTable() {
         atMinIso: atMinMs !== undefined ? new Date(atMinMs).toISOString() : null,
         atMaxMs: atMaxMs ?? null,
         atMaxIso: atMaxMs !== undefined ? new Date(atMaxMs).toISOString() : null,
-        pageSize: 25,
+        pageSize,
       },
       // F53: hasMore=true 이면 partial 결과. count/entries 를 완전한 필터 결과처럼 해석
       // 하지 않도록 명시.
@@ -578,6 +607,26 @@ export function AuditLogTable() {
           >
             JSON 내보내기
           </Button>
+          {/* v0.197: 페이지 크기 선택 (서버 요청 pageSize 변경 · v0.193 시리즈 대칭). */}
+          <label
+            htmlFor="audit-log-page-size"
+            className="text-small text-fg-secondary ml-2 whitespace-nowrap"
+          >
+            페이지 크기:
+          </label>
+          <select
+            id="audit-log-page-size"
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value) as PageSize)}
+            data-testid="audit-log-page-size-select"
+            className="border border-border-subtle bg-canvas text-fg-primary px-2 py-1 text-small focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
           {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
               hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
               도달 시 partial 표시. */}
