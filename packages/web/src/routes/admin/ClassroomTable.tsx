@@ -771,7 +771,7 @@ export function ClassroomTable() {
           <span data-testid="classroom-pagination-info">
             {total === 0
               ? '결과 없음'
-              : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} / ${total}`}
+              : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} / ${total} (${page + 1} / ${Math.max(1, Math.ceil(total / pageSize))} 페이지)`}
           </span>
           <div className="flex items-center gap-2">
             {/* v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭). */}

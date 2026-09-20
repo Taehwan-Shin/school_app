@@ -546,7 +546,9 @@ export function GroupsTable() {
 
           <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
             <span data-testid="groups-pagination-info">
-              {total === 0 ? '결과 없음' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
+              {total === 0
+                ? '결과 없음'
+                : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total} (${page + 1} / ${Math.max(1, Math.ceil(total / pageSize))} 페이지)`}
             </span>
             <div className="flex items-center gap-2">
               {/* v0.194: 페이지 크기 선택 (v0.193 AccountsTable 대칭). */}

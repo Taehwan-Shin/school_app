@@ -417,7 +417,7 @@ describe("AccountsTable component", () => {
     const nextBtn = screen.getByTestId("accounts-pagination-next") as HTMLButtonElement;
 
     // Page 0: 1–25 of 30
-    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(paginationInfo.textContent).toContain("1–25 of 30");
     expect(prevBtn.disabled).toBe(true);
     expect(nextBtn.disabled).toBe(false);
     expect(screen.getByText("user01@cam.hs.kr")).toBeDefined();
@@ -426,7 +426,7 @@ describe("AccountsTable component", () => {
 
     // Click Next -> Page 1: 26–30 of 30 (rows 26-30)
     fireEvent.click(nextBtn);
-    expect(paginationInfo.textContent).toBe("26–30 of 30");
+    expect(paginationInfo.textContent).toContain("26–30 of 30");
     expect(prevBtn.disabled).toBe(false);
     expect(nextBtn.disabled).toBe(true);
     expect(screen.queryByText("user01@cam.hs.kr")).toBeNull();
@@ -435,7 +435,7 @@ describe("AccountsTable component", () => {
 
     // Click Prev -> Page 0: 1–25 of 30
     fireEvent.click(prevBtn);
-    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(paginationInfo.textContent).toContain("1–25 of 30");
     expect(prevBtn.disabled).toBe(true);
     expect(nextBtn.disabled).toBe(false);
   });
@@ -464,15 +464,15 @@ describe("AccountsTable component", () => {
 
     // Move to page 1
     fireEvent.click(nextBtn);
-    expect(paginationInfo.textContent).toBe("26–30 of 30");
+    expect(paginationInfo.textContent).toContain("26–30 of 30");
 
     // Type in search query -> resets to page 0
     fireEvent.change(searchInput, { target: { value: "user" } });
-    expect(paginationInfo.textContent).toBe("1–25 of 30");
+    expect(paginationInfo.textContent).toContain("1–25 of 30");
 
     // Type more specific search query
     fireEvent.change(searchInput, { target: { value: "user28" } });
-    expect(paginationInfo.textContent).toBe("1–1 of 1");
+    expect(paginationInfo.textContent).toContain("1–1 of 1");
     expect(screen.getByText("user28@cam.hs.kr")).toBeDefined();
   });
 
@@ -534,7 +534,7 @@ describe("AccountsTable component", () => {
     expect(screen.queryByText("suspended@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("user2@cam.hs.kr")).toBeNull();
-    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–2 of 2");
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toContain("1–2 of 2");
   });
 
   it("merges KPI filter with search query filtering", () => {
@@ -580,7 +580,7 @@ describe("AccountsTable component", () => {
     expect(screen.getByText("admin1@cam.hs.kr")).toBeDefined();
     expect(screen.queryByText("admin2@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("user1@cam.hs.kr")).toBeNull();
-    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–1 of 1");
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toContain("1–1 of 1");
   });
 
   it("restores search query from URL q= parameter on initial load", () => {
@@ -641,7 +641,7 @@ describe("AccountsTable component", () => {
     expect(screen.queryByText("lee@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("park@cam.hs.kr")).toBeNull();
     expect(screen.queryByText("choi@cam.hs.kr")).toBeNull();
-    expect(screen.getByTestId("accounts-pagination-info").textContent).toBe("1–1 of 1");
+    expect(screen.getByTestId("accounts-pagination-info").textContent).toContain("1–1 of 1");
     const searchInput = screen.getByTestId("accounts-search-input") as HTMLInputElement;
     expect(searchInput.value).toBe("홍");
   });
@@ -1872,6 +1872,33 @@ describe("AccountsTable component", () => {
       renderWithRouter(<AccountsTable />);
       const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
       expect(select.value).toBe("25");
+    });
+  });
+
+  // v0.196: pagination info 에 「N / M 페이지」 표기.
+  describe("v0.196: page N of M 표기", () => {
+    it("30명 · 25/page → 「1 / 2 페이지」 · 다음 페이지 시 「2 / 2 페이지」", async () => {
+      const users30 = Array.from({ length: 30 }, (_, i) => ({
+        email: `u${i}@cam.hs.kr`,
+        firstName: `이름${i}`,
+        lastName: `성${i}`,
+        isAdmin: false,
+        isSuspended: false,
+        orgUnitPath: "/",
+      }));
+      mockUseUsersList.mockReturnValue({
+        data: { users: users30 },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      const info = screen.getByTestId("accounts-pagination-info");
+      expect(info.textContent).toContain("1 / 2 페이지");
+      fireEvent.click(screen.getByTestId("accounts-pagination-next"));
+      await waitFor(() => {
+        expect(info.textContent).toContain("2 / 2 페이지");
+      });
     });
   });
 });
