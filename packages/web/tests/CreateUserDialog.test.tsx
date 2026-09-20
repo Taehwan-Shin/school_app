@@ -716,4 +716,67 @@ describe('CreateUserDialog component', () => {
       expect(calls.sort()).toEqual(['c-1', 'c-3']);
     });
   });
+
+  // v0.178: familyName/givenName 60자 상한 검증.
+  describe('v0.178: name limit 60자', () => {
+    it('familyName 이 60자 초과이면 validation error · mutate 미호출', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'test@cam.hs.kr' } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: 'A'.repeat(61) } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: '길동' } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId('create-user-error');
+      expect(err.textContent).toContain('성은 최대 60자');
+      expect(err.textContent).toContain('현재 61자');
+    });
+
+    it('givenName 이 60자 초과이면 validation error · mutate 미호출', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'test@cam.hs.kr' } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: '홍' } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: 'B'.repeat(100) } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId('create-user-error');
+      expect(err.textContent).toContain('이름은 최대 60자');
+      expect(err.textContent).toContain('현재 100자');
+    });
+
+    it('카운터는 실시간 반영 · 60자 초과 시 red · 정확 60자 정상', () => {
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      const familyCounter = screen.getByTestId('familyName-counter');
+      const givenCounter = screen.getByTestId('givenName-counter');
+      // 초기 0
+      expect(familyCounter.textContent).toContain('0 / 60');
+      // 60자 정확 → 정상
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: 'X'.repeat(60) } });
+      expect(familyCounter.textContent).toContain('60 / 60');
+      expect(familyCounter.className).not.toContain('text-state-danger');
+      // 61자 초과 → red
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: 'Y'.repeat(61) } });
+      expect(givenCounter.textContent).toContain('61 / 60');
+      expect(givenCounter.className).toContain('text-state-danger');
+    });
+
+    it('60자 정확이면 mutate 정상 호출 (경계 케이스)', async () => {
+      mockMutateAsync.mockResolvedValueOnce({ primaryEmail: 'edge@cam.hs.kr', uid: 'u9' });
+      render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/이메일/), { target: { value: 'edge@cam.hs.kr' } });
+      fireEvent.change(screen.getByLabelText(/성/), { target: { value: 'A'.repeat(60) } });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: 'B'.repeat(60) } });
+      fireEvent.change(screen.getByLabelText(/^비밀번호/), { target: { value: 'securePass123' } });
+      fireEvent.click(screen.getByTestId('create-user-submit'));
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            familyName: 'A'.repeat(60),
+            givenName: 'B'.repeat(60),
+          }),
+        );
+      });
+    });
+  });
 });

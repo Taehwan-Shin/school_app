@@ -627,4 +627,68 @@ describe("BatchCreateUsersDialog component", () => {
       expect(mockCallClassroomTeachersAdd).not.toHaveBeenCalled();
     });
   });
+
+  // v0.178: familyName/givenName 60자 상한 검증 (v0.176 BulkRename row-level 패턴).
+  describe("v0.178: name limit 60자", () => {
+    it("row 의 성이 60자 초과이면 validation error · callUsersCreate 미호출", async () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), {
+        target: { value: "A".repeat(61) },
+      });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "abcd1234" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => {
+        const err = screen.getByTestId("batch-create-users-error");
+        expect(err.textContent).toContain("성은 최대 60자");
+        expect(err.textContent).toContain("현재 61자");
+      });
+      expect(mockCallUsersCreate).not.toHaveBeenCalled();
+    });
+
+    it("row 의 이름이 60자 초과이면 red 경고 노출 + summary count", () => {
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), {
+        target: { value: "Y".repeat(75) },
+      });
+      // inline warn
+      const givenWarn = screen.getByTestId("batch-create-users-row-0-given-warn");
+      expect(givenWarn.textContent).toContain("최대 60자 초과");
+      expect(givenWarn.textContent).toContain("현재 75자");
+      // aria-invalid
+      const givenInput = screen.getByTestId("batch-create-users-row-0-given");
+      expect(givenInput.getAttribute("aria-invalid")).toBe("true");
+      // summary count
+      const summary = screen.getByTestId("batch-create-users-name-limit-summary");
+      expect(summary.textContent).toContain("1");
+    });
+
+    it("60자 정확이면 정상 실행 (경계)", async () => {
+      mockCallUsersCreate.mockResolvedValueOnce({ ok: true });
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "edge1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), {
+        target: { value: "A".repeat(60) },
+      });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), {
+        target: { value: "B".repeat(60) },
+      });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "abcd1234" } });
+      // summary 는 노출 안 됨 (60자 정확은 초과 아님)
+      expect(screen.queryByTestId("batch-create-users-name-limit-summary")).toBeNull();
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => {
+        expect(mockCallUsersCreate).toHaveBeenCalledTimes(1);
+      });
+      expect(mockCallUsersCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          familyName: "A".repeat(60),
+          givenName: "B".repeat(60),
+        }),
+      );
+    });
+  });
 });

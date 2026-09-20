@@ -15,6 +15,7 @@ import { useClassroomList } from '../../api/classroomList';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 import { reauthorizeWithGoogle } from '../../lib/auth';
+import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from '../../lib/userLimits';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -189,6 +190,15 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       return setValidationError('이메일은 @cam.hs.kr 도메인이어야 합니다.');
     if (!familyName.trim()) return setValidationError('성을 입력해주세요.');
     if (!givenName.trim()) return setValidationError('이름을 입력해주세요.');
+    // v0.178: Google Directory User familyName/givenName 각 60자 상한 (초과 시 400).
+    if (familyName.trim().length > USER_FAMILY_NAME_MAX)
+      return setValidationError(
+        `성은 최대 ${USER_FAMILY_NAME_MAX}자까지 입력 가능합니다 (현재 ${familyName.trim().length}자).`,
+      );
+    if (givenName.trim().length > USER_GIVEN_NAME_MAX)
+      return setValidationError(
+        `이름은 최대 ${USER_GIVEN_NAME_MAX}자까지 입력 가능합니다 (현재 ${givenName.trim().length}자).`,
+      );
     if (!password || password.length < 8)
       return setValidationError('비밀번호는 최소 8자 이상이어야 합니다.');
 
@@ -340,6 +350,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 disabled={isBusy}
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
+              <p
+                className={`mt-1 text-small ${
+                  familyName.trim().length > USER_FAMILY_NAME_MAX
+                    ? 'text-state-danger'
+                    : 'text-fg-muted'
+                }`}
+                data-testid="familyName-counter"
+              >
+                {familyName.trim().length} / {USER_FAMILY_NAME_MAX} 자
+              </p>
             </div>
 
             <div>
@@ -356,6 +376,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 disabled={isBusy}
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
+              <p
+                className={`mt-1 text-small ${
+                  givenName.trim().length > USER_GIVEN_NAME_MAX
+                    ? 'text-state-danger'
+                    : 'text-fg-muted'
+                }`}
+                data-testid="givenName-counter"
+              >
+                {givenName.trim().length} / {USER_GIVEN_NAME_MAX} 자
+              </p>
             </div>
 
             <div>

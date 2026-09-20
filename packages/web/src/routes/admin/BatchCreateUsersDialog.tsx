@@ -15,6 +15,7 @@ import { useOrgunitsCreate } from "../../api/orgunitsCreate";
 import { useClassroomList } from "../../api/classroomList";
 import { callClassroomTeachersAdd } from "../../api/classroomTeachersAdd";
 import { callClassroomStudentsAdd } from "../../api/classroomStudentsAdd";
+import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from "../../lib/userLimits";
 
 export interface BatchCreateUsersDialogProps {
   open: boolean;
@@ -245,6 +246,15 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
         );
       if (!r.familyName) return setValidationError(`「${r.id}」 의 성을 입력해주세요.`);
       if (!r.givenName) return setValidationError(`「${r.id}」 의 이름을 입력해주세요.`);
+      // v0.178: Google Directory User familyName/givenName 각 60자 상한.
+      if (r.familyName.length > USER_FAMILY_NAME_MAX)
+        return setValidationError(
+          `「${r.id}」 의 성은 최대 ${USER_FAMILY_NAME_MAX}자까지 입력 가능합니다 (현재 ${r.familyName.length}자).`,
+        );
+      if (r.givenName.length > USER_GIVEN_NAME_MAX)
+        return setValidationError(
+          `「${r.id}」 의 이름은 최대 ${USER_GIVEN_NAME_MAX}자까지 입력 가능합니다 (현재 ${r.givenName.length}자).`,
+        );
     }
     // v0.132b F107: 중복 아이디 검사는 lower-case canonical 로. Google
     // Workspace 이메일 비교는 대소문자 무시 (`Hong1@` == `hong1@`), 앱의
@@ -721,6 +731,9 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                   {rows.map((row, i) => {
                     const preview = row.id.trim() ? `${row.id.trim().toLowerCase()}@${DOMAIN}` : "";
                     const rowNum = i + 1;
+                    // v0.178: 각 이름 필드 60자 상한 초과 시 input 을 red border.
+                    const familyTooLong = row.familyName.trim().length > USER_FAMILY_NAME_MAX;
+                    const givenTooLong = row.givenName.trim().length > USER_GIVEN_NAME_MAX;
                     return (
                       <tr key={i} className="border-t border-border-subtle">
                         <td className="p-2 text-fg-muted">{rowNum}</td>
@@ -742,9 +755,20 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                             onChange={(e) => updateRow(i, { familyName: e.target.value })}
                             placeholder="홍"
                             aria-label={`${rowNum}번째 행 성`}
+                            aria-invalid={familyTooLong || undefined}
                             data-testid={`batch-create-users-row-${i}-family`}
-                            className="w-full border border-border-subtle bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                            className={`w-full border ${
+                              familyTooLong ? 'border-state-danger' : 'border-border-subtle'
+                            } bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong`}
                           />
+                          {familyTooLong && (
+                            <p
+                              className="mt-1 text-micro text-state-danger"
+                              data-testid={`batch-create-users-row-${i}-family-warn`}
+                            >
+                              최대 {USER_FAMILY_NAME_MAX}자 초과 (현재 {row.familyName.trim().length}자)
+                            </p>
+                          )}
                         </td>
                         <td className="p-1">
                           <input
@@ -753,9 +777,20 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                             onChange={(e) => updateRow(i, { givenName: e.target.value })}
                             placeholder="길동"
                             aria-label={`${rowNum}번째 행 이름`}
+                            aria-invalid={givenTooLong || undefined}
                             data-testid={`batch-create-users-row-${i}-given`}
-                            className="w-full border border-border-subtle bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                            className={`w-full border ${
+                              givenTooLong ? 'border-state-danger' : 'border-border-subtle'
+                            } bg-canvas px-2 py-1 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong`}
                           />
+                          {givenTooLong && (
+                            <p
+                              className="mt-1 text-micro text-state-danger"
+                              data-testid={`batch-create-users-row-${i}-given-warn`}
+                            >
+                              최대 {USER_GIVEN_NAME_MAX}자 초과 (현재 {row.givenName.trim().length}자)
+                            </p>
+                          )}
                         </td>
                         <td
                           className="p-2 font-mono text-fg-muted"
@@ -774,6 +809,23 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
               선택된 행 (id/성/이름 중 하나라도 입력) <strong>{filledRows.length}</strong>명 실행
               예정.
             </p>
+            {(() => {
+              // v0.178: 이름 상한 초과 row 카운트 요약.
+              const overlyLongCount = rows.filter(
+                (r) =>
+                  r.familyName.trim().length > USER_FAMILY_NAME_MAX ||
+                  r.givenName.trim().length > USER_GIVEN_NAME_MAX,
+              ).length;
+              if (overlyLongCount === 0) return null;
+              return (
+                <p
+                  className="text-micro text-state-danger"
+                  data-testid="batch-create-users-name-limit-summary"
+                >
+                  이름 상한 초과 <strong>{overlyLongCount}</strong>개 행 — 실행 전 60자 이내로 수정하세요.
+                </p>
+              );
+            })()}
 
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
