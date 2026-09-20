@@ -29,7 +29,23 @@ import { BulkUpdateRoleDialog } from "./BulkUpdateRoleDialog";
 type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
 
-const PAGE_SIZE = 25;
+// v0.193: 페이지 크기 셀렉터. 사용자 선택은 localStorage 에 저장 (도메인 · 사용자 로컬).
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+const DEFAULT_PAGE_SIZE: PageSize = 25;
+const PAGE_SIZE_STORAGE_KEY = 'accountsTable.pageSize.v1';
+
+function readStoredPageSize(): PageSize {
+  try {
+    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    if (!raw) return DEFAULT_PAGE_SIZE;
+    const parsed = Number.parseInt(raw, 10);
+    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
+    return DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
 
 // v0.160: 정렬 선호 localStorage 키. URL 이 authoritative — localStorage 는 URL 이
 // 비어있을 때만 default 로 hydrate. 손상된 값은 조용히 무시.
@@ -76,6 +92,18 @@ export function AccountsTable() {
   })();
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
+  // v0.193: 페이지 크기 선택 (25/50/100). localStorage hydrate + 저장.
+  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+
+  const handlePageSizeChange = (size: PageSize) => {
+    setPageSize(size);
+    setPage(0);
+    try {
+      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
 
   // v0.160: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
   // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link 등) 저장값 무시.
@@ -188,7 +216,7 @@ export function AccountsTable() {
   }, [data?.users, kpiFilter, searchQuery, sortColumn, sortDirection]);
 
   const total = sortedFilteredUsers.length;
-  const paginatedUsers = sortedFilteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const paginatedUsers = sortedFilteredUsers.slice(page * pageSize, (page + 1) * pageSize);
 
   const isSelf = (email: string) =>
     Boolean(currentUser?.email) && currentUser!.email!.toLowerCase() === email.toLowerCase();
@@ -692,9 +720,26 @@ export function AccountsTable() {
 
           <div className="flex justify-between items-center mt-4 text-small text-fg-secondary">
             <span data-testid="accounts-pagination-info">
-              {total === 0 ? '결과 없음' : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total}`}
+              {total === 0 ? '결과 없음' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
             </span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {/* v0.193: 페이지 크기 선택 (25/50/100). 변경 시 page=0 리셋 · localStorage 저장. */}
+              <label htmlFor="accounts-page-size" className="text-small text-fg-secondary">
+                페이지 크기:
+              </label>
+              <select
+                id="accounts-page-size"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value) as PageSize)}
+                data-testid="accounts-page-size-select"
+                className="border border-border-subtle bg-canvas text-fg-primary px-2 py-1 text-small focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => setPage(p => Math.max(0, p - 1))}
@@ -707,7 +752,7 @@ export function AccountsTable() {
               <button
                 type="button"
                 onClick={() => setPage(p => p + 1)}
-                disabled={(page + 1) * PAGE_SIZE >= total}
+                disabled={(page + 1) * pageSize >= total}
                 data-testid="accounts-pagination-next"
                 className="border border-border-subtle bg-canvas text-fg-primary px-4 py-2 text-small hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >

@@ -1798,6 +1798,82 @@ describe("AccountsTable component", () => {
       expect(emailTh.getAttribute("aria-sort")).toBe("none");
     });
   });
+
+  // v0.193: 페이지 크기 셀렉터 + localStorage 저장.
+  describe("v0.193: 페이지 크기 셀렉터", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    // 30 users for pagination boundary tests.
+    const users30 = Array.from({ length: 30 }, (_, i) => ({
+      email: `user${i}@cam.hs.kr`,
+      firstName: `이름${i}`,
+      lastName: `성${i}`,
+      isAdmin: false,
+      isSuspended: false,
+      orgUnitPath: "/",
+    }));
+
+    const setup = () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: users30 },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    };
+
+    it("기본 25개 · select 값 = 25", () => {
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("25");
+      // 첫 페이지 25개 이후 「다음」 활성
+      expect(
+        (screen.getByTestId("accounts-pagination-next") as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    it("50 선택 시 한 페이지에 30개 모두 · 「다음」 disabled · localStorage 저장", async () => {
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: "50" } });
+      expect(select.value).toBe("50");
+      await waitFor(() => {
+        expect(localStorage.getItem("accountsTable.pageSize.v1")).toBe("50");
+      });
+      // 30개 < 50 → 「다음」 disabled.
+      expect(
+        (screen.getByTestId("accounts-pagination-next") as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+
+    it("localStorage 저장값 「100」 이면 mount 시 자동 hydrate", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "100");
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("100");
+    });
+
+    it("잘못된 localStorage 값은 default (25) 로 fallback", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "abc");
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("25");
+    });
+
+    it("PAGE_SIZE_OPTIONS 밖 (예: 200) 도 fallback", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "200");
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("25");
+    });
+  });
 });
 
 
