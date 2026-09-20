@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.187 병합 완료** (`971a90f`) - CreateGroup/EditGroup description counter 를 v0.180 name counter 스타일로 통일 (`text-micro text-fg-muted` → `text-small` conditional-danger, 「현재」 prefix 제거) · 기계 관문 (lint clean · web 1085 유닛) 통과 · Codex R1 skip.
+> **v0.188 병합 완료** (`052d0d3`) - CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 대칭) + description 카운터 v0.180 스타일 통일 · 기계 관문 (lint clean · web 1089 유닛) 통과 · Codex R1 skip.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `052d0d3` v0.188 - CreateClassroomDialog name(750)/section(2800)/room(650) 세 필드에 v0.180 스타일 카운터 신규 추가 · description(30000) 카운터 옛 스타일 (`text-micro` + `text-red-600` + 「현재」 prefix) 을 통일 (`text-small` + `text-state-danger` + prefix 제거) · 4 회귀 (v0.188 describe) · 웹 1089 (+4) · lint clean · 서버 무변경.
 - `971a90f` v0.187 - CreateGroupDialog + EditGroupDialog description counter 통일 · `mt-1 text-small ${description.length > MAX ? 'text-state-danger' : 'text-fg-muted'}` · 「현재 N / 4096 자」 → 「N / 4096 자」 · 4 회귀 (v0.187 describe: 각 dialog 「4096 이내 muted + 텍스트 포맷」 · 「4097 초과 red」) · 웹 1085 (+4) · lint clean · 서버 무변경.
 - `69044f1` v0.186 - AuditLogTable handleExportJson 에 `sourceQuery` (`?<params>` 또는 빈 문자열) + `sourcePath` (`/super_admin/audit${sourceQuery}`) 필드 추가 · export 파일만 들고 다른 세션/기기에서 동일 조회를 재현 가능 · 2 회귀 (빈 URL · action+result 필터 URL) · 웹 1081 (+2) · lint clean · 서버 무변경.
 - `3bb8ff9` v0.185 - 신규 `lib/orgUnitLimits.ts` (`ORG_UNIT_NAME_MAX = 100`, Google Admin SDK Directory OrgUnit 규격) · CreateUserDialog 「새 OU 만들기」 폼 hardcoded 100 → 상수 참조 + input 밑 「N / 100 자」 카운터 (초과 시 red) + 상세 에러 (현재 N자 포함) · BatchCreateUsersDialog 「새 OU 만들기」 폼 동일 이식 (대칭) · 5 회귀 (orgUnitLimits helper 1 · CreateUser v0.185 2 · Batch v0.185 2) · 웹 1079 (+5) · lint clean · 서버 무변경.

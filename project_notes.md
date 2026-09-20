@@ -4179,6 +4179,45 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.190**: BulkRenameClassroomDialog row-level 카운터 (v0.176 은 warn 만 있고 실시간 counter 없음).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.188 CreateClassroomDialog name/section/room 카운터 이식 + description 스타일 통일
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `dba8e4e` (`feat/create-classroom-counters-v188`) | feat: v0.188 CreateClassroomDialog 카운터 이식 |
+| 병합 | `052d0d3` | Merge feat/create-classroom-counters-v188 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `052d0d3` | skip (Head 폴백) | 기계 관문 (web 1089 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: v0.175 로 name(750)/section(2800)/room(650) 상한 검증은 있지만 실시간 카운터 UI 없음 → 사용자가 상한 임박을 미리 인지 어려움. 특히 section/room 은 큰 상한이라 화면상 안 보일 수 있음. 추가로 v0.174 description(30000) 카운터는 옛 스타일 (`text-micro` + `text-red-600 font-semibold` + 「현재」 prefix) 이라 v0.180/v0.185/v0.187 통일 스타일과 불일치.
+- **해결**:
+  - name/section/room 세 필드에 v0.180 스타일 카운터 신규 (mt-1 text-small conditional-danger).
+  - description 카운터도 v0.180 스타일로 재작성 — text-red-600 → text-state-danger, text-micro → text-small, 「현재」 prefix 제거.
+  - `.toLocaleString()` 유지 (1,000 자 이상 값에 comma separator).
+- **테스트**: 4 회귀 (name/section/room/description 각 초기 muted + 초과 red).
+
+### 배운 것
+
+- **toLocaleString() 유지 이유**: v0.180 group name(60자) 은 comma 불필요하나 v0.188 course section(2,800) · description(30,000) 은 comma 있어야 가독성. 통일 스타일이라도 `toLocaleString()` vs raw number 는 필드 범위에 따라 판단. 이 슬라이스는 모두 toLocaleString() 유지.
+- **text-red-600 → text-state-danger 는 semantic 이동**: Tailwind 상수 (`red-600`) 대신 semantic token (`state-danger`) 사용이 우리 UI_SYSTEM 관례. v0.174 는 이 관례 도입 전이라 상수 사용, v0.188 로 정리.
+- **CreateClassroomDialog 4개 필드 (name/section/description/room) 모두 카운터 있음**: 이제 모든 상한 있는 필드에 카운터 존재. RenameClassroomDialog · BulkRenameClassroomDialog 은 다음 슬라이스 (v0.189/v0.190) 에서 카운터 이식.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.189**: RenameClassroomDialog 카운터 이식 (v0.136 개별 이름 변경 · name/section 두 필드).
+  - **v0.190**: BulkRenameClassroomDialog row-level 카운터 (v0.176 은 warn 만 있고 실시간 counter 없음).
+  - **v0.191**: BatchCreateUsersDialog password field 표시 여부 toggle (기존 raw 표시).
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 
