@@ -116,6 +116,7 @@
 - **NEIS CSV import 코스 이름 750자 상한 검증** - v0.182 완료 (v0.176 BulkRename row-level 패턴을 v0.145 NeisCsvImportDialog preview 에 이식). 신규 순수 helper `findOverlyLongPlanRows(plan, max)` · preview 상단 red 배너 · 초과 row 셀 red + 접미사 · 실행 버튼 disabled + title 안내 · 4 helper 회귀 · 웹 1068 (+4) · lint clean · 서버 무변경.
 - **super_admin 액션별 위젯 CSV/JSON 내보내기** - v0.183 완료 (Accounts v0.152 · Groups v0.157 대칭 · audit-scope 확장). CSV: action,count · JSON payload (exportedAt · window · source · sample 메타 · totalActions · actions[]) · 파일명 breakdown-<slug>-YYYY-MM-DD · displayCounts undefined/empty 이면 disabled · 3 회귀 · 웹 1071 (+3) · lint clean · 서버 무변경.
 - **BasicDataPanel 버튼 3-그룹핑** - v0.184 완료 (UX polish · 접근성 개선). 9개 버튼을 `role="group" aria-label` 세 그룹 (편집 / 자동 워크플로우 / 데이터 입출력) 으로 시각+ARIA 분리 · 좌측 border 로 그룹 구분 · 「명단 밖 자동 제거」 를 자동 그룹 마지막 (파괴적 액션 뒤) 으로 재정렬 · 기존 testid 유지 (16 회귀 무영향) + 3 신규 회귀 · 웹 1074 (+3) · lint clean · 서버 무변경.
+- **OrgUnit 이름 100자 상한 shared lib 승격** - v0.185 완료 (v0.121/v0.159 hardcoded 정리 · v0.178 카운터 pattern 이식). shared `lib/orgUnitLimits.ts` (`ORG_UNIT_NAME_MAX = 100`) · CreateUser + Batch 두 폼에 상수 참조 + 카운터 「N / 100 자」 (초과 시 red) + 상세 에러 · 5 회귀 · 웹 1079 (+5) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

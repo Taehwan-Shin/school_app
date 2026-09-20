@@ -4065,6 +4065,45 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.187**: EditGroupDialog description counter 개선 (v0.173 은 이미 있지만 v0.180 name counter 스타일에 통일).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-20 · v0.185 OrgUnit 이름 100자 상한 shared lib 승격 + 카운터 이식
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `fd58794e` (`feat/orgunit-limits-lib-v185`) | feat: v0.185 OrgUnit 이름 100자 상한 shared lib 승격 + 카운터 이식 |
+| 병합 | `3bb8ff9` | Merge feat/orgunit-limits-lib-v185 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `3bb8ff9` | skip (Head 폴백) | 기계 관문 (web 1079 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: v0.121 (CreateUser) · v0.159 (BatchCreate) 두 곳에 `if (name.length > 100)` 이 hardcoded. 상수 매직 넘버 + 매번 「OU 이름은 100자 이하여야 합니다.」 짧은 에러만 (현재 자릿수 미표시). 카운터 UI 도 없음 → 사용자가 상한 초과 임박을 미리 알 수 없음.
+- **해결**:
+  - **shared 상수 승격**: 신규 `lib/orgUnitLimits.ts` 에 `ORG_UNIT_NAME_MAX = 100` (Google Admin SDK Directory OrgUnit 규격).
+  - **CreateUserDialog + BatchCreateUsersDialog**: 두 곳 handleCreateOu (또는 handleNewOuCreate) 검증에서 상수 참조 + 에러 문구에 `(현재 N자)` 포함 (v0.178 pattern).
+  - **카운터 UI**: 각 「새 OU 만들기」 폼의 이름 input 밑에 「N / 100 자」 실시간 카운터 (초과 시 `text-state-danger`, v0.178/v0.180 style 대칭).
+- **테스트**: 5 시나리오 (helper 1 · CreateUser v0.185 2 · Batch v0.185 2).
+
+### 배운 것
+
+- **hardcoded → shared 승격 리듬**: v0.180 (`GROUP_NAME_MAX`) · v0.181 (`USER_LOCAL_PART_MAX`) 에 이어 v0.185 로 orgUnit 도 shared 화. 상수는 Google API 규격에서 파생되므로 `lib/{resource}Limits.ts` naming 유지.
+- **hardcoded → 상수 승격은 diff 최소화 원칙**: `100` 상수 하나만 바꾸고 카운터 UI 만 추가. 이미 존재하던 handleCreateOu 검증 순서/문구 재작성 안 함 (v0.185 는 「승격」 슬라이스 이지 「리팩터」 슬라이스 아님).
+- **testid 새로 추가할 때 -counter suffix 관례**: v0.178 `familyName-counter` · v0.180 `create-group-name-counter` · v0.185 `create-user-new-ou-name-counter` · `batch-create-users-new-ou-name-counter` 로 통일. 다음 dialog 승격 시에도 이 관례 유지.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.186**: AuditLogTable JSON export (v0.108) 의 filter reflect 개선 (payload 에 최근 filter 규칙 반영 재검토).
+  - **v0.187**: EditGroupDialog description counter v0.180 name counter 스타일 통일 (v0.173 은 `text-micro text-fg-muted` inline, v0.180 name counter 는 `mt-1 text-small` conditional-danger — 통일).
+  - **v0.188**: CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 있지만 카운터 없음).
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 

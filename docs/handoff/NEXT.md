@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.184 병합 완료** (`34240a3`) - BasicDataPanel 9개 버튼을 3 role-그룹으로 시각+접근성 그룹핑 (편집 · 자동 워크플로우 · 데이터 I/O) · 기계 관문 (lint clean · web 1074 유닛) 통과 · Codex R1 skip.
+> **v0.185 병합 완료** (`3bb8ff9`) - OrgUnit 이름 100자 상한 shared `lib/orgUnitLimits.ts` 승격 (v0.121/v0.159 hardcoded 정리) + CreateUser/BatchCreate 두 폼에 카운터 이식 (v0.178 pattern) · 기계 관문 (lint clean · web 1079 유닛) 통과 · Codex R1 skip.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `3bb8ff9` v0.185 - 신규 `lib/orgUnitLimits.ts` (`ORG_UNIT_NAME_MAX = 100`, Google Admin SDK Directory OrgUnit 규격) · CreateUserDialog 「새 OU 만들기」 폼 hardcoded 100 → 상수 참조 + input 밑 「N / 100 자」 카운터 (초과 시 red) + 상세 에러 (현재 N자 포함) · BatchCreateUsersDialog 「새 OU 만들기」 폼 동일 이식 (대칭) · 5 회귀 (orgUnitLimits helper 1 · CreateUser v0.185 2 · Batch v0.185 2) · 웹 1079 (+5) · lint clean · 서버 무변경.
 - `34240a3` v0.184 - BasicDataPanel 헤더 버튼 9개를 `role="group" aria-label="..."` 세 그룹으로 시각 분리 (좌측 border) · 편집 그룹 (편집 · 학생 명단 편집) · 자동 워크플로우 그룹 (그룹 자동 생성 · 부서 그룹 자동 생성 · 학생 자동 초대 · 반 챗방 자동 초대 · 명단 밖 자동 제거) · 데이터 입출력 그룹 (JSON 불러오기 · JSON 내보내기) · 「명단 밖 자동 제거」 를 자동 그룹 마지막으로 (파괴적 액션 뒤로 재정렬) · 기존 testid 모두 유지 (16 회귀 무영향) + 3 신규 회귀 · 웹 1074 (+3) · lint clean · 서버 무변경.
 - `0211e6c` v0.183 - SuperAdminPage breakdown 위젯 header 에 CSV/JSON 두 버튼 추가 · CSV 컬럼 (action,count) · JSON payload (exportedAt · window · windowLabel · atMin · source ('exact'|'sample') · sampleTruncated · sampleSize · breakdownCount · totalActions · actions[]) · 파일명 breakdown-<slug>-YYYY-MM-DD (slug: today/week/month/last{N}days) · displayCounts undefined/empty 이면 disabled + title 안내 · 3 회귀 (enabled+파일명, empty disabled, JSON exact 우선/정렬) · 웹 1071 (+3) · lint clean · 서버 무변경.
 - `6c60b80` v0.182 - NeisCsvImportDialog preview 단계에 courseName > `COURSE_NAME_MAX` (750) 감지 · 신규 순수 helper `findOverlyLongPlanRows(plan, max)` (회귀 4건) · preview 상단 red 배너 「상한 초과 N개 행 — 실행 불가」 · 초과 row 는 셀 red + 「N / 750 자 초과」 접미사 · 실행 버튼 disabled + title 안내 · 웹 1068 (+4) · lint clean · 서버 무변경.
