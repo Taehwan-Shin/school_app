@@ -3815,3 +3815,41 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · UserDetail displayName 상한 이식 (Directory User familyName/givenName 40자) · AuditLogTable JSON 내보내기 재검토 (v0.108 은 있지만 filter reflect 개선 여지).
+
+## 2026-09-20 · v0.178 CreateUser/BatchCreate 성/이름 60자 상한 검증 (Google Directory User 규격)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `ca3b35e` (`feat/user-name-limit-v178`) | feat: v0.178 CreateUser/BatchCreate 성/이름 60자 상한 검증 (Google Directory User) |
+| 병합 | `fd88dbb` | Merge feat/user-name-limit-v178 into main - v0.178 CreateUser/BatchCreate 성/이름 60자 상한 검증 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `fd88dbb` | skip (Head 폴백 규율) | 기계 관문 (web 1050 유닛 · lint clean · tsc + eslint) 을 gate 로 사용. Codex 한도 소진 대응. |
+
+### 설계
+
+- **문제**: v0.173/v0.174/v0.175 로 group description · course description · course name/section/room 은 client-side 상한 강제 갖춤. 계정 생성 (Create · Batch) 은 성/이름 무제한 → Google Directory API 60자 초과 시 400 invalid_argument 로 라운드트립 낭비 + 사용자 뜻 모를 메시지.
+- **해결**:
+  - **신규 `packages/web/src/lib/userLimits.ts`** — `USER_FAMILY_NAME_MAX = 60` · `USER_GIVEN_NAME_MAX = 60` (Google Directory User schema 참조).
+  - **CreateUserDialog** — handleSubmit 상단 trim > 60 검증 → 실행 차단 + 「성/이름은 최대 60자까지 입력 가능합니다 (현재 N자).」 · 각 input 밑 `familyName-counter` / `givenName-counter` 실시간 카운터 (초과 시 `text-state-danger`).
+  - **BatchCreateUsersDialog** — handleConfirm row loop 검증 → 실행 차단 (에러 메시지에 「「id」 의 성/이름」 접두어) · 각 row `family` / `given` input 에 `aria-invalid` + red border + inline warn `-family-warn` / `-given-warn` · 하단 실행 예정 카운트 옆에 `batch-create-users-name-limit-summary` 「이름 상한 초과 N개 행」 (v0.176 BulkRename `overlyLongRows` 패턴).
+- **테스트**:
+  - `packages/web/tests/userLimits.test.ts` — helper 2건 (family=60, given=60).
+  - `packages/web/tests/CreateUserDialog.test.tsx` v0.178 describe 4건 (family 61자 차단 · given 100자 차단 · 카운터 실시간 red toggle · 60자 정확 경계 정상).
+  - `packages/web/tests/BatchCreateUsersDialog.test.tsx` v0.178 describe 3건 (family 61자 차단 · given 75자 red 경고 + summary count · 60자 정확 경계 정상).
+
+### 배운 것
+
+- **testid 확인 우선**: BatchCreate validation error div 는 `batch-create-users-error` (내가 초기 draft 에 `batch-create-users-validation-error` 로 잘못 썼음). 새 테스트 쓰기 전 기존 testid 를 `grep` 으로 확인해서 재사용 (v0.176 rowError 패턴 답습 대신 실제 소스 확인).
+- **v0.176 rowError 패턴 재사용**: BulkRename 의 `overlyLongRows` useMemo + summary count 접근이 BatchCreate 에도 그대로 적용됨. 다만 BulkRename 은 `rowError` (invalid | tooLong) 통합 스타일, BatchCreate 은 이미 각 필드별 input 이라 field-level `familyTooLong` / `givenTooLong` 로 분리하고 inline warn 별도 노출.
+- **aria-invalid conditional prop**: `aria-invalid={familyTooLong || undefined}` 로 false 일 때 attribute 자체를 제거 (일부 스크린 리더는 aria-invalid="false" 를 잘못 해석). 접근성 관례.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · AuditLogTable JSON 내보내기 filter reflect 개선 · users API primaryEmail 상한 (Google Workspace: 64자 local + 253자 domain).
