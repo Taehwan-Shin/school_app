@@ -274,6 +274,92 @@ export function ClassroomTable() {
     kpiFilter !== null ||
     sortColumn !== null;
 
+  // v0.177: CSV/JSON export (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭).
+  // 선택 있으면 그것만 export · 없으면 sortedFilteredCourses. selectedIds 는 필터
+  // 밖 선택도 유지하므로 export 는 필터 결과 안의 선택 교집합만 반영 (bulk 작업과
+  // 동일한 규칙 — 필터 밖 선택으로 실행되지 않도록).
+  const exportCourses = useMemo(() => {
+    if (selectedIds.size === 0) return sortedFilteredCourses;
+    return sortedFilteredCourses.filter((c) => selectedIds.has(c.id));
+  }, [sortedFilteredCourses, selectedIds]);
+  const exportScope: 'selected' | 'filtered' =
+    selectedIds.size > 0 ? 'selected' : 'filtered';
+
+  const handleExportCsv = () => {
+    const header = [
+      'id',
+      '이름',
+      '섹션',
+      '상태',
+      '설명',
+      '링크',
+      '소유자 id',
+      '생성 시각',
+      '수정 시각',
+    ];
+    const rows = exportCourses.map((c) => [
+      c.id,
+      c.name || '-',
+      c.section || '-',
+      translateCourseState(c.courseState),
+      c.description || '-',
+      c.alternateLink || '-',
+      c.ownerId || '-',
+      c.creationTime || '-',
+      c.updateTime || '-',
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const scopeSuffix = exportScope === 'selected' ? '-selected' : '';
+    a.href = url;
+    a.download = `classrooms${scopeSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJson = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      scope: exportScope,
+      filters: {
+        q: searchQuery.trim(),
+        filter: kpiFilter,
+        sort: sortColumn,
+        dir: sortDirection,
+      },
+      totalCount: exportCourses.length,
+      courses: exportCourses.map((c) => ({
+        id: c.id,
+        name: c.name ?? '',
+        section: c.section ?? '',
+        courseState: c.courseState ?? '',
+        description: c.description ?? '',
+        alternateLink: c.alternateLink ?? '',
+        ownerId: c.ownerId ?? '',
+        creationTime: c.creationTime ?? '',
+        updateTime: c.updateTime ?? '',
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const scopeSuffix = exportScope === 'selected' ? '-selected' : '';
+    a.href = url;
+    a.download = `classrooms${scopeSuffix}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const setKpiFilter = (v: KpiFilter) => {
     const next = new URLSearchParams(searchParams);
     if (v === null) next.delete('filter');
@@ -321,6 +407,36 @@ export function ClassroomTable() {
             title="검색·필터·정렬 초기화"
           >
             필터 초기화
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportCsv}
+            data-testid="classroom-export-csv-btn"
+            disabled={exportCourses.length === 0}
+            title={
+              exportCourses.length === 0
+                ? '내보낼 코스가 없습니다.'
+                : exportScope === 'selected'
+                  ? `선택 ${exportCourses.length}개 코스 CSV 다운로드`
+                  : `필터 결과 ${exportCourses.length}개 코스 CSV 다운로드`
+            }
+          >
+            CSV 내보내기{exportScope === 'selected' ? ` (선택 ${exportCourses.length})` : ''}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportJson}
+            data-testid="classroom-export-json-btn"
+            disabled={exportCourses.length === 0}
+            title={
+              exportCourses.length === 0
+                ? '내보낼 코스가 없습니다.'
+                : exportScope === 'selected'
+                  ? `선택 ${exportCourses.length}개 코스 JSON 다운로드 (scope=selected)`
+                  : '현재 필터 반영 JSON 다운로드 (exportedAt · filters 메타 포함)'
+            }
+          >
+            JSON 내보내기{exportScope === 'selected' ? ` (선택 ${exportCourses.length})` : ''}
           </Button>
           <Button
             variant="secondary"
