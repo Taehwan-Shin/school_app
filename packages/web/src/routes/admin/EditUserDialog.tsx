@@ -9,6 +9,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { useUpdateUser, type UsersUpdateRequest } from "../../api/usersUpdate";
+import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from "../../lib/userLimits";
 
 export interface EditUserTarget {
   email: string;
@@ -73,6 +74,21 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
 
     if (!givenName.trim()) {
       setValidationError("이름을 입력해주세요.");
+      return;
+    }
+
+    // v0.179: Google Directory User familyName/givenName 각 60자 상한 (v0.178 Create/Batch 대칭).
+    if (familyName.trim().length > USER_FAMILY_NAME_MAX) {
+      setValidationError(
+        `성은 최대 ${USER_FAMILY_NAME_MAX}자까지 입력 가능합니다 (현재 ${familyName.trim().length}자).`,
+      );
+      return;
+    }
+
+    if (givenName.trim().length > USER_GIVEN_NAME_MAX) {
+      setValidationError(
+        `이름은 최대 ${USER_GIVEN_NAME_MAX}자까지 입력 가능합니다 (현재 ${givenName.trim().length}자).`,
+      );
       return;
     }
 
@@ -159,6 +175,16 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
                 placeholder="홍"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  familyName.trim().length > USER_FAMILY_NAME_MAX
+                    ? "text-state-danger"
+                    : "text-fg-muted"
+                }`}
+                data-testid="edit-user-familyName-counter"
+              >
+                {familyName.trim().length} / {USER_FAMILY_NAME_MAX} 자
+              </p>
             </div>
 
             <div>
@@ -174,6 +200,16 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
                 placeholder="길동"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  givenName.trim().length > USER_GIVEN_NAME_MAX
+                    ? "text-state-danger"
+                    : "text-fg-muted"
+                }`}
+                data-testid="edit-user-givenName-counter"
+              >
+                {givenName.trim().length} / {USER_GIVEN_NAME_MAX} 자
+              </p>
             </div>
 
             <div>

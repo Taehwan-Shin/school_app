@@ -99,4 +99,59 @@ describe("EditUserDialog component", () => {
       screen.getByText("관리자 계정은 다른 관리자가 수정할 수 없습니다."),
     ).toBeDefined();
   });
+
+  // v0.179: familyName/givenName 60자 상한 검증 (v0.178 Create/Batch 대칭).
+  describe("v0.179: name limit 60자", () => {
+    it("familyName 이 60자 초과이면 validation error · mutate 미호출", () => {
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      const familyInput = screen.getByLabelText(/성 \*/);
+      fireEvent.change(familyInput, { target: { value: "A".repeat(61) } });
+      fireEvent.click(screen.getByTestId("edit-user-submit"));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId("edit-user-error");
+      expect(err.textContent).toContain("성은 최대 60자");
+      expect(err.textContent).toContain("현재 61자");
+    });
+
+    it("givenName 이 60자 초과이면 validation error · mutate 미호출", () => {
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      const givenInput = screen.getByLabelText(/이름 \*/);
+      fireEvent.change(givenInput, { target: { value: "B".repeat(100) } });
+      fireEvent.click(screen.getByTestId("edit-user-submit"));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId("edit-user-error");
+      expect(err.textContent).toContain("이름은 최대 60자");
+      expect(err.textContent).toContain("현재 100자");
+    });
+
+    it("카운터는 실시간 반영 · 초과 시 red · 60자 정확 정상", () => {
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      const familyCounter = screen.getByTestId("edit-user-familyName-counter");
+      const givenCounter = screen.getByTestId("edit-user-givenName-counter");
+      // pre-filled 「홍」 = 1자
+      expect(familyCounter.textContent).toContain("1 / 60");
+      expect(givenCounter.textContent).toContain("2 / 60");
+      // 60자 정확
+      fireEvent.change(screen.getByLabelText(/성 \*/), { target: { value: "X".repeat(60) } });
+      expect(familyCounter.textContent).toContain("60 / 60");
+      expect(familyCounter.className).not.toContain("text-state-danger");
+      // 61자 초과
+      fireEvent.change(screen.getByLabelText(/이름 \*/), { target: { value: "Y".repeat(61) } });
+      expect(givenCounter.textContent).toContain("61 / 60");
+      expect(givenCounter.className).toContain("text-state-danger");
+    });
+
+    it("60자 정확이면 mutate 정상 호출 (경계 케이스)", async () => {
+      mockMutateAsync.mockResolvedValueOnce({ primaryEmail: "teacher1@cam.hs.kr", updatedFields: ["lastName"] });
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      fireEvent.change(screen.getByLabelText(/성 \*/), { target: { value: "A".repeat(60) } });
+      fireEvent.click(screen.getByTestId("edit-user-submit"));
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith({
+          primaryEmail: "teacher1@cam.hs.kr",
+          lastName: "A".repeat(60),
+        });
+      });
+    });
+  });
 });
