@@ -575,5 +575,58 @@ describe('BasicDataPanel component', () => {
     expect(summaryEl.textContent).toContain('학생: 8');
     expect(summaryEl.textContent).toContain('부서: 3');
   });
+
+  // v0.184: 버튼 3-그룹핑 (편집 / 자동 워크플로우 / 데이터 I/O).
+  describe('v0.184: 버튼 3-그룹핑', () => {
+    beforeEach(() => {
+      mockUseBasicDataGet.mockReturnValue({
+        data: {
+          data: {
+            year: 2026,
+            grades: [{ grade: 1, classes: ['1'] }],
+            rosters: { '1': { '1': ['a@cam.hs.kr'] } },
+            departments: ['국어'],
+          },
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    });
+
+    it('편집 그룹은 「편집」 + 「학생 명단 편집」 두 버튼 포함 · role=group + aria-label', () => {
+      render(<BasicDataPanel />);
+      const editGroup = screen.getByTestId('basic-data-group-edit');
+      expect(editGroup).toBeDefined();
+      expect(editGroup.getAttribute('role')).toBe('group');
+      expect(editGroup.getAttribute('aria-label')).toBe('편집');
+      const btnList = Array.from(editGroup.querySelectorAll('button')).map((b) => b.textContent);
+      expect(btnList).toEqual(['편집', '학생 명단 편집']);
+    });
+
+    it('자동 워크플로우 그룹은 5 버튼 · 지정 순서', () => {
+      render(<BasicDataPanel />);
+      const autoGroup = screen.getByTestId('basic-data-group-auto');
+      expect(autoGroup).toBeDefined();
+      expect(autoGroup.getAttribute('aria-label')).toBe('자동 워크플로우');
+      const btnList = Array.from(autoGroup.querySelectorAll('button')).map((b) => b.textContent);
+      expect(btnList).toEqual([
+        '그룹 자동 생성',
+        '부서 그룹 자동 생성',
+        '학생 자동 초대',
+        '반 챗방 자동 초대',
+        '명단 밖 자동 제거',
+      ]);
+    });
+
+    it('데이터 입출력 그룹은 「JSON 불러오기」 + 「JSON 내보내기」 두 버튼 포함', () => {
+      render(<BasicDataPanel />);
+      const ioGroup = screen.getByTestId('basic-data-group-io');
+      expect(ioGroup).toBeDefined();
+      expect(ioGroup.getAttribute('aria-label')).toBe('데이터 입출력');
+      const btnList = Array.from(ioGroup.querySelectorAll('button')).map((b) => b.textContent);
+      expect(btnList).toEqual(['JSON 불러오기', 'JSON 내보내기']);
+    });
+  });
 });
 
