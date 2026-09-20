@@ -1,7 +1,7 @@
 // v0.145: 나이스 CSV 3 파일 업로드 → 파싱 → preview → 일괄 클래스룸 생성 + 교사/학생 초대.
 // 원본 Apps Script `createAndInviteClassrooms` 웹 포팅.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
   type PlanRow,
 } from './neisCsvParse';
 import { useQueryClient } from '@tanstack/react-query';
+import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
 export interface NeisCsvImportDialogProps {
   open: boolean;
@@ -45,6 +46,15 @@ interface ExecResult {
   teachersFailed: number;
   studentsAdded: number;
   studentsFailed: number;
+}
+
+// v0.182: 상한 초과 row 집계 (COURSE_NAME_MAX=750, v0.175 shared 상수). 순수 함수로
+// 뽑아 회귀 테스트에서 직접 검증.
+export function findOverlyLongPlanRows(
+  plan: Array<{ rowIndex: number; courseName: string }>,
+  max: number = COURSE_NAME_MAX,
+): Array<{ rowIndex: number; courseName: string }> {
+  return plan.filter((p) => p.courseName.length > max);
 }
 
 async function readFileText(file: File): Promise<string> {
@@ -117,6 +127,11 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
 
   const canPreview =
     classroomCsv !== null && teacherCsv !== null && studentCsv !== null;
+
+  // v0.182: 코스 이름 상한 (COURSE_NAME_MAX=750) 초과 row 감지 (v0.176 BulkRename 패턴).
+  // preview 단계에서 사용자에게 미리 경고 · 실행 차단.
+  const overlyLongRows = useMemo(() => findOverlyLongPlanRows(plan), [plan]);
+  const canExecute = plan.length > 0 && overlyLongRows.length === 0;
 
   const handleBuildPreview = () => {
     if (!classroomCsv || !teacherCsv || !studentCsv) return;
@@ -315,30 +330,63 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
                 생성 대상이 없습니다. 클래스룸 CSV G열이 「TRUE」 인 행이 있는지 확인하세요.
               </p>
             ) : (
-              <div className="max-h-96 overflow-y-auto border border-border-subtle bg-canvas">
-                <table className="w-full text-small">
-                  <thead className="border-b border-border-subtle bg-surface">
-                    <tr>
-                      <th scope="col" className="p-2 text-left">row</th>
-                      <th scope="col" className="p-2 text-left">과목-반</th>
-                      <th scope="col" className="p-2 text-left">코스 이름</th>
-                      <th scope="col" className="p-2 text-right">교사</th>
-                      <th scope="col" className="p-2 text-right">학생</th>
-                    </tr>
-                  </thead>
-                  <tbody data-testid="neis-preview-tbody">
-                    {plan.map((p) => (
-                      <tr key={p.rowIndex} className="border-b border-border-subtle last:border-0">
-                        <td className="p-2 font-mono text-fg-muted">{p.rowIndex}</td>
-                        <td className="p-2 text-fg-primary">{p.subjectClass}</td>
-                        <td className="p-2 text-fg-primary">{p.courseName}</td>
-                        <td className="p-2 text-right font-mono">{p.teacherCount}</td>
-                        <td className="p-2 text-right font-mono">{p.studentCount}</td>
+              <>
+                {overlyLongRows.length > 0 && (
+                  <div
+                    className="border border-state-danger bg-canvas p-3 space-y-1"
+                    data-testid="neis-preview-name-limit-warning"
+                  >
+                    <p className="text-small text-state-danger font-medium">
+                      코스 이름 상한 초과 {overlyLongRows.length}개 행 — 실행 불가
+                    </p>
+                    <p className="text-small text-fg-muted">
+                      Google Classroom `courses.name` 은 최대 {COURSE_NAME_MAX}자입니다. CSV 를 수정 후 다시 미리보기 하세요.
+                    </p>
+                  </div>
+                )}
+                <div className="max-h-96 overflow-y-auto border border-border-subtle bg-canvas">
+                  <table className="w-full text-small">
+                    <thead className="border-b border-border-subtle bg-surface">
+                      <tr>
+                        <th scope="col" className="p-2 text-left">row</th>
+                        <th scope="col" className="p-2 text-left">과목-반</th>
+                        <th scope="col" className="p-2 text-left">코스 이름</th>
+                        <th scope="col" className="p-2 text-right">교사</th>
+                        <th scope="col" className="p-2 text-right">학생</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody data-testid="neis-preview-tbody">
+                      {plan.map((p) => {
+                        const tooLong = p.courseName.length > COURSE_NAME_MAX;
+                        return (
+                          <tr
+                            key={p.rowIndex}
+                            className={`border-b border-border-subtle last:border-0 ${
+                              tooLong ? 'bg-canvas' : ''
+                            }`}
+                            data-testid={tooLong ? `neis-preview-row-toolong-${p.rowIndex}` : undefined}
+                          >
+                            <td className="p-2 font-mono text-fg-muted">{p.rowIndex}</td>
+                            <td className="p-2 text-fg-primary">{p.subjectClass}</td>
+                            <td
+                              className={`p-2 ${tooLong ? 'text-state-danger' : 'text-fg-primary'}`}
+                            >
+                              {p.courseName}
+                              {tooLong && (
+                                <span className="ml-2 text-micro">
+                                  ({p.courseName.length} / {COURSE_NAME_MAX} 자 초과)
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 text-right font-mono">{p.teacherCount}</td>
+                            <td className="p-2 text-right font-mono">{p.studentCount}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -438,8 +486,13 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
               <Button
                 type="button"
                 onClick={handleExecute}
-                disabled={plan.length === 0}
+                disabled={!canExecute}
                 data-testid="neis-execute-btn"
+                title={
+                  overlyLongRows.length > 0
+                    ? `코스 이름 상한 초과 ${overlyLongRows.length}개 행. CSV 수정 후 다시 미리보기.`
+                    : undefined
+                }
               >
                 {plan.length}개 코스 생성 실행
               </Button>
