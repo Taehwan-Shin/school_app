@@ -10,6 +10,9 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { callClassroomPatch } from '../../api/classroomPatch';
+// v0.189: hardcoded NAME_MAX/SECTION_MAX 를 shared `lib/classroomLimits.ts` 로 승격
+// (v0.175 CreateClassroom 검증에서 이미 사용 중).
+import { COURSE_NAME_MAX, COURSE_SECTION_MAX } from '../../lib/classroomLimits';
 
 export interface RenameClassroomTarget {
   id: string;
@@ -26,9 +29,9 @@ export interface RenameClassroomDialogProps {
 
 // v0.136: 개별 클래스룸 이름/섹션 변경 다이얼로그. v0.134 의 classroomPatch
 // name/section 확장을 개별 편집 (classroomDetail 페이지) 에서도 사용 가능하게.
-// name 최대 750자, section 최대 2800자 (Classroom REST v1 한도).
-const NAME_MAX = 750;
-const SECTION_MAX = 2800;
+// v0.189: shared classroomLimits 로 이관 (하위 호환 alias).
+const NAME_MAX = COURSE_NAME_MAX;
+const SECTION_MAX = COURSE_SECTION_MAX;
 
 export function RenameClassroomDialog({
   open,
@@ -135,6 +138,15 @@ export function RenameClassroomDialog({
                         : 'border-border-subtle text-fg-primary focus:border-border-strong focus:ring-border-strong')
                   }
                 />
+                {/* v0.189: v0.180/v0.188 counter 스타일 통일 카운터. */}
+                <p
+                  className={`mt-1 text-small ${
+                    nameTooLong ? 'text-state-danger' : 'text-fg-muted'
+                  }`}
+                  data-testid="rename-classroom-name-counter"
+                >
+                  {trimmedName.length.toLocaleString()} / {NAME_MAX.toLocaleString()} 자
+                </p>
                 {nameEmpty && (
                   <p
                     className="text-small text-state-danger mt-1"
@@ -175,6 +187,15 @@ export function RenameClassroomDialog({
                         : 'border-border-subtle text-fg-primary focus:border-border-strong focus:ring-border-strong')
                   }
                 />
+                {/* v0.189: 카운터 (v0.180 스타일). */}
+                <p
+                  className={`mt-1 text-small ${
+                    sectionTooLong ? 'text-state-danger' : 'text-fg-muted'
+                  }`}
+                  data-testid="rename-classroom-section-counter"
+                >
+                  {trimmedSection.length.toLocaleString()} / {SECTION_MAX.toLocaleString()} 자
+                </p>
                 {sectionTooLong && (
                   <p
                     className="text-small text-state-danger mt-1"
