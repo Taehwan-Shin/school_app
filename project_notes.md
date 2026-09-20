@@ -4500,6 +4500,44 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.202**: Column menu outside-click auto-close.
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.200/v0.201 GroupsTable/ClassroomTable 컬럼 표시 토글 (시리즈 완결)
+
+### 커밋 표
+
+| 슬라이스 | 커밋 | 병합 |
+|---|---|---|
+| v0.200 (Groups) | `d82d312` | `07d4441` |
+| v0.201 (Classroom) | `172ef4f` | `c194b37` |
+
+### 라운드 표
+
+| 슬라이스 | HEAD | 결과 |
+|---|---|---|
+| v0.200 | `07d4441` | skip · web 1134 (+4) |
+| v0.201 | `c194b37` | skip · web 1138 (+4) |
+
+### 설계
+
+- v0.199 pattern 그대로 이식. GroupsTable 4 필드 (name/description/aliases/directMembersCount), ClassroomTable 5 필드 (name/section/state/id/link).
+- 각 테이블 별 module-scope constants (`TOGGLEABLE_COLUMNS`, `DEFAULT_VISIBLE_COLUMNS`, `VISIBLE_COLUMNS_STORAGE_KEY`, `readStoredVisibleColumns()`).
+- 컴포넌트 state (`visibleColumns: Set<ToggleColumnKey>`, `isColumnMenuOpen`, `toggleColumn` helper).
+- UI popover 「컬럼 표시 (N / M)」 + checkbox 리스트.
+- 헤더/셀 조건부 렌더링.
+
+### 배운 것
+
+- **shared vs 각자 pattern**: v0.193 page-size 시리즈처럼 상수 module-scope 유지 · 각 테이블 별 storage key 로 구분. shared lib 승격 시 storage key generator 추가 필요 · 오히려 복잡. "3 회 반복 pattern" 이지만 이 경우는 인라인이 명확.
+- **필수 vs 선택 컬럼 정의**: 각 테이블 마다 필수 컬럼이 다름. Accounts (선택/이메일/관리), Groups (선택/이메일/관리), Classroom (선택/관리 · 이름도 토글 가능). UX 결정: bulk action 이 있는 테이블은 선택 checkbox 필수, 링크 진입점 있는 primary column (email/name) 은 필수 유지 (사용자가 실수로 다 hide 하면 row 식별 불가).
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.202**: Column menu outside-click auto-close (usability polish).
+  - **v0.203**: 컬럼 표시 preset 저장 (예: "기본" / "간결" / "전체").
+  - **v0.204**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 

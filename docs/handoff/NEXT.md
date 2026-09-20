@@ -1,10 +1,12 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.199 병합 완료** (`a293a17`) - AccountsTable 컬럼 표시 토글 (이름/조직단위/관리자/정지 4 필드 · localStorage 저장) · 웹 1130. **v0.198** (`fd7ecdd`) - AuditLog 「더 보기」 pageSize 반영 + hasMore 시각화.
+> **v0.201 병합 완료** (`c194b37`) - ClassroomTable 컬럼 표시 토글 (5 필드 · **column visibility 시리즈 완결**) · 웹 1138. **v0.200** (`07d4441`) - GroupsTable 4 필드 · 웹 1134. **v0.199** (`a293a17`) - AccountsTable 4 필드 · 웹 1130.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `c194b37` v0.201 - ClassroomTable 5 필드 (name/section/state/id/link) column visibility 토글 · localStorage `classroomTable.visibleColumns.v1` · 4 회귀 · 웹 1138 (+4) · lint clean · 서버 무변경.
+- `07d4441` v0.200 - GroupsTable 4 필드 (name/description/aliases/directMembersCount) column visibility 토글 · localStorage `groupsTable.visibleColumns.v1` · 4 회귀 · 웹 1134 (+4) · lint clean · 서버 무변경.
 - `a293a17` v0.199 - AccountsTable 헤더에 「컬럼 표시 (N / 4)」 popover menu 추가 · TOGGLEABLE_COLUMNS 4 필드 (`name` · `orgUnitPath` · `admin` · `suspended`) · localStorage `accountsTable.visibleColumns.v1` (JSON array) · 잘못된 값 default fallback · 헤더/셀 조건부 렌더링 · 5 회귀 · 웹 1130 (+5).
 - `fd7ecdd` v0.198 - AuditLogTable 「더 보기 (25 건)」 하드코딩을 pageSize state 반영으로 변경 · 로드 정보 헤더에 hasMore 여부 `(더 있음)` / `(마지막)` 추가 (`data-testid="audit-log-loaded-info"`) · 3 회귀 · 웹 1125 (+3) · lint clean · 서버 무변경.
 - `a4ad11a` v0.197 - AuditLogTable page-size 셀렉터 (`auditLogTable.pageSize.v1`) · `useAuditLogList(pageSize, ...)` 로 서버 요청 크기 변경 · JSON export payload `filter.pageSize` 도 state 값 반영 · 4 회귀 · 웹 1122 (+4) · lint clean · 서버 무변경.
