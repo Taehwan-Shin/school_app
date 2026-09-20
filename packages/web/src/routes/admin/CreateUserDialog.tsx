@@ -15,7 +15,11 @@ import { useClassroomList } from '../../api/classroomList';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 import { reauthorizeWithGoogle } from '../../lib/auth';
-import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from '../../lib/userLimits';
+import {
+  USER_FAMILY_NAME_MAX,
+  USER_GIVEN_NAME_MAX,
+  USER_LOCAL_PART_MAX,
+} from '../../lib/userLimits';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -188,6 +192,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     if (!trimmedEmail) return setValidationError('이메일을 입력해주세요.');
     if (!trimmedEmail.endsWith('@cam.hs.kr'))
       return setValidationError('이메일은 @cam.hs.kr 도메인이어야 합니다.');
+    // v0.181: local-part 64자 상한 (RFC 5321 / Google Workspace 규격).
+    const localPart = trimmedEmail.slice(0, trimmedEmail.lastIndexOf('@'));
+    if (localPart.length === 0)
+      return setValidationError('이메일 아이디 (@ 앞부분) 를 입력해주세요.');
+    if (localPart.length > USER_LOCAL_PART_MAX)
+      return setValidationError(
+        `이메일 아이디 (@ 앞부분) 는 최대 ${USER_LOCAL_PART_MAX}자까지 입력 가능합니다 (현재 ${localPart.length}자).`,
+      );
     if (!familyName.trim()) return setValidationError('성을 입력해주세요.');
     if (!givenName.trim()) return setValidationError('이름을 입력해주세요.');
     // v0.178: Google Directory User familyName/givenName 각 60자 상한 (초과 시 400).
@@ -334,6 +346,25 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 disabled={isBusy}
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
               />
+              {/* v0.181: local-part 길이 카운터. @ 있으면 앞부분, 없으면 전체를 로컬로 간주. */}
+              {(() => {
+                const trimmed = primaryEmail.trim();
+                const at = trimmed.lastIndexOf('@');
+                const local = at >= 0 ? trimmed.slice(0, at) : trimmed;
+                if (local.length === 0) return null;
+                return (
+                  <p
+                    className={`mt-1 text-small ${
+                      local.length > USER_LOCAL_PART_MAX
+                        ? 'text-state-danger'
+                        : 'text-fg-muted'
+                    }`}
+                    data-testid="create-user-email-local-counter"
+                  >
+                    이메일 아이디 {local.length} / {USER_LOCAL_PART_MAX} 자
+                  </p>
+                );
+              })()}
             </div>
 
             <div>
