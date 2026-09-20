@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   EMAIL_DOMAIN,
+  EMAIL_LOCAL_PART_MAX,
+  extractEmailLocalPart,
   LOCAL_PART_RE,
   FULL_EMAIL_RE,
   normalizeSchoolEmailInput,
@@ -62,5 +64,18 @@ describe("emailInput helpers", () => {
     expect(previewSchoolEmail("")).toBe("");
     expect(previewSchoolEmail("team!")).toBe("");
     expect(previewSchoolEmail("team@other.com")).toBe("");
+  });
+
+  // v0.191: local-part 상한 상수 + 추출 helper.
+  it("EMAIL_LOCAL_PART_MAX = 64 (RFC 5321 / Google Workspace)", () => {
+    expect(EMAIL_LOCAL_PART_MAX).toBe(64);
+  });
+
+  it("extractEmailLocalPart: @ 있으면 앞부분 · 없으면 전체 · 마지막 @ 기준", () => {
+    expect(extractEmailLocalPart("hong1@cam.hs.kr")).toBe("hong1");
+    expect(extractEmailLocalPart("hong1")).toBe("hong1");
+    expect(extractEmailLocalPart("")).toBe("");
+    // 이론적으로 여러 @ 는 유효 이메일 아니지만 helper 는 마지막 @ 기준으로 안전 분리.
+    expect(extractEmailLocalPart("a@b@cam.hs.kr")).toBe("a@b");
   });
 });

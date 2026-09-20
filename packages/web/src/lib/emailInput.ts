@@ -5,6 +5,10 @@ export const EMAIL_DOMAIN = "cam.hs.kr";
 
 // Google Workspace local-part 규칙: 알파벳/숫자/`.`/`_`/`-` 만, 64자 이하.
 // 첫 글자는 alphanumeric.
+// v0.191: 64자 상한을 상수로 export (RFC 5321 · Google Workspace 규격).
+// v0.181 CreateUser (`USER_LOCAL_PART_MAX`) 와 동일 값이지만 semantic home 은
+// email 인프라이므로 여기에 둔다. 추가 dialog 는 이 상수를 참조.
+export const EMAIL_LOCAL_PART_MAX = 64;
 export const LOCAL_PART_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 export const FULL_EMAIL_RE = new RegExp(
@@ -37,4 +41,14 @@ export function previewSchoolEmail(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return "";
   return normalizeSchoolEmailInput(trimmed) ?? "";
+}
+
+/**
+ * v0.191: 입력에서 local-part (「@」 앞 부분) 를 추출. counter UI 에 사용.
+ * - 「@」 있으면 앞 부분, 없으면 전체를 로컬로 간주 (사용자가 아이디만 입력 중일 때).
+ * - trim 은 하지 않음 (raw 길이 유지 · 시각적으로 사용자가 본 그대로).
+ */
+export function extractEmailLocalPart(input: string): string {
+  const at = input.lastIndexOf("@");
+  return at >= 0 ? input.slice(0, at) : input;
 }

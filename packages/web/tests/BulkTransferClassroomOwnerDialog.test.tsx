@@ -258,4 +258,46 @@ describe("BulkTransferClassroomOwnerDialog component", () => {
       );
     });
   });
+
+  // v0.191: local-part 카운터 (v0.181 CreateUser 대칭 · counter 통일 시리즈).
+  describe("v0.191: local-part 카운터", () => {
+    it("빈 값이면 카운터 미노출", () => {
+      renderWithClient(
+        <BulkTransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courses={courses}
+        />,
+      );
+      expect(screen.queryByTestId("bulk-transfer-owner-email-local-counter")).toBeNull();
+    });
+
+    it("local-part 실시간 카운터 · 이내 muted · 초과 red", () => {
+      renderWithClient(
+        <BulkTransferClassroomOwnerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          courses={courses}
+        />,
+      );
+      const input = screen.getByTestId("bulk-transfer-owner-email-input");
+      // @ 없이 로컬만
+      fireEvent.change(input, { target: { value: "hong1" } });
+      const counter = screen.getByTestId("bulk-transfer-owner-email-local-counter");
+      expect(counter.textContent).toContain("5 / 64");
+      expect(counter.className).toContain("text-fg-muted");
+      // 64자 정확 + 도메인
+      fireEvent.change(input, {
+        target: { value: `${"a".repeat(64)}@cam.hs.kr` },
+      });
+      expect(counter.textContent).toContain("64 / 64");
+      expect(counter.className).not.toContain("text-state-danger");
+      // 65자 초과
+      fireEvent.change(input, {
+        target: { value: `${"a".repeat(65)}@cam.hs.kr` },
+      });
+      expect(counter.textContent).toContain("65 / 64");
+      expect(counter.className).toContain("text-state-danger");
+    });
+  });
 });

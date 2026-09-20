@@ -12,6 +12,8 @@ import { Button } from "../../components/ui/button";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
+  EMAIL_LOCAL_PART_MAX,
+  extractEmailLocalPart,
   normalizeSchoolEmailInput,
   previewSchoolEmail,
 } from "../../lib/emailInput";
@@ -163,6 +165,23 @@ export function BulkTransferClassroomOwnerDialog({
                     data-testid="bulk-transfer-owner-email-preview"
                   >
                     미리보기: <span className="font-mono">{preview}</span>
+                  </p>
+                );
+              })()}
+              {/* v0.191: local-part 64자 상한 카운터 (v0.181 CreateUser 대칭 · 통일 스타일). */}
+              {(() => {
+                const local = extractEmailLocalPart(newOwnerEmail.trim());
+                if (local.length === 0) return null;
+                return (
+                  <p
+                    className={`mt-1 text-small ${
+                      local.length > EMAIL_LOCAL_PART_MAX
+                        ? "text-state-danger"
+                        : "text-fg-muted"
+                    }`}
+                    data-testid="bulk-transfer-owner-email-local-counter"
+                  >
+                    이메일 아이디 {local.length} / {EMAIL_LOCAL_PART_MAX} 자
                   </p>
                 );
               })()}
