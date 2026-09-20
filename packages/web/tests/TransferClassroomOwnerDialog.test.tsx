@@ -364,4 +364,31 @@ describe('TransferClassroomOwnerDialog component', () => {
       });
     });
   });
+
+  // v0.192: local-part 64자 카운터 (v0.181/v0.191 대칭).
+  describe('v0.192: local-part 카운터', () => {
+    const sampleTarget = { id: 'c-101', name: '1학년 수학', currentOwnerId: 'oldowner@cam.hs.kr' };
+
+    it('빈 값이면 카운터 미노출', () => {
+      renderWithClient(
+        <TransferClassroomOwnerDialog open={true} onOpenChange={vi.fn()} target={sampleTarget} />,
+      );
+      expect(screen.queryByTestId('transfer-owner-email-local-counter')).toBeNull();
+    });
+
+    it('아이디 실시간 반영 · 이내 muted · 초과 red', () => {
+      renderWithClient(
+        <TransferClassroomOwnerDialog open={true} onOpenChange={vi.fn()} target={sampleTarget} />,
+      );
+      const input = screen.getByTestId('transfer-owner-email-input');
+      fireEvent.change(input, { target: { value: 'teacher-a' } });
+      const counter = screen.getByTestId('transfer-owner-email-local-counter');
+      expect(counter.textContent).toContain('9 / 64');
+      expect(counter.className).toContain('text-fg-muted');
+      // 65자 초과
+      fireEvent.change(input, { target: { value: 'a'.repeat(65) } });
+      expect(counter.textContent).toContain('65 / 64');
+      expect(counter.className).toContain('text-state-danger');
+    });
+  });
 });

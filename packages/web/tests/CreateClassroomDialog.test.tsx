@@ -248,4 +248,25 @@ describe('CreateClassroomDialog component', () => {
       expect(counter.className).toContain('text-state-danger');
     });
   });
+
+  // v0.192: owner local-part 64자 카운터 (v0.181/v0.191 대칭).
+  describe('v0.192: owner local-part 카운터', () => {
+    it('기본값 「me」 이면 카운터 미노출', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      expect(screen.queryByTestId('create-classroom-owner-local-counter')).toBeNull();
+    });
+
+    it('아이디 입력 시 카운터 노출 · 이내 muted · 초과 red', () => {
+      render(<CreateClassroomDialog open={true} onOpenChange={vi.fn()} />);
+      const input = screen.getByTestId('create-classroom-owner');
+      fireEvent.change(input, { target: { value: 'teacher-a' } });
+      const counter = screen.getByTestId('create-classroom-owner-local-counter');
+      expect(counter.textContent).toContain('9 / 64');
+      expect(counter.className).toContain('text-fg-muted');
+      // 65자 초과
+      fireEvent.change(input, { target: { value: 'a'.repeat(65) } });
+      expect(counter.textContent).toContain('65 / 64');
+      expect(counter.className).toContain('text-state-danger');
+    });
+  });
 });
