@@ -9,7 +9,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { useUpdateGroup, type GroupsUpdateRequest } from "../../api/groupsUpdate";
-import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
+import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from "../../lib/groupLimits";
 
 export interface EditGroupTarget {
   email: string; // 읽기 전용
@@ -65,6 +65,14 @@ export function EditGroupDialog({ open, onOpenChange, group }: EditGroupDialogPr
     const trimmedName = name.trim();
     if (!trimmedName) {
       setValidationError("이름을 입력해주세요.");
+      return;
+    }
+
+    // v0.180: name 60자 상한 (Workspace Directory groups.name 규격 · CreateGroup 대칭).
+    if (trimmedName.length > GROUP_NAME_MAX) {
+      setValidationError(
+        `이름은 ${GROUP_NAME_MAX}자 이하여야 합니다. (현재 ${trimmedName.length}자)`,
+      );
       return;
     }
 
@@ -156,6 +164,14 @@ export function EditGroupDialog({ open, onOpenChange, group }: EditGroupDialogPr
                 placeholder="그룹 이름"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
+              <p
+                className={`mt-1 text-small ${
+                  name.trim().length > GROUP_NAME_MAX ? "text-state-danger" : "text-fg-muted"
+                }`}
+                data-testid="edit-group-name-counter"
+              >
+                {name.trim().length} / {GROUP_NAME_MAX} 자
+              </p>
             </div>
 
             <div>

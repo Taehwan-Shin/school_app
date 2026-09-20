@@ -219,6 +219,34 @@ describe("CreateGroupDialog component", () => {
       expect(screen.getByTestId("create-group-error").textContent).toContain("이메일 형식");
     });
   });
+
+  // v0.180: name 60자 상한 검증 (Workspace Directory groups.name 규격).
+  describe("v0.180: name limit 60자", () => {
+    it("이름이 60자 초과이면 validation error · mutate 미호출", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("create-group-email-input"), {
+        target: { value: "team-a" },
+      });
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "A".repeat(61) } });
+      fireEvent.click(screen.getByTestId("create-group-submit"));
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      const err = screen.getByTestId("create-group-error");
+      expect(err.textContent).toContain("이름은 60자 이하");
+      expect(err.textContent).toContain("현재 61자");
+    });
+
+    it("카운터는 실시간 반영 · 초과 시 red · 60자 정확 정상", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId("create-group-name-counter");
+      expect(counter.textContent).toContain("0 / 60");
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "X".repeat(60) } });
+      expect(counter.textContent).toContain("60 / 60");
+      expect(counter.className).not.toContain("text-state-danger");
+      fireEvent.change(screen.getByLabelText(/이름/), { target: { value: "X".repeat(61) } });
+      expect(counter.textContent).toContain("61 / 60");
+      expect(counter.className).toContain("text-state-danger");
+    });
+  });
 });
 
 // v0.167: normalizeGroupEmailInput 순수 함수 회귀 (helper 직접).
