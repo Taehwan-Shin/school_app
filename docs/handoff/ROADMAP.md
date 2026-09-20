@@ -122,7 +122,7 @@
 - **CreateClassroom name/section/room 카운터 이식 + description 스타일 통일** - v0.188 완료 (v0.175 검증 대칭 + v0.187 통일 확장). name/section/room 카운터 신규 추가 · description 카운터 옛 스타일 (`text-micro` + `text-red-600` + 「현재」) → v0.180 통일 스타일 · 4 회귀 · 웹 1089 (+4) · lint clean · 서버 무변경.
 - **RenameClassroom + BulkRenameClassroom row-level 카운터 이식** - v0.189/v0.190 완료 (counter 시리즈 완결). RenameClassroom: shared `COURSE_NAME_MAX` / `COURSE_SECTION_MAX` 참조 + name/section 카운터 신규 (v0.189, 웹 1091 +2). BulkRenameClassroom: 각 row input 밑 실시간 카운터 (v0.190, 웹 1092 +1) — 기존 tooLong warn 은 유지 (초과 시 명시적 안내 병행). Counter 스타일 통일 시리즈 (v0.178~v0.190) 사실상 완결.
 - **Local-part 카운터 시리즈 완결 (v0.191/v0.192)** - v0.191 BulkTransferClassroomOwner + emailInput.ts 확장 (`EMAIL_LOCAL_PART_MAX` · `extractEmailLocalPart` 승격). v0.192 CreateGroup + CreateClassroom + TransferClassroomOwner 3 dialog 대칭 이식. **총 5 dialog · 이메일 입력 필드 모두 local-part 64자 카운터 완비** (Bulk/개별 · Create/Transfer 모든 조합). 웹 1096 → 1102 (+10 슬라이스 통산).
-- **페이지 크기 셀렉터 시리즈 완결 (v0.193/v0.194/v0.195)** - Accounts (v0.193) · Groups (v0.194) · Classroom (v0.195) 3 테이블 모두 25/50/100 select + localStorage 저장. `<table>Table.pageSize.v1` 키 · 잘못된 값 default 25 fallback · 변경 시 page=0 리셋. 대량 데이터 뷰 관리자 편의. 웹 1102 → 1115 (+13 슬라이스 통산).
+- **페이지 크기 셀렉터 시리즈 최종 완결 (v0.193~v0.197)** - Accounts (v0.193) · Groups (v0.194) · Classroom (v0.195) · AuditLog (v0.197) **4 테이블 모두** 25/50/100 select + localStorage 저장. v0.196 은 3 테이블 pagination-info 에 「N / M 페이지」 추가. `<table>Table.pageSize.v1` 키 · 잘못된 값 default 25 fallback · 변경 시 page=0 리셋. AuditLog 는 서버 요청 pageSize 변경 (`useAuditLogList(pageSize, ...)`) + JSON payload 반영. 대량 데이터 뷰 관리자 편의. 웹 1102 → 1122 (+20 슬라이스 통산).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

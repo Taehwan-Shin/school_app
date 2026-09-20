@@ -4388,6 +4388,57 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.198**: Column visibility toggle (선택 컬럼 숨기기).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-20 · v0.196 3 테이블 pagination-info 「N / M 페이지」 표기
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `a4ea7af` | feat: v0.196 3 테이블 pagination-info 「N / M 페이지」 표기 |
+| 병합 | `76caeec` | Merge feat/pagination-page-of-total-v196 |
+
+### 설계
+
+- 기존 pagination info `${page * pageSize + 1}–${...} of ${total}` 옆에 `(${page + 1} / ${Math.max(1, Math.ceil(total / pageSize))} 페이지)` 접미사 추가.
+- 3 테이블 (Accounts · Groups · Classroom) 동일 pattern.
+- 기존 회귀 18 개 (`.toBe("1–25 of 30")` 등) 를 `.toContain()` 으로 완화. Python script 로 bulk 변환.
+- 신규 3 회귀: 각 테이블 30개 데이터 → 「1 / 2 페이지」 → next → 「2 / 2」.
+
+### 배운 것
+
+- **문자열 확장 시 exact-match 회귀 완화**: 기존 `.toBe` assertion 은 문자열 정확 매치라 확장에 취약. `.toContain` 으로 완화하면 확장 접미사도 통과. 다만 「결과 없음」 처럼 예외 케이스는 `.toBe` 유지.
+- **Math.max(1, ceil)**: `total=0` 이면 `ceil(0/25) = 0` 이라 「1 / 0 페이지」 표기 되지만 이 케이스는 「결과 없음」 브랜치로 처리하므로 접미사 안 붙음. defensive Math.max(1) 는 total=0 대응 아니라 total>0 인데 pageSize > total (예: 5개 / 25 = 1 페이지) 케이스에서 ceil(5/25)=1 이 맞으므로 실제로는 필요 없음. 하지만 미래 방어.
+
+## 2026-09-20 · v0.197 AuditLogTable 페이지 크기 셀렉터 (4 테이블 완결)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `f74de4a` | feat: v0.197 AuditLogTable 페이지 크기 셀렉터 |
+| 병합 | `a4ad11a` | Merge feat/audit-page-size-v197 |
+
+### 설계
+
+- v0.193 pattern 재사용. localStorage 키 = `auditLogTable.pageSize.v1`.
+- AuditLog 는 client-side 슬라이스 아님 → `useAuditLogList(pageSize, {...})` 로 서버 요청 자체를 pageSize 로 변경. state 변경 시 hook 재호출 → 서버 재요청.
+- JSON export payload `filter.pageSize` 도 하드코딩 25 → state 값 반영 (v0.108 F55 정확화).
+- 회귀 4건: hook 호출 인자 검증 (`toHaveBeenLastCalledWith(pageSize, expect.any(Object))`) 로 서버 요청 크기 실제 변경 확인.
+
+### 배운 것
+
+- **테이블 3종 vs AuditLog 차이**: Accounts/Groups/Classroom 은 client-side slicing 이라 pageSize state 만 바꾸면 됨. AuditLog 는 server-side pagination 이라 hook 인자에 pageSize 를 전달해야 실제 요청 크기 변경. 두 접근이 UI-scope 는 동일해 보이지만 backend 관점에서는 완전히 다른 slice.
+- **hook 인자 assertion pattern**: `mockUseAuditLogList.mockReturnValue(...); expect(mockUseAuditLogList).toHaveBeenLastCalledWith(pageSize, expect.any(Object))` 로 hook 호출 인자를 검증. 이 pattern 은 다른 server-pagination hook 에도 재사용 가능.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.198**: Column visibility toggle (선택 컬럼 숨기기 · 3 테이블 대칭).
+  - **v0.199**: 감사 로그 정렬 옵션 (현재 서버 default 순).
+  - **v0.200**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150 통합).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
