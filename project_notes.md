@@ -4103,6 +4103,46 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.188**: CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 있지만 카운터 없음).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.186 AuditLog JSON export sourceQuery/sourcePath 재현용 필드
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `aa6e23c` (`feat/audit-json-source-query-v186`) | feat: v0.186 AuditLog JSON export sourceQuery/sourcePath 재현용 필드 |
+| 병합 | `69044f1` | Merge feat/audit-json-source-query-v186 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `69044f1` | skip (Head 폴백) | 기계 관문 (web 1081 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: v0.108 F55 payload 는 정규화된 hook 인자 (dedup 된 actionList · 유효 검증 통과한 atMin/Max ms 등) 를 담아 실제 조회 조건을 정확히 기록. 하지만 원본 URL query 를 문자 그대로 다른 세션에서 재현하려면 사용자가 필드 → URL param 매핑을 손으로 해야 한다 (e.g., `filter.result: 'error'` → `?result=error`, `filter.actions: ['users.read', 'groups.list']` → `?action=users.read,groups.list`).
+- **해결**:
+  - `sourceQueryRaw = searchParams.toString()` (URLSearchParams API 로 인코딩 자동).
+  - `sourceQuery = sourceQueryRaw ? '?' + sourceQueryRaw : ''` (question mark prefix).
+  - `sourcePath = '/super_admin/audit' + sourceQuery`.
+  - 사용자는 export 파일만 들고 다른 세션/기기에서 `sourcePath` 로 이동 → 동일 URL params 로 재조회 (localStorage-scoped preset 이 아니라 URL-scoped 이므로 완전 재현).
+- **테스트**: 2 회귀 (v0.186 describe): 빈 URL → sourceQuery='' · sourcePath='/super_admin/audit', 필터 URL → sourceQuery=?action=...&result=... · sourcePath 조합.
+
+### 배운 것
+
+- **URL.toString() 자동 인코딩**: `URLSearchParams.toString()` 이 특수문자 (한글 등) 를 자동 URL-encode → 매뉴얼 `encodeURIComponent` 조합 불필요.
+- **sourceQuery vs filter payload 두 필드 병행**: `filter` 는 정규화된 「무엇을 조회했는가」 (dedup 등 서버가 실제 본 값), `sourceQuery` 는 「사용자가 실제로 입력한 URL」. 둘 다 의미 있음 — 서버 재조회 시 dedup 이 다시 일어나므로 URL 이 중복 값을 갖고 있어도 동일 결과. 그러나 사용자 원본 의도 보존을 위해 원본 URL 도 함께.
+- **renderWithRouter initialEntries 위치 인자**: AuditLogTable 테스트 helper 는 `renderWithRouter(ui, initialEntries)` 로 배열 직접 받음. object 형태 `{initialEntries: []}` 아님. 매번 확인 필수.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.187**: EditGroupDialog description counter v0.180 name counter 스타일 통일 (v0.173 counter 를 `mt-1 text-small` conditional-danger 로 재작성).
+  - **v0.188**: CreateClassroomDialog name/section/room 카운터 이식 (v0.175 검증 있지만 카운터 없음).
+  - **v0.189**: RenameClassroomDialog (v0.136 개별 이름 변경) 카운터 이식.
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 
