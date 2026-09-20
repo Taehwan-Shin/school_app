@@ -87,6 +87,34 @@ function readStoredPageSize(): PageSize {
   }
 }
 
+// v0.201: 컬럼 표시 여부 (v0.199/v0.200 대칭). 선택/관리 2 개는 필수. 5 필드 토글.
+type ToggleColumnKey = 'name' | 'section' | 'state' | 'id' | 'link';
+const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
+  { key: 'name', label: '이름' },
+  { key: 'section', label: '섹션' },
+  { key: 'state', label: '상태' },
+  { key: 'id', label: 'ID' },
+  { key: 'link', label: '링크' },
+];
+const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = ['name', 'section', 'state', 'id', 'link'];
+const VISIBLE_COLUMNS_STORAGE_KEY = 'classroomTable.visibleColumns.v1';
+
+function readStoredVisibleColumns(): Set<ToggleColumnKey> {
+  try {
+    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
+    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
+    const filtered = parsed.filter((k): k is ToggleColumnKey =>
+      typeof k === 'string' && validKeys.includes(k),
+    );
+    return new Set(filtered);
+  } catch {
+    return new Set(DEFAULT_VISIBLE_COLUMNS);
+  }
+}
+
 export function ClassroomTable() {
   const { role: currentRole } = useAuth();
   const canTransferOwner = userHasCap(currentRole, 'classroom.transfer_owner');
@@ -130,6 +158,29 @@ export function ClassroomTable() {
     } catch {
       // localStorage disabled → no-op.
     }
+  };
+
+  // v0.201: 컬럼 표시 여부 (v0.199/v0.200 대칭).
+  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
+    () => readStoredVisibleColumns(),
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+
+  const toggleColumn = (key: ToggleColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(
+          VISIBLE_COLUMNS_STORAGE_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // localStorage disabled → no-op.
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -466,6 +517,43 @@ export function ClassroomTable() {
           >
             JSON 내보내기{exportScope === 'selected' ? ` (선택 ${exportCourses.length})` : ''}
           </Button>
+          {/* v0.201: 컬럼 표시 토글 (v0.199/v0.200 대칭). */}
+          <div className="relative">
+            <Button
+              variant="secondary"
+              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              data-testid="classroom-column-menu-btn"
+              aria-expanded={isColumnMenuOpen}
+              aria-haspopup="menu"
+              title="컬럼 표시 여부 선택"
+            >
+              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
+            </Button>
+            {isColumnMenuOpen && (
+              <div
+                role="menu"
+                aria-label="컬럼 표시"
+                data-testid="classroom-column-menu"
+                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
+              >
+                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(key)}
+                      onChange={() => toggleColumn(key)}
+                      data-testid={`classroom-column-toggle-${key}`}
+                      className="cursor-pointer"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             variant="secondary"
             onClick={() => setIsPairOpen(true)}
@@ -651,32 +739,38 @@ export function ClassroomTable() {
                     disabled={eligibleIds.size === 0}
                   />
                 </TableHead>
-                <TableHead
-                  onClick={() => handleSort('name')}
-                  {...sortHeaderKbdProps(() => handleSort('name'))}
-                  data-testid="classroom-sort-name"
-                  aria-sort={ariaSortFor('name')}
-                >
-                  이름{renderSortIndicator('name')}
-                </TableHead>
-                <TableHead
-                  onClick={() => handleSort('section')}
-                  {...sortHeaderKbdProps(() => handleSort('section'))}
-                  data-testid="classroom-sort-section"
-                  aria-sort={ariaSortFor('section')}
-                >
-                  섹션{renderSortIndicator('section')}
-                </TableHead>
-                <TableHead
-                  onClick={() => handleSort('state')}
-                  {...sortHeaderKbdProps(() => handleSort('state'))}
-                  data-testid="classroom-sort-state"
-                  aria-sort={ariaSortFor('state')}
-                >
-                  상태{renderSortIndicator('state')}
-                </TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead className="text-right">링크</TableHead>
+                {visibleColumns.has('name') && (
+                  <TableHead
+                    onClick={() => handleSort('name')}
+                    {...sortHeaderKbdProps(() => handleSort('name'))}
+                    data-testid="classroom-sort-name"
+                    aria-sort={ariaSortFor('name')}
+                  >
+                    이름{renderSortIndicator('name')}
+                  </TableHead>
+                )}
+                {visibleColumns.has('section') && (
+                  <TableHead
+                    onClick={() => handleSort('section')}
+                    {...sortHeaderKbdProps(() => handleSort('section'))}
+                    data-testid="classroom-sort-section"
+                    aria-sort={ariaSortFor('section')}
+                  >
+                    섹션{renderSortIndicator('section')}
+                  </TableHead>
+                )}
+                {visibleColumns.has('state') && (
+                  <TableHead
+                    onClick={() => handleSort('state')}
+                    {...sortHeaderKbdProps(() => handleSort('state'))}
+                    data-testid="classroom-sort-state"
+                    aria-sort={ariaSortFor('state')}
+                  >
+                    상태{renderSortIndicator('state')}
+                  </TableHead>
+                )}
+                {visibleColumns.has('id') && <TableHead>ID</TableHead>}
+                {visibleColumns.has('link') && <TableHead className="text-right">링크</TableHead>}
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
@@ -695,33 +789,43 @@ export function ClassroomTable() {
                         disabled={!canSelect}
                       />
                     </TableCell>
-                    <TableCell className="text-fg-primary">
-                      <Link
-                        to={`/admin/classrooms/${encodeURIComponent(c.id)}`}
-                        data-testid={`classroom-detail-link-${c.id}`}
-                        className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
-                      >
-                        {c.name || <span className="text-fg-muted">(무제)</span>}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-small text-fg-secondary">{c.section || '-'}</TableCell>
-                    <TableCell className="text-small text-fg-secondary">{translateCourseState(c.courseState)}</TableCell>
-                    <TableCell className="font-mono text-small text-fg-secondary">{c.id}</TableCell>
-                    <TableCell className="text-right">
-                      {c.alternateLink ? (
-                        <a
-                          href={c.alternateLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          data-testid={`classroom-link-${c.id}`}
-                          className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                    {visibleColumns.has('name') && (
+                      <TableCell className="text-fg-primary">
+                        <Link
+                          to={`/admin/classrooms/${encodeURIComponent(c.id)}`}
+                          data-testid={`classroom-detail-link-${c.id}`}
+                          className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
                         >
-                          열기
-                        </a>
-                      ) : (
-                        <span className="text-small text-fg-muted">-</span>
-                      )}
-                    </TableCell>
+                          {c.name || <span className="text-fg-muted">(무제)</span>}
+                        </Link>
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('section') && (
+                      <TableCell className="text-small text-fg-secondary">{c.section || '-'}</TableCell>
+                    )}
+                    {visibleColumns.has('state') && (
+                      <TableCell className="text-small text-fg-secondary">{translateCourseState(c.courseState)}</TableCell>
+                    )}
+                    {visibleColumns.has('id') && (
+                      <TableCell className="font-mono text-small text-fg-secondary">{c.id}</TableCell>
+                    )}
+                    {visibleColumns.has('link') && (
+                      <TableCell className="text-right">
+                        {c.alternateLink ? (
+                          <a
+                            href={c.alternateLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-testid={`classroom-link-${c.id}`}
+                            className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+                          >
+                            열기
+                          </a>
+                        ) : (
+                          <span className="text-small text-fg-muted">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       {canSelect && (
                         <button
