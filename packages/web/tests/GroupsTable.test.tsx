@@ -1178,6 +1178,82 @@ describe('GroupsTable component', () => {
       });
     });
   });
+
+  // v0.200: 컬럼 표시 토글 (v0.199 AccountsTable 대칭).
+  describe('v0.200: 컬럼 표시 토글', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    const sampleGroups = [
+      {
+        email: 'g1@cam.hs.kr',
+        name: '그룹 1',
+        description: '설명 1',
+        directMembersCount: 5,
+        aliases: ['a1@cam.hs.kr'],
+      },
+    ];
+
+    const setupOne = () => {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: sampleGroups },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    };
+
+    it('기본 4 columns 모두 표시 · 버튼 라벨 「컬럼 표시 (4 / 4)」', () => {
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      expect(screen.getByTestId('groups-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (4 / 4)',
+      );
+      expect(screen.getByTestId('groups-sort-name')).toBeDefined();
+      expect(screen.getByTestId('groups-sort-directMembersCount')).toBeDefined();
+    });
+
+    it('「이름」 uncheck → name 컬럼 미표시 · localStorage 저장', async () => {
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
+      fireEvent.click(screen.getByTestId('groups-column-toggle-name'));
+      expect(screen.queryByTestId('groups-sort-name')).toBeNull();
+      expect(screen.getByTestId('groups-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (3 / 4)',
+      );
+      await waitFor(() => {
+        const raw = localStorage.getItem('groupsTable.visibleColumns.v1');
+        expect(raw).toBeTruthy();
+        const parsed = JSON.parse(raw!) as string[];
+        expect(parsed).not.toContain('name');
+      });
+    });
+
+    it('localStorage 저장값 hydrate: [「directMembersCount」만] → 1 컬럼만', () => {
+      localStorage.setItem(
+        'groupsTable.visibleColumns.v1',
+        JSON.stringify(['directMembersCount']),
+      );
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      expect(screen.getByTestId('groups-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (1 / 4)',
+      );
+      expect(screen.queryByTestId('groups-sort-name')).toBeNull();
+      expect(screen.getByTestId('groups-sort-directMembersCount')).toBeDefined();
+    });
+
+    it('잘못된 localStorage 값 → default 4 columns', () => {
+      localStorage.setItem('groupsTable.visibleColumns.v1', 'not-json{{');
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      expect(screen.getByTestId('groups-column-menu-btn').textContent).toBe(
+        '컬럼 표시 (4 / 4)',
+      );
+    });
+  });
 });
 
 
