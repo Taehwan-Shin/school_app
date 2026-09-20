@@ -3776,3 +3776,42 @@ ROADMAP 남은 후보 (v0.154+):
 
 - 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · UserDetail displayName 상한 이식 (Directory User familyName/givenName 40자).
+
+## 2026-09-20 · v0.177 ClassroomTable CSV/JSON 내보내기 (3 테이블 export 트릴로지 완결)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `55c5fd5` (`feat/classroom-export-v177`) | feat: v0.177 ClassroomTable CSV/JSON 내보내기 (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭) |
+| 병합 | `dca5db0` | Merge feat/classroom-export-v177 into main - v0.177 ClassroomTable CSV/JSON 내보내기 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `dca5db0` | skip (Head 폴백 규율) | 기계 관문 (web 1041 유닛 · lint clean · tsc + eslint) 을 gate 로 사용. Codex 한도 소진 대응. |
+
+### 설계
+
+- **문제**: Accounts (v0.152 CSV/JSON + v0.155 선택 접미사) · Groups (v0.157 CSV/JSON) 는 export 지원. Classroom 만 export 미지원 → 코스 감사·재적재·타 시스템 이관 편의 부재.
+- **해결**: v0.152/v0.155 패턴을 그대로 이식.
+  - `exportCourses = useMemo`: selectedIds 있으면 필터 결과 안의 선택 교집합, 없으면 sortedFilteredCourses (기존 bulk 계약 대칭 — 필터 밖 선택으로 실행되지 않도록).
+  - `exportScope`: 'selected' | 'filtered'.
+  - `handleExportCsv`: 9 컬럼 (id · 이름 · 섹션 · 상태 (translateCourseState) · 설명 · 링크 · 소유자 id · 생성 시각 · 수정 시각) · CSV escaping (`"..."` + `""` 이스케이프) · UTF-8 BOM (`﻿`).
+  - `handleExportJson`: payload (exportedAt · scope · filters · totalCount · courses[]). courses 필드는 ClassroomCourse 원본 유지 (id · name · section · courseState · description · alternateLink · ownerId · creationTime · updateTime).
+  - 파일명: `classrooms-YYYY-MM-DD.csv|json` (선택 있으면 `classrooms-selected-...`).
+  - 버튼 라벨: 선택 있으면 `CSV 내보내기 (선택 N)` / `JSON 내보내기 (선택 N)`. title 툴팁 4-branch (0/selected/filtered).
+  - `exportCourses.length === 0` 이면 두 버튼 모두 disabled + 「내보낼 코스가 없습니다.」 title.
+- **테스트**: 5 시나리오 (`v0.177` describe): enabled + 파일명 format, 빈 목록 disabled, 필터 결과 0 disabled, 선택 「-selected」 접미사, JSON payload 필드 검증.
+
+### 배운 것
+
+- **URL.createObjectURL 스텁 필요**: jsdom 은 `URL.createObjectURL` 미구현 → 각 export 테스트에서 `URL.createObjectURL = vi.fn(() => 'blob:mock')` · `URL.revokeObjectURL = vi.fn()` 스텁 필수. try/finally 로 원본 복원 (AccountsTable.test.tsx 1042~1050 패턴 답습).
+- **HTMLAnchorElement.prototype.click 캡처**: `download` attribute 검증하려면 `HTMLAnchorElement.prototype.click` 을 wrapping 해서 anchor 인스턴스를 push. try/finally 로 원본 복원.
+- **BOM 문자 표기**: 소스에 literal `﻿` 문자 직접 삽입하지 말고 escape sequence 유지 — 파일 저장 시 다른 툴이 마지막 문자로 오해할 수 있음. Edit 툴로 삽입한 후 Python 스크립트로 escape 로 재작성.
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로, A-2 계정 삭제 메일, chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
+- 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · UserDetail displayName 상한 이식 (Directory User familyName/givenName 40자) · AuditLogTable JSON 내보내기 재검토 (v0.108 은 있지만 filter reflect 개선 여지).

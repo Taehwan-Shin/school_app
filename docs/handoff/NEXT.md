@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.176 병합 완료** (`c4eae3b`) - BulkRenameClassroomDialog row-level 상한 검증 · 기계 관문 (lint clean · web 1036 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.177 병합 완료** (`dca5db0`) - ClassroomTable CSV/JSON 내보내기 (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭 · 3 테이블 export 트릴로지 완결) · 기계 관문 (lint clean · web 1041 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `dca5db0` v0.177 - ClassroomTable 툴바에 CSV/JSON 두 export 버튼 추가 (필터 초기화 옆). CSV 컬럼 (id · 이름 · 섹션 · 상태 · 설명 · 링크 · 소유자 id · 생성/수정 시각) · JSON payload (exportedAt · scope · filters · totalCount · courses[]) · 파일명 classrooms-YYYY-MM-DD.csv|json (선택 있으면 -selected 접미사) · 선택 있으면 라벨 「(선택 N)」 · exportCourses.length===0 이면 disabled · UTF-8 BOM · 5 회귀 테스트 · 웹 1041 (+5) · lint clean · 서버 무변경. Accounts (v0.152/v0.155) · Groups (v0.157) · Classroom (v0.177) 3 테이블 export 트릴로지 완결.
 - `c4eae3b` v0.176 - v0.175 shared `COURSE_NAME_MAX` 를 BulkRenameClassroomDialog 각 row 에도 이식 · `overlyLongRows` useMemo · `canConfirm` 조건 · row 별 tooLong 경고 (기존 invalid + 신규 tooLong 통합 rowError) · summary 「상한 초과 N개」 카운트 · 2 회귀 테스트 · 웹 1036 (+2) · lint clean · 서버 무변경.
 - `d914dd2` v0.175 - v0.174 shared `lib/classroomLimits.ts` 에 Google Classroom courses.name (750) · section (2800) · room (650) 상수 추가 · CreateClassroomDialog handleSubmit 상단 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너 · 3 helper test 확장 · 웹 1034 (+3) · lint clean · 서버 무변경.
 - `1667e74` v0.174 - CreateClassroomDialog description 필드에 Google Classroom courses.description 상한 30,000자 강제 + 실시간 「N / 30,000 자」 카운터 (초과 시 red) + textarea resize-y + handleSubmit 상한 초과 시 서버 요청 차단 · 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX` 상수 · 1 helper test · 웹 1031 (+1) · lint clean · 서버 무변경.

@@ -108,6 +108,7 @@
 - **CreateClassroomDialog description 30,000자 상한 + 카운터** - v0.174 완료 (v0.173 대칭). Google Classroom courses.description 상한 30,000자 강제 · 실시간 「N / 30,000 자」 카운터 (초과 시 red) · textarea resize-y · handleSubmit 상한 초과 시 서버 요청 차단 · 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX = 30000` 상수 · 1 helper test · 웹 1031 (+1) · lint clean · 서버 무변경.
 - **classroomLimits name/section/room 상한 확장** - v0.175 완료 (v0.174 후속). shared `lib/classroomLimits.ts` 에 `COURSE_NAME_MAX = 750` · `COURSE_SECTION_MAX = 2800` · `COURSE_ROOM_MAX = 650` 상수 추가 · CreateClassroomDialog handleSubmit 상단 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너 · 3 helper test 확장 · 웹 1034 (+3) · lint clean · 서버 무변경.
 - **BulkRenameClassroomDialog row-level 상한 검증** - v0.176 완료 (v0.175 이식). shared `COURSE_NAME_MAX` 를 BulkRename 각 row 에도 이식 · `overlyLongRows` useMemo · `canConfirm` 조건 · row 별 tooLong 경고 (rowError 통합) · summary 「상한 초과 N개」 카운트 · 2 회귀 테스트 · 웹 1036 (+2) · lint clean · 서버 무변경.
+- **ClassroomTable CSV/JSON 내보내기** - v0.177 완료 (AccountsTable v0.152/v0.155 · GroupsTable v0.157 대칭 · 3 테이블 export 트릴로지 완결). 툴바 필터 초기화 옆 CSV/JSON 두 버튼 · CSV 컬럼 (id · 이름 · 섹션 · 상태 · 설명 · 링크 · 소유자 id · 생성/수정 시각) · JSON payload (exportedAt · scope · filters · totalCount · courses[]) · 파일명 classrooms-YYYY-MM-DD.csv|json (선택 있으면 -selected 접미사) · 선택 있으면 라벨 「(선택 N)」 · scope 필드 · exportCourses.length===0 이면 disabled · UTF-8 BOM · 5 회귀 테스트 · 웹 1041 (+5) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
