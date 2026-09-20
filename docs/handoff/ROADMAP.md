@@ -114,6 +114,7 @@
 - **CreateGroup/EditGroup 이름 60자 상한 검증** - v0.180 완료 (v0.173 groupLimits 확장 · Workspace Directory `groups.name` 규격). shared `GROUP_NAME_MAX = 60` 추가 · CreateGroup + EditGroup handleSubmit 검증 + 「N / 60 자」 실시간 카운터 (초과 시 red) · 6 회귀 테스트 · 웹 1060 (+6) · lint clean · 서버 무변경.
 - **CreateUser primaryEmail local-part 64자 상한 검증** - v0.181 완료 (RFC 5321 / Google Workspace 규격 · userLimits 확장). shared `USER_LOCAL_PART_MAX = 64` 추가 · CreateUserDialog handleSubmit 에 local-part 길이 검증 · 이메일 input 밑 「이메일 아이디 N / 64 자」 실시간 카운터 (초과 시 red) · 4 회귀 테스트 · 웹 1064 (+4) · lint clean · 서버 무변경. CreateGroup/BatchCreate 는 이미 `lib/emailInput.ts` LOCAL_PART_RE 로 강제됐던 gap.
 - **NEIS CSV import 코스 이름 750자 상한 검증** - v0.182 완료 (v0.176 BulkRename row-level 패턴을 v0.145 NeisCsvImportDialog preview 에 이식). 신규 순수 helper `findOverlyLongPlanRows(plan, max)` · preview 상단 red 배너 · 초과 row 셀 red + 접미사 · 실행 버튼 disabled + title 안내 · 4 helper 회귀 · 웹 1068 (+4) · lint clean · 서버 무변경.
+- **super_admin 액션별 위젯 CSV/JSON 내보내기** - v0.183 완료 (Accounts v0.152 · Groups v0.157 대칭 · audit-scope 확장). CSV: action,count · JSON payload (exportedAt · window · source · sample 메타 · totalActions · actions[]) · 파일명 breakdown-<slug>-YYYY-MM-DD · displayCounts undefined/empty 이면 disabled · 3 회귀 · 웹 1071 (+3) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

@@ -3987,6 +3987,46 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.185**: basicData panel UX polish (「반 챗방 자동 초대」 「명단 밖 자동 제거」 버튼 그룹핑 등).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-20 · v0.183 super_admin 액션별 위젯 CSV/JSON 내보내기
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `671b85e` (`feat/dashboard-breakdown-export-v183`) | feat: v0.183 super_admin 액션별 위젯 CSV/JSON 내보내기 |
+| 병합 | `0211e6c` | Merge feat/dashboard-breakdown-export-v183 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `0211e6c` | skip (Head 폴백) | 기계 관문 (web 1071 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: SuperAdminPage 대시보드는 액션별 breakdown 을 표로 렌더만 하고 export 없음. AccountsTable (v0.152) · GroupsTable (v0.157) · ClassroomTable (v0.177) 3 테이블 이후 audit-scope 로 export 확장 필요.
+- **해결**: 위젯 header 에 CSV/JSON 두 버튼 추가.
+  - **hoist**: 기존에 IIFE 안에 있던 `displayCounts`/`sortedActions` 계산을 컴포넌트 scope 로 승격 (`breakdownDisplayCounts` · `breakdownSortedActions` · `breakdownExportSource` · `breakdownFileSlug`). 이렇게 하면 IIFE 안 리스트 렌더와 header 의 버튼이 같은 값 공유.
+  - **파일명 slug**: today/week/month/nDays 각각 `today` · `week` · `month` · `last{N}days` 로 매핑 (nDaysSanitized 사용).
+  - **source 필드**: exactActionCounts 있으면 'exact', 없으면 'sample' — JSON payload 에 포함.
+  - **버튼 disabled**: breakdownSortedActions.length === 0 (displayCounts undefined 또는 {}) → 두 버튼 모두 disabled + title 「내보낼 액션 집계가 없습니다.」.
+- **테스트**: 3 시나리오 (enabled + 파일명, empty disabled, JSON payload 필드 exact 우선 + 정렬).
+
+### 배운 것
+
+- **JSON export payload 는 window 메타를 반드시 포함**: 파일명이 daily rotate 되므로 파일명만으로는 window 를 특정하기 어려움. payload 안에 `window` · `windowLabel` · `atMin` 세 필드 모두 포함 → 파일 재분석 시 원 window 를 알 수 있음.
+- **source 필드로 exact vs sample 구분**: sample-scope 는 최대 500건만 반영이라 축약될 수 있음. 사용자가 export 후 「왜 count 가 실제와 다른가?」 를 알아볼 수 있게 `source: 'sample'` 을 payload 에 명시.
+- **breakdownExportSource ternary**: `exactActionCounts !== undefined` 로만 판정 (displayCounts 는 sample fallback 이 이미 반영됨). 명확한 boolean 로직.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.184**: basicData panel UX polish (예: 「반 그룹 자동 생성」 · 「부서 그룹 자동 생성」 · 「반 챗방 자동 초대」 · 「명단 밖 자동 제거」 버튼들 category 그룹핑 / 순서 정리).
+  - **v0.185**: CreateOrgUnit name/description 검증 재확인 및 shared `orgUnitLimits.ts` 승격.
+  - **v0.186**: AuditLogTable JSON export (v0.108) 의 filter reflect 개선 (v0.108 은 있지만 최근 filter 규칙 (kpiFilter/preset) 이 payload 에 반영되는지 재검토).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
