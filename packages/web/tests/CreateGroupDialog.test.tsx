@@ -247,6 +247,27 @@ describe("CreateGroupDialog component", () => {
       expect(counter.className).toContain("text-state-danger");
     });
   });
+
+  // v0.187: description counter v0.180 name counter 스타일 통일 (mt-1 text-small conditional-danger).
+  describe("v0.187: description counter 스타일 통일", () => {
+    it("설명 카운터 텍스트는 「N / 4096 자」 (「현재」 prefix 제거) · 4096자 이내 muted", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      const counter = screen.getByTestId("create-group-description-counter");
+      expect(counter.textContent).toBe("0 / 4096 자");
+      expect(counter.className).toContain("text-small");
+      expect(counter.className).toContain("text-fg-muted");
+      expect(counter.className).not.toContain("text-state-danger");
+    });
+
+    it("4096자 초과 시 카운터 red · text-state-danger class 추가", () => {
+      render(<CreateGroupDialog open={true} onOpenChange={vi.fn()} />);
+      const textarea = screen.getByTestId("create-group-description-input");
+      fireEvent.change(textarea, { target: { value: "x".repeat(4097) } });
+      const counter = screen.getByTestId("create-group-description-counter");
+      expect(counter.textContent).toBe("4097 / 4096 자");
+      expect(counter.className).toContain("text-state-danger");
+    });
+  });
 });
 
 // v0.167: normalizeGroupEmailInput 순수 함수 회귀 (helper 직접).
