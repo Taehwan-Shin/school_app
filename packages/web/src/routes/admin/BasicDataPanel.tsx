@@ -58,7 +58,9 @@ export function BasicDataPanel() {
             연도별 학년·반 구조. 그룹·클래스룸 생성 시 참조됩니다.
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+        {/* v0.184: 9개 버튼을 role/역할별 3 그룹으로 시각적 그룹핑 (편집 / 자동 워크플로우 /
+            데이터 I/O). 각 그룹은 role=group + aria-label 접근성 + 좌측 border 로 시각 분리. */}
+        <div className="flex items-center gap-4 flex-wrap justify-end">
           <div className="flex items-center gap-2">
             <label className="text-small text-fg-secondary" htmlFor="basic-data-year-input">연도:</label>
             {savedYears.length > 0 && (
@@ -88,99 +90,123 @@ export function BasicDataPanel() {
               className="w-20 border border-border-subtle bg-canvas px-2 py-1 text-body font-mono text-fg-primary text-center focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
             />
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => setIsAutoCreateOpen(true)}
-            data-testid="basic-data-auto-create-groups-btn"
-            disabled={!data?.data || (data.data.grades ?? []).length === 0}
-            title={!data?.data ? '기초값 먼저 설정하세요' : '학년/반으로 그룹 자동 생성'}
+          {/* 편집 그룹: 기초값 · 학생 명단. */}
+          <div
+            role="group"
+            aria-label="편집"
+            className="flex items-center gap-2 border-l border-border-subtle pl-4"
+            data-testid="basic-data-group-edit"
           >
-            그룹 자동 생성
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsAutoCreateDeptOpen(true)}
-            data-testid="basic-data-auto-create-dept-groups-btn"
-            disabled={!data?.data?.departments || data.data.departments.length === 0}
-            title={
-              !data?.data?.departments || data.data.departments.length === 0
-                ? '부서를 먼저 추가하세요'
-                : '부서로 그룹 자동 생성'
-            }
+            <Button
+              variant="secondary"
+              onClick={() => setIsEditOpen(true)}
+              data-testid="basic-data-edit-btn"
+            >
+              편집
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsRostersEditOpen(true)}
+              data-testid="basic-data-rosters-edit-btn"
+              disabled={!data?.data || (data.data.grades ?? []).length === 0}
+              title={!data?.data ? '기초값 먼저 설정하세요' : '반별 학생 명단 편집'}
+            >
+              학생 명단 편집
+            </Button>
+          </div>
+          {/* 자동 워크플로우 그룹: 그룹 자동 생성 · 학생/챗방 자동 초대 · 명단 밖 자동 제거. */}
+          <div
+            role="group"
+            aria-label="자동 워크플로우"
+            className="flex items-center gap-2 border-l border-border-subtle pl-4"
+            data-testid="basic-data-group-auto"
           >
-            부서 그룹 자동 생성
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsRostersEditOpen(true)}
-            data-testid="basic-data-rosters-edit-btn"
-            disabled={!data?.data || (data.data.grades ?? []).length === 0}
-            title={!data?.data ? '기초값 먼저 설정하세요' : '반별 학생 명단 편집'}
+            <Button
+              variant="secondary"
+              onClick={() => setIsAutoCreateOpen(true)}
+              data-testid="basic-data-auto-create-groups-btn"
+              disabled={!data?.data || (data.data.grades ?? []).length === 0}
+              title={!data?.data ? '기초값 먼저 설정하세요' : '학년/반으로 그룹 자동 생성'}
+            >
+              그룹 자동 생성
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsAutoCreateDeptOpen(true)}
+              data-testid="basic-data-auto-create-dept-groups-btn"
+              disabled={!data?.data?.departments || data.data.departments.length === 0}
+              title={
+                !data?.data?.departments || data.data.departments.length === 0
+                  ? '부서를 먼저 추가하세요'
+                  : '부서로 그룹 자동 생성'
+              }
+            >
+              부서 그룹 자동 생성
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsAutoInviteOpen(true)}
+              data-testid="basic-data-auto-invite-students-btn"
+              disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+              title={
+                !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                  ? '학생 명단을 먼저 등록하세요'
+                  : 'rosters 학생을 반 그룹에 자동 초대'
+              }
+            >
+              학생 자동 초대
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsAutoInviteChatOpen(true)}
+              data-testid="basic-data-auto-invite-chat-btn"
+              disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+              title={
+                !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                  ? '학생 명단을 먼저 등록하세요'
+                  : 'rosters 학생을 반 챗방에 자동 초대'
+              }
+            >
+              반 챗방 자동 초대
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsAutoRemoveOpen(true)}
+              data-testid="basic-data-auto-remove-nonroster-btn"
+              disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
+              title={
+                !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
+                  ? '학생 명단을 먼저 등록하세요'
+                  : '반 그룹에서 rosters 명단에 없는 사람 자동 제거'
+              }
+            >
+              명단 밖 자동 제거
+            </Button>
+          </div>
+          {/* 데이터 I/O 그룹: JSON 불러오기/내보내기. */}
+          <div
+            role="group"
+            aria-label="데이터 입출력"
+            className="flex items-center gap-2 border-l border-border-subtle pl-4"
+            data-testid="basic-data-group-io"
           >
-            학생 명단 편집
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsAutoInviteOpen(true)}
-            data-testid="basic-data-auto-invite-students-btn"
-            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
-            title={
-              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
-                ? '학생 명단을 먼저 등록하세요'
-                : 'rosters 학생을 반 그룹에 자동 초대'
-            }
-          >
-            학생 자동 초대
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsAutoRemoveOpen(true)}
-            data-testid="basic-data-auto-remove-nonroster-btn"
-            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
-            title={
-              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
-                ? '학생 명단을 먼저 등록하세요'
-                : '반 그룹에서 rosters 명단에 없는 사람 자동 제거'
-            }
-          >
-            명단 밖 자동 제거
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsAutoInviteChatOpen(true)}
-            data-testid="basic-data-auto-invite-chat-btn"
-            disabled={!data?.data?.rosters || Object.keys(data.data.rosters).length === 0}
-            title={
-              !data?.data?.rosters || Object.keys(data.data.rosters).length === 0
-                ? '학생 명단을 먼저 등록하세요'
-                : 'rosters 학생을 반 챗방에 자동 초대'
-            }
-          >
-            반 챗방 자동 초대
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleJsonExport}
-            data-testid="basic-data-json-export-btn"
-            disabled={!data?.data}
-            title={!data?.data ? '데이터 없음' : `${selectedYear}년 기초값 JSON 다운로드`}
-          >
-            JSON 내보내기
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsImportOpen(true)}
-            data-testid="basic-data-json-import-btn"
-          >
-            JSON 불러오기
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsEditOpen(true)}
-            data-testid="basic-data-edit-btn"
-          >
-            편집
-          </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsImportOpen(true)}
+              data-testid="basic-data-json-import-btn"
+            >
+              JSON 불러오기
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleJsonExport}
+              data-testid="basic-data-json-export-btn"
+              disabled={!data?.data}
+              title={!data?.data ? '데이터 없음' : `${selectedYear}년 기초값 JSON 다운로드`}
+            >
+              JSON 내보내기
+            </Button>
+          </div>
         </div>
       </div>
 
