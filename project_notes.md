@@ -3950,5 +3950,43 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.184**: dashboard export 개선 (audit result 카드 CSV/JSON) 또는 basicData panel UX polish.
 - 로드맵 남은 (blocked): A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-20 · v0.182 NEIS CSV import 코스 이름 750자 상한 검증 (v0.176 pattern)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `3cb46b4` (`feat/neis-csv-name-limit-v182`) | feat: v0.182 NEIS CSV import 코스 이름 750자 상한 검증 |
+| 병합 | `6c60b80` | Merge feat/neis-csv-name-limit-v182 into main |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `6c60b80` | skip (Head 폴백) | 기계 관문 (web 1068 유닛 · lint clean) 을 gate. |
+
+### 설계
+
+- **문제**: v0.145 NeisCsvImportDialog 는 사용자 CSV 의 F열 courseName 을 그대로 `callClassroomCreate({ name })` 로 전달. 사용자가 실수로 초장문 이름을 넣으면 서버 400 · 부분 실패로 청소가 어려움.
+- **해결**: v0.176 BulkRename row-level 상한 패턴을 preview 단계에 이식.
+  - **helper 승격**: `findOverlyLongPlanRows(plan, max = COURSE_NAME_MAX)` 순수 함수로 뽑아 export → 회귀 4건 (모두 이내 · 초과 분리 · 빈 plan · 커스텀 max).
+  - **UI**: preview 상단 red 배너 「코스 이름 상한 초과 N개 행 — 실행 불가」 · 각 초과 row 는 셀 red + 「N / 750 자 초과」 접미사 · 실행 버튼 `canExecute = plan.length > 0 && overlyLongRows.length === 0` 로 disabled + title 「CSV 수정 후 다시 미리보기」.
+- **테스트**: 순수 helper 4건. Component 자체는 FileReader/papaparse mocking 이 무거워 helper 회귀만 커버 (v0.176 도 유사 정책).
+
+### 배운 것
+
+- **helper 승격의 회귀 저비용성**: 컴포넌트 안에 useMemo 로 두면 회귀 어려움. 순수 함수로 export 하면 helper test 1 파일로 4 케이스 커버. v0.176 도 `overlyLongRows` 를 컴포넌트 내부 useMemo 로 두었는데, 향후 유사 slice 는 초기부터 helper 승격 고려.
+- **findOverlyLongPlanRows 시그니처**: `Array<{ rowIndex, courseName }>` 로 최소 타입만 요구 (PlanRow 전체 안 받음) → 다른 dialog 에도 재사용 가능한 형태.
+- **preview 컴포넌트 리팩터 (tooLong row 스타일)**: 기존 map 안에 iife 로 tooLong 로컬 계산 후 conditional 스타일. inline 방식이 fragment 로 wrap 하는 것보다 diff 작음.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.183**: CourseBulkCreate 자동 name 접두어 상한 방어 (미해결 - 자동 name 은 짧지만 defensive 하게).
+  - **v0.184**: super_admin dashboard 액션별 위젯을 CSV/JSON export (기존 오늘/이번주/이번달 breakdown 재활용).
+  - **v0.185**: basicData panel UX polish (「반 챗방 자동 초대」 「명단 밖 자동 제거」 버튼 그룹핑 등).
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 

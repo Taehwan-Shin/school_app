@@ -113,6 +113,7 @@
 - **EditUserDialog 성/이름 60자 상한 이식** - v0.179 완료 (v0.178 Create/Batch 대칭 완결). 관리자 → 사용자 → 편집 다이얼로그도 shared 상수 재사용 · handleSubmit 검증 + 카운터 (v0.178 문구 대칭) · Create/Batch/Edit 3 진입점 이름 상한 완전 대칭 · 4 회귀 테스트 · 웹 1054 (+4) · lint clean · 서버 무변경.
 - **CreateGroup/EditGroup 이름 60자 상한 검증** - v0.180 완료 (v0.173 groupLimits 확장 · Workspace Directory `groups.name` 규격). shared `GROUP_NAME_MAX = 60` 추가 · CreateGroup + EditGroup handleSubmit 검증 + 「N / 60 자」 실시간 카운터 (초과 시 red) · 6 회귀 테스트 · 웹 1060 (+6) · lint clean · 서버 무변경.
 - **CreateUser primaryEmail local-part 64자 상한 검증** - v0.181 완료 (RFC 5321 / Google Workspace 규격 · userLimits 확장). shared `USER_LOCAL_PART_MAX = 64` 추가 · CreateUserDialog handleSubmit 에 local-part 길이 검증 · 이메일 input 밑 「이메일 아이디 N / 64 자」 실시간 카운터 (초과 시 red) · 4 회귀 테스트 · 웹 1064 (+4) · lint clean · 서버 무변경. CreateGroup/BatchCreate 는 이미 `lib/emailInput.ts` LOCAL_PART_RE 로 강제됐던 gap.
+- **NEIS CSV import 코스 이름 750자 상한 검증** - v0.182 완료 (v0.176 BulkRename row-level 패턴을 v0.145 NeisCsvImportDialog preview 에 이식). 신규 순수 helper `findOverlyLongPlanRows(plan, max)` · preview 상단 red 배너 · 초과 row 셀 red + 접미사 · 실행 버튼 disabled + title 안내 · 4 helper 회귀 · 웹 1068 (+4) · lint clean · 서버 무변경.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
