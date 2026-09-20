@@ -3885,3 +3885,35 @@ ROADMAP 남은 후보 (v0.154+):
 - 로드맵 남은: A-1 전입생 매크로 (도메인 규칙), A-2 계정 삭제 메일 (SendGrid), chat member userId→email 서버 확장, AutoInvite+AutoRemove diff 통합.
 - 새 후보: CourseBulkCreate CSV 파싱 시 상한 초과 row 표시 · dashboard export 개선 · basicData panel UX polish · AuditLogTable JSON 내보내기 filter reflect 개선 · users API primaryEmail 상한 · CreateGroup/EditGroup name 상한 (Directory Group name 60자) · CreateOrgUnit name 상한 (100자, v0.121 은 이미 검증 있음 재확인).
 
+## 2026-09-20 · v0.180 CreateGroup/EditGroup 이름 60자 상한 검증 (Workspace Directory groups.name)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `b5281aa` (`feat/group-name-limit-v180`) | feat: v0.180 CreateGroup/EditGroup 이름 60자 상한 검증 |
+| 병합 | `c4aba5e` | Merge feat/group-name-limit-v180 into main - v0.180 CreateGroup/EditGroup 이름 60자 상한 검증 |
+
+### 라운드 표
+
+| 라운드 | HEAD | 결과 | 발견 |
+|---|---|---|---|
+| 1 | `c4aba5e` | skip (Head 폴백) | 기계 관문 (web 1060 유닛 · lint clean) 을 gate 로 사용. Codex 한도 소진 대응. |
+
+### 설계
+
+- **문제**: v0.173 에서 group description 4096자 검증만 갖췄고 name 은 미검증. Directory API 는 `groups.name` 60자 초과 시 400.
+- **해결**: `lib/groupLimits.ts` 에 `GROUP_NAME_MAX = 60` 추가. CreateGroupDialog + EditGroupDialog 두 곳 handleSubmit 검증 + input 밑 「N / 60 자」 실시간 카운터 (초과 시 red · v0.178 CreateUser 스타일과 동일 pattern).
+- **테스트**: 6 시나리오 (groupLimits helper 1 · CreateGroup v0.180 2 · EditGroup v0.180 3).
+
+### 배운 것
+
+- **submit button 찾기**: `screen.getByRole("button", { name: /추가/ })` 로 접근하면 「+ 계정 추가」 등 다른 「추가」 버튼과 충돌 위험. `getByTestId("create-group-submit")` 처럼 명시적 testid 가 안전.
+- **groupLimits 확장 rhythm**: 이제 GROUP_DESCRIPTION_MAX (v0.173) + GROUP_NAME_MAX (v0.180) 로 groups 리소스 두 주요 필드 완전 커버. 다음 유사 패턴: `groups.email` local-part 64자 상한 (RFC 5321 · Google Directory 는 primaryEmail 256 이지만 local 은 64).
+
+### 다음 세션에 이어갈 것
+
+- 로드맵 남은: A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+- 새 후보: primaryEmail/local-part 상한 (v0.180 groups.email 후속 · CreateUser/CreateGroup 두 곳 확장) · CourseBulkCreate CSV row 상한 표시 · CreateOrgUnit 재확인 · dashboard export 개선.
+
+

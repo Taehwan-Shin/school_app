@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.179 병합 완료** (`f54f3a9`) - EditUserDialog 성/이름 60자 상한 이식 (v0.178 Create/Batch 대칭 완결 · Create/Batch/Edit 3 진입점 대칭 완결) · 기계 관문 (lint clean · web 1054 유닛) 통과 · Codex R1 skip (Head 폴백).
+> **v0.180 병합 완료** (`c4aba5e`) - CreateGroup/EditGroup 이름 60자 상한 검증 (Workspace Directory groups.name 규격 · v0.173 groupLimits 확장) · 기계 관문 (lint clean · web 1060 유닛) 통과 · Codex R1 skip (Head 폴백).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `c4aba5e` v0.180 - `lib/groupLimits.ts` 에 `GROUP_NAME_MAX = 60` 추가 (Workspace Directory `groups.name` 규격) · CreateGroupDialog handleSubmit 검증 + input 밑 「N / 60 자」 실시간 카운터 · EditGroupDialog 동일 · 6 회귀 (groupLimits 1 · CreateGroup v0.180 2 · EditGroup v0.180 3) · 웹 1060 (+6) · lint clean · 서버 무변경.
 - `f54f3a9` v0.179 - EditUserDialog 에 shared `USER_FAMILY_NAME_MAX` / `USER_GIVEN_NAME_MAX` (60자) 이식 · handleSubmit 검증 (v0.178 문구 대칭) · 각 input 밑 「N / 60 자」 실시간 카운터 (`edit-user-familyName-counter` · `edit-user-givenName-counter` · 초과 시 red) · 4 회귀 테스트 (v0.179 describe: family 초과 · given 초과 · 카운터 실시간 · 60자 경계) · 웹 1054 (+4) · lint clean · 서버 무변경. Create/Batch/Edit 3 진입점 이름 상한 완전 대칭.
 - `fd88dbb` v0.178 - Google Directory User `name.familyName` / `name.givenName` 각 60자 상한 이식 · 신규 `lib/userLimits.ts` (USER_FAMILY_NAME_MAX=60 · USER_GIVEN_NAME_MAX=60) · CreateUserDialog handleSubmit 검증 + input 밑 「N / 60 자」 실시간 카운터 (초과 시 red) · BatchCreateUsersDialog handleConfirm row loop 검증 + 각 row aria-invalid + red border + inline warn + 하단 「이름 상한 초과 N개 행」 summary (v0.176 BulkRename 패턴) · 9 회귀 테스트 (userLimits 2 · CreateUser v0.178 4 · Batch v0.178 3) · 웹 1050 (+9) · lint clean · 서버 무변경.
 - `dca5db0` v0.177 - ClassroomTable 툴바에 CSV/JSON 두 export 버튼 추가 (필터 초기화 옆). CSV 컬럼 (id · 이름 · 섹션 · 상태 · 설명 · 링크 · 소유자 id · 생성/수정 시각) · JSON payload (exportedAt · scope · filters · totalCount · courses[]) · 파일명 classrooms-YYYY-MM-DD.csv|json (선택 있으면 -selected 접미사) · 선택 있으면 라벨 「(선택 N)」 · exportCourses.length===0 이면 disabled · UTF-8 BOM · 5 회귀 테스트 · 웹 1041 (+5) · lint clean · 서버 무변경. Accounts (v0.152/v0.155) · Groups (v0.157) · Classroom (v0.177) 3 테이블 export 트릴로지 완결.
