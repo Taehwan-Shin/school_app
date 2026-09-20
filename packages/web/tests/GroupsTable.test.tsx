@@ -456,7 +456,7 @@ describe('GroupsTable component', () => {
     const nextBtn = screen.getByTestId('groups-pagination-next') as HTMLButtonElement;
 
     // Page 0: 1–25 of 30
-    expect(paginationInfo.textContent).toBe('1–25 of 30');
+    expect(paginationInfo.textContent).toContain('1–25 of 30');
     expect(prevBtn.disabled).toBe(true);
     expect(nextBtn.disabled).toBe(false);
     expect(screen.getByText('group01@cam.hs.kr')).toBeDefined();
@@ -465,7 +465,7 @@ describe('GroupsTable component', () => {
 
     // Click Next -> Page 1: 26–30 of 30
     fireEvent.click(nextBtn);
-    expect(paginationInfo.textContent).toBe('26–30 of 30');
+    expect(paginationInfo.textContent).toContain('26–30 of 30');
     expect(prevBtn.disabled).toBe(false);
     expect(nextBtn.disabled).toBe(true);
     expect(screen.queryByText('group01@cam.hs.kr')).toBeNull();
@@ -474,21 +474,21 @@ describe('GroupsTable component', () => {
 
     // Click Prev -> Page 0: 1–25 of 30
     fireEvent.click(prevBtn);
-    expect(paginationInfo.textContent).toBe('1–25 of 30');
+    expect(paginationInfo.textContent).toContain('1–25 of 30');
     expect(prevBtn.disabled).toBe(true);
     expect(nextBtn.disabled).toBe(false);
 
     // Navigate to page 1 again, then change search query -> resets to page 0
     fireEvent.click(nextBtn);
-    expect(paginationInfo.textContent).toBe('26–30 of 30');
+    expect(paginationInfo.textContent).toContain('26–30 of 30');
 
     const searchInput = screen.getByTestId('groups-search-input');
     fireEvent.change(searchInput, { target: { value: 'group' } });
-    expect(paginationInfo.textContent).toBe('1–25 of 30');
+    expect(paginationInfo.textContent).toContain('1–25 of 30');
 
     // Type more specific search query
     fireEvent.change(searchInput, { target: { value: 'group28' } });
-    expect(paginationInfo.textContent).toBe('1–1 of 1');
+    expect(paginationInfo.textContent).toContain('1–1 of 1');
     expect(screen.getByText('group28@cam.hs.kr')).toBeDefined();
   });
 
@@ -633,7 +633,7 @@ describe('GroupsTable component', () => {
     expect(screen.getByText('group2@cam.hs.kr')).toBeDefined();
     expect(screen.queryByText('empty1@cam.hs.kr')).toBeNull();
     expect(screen.queryByText('empty2@cam.hs.kr')).toBeNull();
-    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–2 of 2');
+    expect(screen.getByTestId('groups-pagination-info').textContent).toContain('1–2 of 2');
   });
 
   it('merges KPI filter with search query filtering', () => {
@@ -681,7 +681,7 @@ describe('GroupsTable component', () => {
     expect(screen.getByText('empty-other@cam.hs.kr')).toBeDefined();
     expect(screen.queryByText('with-members@cam.hs.kr')).toBeNull();
     expect(screen.queryByText('other-with-members@cam.hs.kr')).toBeNull();
-    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–2 of 2');
+    expect(screen.getByTestId('groups-pagination-info').textContent).toContain('1–2 of 2');
 
     const searchInput = screen.getByTestId('groups-search-input');
     fireEvent.change(searchInput, { target: { value: '타겟' } });
@@ -690,7 +690,7 @@ describe('GroupsTable component', () => {
     expect(screen.queryByText('empty-other@cam.hs.kr')).toBeNull();
     expect(screen.queryByText('with-members@cam.hs.kr')).toBeNull();
     expect(screen.queryByText('other-with-members@cam.hs.kr')).toBeNull();
-    expect(screen.getByTestId('groups-pagination-info').textContent).toBe('1–1 of 1');
+    expect(screen.getByTestId('groups-pagination-info').textContent).toContain('1–1 of 1');
   });
 
   it('renders export CSV button, enabled when groups exist and disabled when empty', () => {
@@ -1164,6 +1164,18 @@ describe('GroupsTable component', () => {
       renderWithRouter(<GroupsTable />);
       const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
       expect(select.value).toBe('25');
+    });
+
+    // v0.196: page N of M 표기.
+    it('v0.196: 「1 / 2 페이지」 표기 + 다음 페이지 시 「2 / 2」', async () => {
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const info = screen.getByTestId('groups-pagination-info');
+      expect(info.textContent).toContain('1 / 2 페이지');
+      fireEvent.click(screen.getByTestId('groups-pagination-next'));
+      await waitFor(() => {
+        expect(info.textContent).toContain('2 / 2 페이지');
+      });
     });
   });
 });

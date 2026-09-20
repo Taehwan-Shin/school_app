@@ -1053,6 +1053,18 @@ describe('ClassroomTable component', () => {
       const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
       expect(select.value).toBe('25');
     });
+
+    // v0.196: page N of M 표기.
+    it('v0.196: 「1 / 2 페이지」 표기 + 다음 페이지 시 「2 / 2」', async () => {
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const info = screen.getByTestId('classroom-pagination-info');
+      expect(info.textContent).toContain('1 / 2 페이지');
+      fireEvent.click(screen.getByTestId('classroom-pagination-next'));
+      await waitFor(() => {
+        expect(info.textContent).toContain('2 / 2 페이지');
+      });
+    });
   });
 });
 
