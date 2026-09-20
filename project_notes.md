@@ -4467,6 +4467,40 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.201**: 감사 로그 정렬 옵션.
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.199 AccountsTable 컬럼 표시 토글 (4 필드 · localStorage)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `2502872` | feat: v0.199 AccountsTable 컬럼 표시 토글 (이름/조직단위/관리자/정지) |
+| 병합 | `a293a17` | Merge feat/accounts-column-visibility-v199 |
+
+### 설계
+
+- **필수 vs 선택 컬럼**: 선택 checkbox · 이메일 · 관리 3 개는 필수 (항상 표시). 이름 · 조직 단위 · 관리자 · 정지 4 개는 사용자 선택.
+- **localStorage**: `accountsTable.visibleColumns.v1` = JSON array of visible column keys.
+  - `readStoredVisibleColumns()`: Array.isArray + allowlist filter (TOGGLEABLE_COLUMNS.map(c => c.key)) + fallback default 4 개 모두.
+- **State + toggle**: `visibleColumns: Set<ToggleColumnKey>` · `toggleColumn(key)` 이 add/remove 후 localStorage 즉시 저장 (try/catch).
+- **UI**: 「컬럼 표시 (N / 4)」 secondary Button (Export 버튼 옆) · popover menu (`role="menu"` · `aria-haspopup="menu"` · `aria-expanded={isOpen}`) · 각 label 안에 checkbox.
+- **Conditional rendering**: `{visibleColumns.has(key) && <TableHead ... />}` · 헤더/셀 대칭.
+- **테스트**: 5 시나리오 (기본 4/4 · uncheck localStorage 저장 · hydrate ["admin"] → 1/4 · 잘못된 값 fallback · 모두 uncheck 0/4).
+
+### 배운 것
+
+- **필수 컬럼 유지 규칙**: 선택/이메일/관리 3 개는 사용자가 숨길 수 없음. 이유: 선택 체크박스 없으면 bulk 액션 불가능 · 이메일 없으면 row 식별 안 됨 · 관리 없으면 편집 링크 접근 안 됨. UX 의 「essential」 개념을 코드에 명시.
+- **Set state + localStorage 동기화 pattern**: `setVisibleColumns((prev) => { const next = new Set(prev); ...mutate...; localStorage.setItem(...); return next; })` — 단일 setter 콜백 안에서 mutation + save 원자적으로. React state 와 localStorage 가 항상 일치.
+- **popover 없이 relative + z-10 로 충분**: 별도 popover 라이브러리 (radix 등) 없이 `<div className="relative">` + `<div className="absolute right-0 z-10 ...">` 로 pop 구현. 외부 클릭 감지 없어 사용자가 다른 곳 클릭해도 안 닫힘 (다음 세션에 outside-click handler 추가 고려).
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.200**: GroupsTable 컬럼 표시 토글 (v0.199 대칭).
+  - **v0.201**: ClassroomTable 컬럼 표시 토글 (v0.199 대칭).
+  - **v0.202**: Column menu outside-click auto-close.
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
