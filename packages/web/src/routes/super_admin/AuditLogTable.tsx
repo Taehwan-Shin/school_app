@@ -407,8 +407,10 @@ export function AuditLogTable() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
-        <p className="text-small text-fg-secondary">
-          {filteredEntries.length}건 표시됨 / 전체 {entries.length}건 · 최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
+        <p className="text-small text-fg-secondary" data-testid="audit-log-loaded-info">
+          {filteredEntries.length}건 표시됨 / 전체 {entries.length}건 로드
+          {hasMore ? ' (더 있음)' : ' (마지막)'}
+          {' · '}최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
         </p>
         <div className="flex items-center gap-3">
           <input
@@ -944,7 +946,7 @@ export function AuditLogTable() {
                   disabled={loading}
                   data-testid="audit-log-load-more"
                 >
-                  {loading ? '불러오는 중...' : '더 보기 (25 건)'}
+                  {loading ? '불러오는 중...' : `더 보기 (${pageSize} 건)`}
                 </Button>
               </div>
             </>
