@@ -124,6 +124,7 @@
 - **Local-part 카운터 시리즈 완결 (v0.191/v0.192)** - v0.191 BulkTransferClassroomOwner + emailInput.ts 확장 (`EMAIL_LOCAL_PART_MAX` · `extractEmailLocalPart` 승격). v0.192 CreateGroup + CreateClassroom + TransferClassroomOwner 3 dialog 대칭 이식. **총 5 dialog · 이메일 입력 필드 모두 local-part 64자 카운터 완비** (Bulk/개별 · Create/Transfer 모든 조합). 웹 1096 → 1102 (+10 슬라이스 통산).
 - **페이지 크기 셀렉터 시리즈 최종 완결 (v0.193~v0.198)** - Accounts (v0.193) · Groups (v0.194) · Classroom (v0.195) · AuditLog (v0.197) **4 테이블 모두** 25/50/100 select + localStorage 저장. v0.196 은 3 테이블 pagination-info 에 「N / M 페이지」 추가. v0.198 은 AuditLog 「더 보기」 pageSize 반영 + hasMore 「(더 있음)/(마지막)」 시각화 (v0.197 후속 마감). `<table>Table.pageSize.v1` 키 · 잘못된 값 default 25 fallback · 변경 시 page=0 리셋. AuditLog 는 서버 요청 pageSize 변경 (`useAuditLogList(pageSize, ...)`) + JSON payload 반영. 대량 데이터 뷰 관리자 편의. 웹 1102 → 1125 (+23 슬라이스 통산).
 - **컬럼 표시 토글 시리즈 완결 (v0.199/v0.200/v0.201)** - Accounts (v0.199 · 4 필드 name/orgUnitPath/admin/suspended) · Groups (v0.200 · 4 필드 name/description/aliases/directMembersCount) · Classroom (v0.201 · 5 필드 name/section/state/id/link) **3 테이블 전체** 「컬럼 표시 (N / M)」 popover menu + localStorage 저장. `<table>Table.visibleColumns.v1` 키 · 잘못된 값 default 전체 fallback · 헤더/셀 조건부 렌더링. 웹 1125 → 1138 (+13 슬라이스 통산).
+- **컬럼 메뉴 outside-click auto-close** - v0.202 완료. shared `useClickOutside` hook 승격 (`lib/useClickOutside.ts` · refs[] 배열 지원 · enabled toggle · mousedown 리스너) · 3 테이블 트리거 버튼 + 컨테이너 2 ref 등록 · 6 회귀 · 웹 1144 (+6).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

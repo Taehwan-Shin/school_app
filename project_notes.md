@@ -4537,6 +4537,41 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.204**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.202 컬럼 메뉴 outside-click auto-close + shared useClickOutside hook
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `d35d541` | feat: v0.202 컬럼 메뉴 outside-click auto-close |
+| 병합 | `18eb6a0` | Merge feat/column-menu-outside-click-v202 |
+
+### 설계
+
+- **문제**: v0.199/v0.200/v0.201 로 열린 popover 는 사용자가 다른 곳 클릭해도 계속 열려있음. UX 관례 위반.
+- **해결**:
+  - shared hook `lib/useClickOutside.ts` 승격 (3 테이블 공통).
+  - refs[] 배열: 트리거 버튼 + 메뉴 컨테이너 두 요소 모두 「내부」 로 취급 (버튼 클릭이 close 를 immediate 재열지 않게).
+  - enabled toggle: `isColumnMenuOpen=false` 일 때는 리스너 미부착 (성능 최적).
+  - `mousedown` 리스너 (click 은 blur 이후 발화 → 순서 UX 불편).
+- 각 테이블: `useCallback` 로 close handler 안정화 → `useEffect` deps 재실행 방지.
+- Button forwardRef 활용 (기존).
+
+### 배운 것
+
+- **fireEvent.mouseDown vs dispatchEvent**: React Testing Library `fireEvent.mouseDown()` 은 React state 갱신을 트리거하고 `waitFor` 로 대기 가능. raw `outside.dispatchEvent(new MouseEvent('mousedown'))` 은 React 이벤트 loop 밖에서 발화 → state 갱신 시점 불확실. 항상 `fireEvent.*` 사용.
+- **enabled toggle 성능 최적화**: `useEffect` 안에 `if (!enabled) return;` 이 있어도 useEffect body 는 실행됨 (listener 등록 skip 만). enabled=false 렌더는 리스너 안 부착 → dependency 배열에 enabled 넣어 값 바뀔 때만 리스너 register/unregister.
+- **shared hook 승격 timing**: 3 테이블 동일 pattern 확인 후 승격. 만약 1 테이블만 필요했다면 인라인 useEffect 유지. 3 회 반복 = 승격 임계.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.203**: 컬럼 표시 preset 저장 (기본 / 간결 / 전체 · 각 테이블).
+  - **v0.204**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.205**: Column menu 키보드 접근성 (Escape 로 닫기).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 

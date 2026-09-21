@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.201 병합 완료** (`c194b37`) - ClassroomTable 컬럼 표시 토글 (5 필드 · **column visibility 시리즈 완결**) · 웹 1138. **v0.200** (`07d4441`) - GroupsTable 4 필드 · 웹 1134. **v0.199** (`a293a17`) - AccountsTable 4 필드 · 웹 1130.
+> **v0.202 병합 완료** (`18eb6a0`) - 컬럼 메뉴 outside-click auto-close (shared `useClickOutside` hook · 3 테이블) · 웹 1144. **v0.201** (`c194b37`) - ClassroomTable 컬럼 표시 토글. **v0.200** (`07d4441`) - GroupsTable. **v0.199** (`a293a17`) - AccountsTable.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `18eb6a0` v0.202 - 신규 `packages/web/src/lib/useClickOutside.ts` shared hook (refs[] · enabled toggle · mousedown 리스너) · AccountsTable/GroupsTable/ClassroomTable 3 테이블 컬럼 메뉴 트리거+컨테이너 두 ref 등록 · 외부 mousedown 시 auto-close · Button forwardRef 활용 · 6 회귀 (hook 단위 5 + AccountsTable 통합 1) · 웹 1144 (+6) · lint clean · 서버 무변경.
 - `c194b37` v0.201 - ClassroomTable 5 필드 (name/section/state/id/link) column visibility 토글 · localStorage `classroomTable.visibleColumns.v1` · 4 회귀 · 웹 1138 (+4) · lint clean · 서버 무변경.
 - `07d4441` v0.200 - GroupsTable 4 필드 (name/description/aliases/directMembersCount) column visibility 토글 · localStorage `groupsTable.visibleColumns.v1` · 4 회귀 · 웹 1134 (+4) · lint clean · 서버 무변경.
 - `a293a17` v0.199 - AccountsTable 헤더에 「컬럼 표시 (N / 4)」 popover menu 추가 · TOGGLEABLE_COLUMNS 4 필드 (`name` · `orgUnitPath` · `admin` · `suspended`) · localStorage `accountsTable.visibleColumns.v1` (JSON array) · 잘못된 값 default fallback · 헤더/셀 조건부 렌더링 · 5 회귀 · 웹 1130 (+5).
