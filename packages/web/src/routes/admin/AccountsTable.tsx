@@ -755,7 +755,7 @@ export function AccountsTable() {
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody striped>
                   {paginatedUsers.map((user: UserItem) => {
                     const fullName = `${user.lastName}${user.firstName}`.trim() || "-";
                     const userIsSelf = isSelf(user.email);

@@ -36,13 +36,23 @@ const TableHeader = React.forwardRef<
 ));
 TableHeader.displayName = "TableHeader";
 
+// v0.213: `striped` opt-in prop → 짝수 body row 에 `bg-fg-primary/[0.02]` (2% overlay).
+//          긴 목록에서 시선이 행을 따라가기 쉽게. hover (`hover:bg-fg-primary/[0.04]`, 4%) 는
+//          그 위에 겹치므로 hover 감지에는 지장 없음. 기본값 false → 기존 테이블 무영향.
+interface TableBodyProps extends React.HTMLAttributes<HTMLTableSectionElement> {
+  striped?: boolean;
+}
 const TableBody = React.forwardRef<
   HTMLTableSectionElement,
-  React.HTMLAttributes<HTMLTableSectionElement>
->(({ className, ...props }, ref) => (
+  TableBodyProps
+>(({ className, striped = false, ...props }, ref) => (
   <tbody
     ref={ref}
-    className={cn("[&_tr:last-child]:border-0", className)}
+    className={cn(
+      "[&_tr:last-child]:border-0",
+      striped && "[&_tr:nth-child(even)]:bg-fg-primary/[0.02]",
+      className,
+    )}
     {...props}
   />
 ));
