@@ -67,6 +67,12 @@ function readStoredVisibleColumns(): Set<ToggleColumnKey> {
     const filtered = parsed.filter((k): k is ToggleColumnKey =>
       typeof k === 'string' && validKeys.includes(k),
     );
+    // v0.216 R1 F-A fix: 저장값이 있었는데 valid key 가 하나도 남지 않으면 (전부 unknown)
+    //                    빈 Set 대신 default 로 복구. 「사용자가 명시적으로 전부 숨김」 상태
+    //                    (empty array `[]`) 는 그대로 존중 (parsed.length === 0 → 유지).
+    if (parsed.length > 0 && filtered.length === 0) {
+      return new Set(DEFAULT_VISIBLE_COLUMNS);
+    }
     return new Set(filtered);
   } catch {
     return new Set(DEFAULT_VISIBLE_COLUMNS);
