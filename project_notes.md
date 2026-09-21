@@ -4729,6 +4729,38 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.212**: shared hooks 를 다른 popover (SearchInput 등) 로 확장.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.210 sticky header 시각 강조 (border-b-2 + shadow-sm)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `8cdad1d` | feat: v0.210 sticky header 시각 강조 |
+| 병합 | `caded13` | Merge feat/sticky-header-shadow-v210 |
+
+### 설계
+
+- **문제**: v0.208 sticky top header 는 배경 (`bg-surface`) 만 있어 스크롤로 내용이 헤더 아래를 지날 때 경계가 모호. 스크롤 위치를 눈으로 구분하기 힘듦.
+- **해결**: `TableHeader` 에 두 class 추가.
+  - `border-b-2 border-border-subtle` — 기존 `TableHead` `border-b` 를 넘어서는 굵은 하단 경계.
+  - `shadow-sm` — 헤더 아래에 옅은 그림자로 「위에 떠 있는」 깊이감.
+- 두 class 는 sticky 상태가 아닐 때 (짧은 테이블) 도 시각적으로 튀지 않고 자연스러운 강조로 작동.
+- **범위**: v0.208 과 동일 · 이 컴포넌트를 사용하는 모든 테이블 (Accounts · Groups · Classroom · AuditLog · Members · ChatSpaces · CapabilityMatrix) 자동 적용.
+- **테스트**: 신규 회귀 1건 (`tableSticky.test.tsx` v0.210 describe): `border-b-2` · `border-border-subtle` · `shadow-sm` 세 class 존재 검증.
+
+### 배운 것
+
+- **sticky 는 시각 신호와 같이 가야 한다**: 기술적으로 헤더가 고정돼도 사용자가 스크롤을 알아채지 못하면 소용없음. `bg-surface` 만으로는 부족 · 그림자 또는 경계선이 필수.
+- **tailwind-merge 안전**: `border-b-2` 는 표준 Tailwind width utility, `border-border-subtle` 은 UI_SYSTEM 색상 토큰 (v0.208 이후 이미 등록됨), `shadow-sm` 은 표준 utility. 충돌 없이 병합.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.211**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.212**: shared hooks 를 다른 popover (SearchInput 등) 로 확장.
+  - **v0.213**: 테이블 row hover 개선 · zebra striping.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 

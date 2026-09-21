@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.210 | `caded13` (main) | v0.208 sticky top header 시각 강조. `TableHeader` 에 `border-b-2 border-border-subtle shadow-sm` 추가 (기존 `bg-surface [&_tr]:border-b sticky top-0 z-10` 유지). 스크롤로 내용이 헤더 아래를 지날 때 깊이감 · 경계 강조. 신규 회귀 1건 (`tableSticky.test.tsx` v0.210 describe). 웹 1162 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.209 | `49b02ec` (main) | v0.207 「선호 초기화」 버튼에 `window.confirm()` 실수 방지 관문 추가. 사용자가 클릭 시 확인 dialog → 취소하면 localStorage · state 모두 그대로. 승인하면 v0.207 로직 그대로 (sort · pageSize · visibleColumns 3키 제거 + default 재설정). 3 테이블 (Accounts · Groups · Classroom) 동일 패턴. AccountsTable 회귀 2건 (승인 branch 기존 갱신 + 취소 branch 신규). 웹 1161 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.176 | `c4eae3b` (main) | v0.175 shared `COURSE_NAME_MAX` 를 BulkRenameClassroomDialog 각 row 에도 이식. `overlyLongRows` useMemo · `canConfirm` 에 조건 추가 · row 별 tooLong 경고 표시 (기존 invalid + 신규 tooLong 통합 rowError) · summary 「상한 초과 N개」 카운트. 2 회귀 테스트 (751자 초과 · 750자 정확). 웹 1036 (+2) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.175 | `d914dd2` (main) | v0.174 shared `lib/classroomLimits.ts` 에 Google Classroom courses.name (750) · section (2800) · room (650) 상수 추가. CreateClassroomDialog handleSubmit 상단에서 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너. 3 helper test 확장 (총 4). 웹 1034 (+3) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
