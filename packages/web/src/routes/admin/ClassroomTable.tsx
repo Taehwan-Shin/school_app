@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
+import { useClickOutside } from '../../lib/useClickOutside';
 import {
   Table,
   TableBody,
@@ -165,6 +166,11 @@ export function ClassroomTable() {
     () => readStoredVisibleColumns(),
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  // v0.202: outside-click auto-close.
+  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
+  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -520,6 +526,7 @@ export function ClassroomTable() {
           {/* v0.201: 컬럼 표시 토글 (v0.199/v0.200 대칭). */}
           <div className="relative">
             <Button
+              ref={columnMenuBtnRef}
               variant="secondary"
               onClick={() => setIsColumnMenuOpen((prev) => !prev)}
               data-testid="classroom-column-menu-btn"
@@ -531,6 +538,7 @@ export function ClassroomTable() {
             </Button>
             {isColumnMenuOpen && (
               <div
+                ref={columnMenuRef}
                 role="menu"
                 aria-label="컬럼 표시"
                 data-testid="classroom-column-menu"

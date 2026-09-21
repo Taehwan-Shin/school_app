@@ -2005,6 +2005,28 @@ describe("AccountsTable component", () => {
       expect(screen.queryByTestId("accounts-sort-name")).toBeNull();
       expect(screen.queryByTestId("accounts-sort-orgUnitPath")).toBeNull();
     });
+
+    // v0.202: outside-click auto-close.
+    it("v0.202: 메뉴 열림 상태에서 외부 클릭 → 자동 닫힘", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      // 메뉴 열기.
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(screen.getByTestId("accounts-column-menu")).toBeDefined();
+      // 외부 요소에 mousedown → 닫힘. fireEvent 로 React state 갱신 트리거.
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      fireEvent.mouseDown(outside);
+      await waitFor(() => {
+        expect(screen.queryByTestId("accounts-column-menu")).toBeNull();
+      });
+      document.body.removeChild(outside);
+    });
   });
 });
 
