@@ -4696,6 +4696,39 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.211**: shared hooks 를 다른 popover (SearchInput 등) 로 확장.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.209 「선호 초기화」 confirm dialog (실수 방지)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `9874708` | feat: v0.209 「선호 초기화」 confirm dialog (실수 방지) |
+| 병합 | `49b02ec` | Merge feat/reset-prefs-confirm-v209 |
+
+### 설계
+
+- **문제**: v0.207 「선호 초기화」 버튼이 클릭 즉시 `sort` · `pageSize` · `visibleColumns` 3키를 모두 지워버림. 실수 클릭 시 복원 방법 없음.
+- **해결**:
+  - 3 테이블 (Accounts · Groups · Classroom) 의 `resetUserPreferences()` 함수 최상단에 `window.confirm('저장된 선호 … 초기화하시겠습니까?')` 추가.
+  - 취소 (false) → early return · localStorage · state 모두 그대로.
+  - 승인 (true) → v0.207 로직 그대로 진행.
+- **테스트**: AccountsTable 회귀 2건.
+  - 승인 branch: 기존 v0.207 회귀를 `vi.spyOn(window, 'confirm').mockReturnValue(true)` 로 갱신 + `confirmSpy 1회 호출` 검증.
+  - 취소 branch (신규): `mockReturnValue(false)` · localStorage/state 모두 그대로 검증.
+
+### 배운 것
+
+- **파괴적 UI 는 confirm 관문**: bulk delete · 명단 리셋 등 이미 3-phase confirm dialog 있는 파괴적 액션과 달리, 「선호 초기화」 는 단순 링크 버튼이라 관문이 없었음. `window.confirm()` 은 native · 접근성 자동 · 회귀 테스트 쉬움 (`vi.spyOn` mock) 으로 최소 비용 관문.
+- **테스트에서 confirm mock**: vitest 는 `vi.spyOn(window, 'confirm').mockReturnValue(true|false)` 로 dialog 우회. `mockRestore()` 로 다음 테스트 격리.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.210**: sticky header 시각 개선 (border-b · shadow).
+  - **v0.211**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.212**: shared hooks 를 다른 popover (SearchInput 등) 로 확장.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 

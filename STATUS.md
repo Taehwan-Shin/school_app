@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.209 | `49b02ec` (main) | v0.207 「선호 초기화」 버튼에 `window.confirm()` 실수 방지 관문 추가. 사용자가 클릭 시 확인 dialog → 취소하면 localStorage · state 모두 그대로. 승인하면 v0.207 로직 그대로 (sort · pageSize · visibleColumns 3키 제거 + default 재설정). 3 테이블 (Accounts · Groups · Classroom) 동일 패턴. AccountsTable 회귀 2건 (승인 branch 기존 갱신 + 취소 branch 신규). 웹 1161 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.176 | `c4eae3b` (main) | v0.175 shared `COURSE_NAME_MAX` 를 BulkRenameClassroomDialog 각 row 에도 이식. `overlyLongRows` useMemo · `canConfirm` 에 조건 추가 · row 별 tooLong 경고 표시 (기존 invalid + 신규 tooLong 통합 rowError) · summary 「상한 초과 N개」 카운트. 2 회귀 테스트 (751자 초과 · 750자 정확). 웹 1036 (+2) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.175 | `d914dd2` (main) | v0.174 shared `lib/classroomLimits.ts` 에 Google Classroom courses.name (750) · section (2800) · room (650) 상수 추가. CreateClassroomDialog handleSubmit 상단에서 세 필드 상한 검증 → 초과 시 서버 요청 차단 + validation error 배너. 3 helper test 확장 (총 4). 웹 1034 (+3) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.174 | `1667e74` (main) | CreateClassroomDialog description 필드에 Google Classroom courses.description 상한 30,000자 강제 + 실시간 「N / 30,000 자」 카운터 (초과 시 red) + textarea resize-y + handleSubmit 상한 초과 시 서버 요청 차단. 신규 `lib/classroomLimits.ts` shared `COURSE_DESCRIPTION_MAX` 상수 (v0.173 groupLimits 대칭). 1 helper test. 웹 1031 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |

@@ -131,6 +131,7 @@
 - **컬럼 메뉴 focus trap** - v0.206 완료 (Tab 순환 접근성). shared `useFocusTrap` hook 승격 · Tab/Shift+Tab wrap · unmount 시 focus 복원 · 4 회귀 · 웹 1157 (+4).
 - **컬럼 메뉴 「선호 초기화」** - v0.207 완료 (v0.160 sort · v0.193 pageSize · v0.199 visibleColumns 통합 리셋). `resetUserPreferences()` helper · 컬럼 메뉴 하단 링크 · 1 회귀 · 웹 1158 (+1). **컬럼 메뉴 UX 시리즈 (v0.199~v0.207) 완결**.
 - **Table sticky top header** - v0.208 완료 (긴 목록 UX). `TableHeader` 컴포넌트에 `sticky top-0 z-10` · `Table` wrapper `overflow-auto` → `overflow-x-auto` (세로 페이지 스크롤 위임) · 2 회귀 · 웹 1160 (+2) · 이 컴포넌트 사용 모든 테이블 자동 적용.
+- **「선호 초기화」 confirm dialog** - v0.209 완료 (실수 방지). 3 테이블 `resetUserPreferences()` 앞에 `window.confirm()` 관문 · 취소 시 no-op · 승인 시 v0.207 로직 그대로 · AccountsTable 회귀 2건 (승인 + 취소 branch) · 웹 1161 (+1).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
