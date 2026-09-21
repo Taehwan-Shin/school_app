@@ -1,9 +1,13 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.204 병합 완료** (`5dd9b06`) - 컬럼 메뉴 「전체 표시」/「전체 숨김」 quick actions (3 테이블) · 웹 1151. **v0.203** (`dc197a6`) - Escape 닫기. **v0.202** (`18eb6a0`) - outside-click.
+> **v0.207 병합 완료** (`58fe1cf`) - 컬럼 메뉴 「선호 초기화」 (sort · pageSize · visibleColumns 통합 리셋 · 3 테이블) · 웹 1158. **v0.206** (`1cc09cb`) - focus trap (`useFocusTrap`). **v0.205** (`135b0ae`) - 「간결」 preset. **v0.204** (`5dd9b06`) - 전체 표시/숨김.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
+
+- `58fe1cf` v0.207 - 각 테이블 `resetUserPreferences()` helper (localStorage 3 키 제거 + state DEFAULT 복원 + URL sort/dir clear + page 0) · 컬럼 메뉴 하단 「선호 초기화」 링크 버튼 (border-t 구분) · 회귀 1건 · 웹 1158 (+1).
+- `1cc09cb` v0.206 - 신규 `packages/web/src/lib/useFocusTrap.ts` shared hook (RefObject · enabled toggle · Tab/Shift+Tab wrap · unmount 시 focus 복원) · 3 테이블 컬럼 메뉴 focus trap · 4 회귀 · 웹 1157 (+4).
+- `135b0ae` v0.205 - 각 테이블 「간결」 preset (visibleColumns = [name]) · applyMinimalPreset + isMinimalActive · UI 「전체 표시」 · 「간결」 · 「전체 숨김」 3 링크 · 2 회귀 · 웹 1153 (+2).
 
 - `5dd9b06` v0.204 - AccountsTable/GroupsTable/ClassroomTable 3 테이블 컬럼 메뉴 상단에 「전체 표시」/「전체 숨김」 링크 버튼 · `setAllVisible(true|false)` helper 로 상태 batch 갱신 + localStorage 저장 · 4/4 또는 0/4 상태에서 각 버튼 disabled · 2 회귀 (AccountsTable v0.204 describe) · 웹 1151 (+2) · lint clean · 서버 무변경.
 - `dc197a6` v0.203 - 신규 `packages/web/src/lib/useEscapeKey.ts` shared hook (enabled toggle · keydown 리스너) · 3 테이블 컬럼 메뉴에 `useEscapeKey(closeColumnMenu, isColumnMenuOpen)` 추가 · 5 회귀 (hook 단위 4 · AccountsTable 통합 1) · 웹 1149 (+5) · lint clean · 서버 무변경.

@@ -4628,6 +4628,44 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.207**: Focus trap in column menu (Tab 순환).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.205/v0.206/v0.207 컬럼 메뉴 UX 시리즈 마감 (「간결」 preset · focus trap · 선호 초기화)
+
+### 커밋 표
+
+| 슬라이스 | 커밋 | 병합 |
+|---|---|---|
+| v0.205 (간결 preset) | `01cebf8` | `135b0ae` |
+| v0.206 (focus trap) | `988c54e` | `1cc09cb` |
+| v0.207 (선호 초기화) | `6550c78` | `58fe1cf` |
+
+### 라운드 표
+
+| 슬라이스 | HEAD | 결과 |
+|---|---|---|
+| v0.205 | `135b0ae` | skip · web 1153 (+2) |
+| v0.206 | `1cc09cb` | skip · web 1157 (+4) |
+| v0.207 | `58fe1cf` | skip · web 1158 (+1) |
+
+### 설계
+
+- **v0.205 「간결」 preset**: `applyMinimalPreset()` = visibleColumns 를 [name] 로. UI 「전체 표시 · 간결 · 전체 숨김」 3 링크.
+- **v0.206 focus trap**: 신규 `useFocusTrap(containerRef, enabled)` hook. Tab/Shift+Tab wrap around. enabled=false 시 이전 focused element 로 복원.
+- **v0.207 「선호 초기화」**: `resetUserPreferences()` = localStorage 3 키 (sort · pageSize · visibleColumns) 제거 + state DEFAULT 복원 + URL sort/dir clear + page 0. 메뉴 하단 border-t 로 구분된 링크 버튼.
+
+### 배운 것
+
+- **shared hook 라이브러리 정립**: `useClickOutside` (v0.202) · `useEscapeKey` (v0.203) · `useFocusTrap` (v0.206) 세 접근성 hook 이 모두 shared 로 승격. 다른 dialog/popover 에서 재사용 대비.
+- **테이블 3 축 preference**: v0.160 sort · v0.193 pageSize · v0.199 visibleColumns 각각 다른 localStorage 키. v0.207 은 이 3 축을 통합 리셋. 「필터 초기화」 는 URL scope, 「선호 초기화」 는 localStorage scope — 명확 분리.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.208**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150) — 큰 슬라이스.
+  - **v0.209**: shared hook 다른 dialog/modal 로 확장 (예: Dialog 컴포넌트).
+  - **v0.210**: Table row hover styling · sticky header.
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 

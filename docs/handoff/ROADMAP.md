@@ -127,6 +127,9 @@
 - **컬럼 메뉴 outside-click auto-close** - v0.202 완료. shared `useClickOutside` hook 승격 (`lib/useClickOutside.ts` · refs[] 배열 지원 · enabled toggle · mousedown 리스너) · 3 테이블 트리거 버튼 + 컨테이너 2 ref 등록 · 6 회귀 · 웹 1144 (+6).
 - **컬럼 메뉴 Escape 키 닫기** - v0.203 완료. shared `useEscapeKey` hook 승격 (`lib/useEscapeKey.ts` · enabled toggle · keydown 리스너) · 3 테이블에 이식 · 접근성 개선 · 5 회귀 · 웹 1149 (+5).
 - **컬럼 메뉴 「전체 표시」 / 「전체 숨김」 quick actions** - v0.204 완료 (UX polish). 각 테이블 `setAllVisible(visible)` helper · 메뉴 상단 두 링크 버튼 (구분자 `·`) · 이미 4/4 또는 0/4 상태면 각 버튼 disabled · 2 회귀 · 웹 1151 (+2).
+- **컬럼 메뉴 「간결」 preset** - v0.205 완료. `applyMinimalPreset` (visibleColumns = [name]) · 「전체 표시」 · 「간결」 · 「전체 숨김」 3 링크 · 2 회귀 · 웹 1153 (+2).
+- **컬럼 메뉴 focus trap** - v0.206 완료 (Tab 순환 접근성). shared `useFocusTrap` hook 승격 · Tab/Shift+Tab wrap · unmount 시 focus 복원 · 4 회귀 · 웹 1157 (+4).
+- **컬럼 메뉴 「선호 초기화」** - v0.207 완료 (v0.160 sort · v0.193 pageSize · v0.199 visibleColumns 통합 리셋). `resetUserPreferences()` helper · 컬럼 메뉴 하단 링크 · 1 회귀 · 웹 1158 (+1). **컬럼 메뉴 UX 시리즈 (v0.199~v0.207) 완결**.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
