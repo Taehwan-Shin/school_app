@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { sortHeaderKbdProps } from "./sortHeader";
 import { useClickOutside } from "../../lib/useClickOutside";
 import { useEscapeKey } from "../../lib/useEscapeKey";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import {
   Table,
   TableBody,
@@ -135,6 +136,7 @@ export function AccountsTable() {
   const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
+  useFocusTrap(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {

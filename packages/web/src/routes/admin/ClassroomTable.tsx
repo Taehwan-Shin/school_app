@@ -5,6 +5,7 @@ import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
 import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
+import { useFocusTrap } from '../../lib/useFocusTrap';
 import {
   Table,
   TableBody,
@@ -173,6 +174,7 @@ export function ClassroomTable() {
   const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
+  useFocusTrap(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
