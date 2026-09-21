@@ -191,6 +191,22 @@ export function ClassroomTable() {
     });
   };
 
+  // v0.204: 전체 표시 / 전체 숨김 quick actions.
+  const setAllVisible = (visible: boolean) => {
+    const next: Set<ToggleColumnKey> = visible
+      ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key))
+      : new Set();
+    setVisibleColumns(next);
+    try {
+      localStorage.setItem(
+        VISIBLE_COLUMNS_STORAGE_KEY,
+        JSON.stringify(Array.from(next)),
+      );
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
+
   useEffect(() => {
     setPage(0);
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
@@ -546,6 +562,28 @@ export function ClassroomTable() {
                 data-testid="classroom-column-menu"
                 className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
               >
+                {/* v0.204: 전체 표시/전체 숨김 quick actions. */}
+                <div className="flex gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
+                  <button
+                    type="button"
+                    onClick={() => setAllVisible(true)}
+                    disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
+                    data-testid="classroom-column-show-all"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    전체 표시
+                  </button>
+                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setAllVisible(false)}
+                    disabled={visibleColumns.size === 0}
+                    data-testid="classroom-column-hide-all"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    전체 숨김
+                  </button>
+                </div>
                 {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
                   <label
                     key={key}

@@ -2044,6 +2044,55 @@ describe("AccountsTable component", () => {
         expect(screen.queryByTestId("accounts-column-menu")).toBeNull();
       });
     });
+
+    // v0.204: 전체 표시 / 전체 숨김 quick actions.
+    it("v0.204: 「전체 숨김」 → 0/4 · 「전체 표시」 → 4/4 · localStorage 저장", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      fireEvent.click(screen.getByTestId("accounts-column-hide-all"));
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (0 / 4)",
+      );
+      fireEvent.click(screen.getByTestId("accounts-column-show-all"));
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (4 / 4)",
+      );
+      await waitFor(() => {
+        const raw = localStorage.getItem("accountsTable.visibleColumns.v1");
+        const parsed = JSON.parse(raw!) as string[];
+        expect(parsed).toHaveLength(4);
+      });
+    });
+
+    it("v0.204: 4/4 → 전체 표시 disabled · 0/4 → 전체 숨김 disabled", () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(
+        (screen.getByTestId("accounts-column-show-all") as HTMLButtonElement).disabled,
+      ).toBe(true);
+      expect(
+        (screen.getByTestId("accounts-column-hide-all") as HTMLButtonElement).disabled,
+      ).toBe(false);
+      fireEvent.click(screen.getByTestId("accounts-column-hide-all"));
+      expect(
+        (screen.getByTestId("accounts-column-show-all") as HTMLButtonElement).disabled,
+      ).toBe(false);
+      expect(
+        (screen.getByTestId("accounts-column-hide-all") as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
   });
 });
 
