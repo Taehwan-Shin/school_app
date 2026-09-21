@@ -36,4 +36,22 @@ describe('Table sticky header (v0.208)', () => {
     expect(wrapper.className).toContain('overflow-x-auto');
     expect(wrapper.className).not.toContain('overflow-auto');
   });
+
+  // v0.210: sticky 시각 강조. border-b-2 + shadow-sm 로 헤더/본문 경계 강조.
+  it('v0.210: TableHeader 는 border-b-2 · shadow-sm class 포함 (sticky 시각 강조)', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>H</TableHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    );
+    const thead = container.querySelector('thead');
+    expect(thead).not.toBeNull();
+    expect(thead!.className).toContain('border-b-2');
+    expect(thead!.className).toContain('border-border-subtle');
+    expect(thead!.className).toContain('shadow-sm');
+  });
 });
