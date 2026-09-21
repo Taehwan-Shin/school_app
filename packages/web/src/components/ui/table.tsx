@@ -63,6 +63,9 @@ const TableFooter = React.forwardRef<
 ));
 TableFooter.displayName = "TableFooter";
 
+// v0.211: hover 색상 분리. 기존 `hover:bg-surface` 는 sticky thead `bg-surface` (v0.208) 와 같은 색상 →
+//          hover 를 알아채기 힘듦. 4% fg-primary overlay 로 분리 (light 모드에서 #FFF 위에 살짝 어둡게,
+//          dark 모드에서 #0A0A0A 위에 살짝 밝게 — 두 모드 모두 자연스러운 hover).
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
@@ -70,7 +73,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b border-border-subtle hover:bg-surface transition-colors data-[state=selected]:bg-surface",
+      "border-b border-border-subtle hover:bg-fg-primary/[0.04] transition-colors data-[state=selected]:bg-surface",
       className
     )}
     {...props}

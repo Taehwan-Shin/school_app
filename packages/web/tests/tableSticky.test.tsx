@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { Table, TableHeader, TableRow, TableHead } from '../src/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '../src/components/ui/table';
 
 // v0.208: sticky top header 회귀. TableHeader 에 sticky/top-0/z-10 class 부여.
 describe('Table sticky header (v0.208)', () => {
@@ -53,5 +53,29 @@ describe('Table sticky header (v0.208)', () => {
     expect(thead!.className).toContain('border-b-2');
     expect(thead!.className).toContain('border-border-subtle');
     expect(thead!.className).toContain('shadow-sm');
+  });
+
+  // v0.211: TableRow hover 색상을 bg-surface (thead 와 동일) 에서 fg-primary/[0.04] 로 분리.
+  it('v0.211: TableRow 는 hover:bg-fg-primary/[0.04] class 포함 (sticky thead 와 hover 분리)', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>H</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow data-testid="body-row">
+            <TableCell>C</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const rows = container.querySelectorAll('tr');
+    // header row + body row = 2 개. 두 번째가 body row.
+    expect(rows.length).toBe(2);
+    const bodyRow = rows[1];
+    expect(bodyRow.className).toContain('hover:bg-fg-primary/[0.04]');
+    expect(bodyRow.className).not.toContain('hover:bg-surface');
   });
 });
