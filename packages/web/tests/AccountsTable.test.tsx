@@ -2027,6 +2027,23 @@ describe("AccountsTable component", () => {
       });
       document.body.removeChild(outside);
     });
+
+    // v0.203: Escape 키로 컬럼 메뉴 닫기.
+    it("v0.203: 메뉴 열림 상태에서 Escape → 자동 닫힘", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(screen.getByTestId("accounts-column-menu")).toBeDefined();
+      fireEvent.keyDown(document, { key: "Escape" });
+      await waitFor(() => {
+        expect(screen.queryByTestId("accounts-column-menu")).toBeNull();
+      });
+    });
   });
 });
 

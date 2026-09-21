@@ -4,6 +4,7 @@ import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
 import { useClickOutside } from '../../lib/useClickOutside';
+import { useEscapeKey } from '../../lib/useEscapeKey';
 import {
   Table,
   TableBody,
@@ -171,6 +172,7 @@ export function ClassroomTable() {
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
+  useEscapeKey(closeColumnMenu, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
