@@ -887,7 +887,7 @@ export function ClassroomTable() {
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody striped>
               {paginatedCourses.map((c) => {
                 const canSelect = c.courseState === 'ACTIVE' || c.courseState === 'ARCHIVED';
                 return (

@@ -675,7 +675,7 @@ export function GroupsTable() {
                     <TableHead className="text-right">관리</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody striped>
                   {paginatedGroups.map((group: GroupItem) => {
                 const aliasText =
                   group.aliases && group.aliases.length > 0 ? group.aliases.join(', ') : '-';

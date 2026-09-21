@@ -78,4 +78,36 @@ describe('Table sticky header (v0.208)', () => {
     expect(bodyRow.className).toContain('hover:bg-fg-primary/[0.04]');
     expect(bodyRow.className).not.toContain('hover:bg-surface');
   });
+
+  // v0.213: TableBody `striped` opt-in prop → 짝수 row zebra striping.
+  it('v0.213: TableBody 기본 (striped=false) → 얼룩 class 없음', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell>A</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const tbody = container.querySelector('tbody');
+    expect(tbody).not.toBeNull();
+    expect(tbody!.className).toContain('[&_tr:last-child]:border-0');
+    expect(tbody!.className).not.toContain('nth-child(even)');
+  });
+
+  it('v0.213: TableBody striped → 짝수 row 얼룩 class 포함', () => {
+    const { container } = render(
+      <Table>
+        <TableBody striped>
+          <TableRow>
+            <TableCell>A</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const tbody = container.querySelector('tbody');
+    expect(tbody).not.toBeNull();
+    expect(tbody!.className).toContain('[&_tr:nth-child(even)]:bg-fg-primary/[0.02]');
+  });
 });

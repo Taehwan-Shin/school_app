@@ -873,7 +873,7 @@ export function AuditLogTable() {
                     <TableHead>메시지</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody striped>
                   {filteredEntries.map((entry) => {
                     const resultColor =
                       entry.result === 'ok'
