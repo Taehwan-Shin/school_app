@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
+import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -140,6 +141,7 @@ export function GroupsTable() {
   const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
+  useFocusTrap(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
