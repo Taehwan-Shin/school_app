@@ -169,6 +169,22 @@ export function AccountsTable() {
     }
   };
 
+  // v0.205: 「간결」 preset — 이름 컬럼만 표시 (이메일 + 관리 는 필수라 항상 있음).
+  const applyMinimalPreset = () => {
+    const next: Set<ToggleColumnKey> = new Set(['name']);
+    setVisibleColumns(next);
+    try {
+      localStorage.setItem(
+        VISIBLE_COLUMNS_STORAGE_KEY,
+        JSON.stringify(Array.from(next)),
+      );
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
+  const isMinimalActive =
+    visibleColumns.size === 1 && visibleColumns.has('name');
+
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
     setPage(0);
@@ -469,8 +485,8 @@ export function AccountsTable() {
                 data-testid="accounts-column-menu"
                 className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
               >
-                {/* v0.204: 전체 표시/전체 숨김 quick actions. */}
-                <div className="flex gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
+                {/* v0.204: 전체 표시/전체 숨김 quick actions. v0.205: 「간결」 preset. */}
+                <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
                   <button
                     type="button"
                     onClick={() => setAllVisible(true)}
@@ -479,6 +495,17 @@ export function AccountsTable() {
                     className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                   >
                     전체 표시
+                  </button>
+                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={applyMinimalPreset}
+                    disabled={isMinimalActive}
+                    data-testid="accounts-column-preset-minimal"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                    title="이름 컬럼만 표시 (다른 선택 컬럼 숨김)"
+                  >
+                    간결
                   </button>
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button

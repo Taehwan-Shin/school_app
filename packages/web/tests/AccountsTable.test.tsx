@@ -2093,6 +2093,47 @@ describe("AccountsTable component", () => {
         (screen.getByTestId("accounts-column-hide-all") as HTMLButtonElement).disabled,
       ).toBe(true);
     });
+
+    // v0.205: 「간결」 preset — 이름 컬럼만.
+    it("v0.205: 「간결」 클릭 → visibleColumns = [name] · 카운터 1/4 · localStorage 저장", async () => {
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      fireEvent.click(screen.getByTestId("accounts-column-preset-minimal"));
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (1 / 4)",
+      );
+      expect(screen.getByTestId("accounts-sort-name")).toBeDefined();
+      expect(screen.queryByTestId("accounts-sort-orgUnitPath")).toBeNull();
+      await waitFor(() => {
+        const raw = localStorage.getItem("accountsTable.visibleColumns.v1");
+        const parsed = JSON.parse(raw!) as string[];
+        expect(parsed).toEqual(["name"]);
+      });
+    });
+
+    it("v0.205: 「간결」 이미 활성 상태면 disabled", () => {
+      localStorage.setItem(
+        "accountsTable.visibleColumns.v1",
+        JSON.stringify(["name"]),
+      );
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(
+        (screen.getByTestId("accounts-column-preset-minimal") as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
   });
 });
 
