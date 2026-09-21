@@ -188,7 +188,12 @@ export function AccountsTable() {
     visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
+  // v0.209: 실수 방지 confirm.
   const resetUserPreferences = () => {
+    const ok = window.confirm(
+      '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
+    );
+    if (!ok) return;
     try {
       localStorage.removeItem(SORT_STORAGE_KEY);
       localStorage.removeItem(PAGE_SIZE_STORAGE_KEY);
