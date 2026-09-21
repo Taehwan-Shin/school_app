@@ -4571,6 +4571,36 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.205**: Column menu 키보드 접근성 (Escape 로 닫기).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.203 컬럼 메뉴 Escape 키 닫기 + shared useEscapeKey hook
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `cea199c` | feat: v0.203 컬럼 메뉴 Escape 키 닫기 + shared useEscapeKey hook |
+| 병합 | `dc197a6` | Merge feat/column-menu-escape-v203 |
+
+### 설계
+
+- **문제**: v0.202 outside-click 이후에도 키보드-only 사용자는 메뉴 닫기 불편. Escape = 「닫기」 UX 관례.
+- **해결**: shared hook `useEscapeKey(handler, enabled)` 승격 (다른 modal/popover 재사용 대비). 3 테이블에 이식.
+- **테스트**: hook 단위 4건 (enabled toggle · Escape · 다른 키 · unmount) + AccountsTable 통합 1건.
+
+### 배운 것
+
+- **hook 을 미리 승격**: 첫 사용처 (컬럼 메뉴 3 테이블) 만으로도 승격 정당화 (3 번 반복). 다른 dialog/modal 에서 재사용될 여지가 크므로 미리 shared 로.
+- **enabled flag 로 리스너 부착 최적화**: v0.202 useClickOutside 와 동일 pattern. 닫힌 상태 (99% 시간) 는 리스너 zero → 성능.
+- **KeyboardEvent 'Escape' 키 값**: `e.key === 'Escape'` (구 `keyCode 27` 대신). modern 표준.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.204**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.205**: 컬럼 표시 preset 저장 (기본 / 간결 / 전체).
+  - **v0.206**: Focus trap in column menu (Tab 순환).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 
