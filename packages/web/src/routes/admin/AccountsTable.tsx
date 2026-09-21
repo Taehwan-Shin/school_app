@@ -33,7 +33,7 @@ type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
 type SortDirection = 'asc' | 'desc';
 
 // v0.193: 페이지 크기 셀렉터. 사용자 선택은 localStorage 에 저장 (도메인 · 사용자 로컬).
-const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'accountsTable.pageSize.v1';

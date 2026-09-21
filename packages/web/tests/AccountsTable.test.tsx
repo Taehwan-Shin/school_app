@@ -1866,12 +1866,21 @@ describe("AccountsTable component", () => {
       expect(select.value).toBe("25");
     });
 
-    it("PAGE_SIZE_OPTIONS 밖 (예: 200) 도 fallback", () => {
-      localStorage.setItem("accountsTable.pageSize.v1", "200");
+    it("PAGE_SIZE_OPTIONS 밖 (예: 500) 도 fallback", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "500");
       setup();
       renderWithRouter(<AccountsTable />);
       const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
       expect(select.value).toBe("25");
+    });
+
+    // v0.214: 200 옵션 추가 (power user 지원).
+    it("v0.214: 200 은 유효 옵션 → hydrate", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "200");
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("200");
     });
   });
 
