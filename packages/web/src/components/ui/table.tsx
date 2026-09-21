@@ -1,11 +1,13 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 
+// v0.208: outer wrapper 는 가로 스크롤만 (`overflow-x-auto`). 세로는 페이지 스크롤에
+// 위임 → `<thead>` sticky top-0 이 뷰포트에서 동작하도록.
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div className="relative w-full overflow-x-auto">
     <table
       ref={ref}
       className={cn("w-full border border-border-subtle rounded-none text-small", className)}
@@ -15,11 +17,17 @@ const Table = React.forwardRef<
 ));
 Table.displayName = "Table";
 
+// v0.208: sticky top header. 스크롤되는 outer 컨테이너 (`Table` wrapper 의 overflow-auto)
+// 안에서 `thead` 를 상단 고정 → 긴 테이블에서 컬럼 헤더가 계속 보임.
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("bg-surface [&_tr]:border-b", className)} {...props} />
+  <thead
+    ref={ref}
+    className={cn("bg-surface [&_tr]:border-b sticky top-0 z-10", className)}
+    {...props}
+  />
 ));
 TableHeader.displayName = "TableHeader";
 
