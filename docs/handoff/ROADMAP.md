@@ -137,6 +137,7 @@
 - **userDetail + groupDetail super_admin audit link** - v0.212 완료. classroomDetail v0.117b 대칭 · 3 detail 페이지 audit link 대칭 완결 · 각 페이지 회귀 2건 · 웹 1167 (+4).
 - **TableBody striped opt-in prop** - v0.213 완료. `striped` boolean prop · true 시 짝수 row 에 2% overlay · Accounts/Groups/Classroom/AuditLog 4 테이블 적용 · 회귀 2건 · 웹 1169 (+2).
 - **admin 3 테이블 pageSize 200 옵션** - v0.214 완료. `PAGE_SIZE_OPTIONS = [25, 50, 100, 200]` (Accounts/Groups/Classroom) · power user 대량 뷰 지원 · AuditLog 는 서버 pagination 이라 미포함 · 회귀 1건 갱신 + 1건 신규 · 웹 1170 (+1).
+- **9 Table aria-label 접근성** - v0.215 완료. Accounts/Groups/Classroom/AuditLog · UserAuditTrail/GroupAuditTrail/UserGroups/MembersTable/CourseMembersPanel · 스크린 리더 컨텍스트 · `<Table>` 이 spread props 라 컴포넌트 수정 불필요 · 회귀 1건 · 웹 1171 (+1).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

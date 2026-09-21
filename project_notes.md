@@ -4890,6 +4890,36 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.216**: 테이블 default TableCell truncate + title tooltip.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.215 9 Table 에 aria-label (스크린 리더 접근성)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `fadbf3a` | feat: v0.215 9 Table aria-label |
+| 병합 | `4d3ba50` | Merge feat/cell-truncate-v215 |
+
+### 설계
+
+- **요구**: 스크린 리더 사용자가 페이지에서 여러 `<table>` 을 탐색할 때 각 테이블이 무엇을 담고 있는지 알 수 있어야 (aria-label).
+- **해결**: 9개 데이터 테이블에 `<Table aria-label="X">` 지정.
+  - admin: AccountsTable (「계정 목록」) · GroupsTable (「그룹 목록」) · ClassroomTable (「클래스룸 목록」) · UserAuditTrail (「사용자 감사 이력」) · GroupAuditTrail (「그룹 감사 이력」) · UserGroups (「사용자 소속 그룹」) · MembersTable (「그룹 구성원」) · CourseMembersPanel (「클래스룸 구성원」).
+  - super_admin: AuditLogTable (「감사 로그」).
+- **컴포넌트 수정 불필요**: `<Table>` 이 이미 `React.HTMLAttributes<HTMLTableElement>` spread → `aria-label` 은 내부 `<table>` 에 native 전달.
+- **테스트**: `tests/tableSticky.test.tsx` 에 회귀 1건 (aria-label pass-through 검증).
+
+### 배운 것
+
+- **spread props 는 자동 확장성**: 컴포넌트가 `{...props}` 를 하위 요소로 전달하면 새 HTML attr 은 자동 지원. `aria-label` 도 `data-testid` 도 이런 식으로 자동 통과. 새 prop 정의 없이 옵트인 가능.
+- **접근성 slice 는 저비용 고효과**: 코드 변경 최소 · 회귀 위험 없음 · 실 스크린 리더 사용자에게 상당한 UX 개선.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.216**: AuditLogTable 컬럼 표시 토글 (v0.199 admin 3 테이블 패턴 확장).
+  - **v0.217**: 테이블 default TableCell truncate + title tooltip.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 

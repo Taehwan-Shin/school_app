@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.215 | `4d3ba50` (main) | 9 Table 에 `aria-label` 추가 (스크린 리더 접근성). Accounts/Groups/Classroom/AuditLog · UserAuditTrail/GroupAuditTrail/UserGroups/MembersTable/CourseMembersPanel. `<Table>` 컴포넌트는 이미 spread props → aria-label native 전달 (컴포넌트 수정 불필요). 신규 회귀 1건. 웹 1171 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.214 | `d20425d` (main) | admin 3 테이블 (Accounts/Groups/Classroom) `PAGE_SIZE_OPTIONS = [25, 50, 100, 200]` (power user 지원). select 은 options 를 map 으로 렌더링 → 자동 노출. localStorage validation 이 200 도 accept. AuditLogTable 은 서버 pagination 이라 200 추가 미포함. AccountsTable 회귀 1건 갱신 + 1건 신규. 웹 1170 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.213 | `4f11496` (main) | TableBody 에 `striped` opt-in prop 추가. true 일 때 짝수 row 에 `bg-fg-primary/[0.02]` (2% overlay). Accounts · Groups · Classroom · AuditLog 4 테이블에 `<TableBody striped>` 적용 (긴 목록 시선 추적 UX). hover (4% overlay) 는 위에 겹치므로 hover 감지 지장 없음. 신규 회귀 2건. 웹 1169 (+2) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.212 | `fc494e8` (main) | userDetail + groupDetail 감사 이력 section 하단에 「감사 로그에서 이 사용자/그룹 검색 →」 링크 (super_admin only · classroomDetail v0.117b 대칭). 3 detail 페이지 audit link 대칭 완결. UserDetail/GroupDetail test 의 useAuth 를 mockUseAuth spy 로 refactor. 각 페이지 회귀 2건 (super_admin 노출 + admin 미표시). 웹 1167 (+4) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |

@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.214 병합 완료** (`d20425d`) - admin 3 테이블 pageSize 200 옵션 추가 · 웹 1170. **v0.213** (`4f11496`) - TableBody striped opt-in prop. **v0.212** (`fc494e8`) - user/group detail super_admin audit link.
+> **v0.215 병합 완료** (`4d3ba50`) - 9 Table 에 aria-label (스크린 리더 접근성) · 웹 1171. **v0.214** (`d20425d`) - pageSize 200 옵션. **v0.213** (`4f11496`) - TableBody striped opt-in.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `4d3ba50` v0.215 - 9 Table 에 `aria-label` 추가 (Accounts/Groups/Classroom/AuditLog · UserAuditTrail/GroupAuditTrail/UserGroups/MembersTable/CourseMembersPanel) · `<Table>` 은 이미 spread props → 컴포넌트 수정 불필요 · 신규 회귀 1건 · 웹 1171 (+1).
 - `d20425d` v0.214 - admin 3 테이블 (Accounts/Groups/Classroom) `PAGE_SIZE_OPTIONS = [25, 50, 100, 200]` (power user 지원) · select map 자동 노출 · localStorage validation 이 200 accept · AuditLogTable 은 서버 pagination 이라 미포함 · AccountsTable 회귀 1건 갱신 + 1건 신규 · 웹 1170 (+1).
 - `4f11496` v0.213 - TableBody 에 `striped` opt-in prop 추가 · true 시 짝수 row 에 2% overlay · Accounts · Groups · Classroom · AuditLog 4 테이블에 `<TableBody striped>` 적용 · 신규 회귀 2건 · 웹 1169 (+2).
 - `fc494e8` v0.212 - userDetail + groupDetail 감사 이력 section 하단에 super_admin 전용 「감사 로그에서 이 사용자/그룹 검색 →」 링크 (classroomDetail v0.117b 대칭) · 3 detail 페이지 대칭 완결 · UserDetail/GroupDetail test 의 useAuth 를 spy 로 refactor · 각 페이지 회귀 2건 · 웹 1167 (+4).
