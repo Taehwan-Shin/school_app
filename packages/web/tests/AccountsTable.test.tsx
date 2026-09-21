@@ -2136,10 +2136,12 @@ describe("AccountsTable component", () => {
     });
 
     // v0.207: 선호 초기화 — sort · pageSize · visibleColumns 모두 default.
-    it("v0.207: 「선호 초기화」 → localStorage 3 키 제거 · state 재설정", async () => {
+    // v0.209: confirm 승인 시 진행.
+    it("v0.207+v0.209: 「선호 초기화」 → confirm 승인 후 localStorage 3 키 제거 · state 재설정", async () => {
       localStorage.setItem("accountsTable.sort.v1", JSON.stringify({ sort: "email", dir: "desc" }));
       localStorage.setItem("accountsTable.pageSize.v1", "50");
       localStorage.setItem("accountsTable.visibleColumns.v1", JSON.stringify(["name"]));
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       mockUseUsersList.mockReturnValue({
         data: { users: sampleUsers },
         isLoading: false,
@@ -2156,6 +2158,7 @@ describe("AccountsTable component", () => {
       ).toBe("50");
       // 선호 초기화 클릭.
       fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
       await waitFor(() => {
         expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
         expect(localStorage.getItem("accountsTable.pageSize.v1")).toBeNull();
@@ -2169,6 +2172,36 @@ describe("AccountsTable component", () => {
       expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
         "컬럼 표시 (4 / 4)",
       );
+      confirmSpy.mockRestore();
+    });
+
+    // v0.209: confirm 취소 시 아무 것도 변하지 않음.
+    it("v0.209: 「선호 초기화」 confirm 취소 → localStorage · state 그대로", () => {
+      localStorage.setItem("accountsTable.sort.v1", JSON.stringify({ sort: "email", dir: "desc" }));
+      localStorage.setItem("accountsTable.pageSize.v1", "50");
+      localStorage.setItem("accountsTable.visibleColumns.v1", JSON.stringify(["name"]));
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem("accountsTable.sort.v1")).not.toBeNull();
+      expect(localStorage.getItem("accountsTable.pageSize.v1")).toBe("50");
+      expect(localStorage.getItem("accountsTable.visibleColumns.v1")).not.toBeNull();
+      expect(
+        (screen.getByTestId("accounts-page-size-select") as HTMLSelectElement).value,
+      ).toBe("50");
+      // 컬럼 개수도 그대로 (1 / 4).
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (1 / 4)",
+      );
+      confirmSpy.mockRestore();
     });
   });
 });
