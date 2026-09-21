@@ -4600,6 +4600,35 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.206**: Focus trap in column menu (Tab 순환).
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.204 컬럼 메뉴 「전체 표시」 / 「전체 숨김」 quick actions
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `8cbaece` | feat: v0.204 컬럼 메뉴 「전체 표시」 / 「전체 숨김」 quick actions |
+| 병합 | `5dd9b06` | Merge feat/column-menu-quick-actions-v204 |
+
+### 설계
+
+- **문제**: v0.199~v0.201 column visibility 는 각 필드 checkbox 개별 클릭. 4~5 개 컬럼 전체를 한 번에 on/off 하려면 여러 번 클릭 필요.
+- **해결**: 메뉴 상단에 「전체 표시」/「전체 숨김」 링크 버튼 (구분자 `·`). `setAllVisible(true|false)` helper 로 상태 배치 갱신 + localStorage 저장.
+- **Disabled 조건**: 이미 최대 (visibleColumns.size === TOGGLEABLE_COLUMNS.length) → 「전체 표시」 disabled. 이미 0 → 「전체 숨김」 disabled. 사용자에게 불필요한 action 방지 + 시각 신호.
+
+### 배운 것
+
+- **preset 대신 「전체 on/off」 먼저**: v0.205 로 계획했던 "기본/간결/전체" preset 은 각 preset 이름 정의부터 시작해야 하는 큰 UX 결정. 우선 「전체」 두 케이스만 quick action 으로 커버 → 나머지 preset (기본/간결) 은 실 사용자 피드백 기반으로 나중에.
+- **disabled 로 UX 신호**: 버튼이 늘 활성이면 사용자가 「전체 숨김 → 이미 숨겨진 상태 → 뭐가 일어나지?」 로 혼란. disabled 는 「지금 할 수 있는 것이 없다」 를 명시.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.205**: 컬럼 표시 preset 저장 (기본 / 간결 / 전체).
+  - **v0.206**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.207**: Focus trap in column menu (Tab 순환).
+- 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
+
+
 
 
 

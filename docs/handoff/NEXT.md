@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.203 병합 완료** (`dc197a6`) - 컬럼 메뉴 Escape 키 닫기 (shared `useEscapeKey` hook · 3 테이블 · 접근성) · 웹 1149. **v0.202** (`18eb6a0`) - outside-click auto-close (`useClickOutside`).
+> **v0.204 병합 완료** (`5dd9b06`) - 컬럼 메뉴 「전체 표시」/「전체 숨김」 quick actions (3 테이블) · 웹 1151. **v0.203** (`dc197a6`) - Escape 닫기. **v0.202** (`18eb6a0`) - outside-click.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `5dd9b06` v0.204 - AccountsTable/GroupsTable/ClassroomTable 3 테이블 컬럼 메뉴 상단에 「전체 표시」/「전체 숨김」 링크 버튼 · `setAllVisible(true|false)` helper 로 상태 batch 갱신 + localStorage 저장 · 4/4 또는 0/4 상태에서 각 버튼 disabled · 2 회귀 (AccountsTable v0.204 describe) · 웹 1151 (+2) · lint clean · 서버 무변경.
 - `dc197a6` v0.203 - 신규 `packages/web/src/lib/useEscapeKey.ts` shared hook (enabled toggle · keydown 리스너) · 3 테이블 컬럼 메뉴에 `useEscapeKey(closeColumnMenu, isColumnMenuOpen)` 추가 · 5 회귀 (hook 단위 4 · AccountsTable 통합 1) · 웹 1149 (+5) · lint clean · 서버 무변경.
 - `18eb6a0` v0.202 - 신규 `packages/web/src/lib/useClickOutside.ts` shared hook (refs[] · enabled toggle · mousedown 리스너) · AccountsTable/GroupsTable/ClassroomTable 3 테이블 컬럼 메뉴 트리거+컨테이너 두 ref 등록 · 외부 mousedown 시 auto-close · Button forwardRef 활용 · 6 회귀 (hook 단위 5 + AccountsTable 통합 1) · 웹 1144 (+6) · lint clean · 서버 무변경.
 - `c194b37` v0.201 - ClassroomTable 5 필드 (name/section/state/id/link) column visibility 토글 · localStorage `classroomTable.visibleColumns.v1` · 4 회귀 · 웹 1138 (+4) · lint clean · 서버 무변경.

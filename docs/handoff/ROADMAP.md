@@ -126,6 +126,7 @@
 - **컬럼 표시 토글 시리즈 완결 (v0.199/v0.200/v0.201)** - Accounts (v0.199 · 4 필드 name/orgUnitPath/admin/suspended) · Groups (v0.200 · 4 필드 name/description/aliases/directMembersCount) · Classroom (v0.201 · 5 필드 name/section/state/id/link) **3 테이블 전체** 「컬럼 표시 (N / M)」 popover menu + localStorage 저장. `<table>Table.visibleColumns.v1` 키 · 잘못된 값 default 전체 fallback · 헤더/셀 조건부 렌더링. 웹 1125 → 1138 (+13 슬라이스 통산).
 - **컬럼 메뉴 outside-click auto-close** - v0.202 완료. shared `useClickOutside` hook 승격 (`lib/useClickOutside.ts` · refs[] 배열 지원 · enabled toggle · mousedown 리스너) · 3 테이블 트리거 버튼 + 컨테이너 2 ref 등록 · 6 회귀 · 웹 1144 (+6).
 - **컬럼 메뉴 Escape 키 닫기** - v0.203 완료. shared `useEscapeKey` hook 승격 (`lib/useEscapeKey.ts` · enabled toggle · keydown 리스너) · 3 테이블에 이식 · 접근성 개선 · 5 회귀 · 웹 1149 (+5).
+- **컬럼 메뉴 「전체 표시」 / 「전체 숨김」 quick actions** - v0.204 완료 (UX polish). 각 테이블 `setAllVisible(visible)` helper · 메뉴 상단 두 링크 버튼 (구분자 `·`) · 이미 4/4 또는 0/4 상태면 각 버튼 disabled · 2 회귀 · 웹 1151 (+2).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).
