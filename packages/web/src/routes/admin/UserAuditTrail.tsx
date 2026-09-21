@@ -56,7 +56,7 @@ export function UserAuditTrail({ targetEmail }: UserAuditTrailProps) {
       {entries.length > 0 && (
         <>
           <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-            <Table>
+            <Table aria-label="사용자 감사 이력">
               <TableHeader>
                 <TableRow>
                   <TableHead>시간</TableHead>

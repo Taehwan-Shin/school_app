@@ -110,4 +110,20 @@ describe('Table sticky header (v0.208)', () => {
     expect(tbody).not.toBeNull();
     expect(tbody!.className).toContain('[&_tr:nth-child(even)]:bg-fg-primary/[0.02]');
   });
+
+  // v0.215: Table 컴포넌트에 aria-label pass-through (스크린 리더 컨텍스트).
+  it('v0.215: <Table aria-label="X"> 는 <table> 에 aria-label 전달', () => {
+    const { container } = render(
+      <Table aria-label="테스트 목록">
+        <TableBody>
+          <TableRow>
+            <TableCell>A</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const table = container.querySelector('table');
+    expect(table).not.toBeNull();
+    expect(table!.getAttribute('aria-label')).toBe('테스트 목록');
+  });
 });

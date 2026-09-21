@@ -824,7 +824,7 @@ export function ClassroomTable() {
       )}
       {data?.courses && data.courses.length > 0 && sortedFilteredCourses.length > 0 && (
         <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas" data-testid="classroom-table-wrap">
-          <Table>
+          <Table aria-label="클래스룸 목록">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">

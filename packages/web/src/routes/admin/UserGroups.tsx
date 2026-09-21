@@ -35,7 +35,7 @@ export function UserGroups({ userEmail }: UserGroupsProps) {
       )}
       {data?.groups && data.groups.length > 0 && (
         <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
+          <Table aria-label="사용자 소속 그룹">
             <TableHeader>
               <TableRow>
                 <TableHead>이메일</TableHead>

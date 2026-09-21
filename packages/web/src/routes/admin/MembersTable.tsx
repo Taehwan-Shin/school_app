@@ -189,7 +189,7 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
 
       {filteredMembers.length > 0 && (
         <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-          <Table>
+          <Table aria-label="그룹 구성원">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">

@@ -56,7 +56,7 @@ export function GroupAuditTrail({ groupEmail }: GroupAuditTrailProps) {
       {entries.length > 0 && (
         <>
           <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-            <Table>
+            <Table aria-label="그룹 감사 이력">
               <TableHeader>
                 <TableRow>
                   <TableHead>시간</TableHead>

@@ -278,7 +278,7 @@ export function CourseMembersPanel({
             className="max-h-96 overflow-y-auto border border-border-subtle"
             data-testid="course-members-scroll-container"
           >
-            <Table>
+            <Table aria-label="클래스룸 구성원">
               <TableHeader className="sticky top-0 bg-canvas">
                 <TableRow>
                   {/* v0.156: 선택 checkbox column. header 는 「전체 선택」 (현재 items). */}
