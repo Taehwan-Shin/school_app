@@ -4826,6 +4826,38 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.215**: 나머지 detail 페이지 UI polish.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.213 TableBody striped opt-in prop (zebra striping)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `59e308c` | feat: v0.213 TableBody striped opt-in prop |
+| 병합 | `4f11496` | Merge feat/auditlog-column-toggle-v213 |
+
+### 설계
+
+- **문제**: 긴 목록 (Accounts 100건 · AuditLog 100+ 건) 세로 스크롤 시 각 row 를 눈으로 따라가기 힘듦. 시각 grouping (zebra striping) 이 유용.
+- **해결**: shadcn/ui Table 기반의 `TableBody` 컴포넌트에 `striped?: boolean` prop 추가.
+  - 기본 false (기존 TableBody 사용처 무영향).
+  - true 시 짝수 row 에 `bg-fg-primary/[0.02]` (2% overlay) 클래스 적용.
+  - hover (4% overlay) 는 2% 위에 겹치므로 hover 감지 지장 없음.
+  - 선택 (v0.155 등) 은 bulk actions bar / checkbox 로 표시하므로 zebra 와 무관.
+- **적용**: Accounts · Groups · Classroom · AuditLog 4 테이블에 `<TableBody striped>` 로 opt-in.
+- **테스트**: 회귀 2건 (striped=false 기본 · striped=true).
+
+### 배운 것
+
+- **opt-in prop 은 안전한 확장 방식**: 컴포넌트에 기능을 추가하면서 기존 사용처 무영향. 새 기능은 명시적 opt-in 을 통해서만 활성화. shadcn/ui 처럼 컴포넌트가 공통 UI 기반일 때 특히 중요.
+- **투명한 overlay 적층**: hover 는 stripe 위에 overlay 로 겹치므로 stripe 색상 유무와 무관하게 hover 감지 가능. RGB 계산: 2% + 4% = 6% overlay (짝수 row hover 시). 순수 다크 배경에서 6% 밝기 shift 는 여전히 hover 신호로 충분.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.214**: AuditLogTable 컬럼 표시 토글 (v0.199 admin 3 테이블 패턴 확장) — 남아있음.
+  - **v0.215**: 테이블 default TableCell truncate + title tooltip.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
