@@ -28,6 +28,7 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.212 | `fc494e8` (main) | userDetail + groupDetail 감사 이력 section 하단에 「감사 로그에서 이 사용자/그룹 검색 →」 링크 (super_admin only · classroomDetail v0.117b 대칭). 3 detail 페이지 audit link 대칭 완결. UserDetail/GroupDetail test 의 useAuth 를 mockUseAuth spy 로 refactor. 각 페이지 회귀 2건 (super_admin 노출 + admin 미표시). 웹 1167 (+4) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.211 | `108f309` (main) | TableRow hover 색상을 sticky thead (`bg-surface`) 와 분리. `hover:bg-surface` → `hover:bg-fg-primary/[0.04]` (4% overlay). Light 모드에서 #FFF 위에 살짝 어둡게, dark 모드에서 #0A0A0A 위에 살짝 밝게. 신규 회귀 1건. 웹 1163 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.210 | `caded13` (main) | v0.208 sticky top header 시각 강조. `TableHeader` 에 `border-b-2 border-border-subtle shadow-sm` 추가 (기존 `bg-surface [&_tr]:border-b sticky top-0 z-10` 유지). 스크롤로 내용이 헤더 아래를 지날 때 깊이감 · 경계 강조. 신규 회귀 1건 (`tableSticky.test.tsx` v0.210 describe). 웹 1162 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |
 | v0.209 | `49b02ec` (main) | v0.207 「선호 초기화」 버튼에 `window.confirm()` 실수 방지 관문 추가. 사용자가 클릭 시 확인 dialog → 취소하면 localStorage · state 모두 그대로. 승인하면 v0.207 로직 그대로 (sort · pageSize · visibleColumns 3키 제거 + default 재설정). 3 테이블 (Accounts · Groups · Classroom) 동일 패턴. AccountsTable 회귀 2건 (승인 branch 기존 갱신 + 취소 branch 신규). 웹 1161 (+1) · lint clean · 서버 무변경. Codex R1 skip (Head 폴백). |

@@ -4793,6 +4793,39 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.214**: zebra striping opt-in.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.212 userDetail + groupDetail super_admin audit 링크
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `aba2378` | feat: v0.212 userDetail + groupDetail super_admin audit 링크 |
+| 병합 | `fc494e8` | Merge feat/table-cell-truncate-v212 |
+
+### 설계
+
+- **문제**: classroomDetail 은 v0.117b 부터 감사 이력 section 하단에 「감사 로그에서 이 코스 검색 →」 링크로 super_admin 이 target=courses/<id> 로 full audit page 이동 가능. userDetail · groupDetail 은 UserAuditTrail/GroupAuditTrail (최근 25건) 만 있고 full page 이동 링크 없음.
+- **해결**: userDetail (`감사 이력` section) 과 groupDetail (`감사 이력` section) 하단에 role === 'super_admin' 조건부 Link:
+  - userDetail: `/super_admin/audit?target=<user.email>` · 「감사 로그에서 이 사용자 검색 →」
+  - groupDetail: `/super_admin/audit?target=<groupEmail>` · 「감사 로그에서 이 그룹 검색 →」
+  - classroomDetail 링크 스타일 (underline decoration-transparent hover:decoration-fg-primary + focus-visible ring) 완전 재사용.
+- **테스트**: 각 페이지 2건. Auth mock 을 vi.fn() spy 로 refactor 하여 role 별 시나리오 테스트.
+  - super_admin 시나리오: 링크 노출 + href 검증.
+  - admin 시나리오: 링크 미표시 (defensive UI).
+
+### 배운 것
+
+- **vi.mock 클로저 대 vi.fn spy 분리**: 기존 UserDetail/GroupDetail test 는 `vi.mock('.../auth', () => ({ useAuth: () => ({ role: 'admin', ... }) }))` 하드코딩. role 별 시나리오 확장 불가. ClassroomDetailPage.test 처럼 `const mockUseAuth = vi.fn()` + `useAuth: () => mockUseAuth()` 패턴으로 refactor 하면 beforeEach 에서 default 설정, 개별 test 에서 mockReturnValue 로 override 가능.
+- **detail 페이지 역할별 UI 대칭 완성**: 3 detail 페이지 (classroom/user/group) 는 이제 super_admin 만 볼 수 있는 audit 링크가 동일 패턴으로 존재. 이후 detail 페이지 신설 시 참고 패턴.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.213**: AuditLogTable 컬럼 표시 토글 (v0.199 admin 3 테이블 패턴 확장).
+  - **v0.214**: 테이블 default TableCell truncate + title tooltip.
+  - **v0.215**: 나머지 detail 페이지 UI polish.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
