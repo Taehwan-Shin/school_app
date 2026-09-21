@@ -133,6 +133,7 @@
 - **Table sticky top header** - v0.208 완료 (긴 목록 UX). `TableHeader` 컴포넌트에 `sticky top-0 z-10` · `Table` wrapper `overflow-auto` → `overflow-x-auto` (세로 페이지 스크롤 위임) · 2 회귀 · 웹 1160 (+2) · 이 컴포넌트 사용 모든 테이블 자동 적용.
 - **「선호 초기화」 confirm dialog** - v0.209 완료 (실수 방지). 3 테이블 `resetUserPreferences()` 앞에 `window.confirm()` 관문 · 취소 시 no-op · 승인 시 v0.207 로직 그대로 · AccountsTable 회귀 2건 (승인 + 취소 branch) · 웹 1161 (+1).
 - **sticky header 시각 강조** - v0.210 완료. `TableHeader` 에 `border-b-2 border-border-subtle shadow-sm` 추가 (v0.208 `sticky top-0 z-10` 유지) · 스크롤로 내용이 헤더 아래를 지날 때 깊이감 · 신규 회귀 1건 · 웹 1162 (+1).
+- **TableRow hover 색상 분리** - v0.211 완료. `hover:bg-surface` (sticky thead 와 동일) → `hover:bg-fg-primary/[0.04]` (4% overlay) · 신규 회귀 1건 · 웹 1163 (+1).
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

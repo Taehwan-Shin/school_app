@@ -4761,6 +4761,38 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.213**: 테이블 row hover 개선 · zebra striping.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.211 TableRow hover 색상 분리
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `9e4d379` | feat: v0.211 TableRow hover 색상 분리 |
+| 병합 | `108f309` | Merge feat/auditlog-column-toggle-v211 |
+
+### 설계
+
+- **문제**: v0.208 sticky thead 가 `bg-surface`. TableRow hover 도 `hover:bg-surface` → hover 시 row 가 thead 와 같은 색이 됨 → hover 상태 시각 구분 어려움.
+- **해결**: TableRow hover 를 `hover:bg-fg-primary/[0.04]` (4% overlay) 로 변경.
+  - Light 모드: 흰색 (#FFF) 위에 살짝 어두워짐.
+  - Dark 모드: 거의 검정 (#0A0A0A) 위에 살짝 밝아짐.
+  - 두 모드 모두 자연스러운 hover 신호. sticky thead (bg-surface) 와 확실히 구분.
+- 브랜치명 원래 계획은 auditlog column toggle 이었지만 안전한 마이크로 슬라이스로 pivot.
+- **테스트**: 신규 회귀 1건 (`tableSticky.test.tsx` v0.211): body row 에 `hover:bg-fg-primary/[0.04]` 존재 + `hover:bg-surface` 부재 검증.
+
+### 배운 것
+
+- **arbitrary opacity 는 tailwind-merge 에 이미 등록된 색상 토큰과 함께 안전**: `bg-fg-primary/[0.04]` 의 `fg-primary` 는 utils.ts extendTailwindMerge 에 이미 등록. arbitrary opacity `/[0.04]` 는 tailwind-merge 가 standard bg group 으로 인식 → 병합 안전.
+- **동일 색상 시각 layering 은 잘못된 UX**: sticky 요소와 그 아래의 hover 상태가 같은 색이면 사용자가 「지금 어디에 있는지」 알 수 없음. 두 요소는 반드시 다른 색이어야.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.212**: AuditLogTable 컬럼 표시 토글 (v0.199 admin 3 테이블 패턴 확장).
+  - **v0.213**: 테이블 default TableCell truncate + title tooltip (긴 값 잘림 UX).
+  - **v0.214**: zebra striping opt-in.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 

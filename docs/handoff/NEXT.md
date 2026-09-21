@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.210 병합 완료** (`caded13`) - sticky header 시각 강조 (border-b-2 · shadow-sm) · 웹 1162. **v0.209** (`49b02ec`) - 「선호 초기화」 window.confirm 실수 방지. **v0.208** (`7c7ef28`) - Table sticky top header.
+> **v0.211 병합 완료** (`108f309`) - TableRow hover 색상 분리 (`hover:bg-fg-primary/[0.04]`) · 웹 1163. **v0.210** (`caded13`) - sticky header 시각 강조. **v0.209** (`49b02ec`) - 「선호 초기화」 confirm.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `108f309` v0.211 - TableRow `hover:bg-surface` (v0.208 sticky thead 와 동일 색) → `hover:bg-fg-primary/[0.04]` (4% overlay) · light/dark 두 모드 모두 자연스러운 hover · 신규 회귀 1건 · 웹 1163 (+1).
 - `caded13` v0.210 - v0.208 sticky top header 시각 강조 · `TableHeader` 에 `border-b-2 border-border-subtle shadow-sm` 추가 · 스크롤로 내용이 헤더 아래를 지날 때 깊이감 · 신규 회귀 1건 (`tableSticky.test.tsx` v0.210 describe) · 웹 1162 (+1) · lint clean · 서버 무변경.
 - `49b02ec` v0.209 - v0.207 「선호 초기화」 버튼에 `window.confirm()` 실수 방지 관문 · 취소 시 localStorage · state 모두 그대로 · 승인 시 v0.207 로직 그대로 · 3 테이블 (Accounts · Groups · Classroom) 동일 패턴 · AccountsTable 회귀 2건 (승인 branch 기존 갱신 + 취소 branch 신규) · 웹 1161 (+1) · lint clean · 서버 무변경.
 - `7c7ef28` v0.208 - `TableHeader` 컴포넌트에 `sticky top-0 z-10` class 추가 · `Table` outer wrapper `overflow-auto` → `overflow-x-auto` · 신규 `tests/tableSticky.test.tsx` 2 회귀 · 웹 1160 (+2). 이 컴포넌트 사용 모든 테이블 자동 적용.
