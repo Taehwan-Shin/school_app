@@ -860,7 +860,7 @@ export function AuditLogTable() {
             </div>
           ) : (
             <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-              <Table>
+              <Table aria-label="감사 로그">
                 <TableHeader>
                   <TableRow>
                     <TableHead>시간</TableHead>

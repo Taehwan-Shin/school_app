@@ -627,7 +627,7 @@ export function GroupsTable() {
             </div>
           ) : (
             <div className="border border-border-subtle rounded-none overflow-x-auto bg-canvas">
-              <Table>
+              <Table aria-label="그룹 목록">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8">
