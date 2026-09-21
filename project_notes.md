@@ -4858,6 +4858,38 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.215**: 테이블 default TableCell truncate + title tooltip.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-21 · v0.214 admin 3 테이블 pageSize 200 옵션 (power user)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `1ee45de` | feat: v0.214 pageSize 200 옵션 |
+| 병합 | `d20425d` | Merge feat/audit-columns-v214 |
+
+### 설계
+
+- **요구**: 대량 사용자 조회 시 100 초과 페이지 원하는 power user (bulk admin) 지원.
+- **해결**: 3 admin 테이블 (Accounts/Groups/Classroom) `PAGE_SIZE_OPTIONS = [25, 50, 100]` → `[25, 50, 100, 200]`.
+  - select 은 이미 `.map` 으로 렌더 → 자동 노출.
+  - `readStoredPageSize()` 의 `PAGE_SIZE_OPTIONS.includes(parsed)` 검증도 자동으로 200 accept.
+- **AuditLog 제외**: `AuditLogTable` 은 서버 pagination (실 API 요청 크기) 이라 200 은 요청 비용 크게 늘림. 지금은 100 유지.
+- **테스트**: AccountsTable 회귀 갱신.
+  - 기존 「200 도 fallback」 (out-of-options) 을 500 으로 갱신.
+  - 신규 「200 유효 옵션 → hydrate」.
+
+### 배운 것
+
+- **map 기반 UI + Array include 검증 조합의 확장성**: 옵션 배열 하나만 늘려도 UI select + localStorage validation 이 모두 자동 반영. 새 옵션 추가 비용 최소.
+- **client 대 server pagination 분리**: admin 3 테이블은 useQuery cache 에 전체 목록 hydrate 후 client 페이지네이션. AuditLog 는 서버 요청 pageSize. 페이지 크기 옵션은 각각 다르게 관리해야.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.215**: AuditLogTable 컬럼 표시 토글 (v0.199 admin 3 테이블 패턴 확장).
+  - **v0.216**: 테이블 default TableCell truncate + title tooltip.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
