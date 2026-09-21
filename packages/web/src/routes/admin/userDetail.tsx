@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { useUsersList } from '../../api/usersList';
@@ -209,6 +209,16 @@ export function UserDetailPage() {
               이 사용자를 대상으로 발생한 모든 관리자 행위의 기록입니다.
             </p>
             <UserAuditTrail targetEmail={user.email} />
+            {/* v0.212: super_admin 은 full audit page 로 이동 가능 (classroomDetail v0.117b 대칭). */}
+            {role === 'super_admin' && (
+              <Link
+                to={`/super_admin/audit?target=${encodeURIComponent(user.email)}`}
+                data-testid="user-detail-audit-link"
+                className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+              >
+                감사 로그에서 이 사용자 검색 →
+              </Link>
+            )}
           </section>
         )}
       </div>

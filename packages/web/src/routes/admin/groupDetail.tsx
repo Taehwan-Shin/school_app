@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
 import { useGroupsList } from '../../api/groupsList';
@@ -121,6 +121,16 @@ export function GroupDetailPage() {
             이 그룹을 대상으로 발생한 모든 관리자 행위의 기록입니다.
           </p>
           <GroupAuditTrail groupEmail={groupEmail} />
+          {/* v0.212: super_admin 은 full audit page 로 이동 가능 (classroomDetail v0.117b · userDetail v0.212 대칭). */}
+          {role === 'super_admin' && (
+            <Link
+              to={`/super_admin/audit?target=${encodeURIComponent(groupEmail)}`}
+              data-testid="group-detail-audit-link"
+              className="text-fg-primary underline decoration-transparent hover:decoration-fg-primary text-small transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
+            >
+              감사 로그에서 이 그룹 검색 →
+            </Link>
+          )}
         </section>
       </div>
 
