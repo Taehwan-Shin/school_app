@@ -5,6 +5,7 @@ import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
 import { sortHeaderKbdProps } from "./sortHeader";
 import { useClickOutside } from "../../lib/useClickOutside";
+import { useEscapeKey } from "../../lib/useEscapeKey";
 import {
   Table,
   TableBody,
@@ -133,6 +134,7 @@ export function AccountsTable() {
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
+  useEscapeKey(closeColumnMenu, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
