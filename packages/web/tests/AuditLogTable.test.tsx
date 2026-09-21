@@ -2085,5 +2085,99 @@ describe('AuditLogTable component', () => {
       expect(screen.getByTestId('audit-log-load-more').textContent).toBe('더 보기 (50 건)');
     });
   });
+
+  // v0.216: 컬럼 표시 토글 (admin 3 테이블 v0.199 패턴 확장).
+  describe('v0.216: 컬럼 표시 토글', () => {
+    const sampleEntry: AuditLogEntryRead = {
+      id: 'log-1',
+      actor: 'admin@cam.hs.kr',
+      role: 'admin',
+      action: 'users.update',
+      target: 'user@cam.hs.kr',
+      request_id: 'req-abcd1234',
+      result: 'ok',
+      at: 1789981000000,
+      message: '테스트 메시지',
+    };
+
+    beforeEach(() => {
+      localStorage.clear();
+      mockUseAuditLogList.mockReturnValue({
+        ...defaultMockReturn,
+        entries: [sampleEntry],
+      });
+    });
+
+    it('기본 상태: 컬럼 토글 버튼 「컬럼 표시 (4 / 4)」 · 4 optional 컬럼 모두 표시', () => {
+      renderWithRouter(<AuditLogTable />);
+      const btn = screen.getByTestId('audit-log-column-menu-btn');
+      expect(btn.textContent).toBe('컬럼 표시 (4 / 4)');
+      // 4 optional columns 모두 표시.
+      expect(screen.getByText('역할')).toBeDefined();
+      expect(screen.getByText('대상')).toBeDefined();
+      expect(screen.getByText('요청 ID')).toBeDefined();
+      expect(screen.getByText('메시지')).toBeDefined();
+      expect(screen.getByText('테스트 메시지')).toBeDefined();
+    });
+
+    it('메시지 컬럼 숨김 → 헤더 · 셀 모두 미표시 · localStorage 저장', async () => {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
+      const toggle = screen.getByTestId('audit-log-column-toggle-message') as HTMLInputElement;
+      expect(toggle.checked).toBe(true);
+      fireEvent.click(toggle);
+      await waitFor(() => {
+        expect(screen.queryByText('테스트 메시지')).toBeNull();
+      });
+      expect(screen.queryByText('메시지', { selector: 'th' })).toBeNull();
+      // localStorage 저장 확인.
+      const stored = JSON.parse(localStorage.getItem('auditLogTable.visibleColumns.v1') ?? '[]');
+      expect(stored).toEqual(expect.arrayContaining(['role', 'target', 'reqId']));
+      expect(stored).not.toContain('message');
+      // 버튼 카운트 갱신.
+      expect(screen.getByTestId('audit-log-column-menu-btn').textContent).toBe('컬럼 표시 (3 / 4)');
+    });
+
+    it('localStorage hydrate: 저장된 값이 있으면 그 값으로 시작', () => {
+      localStorage.setItem(
+        'auditLogTable.visibleColumns.v1',
+        JSON.stringify(['role']),
+      );
+      renderWithRouter(<AuditLogTable />);
+      expect(screen.getByTestId('audit-log-column-menu-btn').textContent).toBe('컬럼 표시 (1 / 4)');
+      // 역할만 th 표시. 다른 3개 th 숨김.
+      expect(screen.getByText('역할', { selector: 'th' })).toBeDefined();
+      expect(screen.queryByText('대상', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('요청 ID', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('메시지', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('테스트 메시지')).toBeNull();
+    });
+
+    it('전체 표시 · 전체 숨김 quick action', () => {
+      localStorage.setItem(
+        'auditLogTable.visibleColumns.v1',
+        JSON.stringify(['role', 'target']),
+      );
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
+      // 「전체 표시」 클릭.
+      fireEvent.click(screen.getByTestId('audit-log-column-show-all'));
+      expect(screen.getByTestId('audit-log-column-menu-btn').textContent).toBe('컬럼 표시 (4 / 4)');
+      // 「전체 숨김」 클릭.
+      fireEvent.click(screen.getByTestId('audit-log-column-hide-all'));
+      expect(screen.getByTestId('audit-log-column-menu-btn').textContent).toBe('컬럼 표시 (0 / 4)');
+      expect(screen.queryByText('역할', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('대상', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('요청 ID', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('메시지', { selector: 'th' })).toBeNull();
+      expect(screen.queryByText('테스트 메시지')).toBeNull();
+    });
+
+    it('손상된 localStorage → default (전체)', () => {
+      localStorage.setItem('auditLogTable.visibleColumns.v1', '{invalid json');
+      renderWithRouter(<AuditLogTable />);
+      expect(screen.getByTestId('audit-log-column-menu-btn').textContent).toBe('컬럼 표시 (4 / 4)');
+    });
+  });
 });
 
