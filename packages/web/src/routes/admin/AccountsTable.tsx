@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { useUsersList, type UserItem } from "../../api/usersList";
 import { Button } from "../../components/ui/button";
 import { sortHeaderKbdProps } from "./sortHeader";
+import { useClickOutside } from "../../lib/useClickOutside";
 import {
   Table,
   TableBody,
@@ -127,6 +128,11 @@ export function AccountsTable() {
     () => readStoredVisibleColumns(),
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  // v0.202: outside-click auto-close.
+  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
+  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -427,6 +433,7 @@ export function AccountsTable() {
           {/* v0.199: 컬럼 표시 토글. 클릭 시 checkbox 목록 pop. localStorage 저장. */}
           <div className="relative">
             <Button
+              ref={columnMenuBtnRef}
               variant="secondary"
               onClick={() => setIsColumnMenuOpen((prev) => !prev)}
               data-testid="accounts-column-menu-btn"
@@ -438,6 +445,7 @@ export function AccountsTable() {
             </Button>
             {isColumnMenuOpen && (
               <div
+                ref={columnMenuRef}
                 role="menu"
                 aria-label="컬럼 표시"
                 data-testid="accounts-column-menu"

@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useClickOutside } from '../../lib/useClickOutside';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -132,6 +133,11 @@ export function GroupsTable() {
     () => readStoredVisibleColumns(),
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  // v0.202: outside-click auto-close.
+  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
+  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -400,6 +406,7 @@ export function GroupsTable() {
           {/* v0.200: 컬럼 표시 토글 (v0.199 AccountsTable 대칭). */}
           <div className="relative">
             <Button
+              ref={columnMenuBtnRef}
               variant="secondary"
               onClick={() => setIsColumnMenuOpen((prev) => !prev)}
               data-testid="groups-column-menu-btn"
@@ -411,6 +418,7 @@ export function GroupsTable() {
             </Button>
             {isColumnMenuOpen && (
               <div
+                ref={columnMenuRef}
                 role="menu"
                 aria-label="컬럼 표시"
                 data-testid="groups-column-menu"
