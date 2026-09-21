@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.207 병합 완료** (`58fe1cf`) - 컬럼 메뉴 「선호 초기화」 (sort · pageSize · visibleColumns 통합 리셋 · 3 테이블) · 웹 1158. **v0.206** (`1cc09cb`) - focus trap (`useFocusTrap`). **v0.205** (`135b0ae`) - 「간결」 preset. **v0.204** (`5dd9b06`) - 전체 표시/숨김.
+> **v0.208 병합 완료** (`7c7ef28`) - Table sticky top header (긴 목록 스크롤 시 컬럼 헤더 상단 고정 · 모든 Table 사용처 자동 적용) · 웹 1160. **v0.207** (`58fe1cf`) - 「선호 초기화」. **v0.206** (`1cc09cb`) - focus trap.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `7c7ef28` v0.208 - `TableHeader` 컴포넌트에 `sticky top-0 z-10` class 추가 · `Table` outer wrapper `overflow-auto` → `overflow-x-auto` · 신규 `tests/tableSticky.test.tsx` 2 회귀 · 웹 1160 (+2). 이 컴포넌트 사용 모든 테이블 자동 적용.
 - `58fe1cf` v0.207 - 각 테이블 `resetUserPreferences()` helper (localStorage 3 키 제거 + state DEFAULT 복원 + URL sort/dir clear + page 0) · 컬럼 메뉴 하단 「선호 초기화」 링크 버튼 (border-t 구분) · 회귀 1건 · 웹 1158 (+1).
 - `1cc09cb` v0.206 - 신규 `packages/web/src/lib/useFocusTrap.ts` shared hook (RefObject · enabled toggle · Tab/Shift+Tab wrap · unmount 시 focus 복원) · 3 테이블 컬럼 메뉴 focus trap · 4 회귀 · 웹 1157 (+4).
 - `135b0ae` v0.205 - 각 테이블 「간결」 preset (visibleColumns = [name]) · applyMinimalPreset + isMinimalActive · UI 「전체 표시」 · 「간결」 · 「전체 숨김」 3 링크 · 2 회귀 · 웹 1153 (+2).

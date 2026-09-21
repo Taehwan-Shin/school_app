@@ -4665,6 +4665,38 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.210**: Table row hover styling · sticky header.
 - 로드맵 남은 (blocked): A-1 전입생 매크로 · A-2 계정 삭제 메일 · chat member userId→email 서버 확장 · AutoInvite+AutoRemove diff 통합.
 
+## 2026-09-21 · v0.208 Table sticky top header
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `db47a7f` | feat: v0.208 Table sticky top header |
+| 병합 | `7c7ef28` | Merge feat/table-sticky-header-v208 |
+
+### 설계
+
+- **문제**: 100+ 행 목록에서 세로 스크롤 시 컬럼 헤더가 사라져 어느 컬럼인지 확인 불가.
+- **해결**:
+  - `<TableHeader>` (`<thead>` 감싼 shadcn 컴포넌트) 에 `sticky top-0 z-10` class 추가 (기존 `bg-surface` 유지 → 셀 오버레이 시 배경 blocking).
+  - `Table` outer wrapper `overflow-auto` → `overflow-x-auto` (세로는 페이지 스크롤 위임 → sticky top-0 이 뷰포트 기준 동작).
+- **범위**: 이 컴포넌트를 사용하는 모든 테이블 (Accounts · Groups · Classroom · AuditLog · Members · ChatSpaces · CapabilityMatrix) 자동 적용.
+- **테스트**: 2 회귀 (신규 `tests/tableSticky.test.tsx`): thead class 검증 + wrapper overflow 검증.
+
+### 배운 것
+
+- **sticky 는 nearest overflow ancestor 기준**: `sticky top-0` 은 가장 가까운 overflow scroll container 안에서 동작. 만약 outer div 가 `overflow-auto` 라면 sticky 는 그 안에서만 (내부 overflow 없으면 무용). 페이지 스크롤에 sticky 하려면 outer 는 `overflow-x-auto` (세로 overflow 제거) 여야 함.
+- **shadcn 컴포넌트 수정의 파급**: `TableHeader` 하나 수정으로 모든 사용처에 영향. 큰 이점 (한 곳 수정) + 큰 위험 (모든 곳 회귀 위험). 회귀 스위트 전체 통과가 안전판.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.209**: sticky header 시각 개선 (border-b 유지 · 그림자 추가).
+  - **v0.210**: AutoInvite + AutoRemove 통합 diff dialog (v0.149 + v0.150).
+  - **v0.211**: shared hooks 를 다른 popover (SearchInput 등) 로 확장.
+- 로드맵 남은 (blocked): 위와 동일.
+
+
 
 
 
