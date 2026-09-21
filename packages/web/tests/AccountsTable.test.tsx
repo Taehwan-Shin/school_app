@@ -2134,6 +2134,42 @@ describe("AccountsTable component", () => {
         (screen.getByTestId("accounts-column-preset-minimal") as HTMLButtonElement).disabled,
       ).toBe(true);
     });
+
+    // v0.207: 선호 초기화 — sort · pageSize · visibleColumns 모두 default.
+    it("v0.207: 「선호 초기화」 → localStorage 3 키 제거 · state 재설정", async () => {
+      localStorage.setItem("accountsTable.sort.v1", JSON.stringify({ sort: "email", dir: "desc" }));
+      localStorage.setItem("accountsTable.pageSize.v1", "50");
+      localStorage.setItem("accountsTable.visibleColumns.v1", JSON.stringify(["name"]));
+      mockUseUsersList.mockReturnValue({
+        data: { users: sampleUsers },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (1 / 4)",
+      );
+      expect(
+        (screen.getByTestId("accounts-page-size-select") as HTMLSelectElement).value,
+      ).toBe("50");
+      // 선호 초기화 클릭.
+      fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
+      await waitFor(() => {
+        expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
+        expect(localStorage.getItem("accountsTable.pageSize.v1")).toBeNull();
+        expect(localStorage.getItem("accountsTable.visibleColumns.v1")).toBeNull();
+      });
+      expect(
+        (screen.getByTestId("accounts-page-size-select") as HTMLSelectElement).value,
+      ).toBe("25");
+      // 메뉴는 자동 닫힘 → 다시 열어서 컬럼 4/4 확인.
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(screen.getByTestId("accounts-column-menu-btn").textContent).toBe(
+        "컬럼 표시 (4 / 4)",
+      );
+    });
   });
 });
 

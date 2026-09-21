@@ -225,6 +225,25 @@ export function ClassroomTable() {
   const isMinimalActive =
     visibleColumns.size === 1 && visibleColumns.has('name');
 
+  // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
+  const resetUserPreferences = () => {
+    try {
+      localStorage.removeItem(SORT_STORAGE_KEY);
+      localStorage.removeItem(PAGE_SIZE_STORAGE_KEY);
+      localStorage.removeItem(VISIBLE_COLUMNS_STORAGE_KEY);
+    } catch {
+      // localStorage disabled → no-op.
+    }
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
+    const next = new URLSearchParams(searchParams);
+    next.delete('sort');
+    next.delete('dir');
+    setSearchParams(next, { replace: false });
+    setPage(0);
+    setIsColumnMenuOpen(false);
+  };
+
   useEffect(() => {
     setPage(0);
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
@@ -628,6 +647,18 @@ export function ClassroomTable() {
                     {label}
                   </label>
                 ))}
+                {/* v0.207: 선호 초기화. */}
+                <div className="border-t border-border-subtle mt-1 pt-2 px-3">
+                  <button
+                    type="button"
+                    onClick={resetUserPreferences}
+                    data-testid="classroom-reset-user-prefs"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary"
+                    title="이 테이블의 정렬 · 페이지 크기 · 컬럼 표시 선호를 모두 기본값으로"
+                  >
+                    선호 초기화
+                  </button>
+                </div>
               </div>
             )}
           </div>
