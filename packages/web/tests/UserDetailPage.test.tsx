@@ -31,13 +31,10 @@ vi.mock('../src/api/usersResetPassword', () => ({
 
 const mockUseUsersList = vi.fn();
 const mockUseAuditLogList = vi.fn();
+const mockUseAuth = vi.fn();
 
 vi.mock('../src/lib/auth', () => ({
-  useAuth: () => ({
-    user: { email: 'admin@cam.hs.kr' },
-    role: 'admin',
-    loading: false,
-  }),
+  useAuth: () => mockUseAuth(),
   signOut: vi.fn(),
 }));
 
@@ -76,6 +73,11 @@ function renderDetailPage(initialEmail = 'admin2@cam.hs.kr') {
 describe('UserDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { email: 'admin@cam.hs.kr' },
+      role: 'admin',
+      loading: false,
+    });
     mockUseAuditLogList.mockReturnValue({
       entries: [],
       loading: false,
@@ -304,5 +306,57 @@ describe('UserDetailPage', () => {
 
     expect(screen.getByText('계정 삭제 확인')).toBeDefined();
     expect(screen.getByTestId('delete-user-submit')).toBeDefined();
+  });
+
+  // v0.212: super_admin 은 감사 이력 하단에 full audit page 로 이동 링크 (classroomDetail v0.117b 대칭).
+  it('v0.212: super_admin sees "감사 로그에서 이 사용자 검색 →" link', () => {
+    mockUseAuth.mockReturnValue({
+      user: { email: 'root@cam.hs.kr' },
+      role: 'super_admin',
+      loading: false,
+    });
+    const mockUsers: UserItem[] = [
+      {
+        email: 'admin2@cam.hs.kr',
+        firstName: '철수',
+        lastName: '김',
+        orgUnitPath: '/교무부',
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('admin2@cam.hs.kr');
+    const link = screen.getByTestId('user-detail-audit-link');
+    expect(link.getAttribute('href')).toBe(
+      `/super_admin/audit?target=${encodeURIComponent('admin2@cam.hs.kr')}`,
+    );
+  });
+
+  // v0.212: 비-super_admin 은 링크 미표시 (defensive UI).
+  it('v0.212: admin role does NOT see audit link', () => {
+    const mockUsers: UserItem[] = [
+      {
+        email: 'admin2@cam.hs.kr',
+        firstName: '철수',
+        lastName: '김',
+        orgUnitPath: '/교무부',
+        isAdmin: true,
+        isSuspended: false,
+      },
+    ];
+    mockUseUsersList.mockReturnValue({
+      data: { users: mockUsers },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('admin2@cam.hs.kr');
+    expect(screen.queryByTestId('user-detail-audit-link')).toBeNull();
   });
 });

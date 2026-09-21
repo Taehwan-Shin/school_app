@@ -24,13 +24,10 @@ vi.mock('../src/api/groupsDelete', () => ({
 const mockUseGroupsList = vi.fn();
 const mockUseAuditLogList = vi.fn();
 const mockUseGroupMembersList = vi.fn();
+const mockUseAuth = vi.fn();
 
 vi.mock('../src/lib/auth', () => ({
-  useAuth: () => ({
-    user: { email: 'admin@cam.hs.kr' },
-    role: 'admin',
-    loading: false,
-  }),
+  useAuth: () => mockUseAuth(),
   signOut: vi.fn(),
 }));
 
@@ -84,6 +81,11 @@ function renderDetailPage(initialEmail = 'teachers@cam.hs.kr') {
 describe('GroupDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { email: 'admin@cam.hs.kr' },
+      role: 'admin',
+      loading: false,
+    });
     mockUseAuditLogList.mockReturnValue({
       entries: [],
       loading: false,
@@ -229,5 +231,43 @@ describe('GroupDetailPage', () => {
 
     expect(screen.getByText('그룹 삭제 확인')).toBeDefined();
     expect(screen.getByTestId('delete-group-submit')).toBeDefined();
+  });
+
+  // v0.212: super_admin 은 감사 이력 하단에 full audit page 로 이동 링크.
+  it('v0.212: super_admin sees "감사 로그에서 이 그룹 검색 →" link', () => {
+    mockUseAuth.mockReturnValue({
+      user: { email: 'root@cam.hs.kr' },
+      role: 'super_admin',
+      loading: false,
+    });
+    const mockGroups: GroupItem[] = [
+      { email: 'teachers@cam.hs.kr', name: '교사', description: '', directMembersCount: 0 },
+    ];
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('teachers@cam.hs.kr');
+    const link = screen.getByTestId('group-detail-audit-link');
+    expect(link.getAttribute('href')).toBe(
+      `/super_admin/audit?target=${encodeURIComponent('teachers@cam.hs.kr')}`,
+    );
+  });
+
+  // v0.212: 비-super_admin 은 링크 미표시.
+  it('v0.212: admin role does NOT see audit link', () => {
+    const mockGroups: GroupItem[] = [
+      { email: 'teachers@cam.hs.kr', name: '교사', description: '', directMembersCount: 0 },
+    ];
+    mockUseGroupsList.mockReturnValue({
+      data: { groups: mockGroups },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderDetailPage('teachers@cam.hs.kr');
+    expect(screen.queryByTestId('group-detail-audit-link')).toBeNull();
   });
 });
