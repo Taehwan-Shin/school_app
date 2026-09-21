@@ -19,13 +19,18 @@ Table.displayName = "Table";
 
 // v0.208: sticky top header. 스크롤되는 outer 컨테이너 (`Table` wrapper 의 overflow-auto)
 // 안에서 `thead` 를 상단 고정 → 긴 테이블에서 컬럼 헤더가 계속 보임.
+// v0.210: sticky 상태 시각 강조 — border-b-2 (기존 TableHead border-b 위에 더 두꺼운 하단 경계)
+//          + shadow-sm (스크롤로 내용이 헤더 아래로 지나갈 때 깊이감).
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
   <thead
     ref={ref}
-    className={cn("bg-surface [&_tr]:border-b sticky top-0 z-10", className)}
+    className={cn(
+      "bg-surface [&_tr]:border-b sticky top-0 z-10 border-b-2 border-border-subtle shadow-sm",
+      className,
+    )}
     {...props}
   />
 ));
