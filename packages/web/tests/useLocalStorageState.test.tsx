@@ -138,4 +138,56 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(result.current[0]).toBe(25);
     localStorage.getItem = original;
   });
+
+  // v0.219 R2 F-E: custom serializer 를 undefined 로 되돌리면 기본 JSON serializer 로 복원.
+  it('R2 F-E: serializer prop 을 undefined 로 되돌리면 기본 JSON serializer 사용', () => {
+    const custom = (v: number) => `X:${v}`;
+    const { result, rerender } = renderHook(
+      ({ ser }: { ser: ((v: number) => string) | undefined }) =>
+        useLocalStorageState<number>('k13', 0, ser),
+      { initialProps: { ser: custom as ((v: number) => string) | undefined } },
+    );
+    act(() => result.current[1](5));
+    expect(localStorage.getItem('k13')).toBe('X:5');
+    rerender({ ser: undefined });
+    act(() => result.current[1](15));
+    // 기본 JSON serializer 로 복원됨.
+    expect(localStorage.getItem('k13')).toBe('15');
+  });
+
+  // v0.219 R2 F-G: custom serializer 를 다른 custom 으로 변경하면 새 함수로 저장.
+  it('R2 F-G: serializer 를 A → B 로 변경하면 새 serializer 사용', () => {
+    const sA = (v: number) => `A:${v}`;
+    const sB = (v: number) => `B:${v}`;
+    const { result, rerender } = renderHook(
+      ({ ser }: { ser: (v: number) => string }) =>
+        useLocalStorageState<number>('k14', 0, ser),
+      { initialProps: { ser: sA } },
+    );
+    act(() => result.current[1](10));
+    expect(localStorage.getItem('k14')).toBe('A:10');
+    rerender({ ser: sB });
+    act(() => result.current[1](20));
+    expect(localStorage.getItem('k14')).toBe('B:20');
+  });
+
+  // v0.219 R2 F-F: mount 초기값 · key 전환 hydrate 는 저장하지 않음 (setter 호출 시에만).
+  it('R2 F-F: mount 시 defaultValue 를 자동 저장하지 않음', () => {
+    const { result } = renderHook(() => useLocalStorageState<number>('k15', 42));
+    expect(result.current[0]).toBe(42);
+    // setter 호출 안 함 → localStorage 무변경.
+    expect(localStorage.getItem('k15')).toBeNull();
+  });
+
+  it('R2 F-F: key 전환 시 새 key 로 저장 트리거하지 않음', () => {
+    localStorage.setItem('k16-a', '100');
+    const { rerender } = renderHook(
+      ({ key }) => useLocalStorageState<number>(key, 25),
+      { initialProps: { key: 'k16-a' } },
+    );
+    expect(localStorage.getItem('k16-b')).toBeNull();
+    rerender({ key: 'k16-b' });
+    // k16-b hydrate (default 25) 만 · 저장 skip → 여전히 null.
+    expect(localStorage.getItem('k16-b')).toBeNull();
+  });
 });

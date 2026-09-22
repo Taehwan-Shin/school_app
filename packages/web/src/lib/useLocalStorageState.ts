@@ -6,7 +6,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 //   `next` 는 `T | ((prev: T) => T)` (React `SetStateAction<T>` 대칭 · v0.219 R1 F-A).
 // - `localStorage` 예외 (disabled · quota · SSR ReferenceError) 는 조용히 무시 (기존 패턴 보존).
 // - `serialize/deserialize` 로 primitive · JSON · 커스텀 모두 지원 (기본 JSON).
+//   caller 가 옵션을 `undefined` 로 되돌리면 기본 함수로 복원 (v0.219 R2 F-E).
 // - key 변경 시 새 key 로 재 hydrate (v0.219 R1 F-C).
+// - side effect (`localStorage.setItem`) 는 setter 밖 `useEffect` 로 이동해 updater purity
+//   확보 (v0.219 R2 F-F · StrictMode/concurrent 중복 호출 안전).
 //
 // 대상 사용 사례:
 //   - `<Table>.pageSize.v1` (number in string).
@@ -16,29 +19,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type SetStateAction<T> = T | ((prev: T) => T);
 
+const DEFAULT_SERIALIZE = <T,>(v: T): string => JSON.stringify(v);
+const DEFAULT_DESERIALIZE = <T,>(raw: string): T | undefined => {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return undefined;
+  }
+};
+
 export function useLocalStorageState<T>(
   key: string,
   defaultValue: T,
   serialize?: (v: T) => string,
   deserialize?: (raw: string) => T | undefined,
 ): [T, (value: SetStateAction<T>) => void] {
-  // v0.219 R1 F-B: serialize/deserialize 를 ref 로 보유해 setter 는 항상 최신 함수 사용.
-  //                deps 오염 없이 stale serializer 문제 해소.
-  const serializeRef = useRef<(v: T) => string>(
-    serialize ?? ((v: T) => JSON.stringify(v)),
-  );
+  // v0.219 R1 F-B / R2 F-E: serialize/deserialize 를 ref 로 보유해 setter 는 항상 최신 함수 사용.
+  //                        caller 가 undefined 로 되돌리면 default 로 복원 (F-E).
+  const serializeRef = useRef<(v: T) => string>(serialize ?? DEFAULT_SERIALIZE);
   const deserializeRef = useRef<(raw: string) => T | undefined>(
-    deserialize ??
-      ((raw: string): T | undefined => {
-        try {
-          return JSON.parse(raw) as T;
-        } catch {
-          return undefined;
-        }
-      }),
+    deserialize ?? DEFAULT_DESERIALIZE,
   );
-  serializeRef.current = serialize ?? serializeRef.current;
-  deserializeRef.current = deserialize ?? deserializeRef.current;
+  serializeRef.current = serialize ?? DEFAULT_SERIALIZE;
+  deserializeRef.current = deserialize ?? DEFAULT_DESERIALIZE;
 
   const hydrate = (k: string, fallback: T): T => {
     try {
@@ -59,27 +62,30 @@ export function useLocalStorageState<T>(
   useEffect(() => {
     if (prevKeyRef.current === key) return;
     prevKeyRef.current = key;
+    // key 전환 hydrate 는 저장하면 안 됨 (persistOnNextEffectRef 를 켜지 않음).
     setValue(hydrate(key, defaultValue));
-    // defaultValue 매 렌더 신규 참조라도 hydrate 는 그 시점 값만 사용 (한 번 계산).
+    // defaultValue 매 렌더 신규 참조라도 hydrate 는 그 시점 값만 사용.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const setAndPersist = useCallback(
-    (next: SetStateAction<T>) => {
-      // v0.219 R1 F-A: functional updater 지원 (`SetStateAction<T>` 대칭).
-      setValue((prev) => {
-        const resolved =
-          typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-        try {
-          localStorage.setItem(key, serializeRef.current(resolved));
-        } catch {
-          // localStorage disabled / quota → no-op.
-        }
-        return resolved;
-      });
-    },
-    [key],
-  );
+  // v0.219 R2 F-F: side effect 를 updater 밖으로 분리. setter 호출 시에만 저장 트리거.
+  //                mount hydrate · key 전환 hydrate 시에는 저장 skip (기존 값 유지).
+  const persistOnNextEffectRef = useRef(false);
+  useEffect(() => {
+    if (!persistOnNextEffectRef.current) return;
+    persistOnNextEffectRef.current = false;
+    try {
+      localStorage.setItem(key, serializeRef.current(value));
+    } catch {
+      // localStorage disabled / quota → no-op.
+    }
+  }, [key, value]);
+
+  const setAndPersist = useCallback((next: SetStateAction<T>) => {
+    // v0.219 R1 F-A: functional updater 지원. state updater 는 pure (side effect 없음).
+    persistOnNextEffectRef.current = true;
+    setValue(next);
+  }, []);
 
   return [value, setAndPersist];
 }
