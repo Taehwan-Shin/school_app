@@ -1270,6 +1270,7 @@ describe('GroupsTable component', () => {
       renderWithRouter(<GroupsTable />);
       fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
       expect(screen.getByTestId('groups-column-show-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('groups-column-preset-minimal').getAttribute('role')).toBe('menuitem');
       expect(screen.getByTestId('groups-column-hide-all').getAttribute('role')).toBe('menuitem');
       expect(screen.getByTestId('groups-reset-user-prefs').getAttribute('role')).toBe('menuitem');
     });
@@ -1283,6 +1284,12 @@ describe('GroupsTable component', () => {
       for (const item of items) {
         expect(item.getAttribute('aria-checked')).toBe('true');
       }
+      fireEvent.click(screen.getByTestId('groups-column-toggle-name'));
+      const items2 = screen.getAllByRole('menuitemcheckbox');
+      const nameItem = items2.find(
+        (el) => el.getAttribute('data-testid') === 'groups-column-toggle-name',
+      );
+      expect(nameItem?.getAttribute('aria-checked')).toBe('false');
     });
   });
 });

@@ -1157,6 +1157,7 @@ describe('ClassroomTable component', () => {
       renderWithRouter(<ClassroomTable />);
       fireEvent.click(screen.getByTestId('classroom-column-menu-btn'));
       expect(screen.getByTestId('classroom-column-show-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('classroom-column-preset-minimal').getAttribute('role')).toBe('menuitem');
       expect(screen.getByTestId('classroom-column-hide-all').getAttribute('role')).toBe('menuitem');
       expect(screen.getByTestId('classroom-reset-user-prefs').getAttribute('role')).toBe('menuitem');
     });
@@ -1170,6 +1171,12 @@ describe('ClassroomTable component', () => {
       for (const item of items) {
         expect(item.getAttribute('aria-checked')).toBe('true');
       }
+      fireEvent.click(screen.getByTestId('classroom-column-toggle-name'));
+      const items2 = screen.getAllByRole('menuitemcheckbox');
+      const nameItem = items2.find(
+        (el) => el.getAttribute('data-testid') === 'classroom-column-toggle-name',
+      );
+      expect(nameItem?.getAttribute('aria-checked')).toBe('false');
     });
   });
 });
