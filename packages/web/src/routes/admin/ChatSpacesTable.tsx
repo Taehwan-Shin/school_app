@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useChatList } from '../../api/chatList';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -45,11 +46,14 @@ export function ChatSpacesTable() {
           챗방 목록을 불러오는 중...
         </div>
       )}
-      {isError && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="chat-spaces-error">
-          챗방 목록을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
+      {/* v0.230: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={
+          isError ? `챗방 목록을 불러오지 못했습니다: ${error?.message || '알 수 없는 오류'}` : null
+        }
+        testId="chat-spaces-error"
+      />
       {!isLoading && !isError && (!data?.spaces || data.spaces.length === 0) && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="chat-spaces-empty">
           속한 챗방이 없습니다.
