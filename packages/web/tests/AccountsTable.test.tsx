@@ -2213,6 +2213,42 @@ describe("AccountsTable component", () => {
       confirmSpy.mockRestore();
     });
   });
+
+  // v0.218: WAI-ARIA menu 패턴 (quick action role=menuitem · checkbox input role=menuitemcheckbox).
+  describe("v0.218: WAI-ARIA menu 패턴", () => {
+    it("quick actions 는 role='menuitem'", () => {
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      expect(
+        screen.getByTestId("accounts-column-show-all").getAttribute("role"),
+      ).toBe("menuitem");
+      expect(
+        screen.getByTestId("accounts-column-preset-minimal").getAttribute("role"),
+      ).toBe("menuitem");
+      expect(
+        screen.getByTestId("accounts-column-hide-all").getAttribute("role"),
+      ).toBe("menuitem");
+      expect(
+        screen.getByTestId("accounts-reset-user-prefs").getAttribute("role"),
+      ).toBe("menuitem");
+    });
+
+    it("checkbox input 은 role='menuitemcheckbox' + aria-checked", () => {
+      renderWithRouter(<AccountsTable />);
+      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+      const items = screen.getAllByRole("menuitemcheckbox");
+      expect(items.length).toBe(4);
+      for (const item of items) {
+        expect(item.getAttribute("aria-checked")).toBe("true");
+      }
+      fireEvent.click(screen.getByTestId("accounts-column-toggle-name"));
+      const items2 = screen.getAllByRole("menuitemcheckbox");
+      const nameItem = items2.find(
+        (el) => el.getAttribute("data-testid") === "accounts-column-toggle-name",
+      );
+      expect(nameItem?.getAttribute("aria-checked")).toBe("false");
+    });
+  });
 });
 
 

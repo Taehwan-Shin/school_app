@@ -7,6 +7,7 @@ import { sortHeaderKbdProps } from "./sortHeader";
 import { useClickOutside } from "../../lib/useClickOutside";
 import { useEscapeKey } from "../../lib/useEscapeKey";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import { useMenuArrowNav } from "../../lib/useMenuArrowNav";
 import {
   Table,
   TableBody,
@@ -137,6 +138,7 @@ export function AccountsTable() {
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
   useFocusTrap(columnMenuRef, isColumnMenuOpen);
+  useMenuArrowNav(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -512,9 +514,11 @@ export function AccountsTable() {
                 className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
               >
                 {/* v0.204: 전체 표시/전체 숨김 quick actions. v0.205: 「간결」 preset. */}
+                {/* v0.218: WAI-ARIA menu 패턴 — quick actions 는 menuitem · 방향키 탐색 (useMenuArrowNav). */}
                 <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllVisible(true)}
                     disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
                     data-testid="accounts-column-show-all"
@@ -525,6 +529,7 @@ export function AccountsTable() {
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={applyMinimalPreset}
                     disabled={isMinimalActive}
                     data-testid="accounts-column-preset-minimal"
@@ -536,6 +541,7 @@ export function AccountsTable() {
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllVisible(false)}
                     disabled={visibleColumns.size === 0}
                     data-testid="accounts-column-hide-all"
@@ -551,6 +557,8 @@ export function AccountsTable() {
                   >
                     <input
                       type="checkbox"
+                      role="menuitemcheckbox"
+                      aria-checked={visibleColumns.has(key)}
                       checked={visibleColumns.has(key)}
                       onChange={() => toggleColumn(key)}
                       data-testid={`accounts-column-toggle-${key}`}
@@ -563,6 +571,7 @@ export function AccountsTable() {
                 <div className="border-t border-border-subtle mt-1 pt-2 px-3">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={resetUserPreferences}
                     data-testid="accounts-reset-user-prefs"
                     className="text-micro text-fg-primary underline hover:text-fg-secondary"
