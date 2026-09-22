@@ -84,19 +84,20 @@ interface StoredSortPref {
   dir?: string;
 }
 
-function readStoredSortPref(): StoredSortPref | null {
+// v0.221: useLocalStorageState 이식 — custom deserializer 로 JSON object shape 검증.
+// null 은 「저장값 없음」 semantic (default 로 fallback), 잘못된 shape 도 default (null) fallback.
+function deserializeSort(raw: string): StoredSortPref | null | undefined {
   try {
-    const raw = localStorage.getItem(SORT_STORAGE_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return null;
+    if (parsed === null) return null; // "null" 저장값 → default null 유지 (reset semantic).
+    if (typeof parsed !== 'object') return undefined; // fallback → default null.
     const rec = parsed as Record<string, unknown>;
     return {
       sort: typeof rec.sort === 'string' ? rec.sort : undefined,
       dir: typeof rec.dir === 'string' ? rec.dir : undefined,
     };
   } catch {
-    return null;
+    return undefined; // fallback → default null.
   }
 }
 
@@ -126,6 +127,14 @@ export function AccountsTable() {
     DEFAULT_PAGE_SIZE,
     serializePageSize,
     deserializePageSize,
+  );
+  // v0.221: sort 선호도 useLocalStorageState 이식. URL 이 authoritative — hook 은 default null.
+  // Reset 은 setStoredSort(null) 로 · 「null」 저장 후 hydrate 시 null → mount effect 에서 skip (동일 semantic).
+  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
+    SORT_STORAGE_KEY,
+    null,
+    undefined,
+    deserializeSort,
   );
   // v0.199: 컬럼 표시 여부. lazy init from localStorage.
   const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
@@ -192,19 +201,19 @@ export function AccountsTable() {
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
   // v0.209: 실수 방지 confirm.
+  // v0.220: pageSize hook 이 default 재저장 · v0.221: sort hook 이 null 저장 (semantic 동일).
   const resetUserPreferences = () => {
     const ok = window.confirm(
       '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
     );
     if (!ok) return;
     try {
-      localStorage.removeItem(SORT_STORAGE_KEY);
-      localStorage.removeItem(PAGE_SIZE_STORAGE_KEY);
       localStorage.removeItem(VISIBLE_COLUMNS_STORAGE_KEY);
     } catch {
       // localStorage disabled → no-op.
     }
     setPageSize(DEFAULT_PAGE_SIZE);
+    setStoredSort(null);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
     const next = new URLSearchParams(searchParams);
     next.delete('sort');
@@ -221,41 +230,39 @@ export function AccountsTable() {
 
   // v0.160: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
   // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link 등) 저장값 무시.
+  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
   useEffect(() => {
     if (searchParams.has('sort')) return;
-    const stored = readStoredSortPref();
-    if (!stored) return;
+    if (!storedSort) return;
     const next = new URLSearchParams(searchParams);
-    if (stored.sort === 'email' || stored.sort === 'name' || stored.sort === 'orgUnitPath') {
-      next.set('sort', stored.sort);
+    if (
+      storedSort.sort === 'email' ||
+      storedSort.sort === 'name' ||
+      storedSort.sort === 'orgUnitPath'
+    ) {
+      next.set('sort', storedSort.sort);
     }
-    if (stored.dir === 'asc' || stored.dir === 'desc') {
-      next.set('dir', stored.dir);
+    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
+      next.set('dir', storedSort.dir);
     }
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-    // Mount-only hydrate: intentionally empty deps. searchParams / setSearchParams
-    // 는 매 렌더 신규 참조라 dep 에 넣으면 무한 loop.
+    // Mount-only hydrate: intentionally empty deps. searchParams / setSearchParams / storedSort
+    // 는 매 렌더 신규 참조 가능성 → dep 에 넣으면 무한 loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // v0.160: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제
   // (「필터 초기화」 후 재방문에서 다시 정렬 안 씌우게).
+  // v0.221: hook setter 사용 · null 은 「null」 저장 (hydrate 시 default null · semantic 동일).
   useEffect(() => {
-    try {
-      if (sortColumn) {
-        localStorage.setItem(
-          SORT_STORAGE_KEY,
-          JSON.stringify({ sort: sortColumn, dir: sortDirection }),
-        );
-      } else {
-        localStorage.removeItem(SORT_STORAGE_KEY);
-      }
-    } catch {
-      // localStorage disabled or quota exceeded → no-op.
+    if (sortColumn) {
+      setStoredSort({ sort: sortColumn, dir: sortDirection });
+    } else {
+      setStoredSort(null);
     }
-  }, [sortColumn, sortDirection]);
+  }, [sortColumn, sortDirection, setStoredSort]);
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);

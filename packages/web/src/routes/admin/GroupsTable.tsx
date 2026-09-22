@@ -80,19 +80,19 @@ interface StoredSortPref {
   dir?: string;
 }
 
-function readStoredSortPref(): StoredSortPref | null {
+// v0.221: useLocalStorageState 이식 (AccountsTable 대칭).
+function deserializeSort(raw: string): StoredSortPref | null | undefined {
   try {
-    const raw = localStorage.getItem(SORT_STORAGE_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return null;
+    if (parsed === null) return null;
+    if (typeof parsed !== 'object') return undefined;
     const rec = parsed as Record<string, unknown>;
     return {
       sort: typeof rec.sort === 'string' ? rec.sort : undefined,
       dir: typeof rec.dir === 'string' ? rec.dir : undefined,
     };
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -121,6 +121,13 @@ export function GroupsTable() {
     DEFAULT_PAGE_SIZE,
     serializePageSize,
     deserializePageSize,
+  );
+  // v0.221: sort 선호 useLocalStorageState 이식 (AccountsTable 대칭).
+  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
+    SORT_STORAGE_KEY,
+    null,
+    undefined,
+    deserializeSort,
   );
 
   const handlePageSizeChange = (size: PageSize) => {
@@ -192,20 +199,19 @@ export function GroupsTable() {
     visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
-  // v0.209: 실수 방지 confirm.
+  // v0.209: 실수 방지 confirm. v0.220/v0.221: pageSize/sort hook 사용.
   const resetUserPreferences = () => {
     const ok = window.confirm(
       '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
     );
     if (!ok) return;
     try {
-      localStorage.removeItem(SORT_STORAGE_KEY);
-      localStorage.removeItem(PAGE_SIZE_STORAGE_KEY);
       localStorage.removeItem(VISIBLE_COLUMNS_STORAGE_KEY);
     } catch {
       // localStorage disabled → no-op.
     }
     setPageSize(DEFAULT_PAGE_SIZE);
+    setStoredSort(null);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
     const next = new URLSearchParams(searchParams);
     next.delete('sort');
@@ -226,21 +232,20 @@ export function GroupsTable() {
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   // v0.161: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
-  // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link) 저장값 무시.
+  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
   useEffect(() => {
     if (searchParams.has('sort')) return;
-    const stored = readStoredSortPref();
-    if (!stored) return;
+    if (!storedSort) return;
     const next = new URLSearchParams(searchParams);
     if (
-      stored.sort === 'email' ||
-      stored.sort === 'name' ||
-      stored.sort === 'directMembersCount'
+      storedSort.sort === 'email' ||
+      storedSort.sort === 'name' ||
+      storedSort.sort === 'directMembersCount'
     ) {
-      next.set('sort', stored.sort);
+      next.set('sort', storedSort.sort);
     }
-    if (stored.dir === 'asc' || stored.dir === 'desc') {
-      next.set('dir', stored.dir);
+    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
+      next.set('dir', storedSort.dir);
     }
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
@@ -249,22 +254,15 @@ export function GroupsTable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // v0.161: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제
-  // (「필터 초기화」 후 재방문에서 정렬 재적용 방지).
+  // v0.161: sortColumn/sortDirection 변경 시 localStorage 저장.
+  // v0.221: hook setter 사용 · null 은 「null」 저장 (semantic 동일).
   useEffect(() => {
-    try {
-      if (sortColumn) {
-        localStorage.setItem(
-          SORT_STORAGE_KEY,
-          JSON.stringify({ sort: sortColumn, dir: sortDirection }),
-        );
-      } else {
-        localStorage.removeItem(SORT_STORAGE_KEY);
-      }
-    } catch {
-      // localStorage disabled or quota exceeded → no-op.
+    if (sortColumn) {
+      setStoredSort({ sort: sortColumn, dir: sortDirection });
+    } else {
+      setStoredSort(null);
     }
-  }, [sortColumn, sortDirection]);
+  }, [sortColumn, sortDirection, setStoredSort]);
 
   const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
     const next = new URLSearchParams(searchParams);
