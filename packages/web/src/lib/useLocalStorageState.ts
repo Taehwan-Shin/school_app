@@ -68,30 +68,36 @@ export function useLocalStorageState<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // v0.219 R2 F-F / R3 F-H: side effect 는 setter 호출 시에만. 이전 flag 방식 (persistOnNext
-  //                        EffectRef) 은 same-value setter 시 re-render skip → flag 가 다음
-  //                        key 전환에 잔류하는 F-H 버그. 대신 매 setter 호출마다 증가하는
-  //                        writeVersion 을 사용 — 값이 같아도 version 은 증가하므로 effect 가
-  //                        확실히 fire. mount 및 key 전환 hydrate 는 version 을 건드리지 않아
-  //                        저장 skip 유지.
+  // v0.219 R2 F-F / R3 F-H / R4 F-K: side effect 는 setter 호출 시에만. 매 setter 호출마다
+  //   증가하는 `writeVersion` 을 사용 — same-value 도 effect 확실히 fire (F-H).
+  //   setter 호출 시점 `key` 와 resolved `value` 를 `pendingWriteRef` 에 snapshot 하여
+  //   setter + key 변경이 한 배치라도 effect 가 setter 시점 key 에 저장 (F-K).
   const [writeVersion, setWriteVersion] = useState(0);
+  const pendingWriteRef = useRef<{ key: string; value: T } | null>(null);
   useEffect(() => {
     if (writeVersion === 0) return; // mount skip.
+    const pending = pendingWriteRef.current;
+    if (!pending) return;
+    pendingWriteRef.current = null;
     try {
-      localStorage.setItem(key, serializeRef.current(value));
+      localStorage.setItem(pending.key, serializeRef.current(pending.value));
     } catch {
       // localStorage disabled / quota → no-op.
     }
-    // key/value 도 최신 closure 사용. deps 는 version 만 (setter-only 트리거).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [writeVersion]);
 
   const setAndPersist = useCallback((next: SetStateAction<T>) => {
-    // v0.219 R1 F-A: functional updater 지원. state updater 는 pure.
-    // v0.219 R3 F-H: version bump 는 setter 호출마다 (same-value 일 때도).
-    setValue(next);
+    // v0.219 R4 F-K: setter 호출 시점 key 를 sync 하게 capture. functional updater 안에서
+    //                resolved value 를 계산해 pendingWriteRef 에 저장.
+    const capturedKey = key;
+    setValue((prev) => {
+      const resolved =
+        typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
+      pendingWriteRef.current = { key: capturedKey, value: resolved };
+      return resolved;
+    });
     setWriteVersion((v) => v + 1);
-  }, []);
+  }, [key]);
 
   return [value, setAndPersist];
 }

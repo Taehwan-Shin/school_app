@@ -256,4 +256,36 @@ describe('useLocalStorageState (v0.219)', () => {
     // JSON.parse('15') = 15.
     expect(result.current[0]).toBe(15);
   });
+
+  // v0.219 R4 F-K: setter 와 key 변경이 한 배치일 때, setter 값은 setter 호출 시점의 key 에 저장.
+  //                이전 구현은 effect 에서 최신 key/value closure 를 사용해 새 key 에 이전 값을
+  //                오저장했음. pendingWriteRef 로 setter 호출 시점 snapshot 사용.
+  it('R4 F-K: setter + key 변경이 한 배치 → setter 값은 이전 key 에 저장', () => {
+    localStorage.setItem('k20-a', '10');
+    localStorage.setItem('k20-b', '99');
+    const { result, rerender } = renderHook(
+      ({ key }) => useLocalStorageState<number>(key, 0),
+      { initialProps: { key: 'k20-a' } },
+    );
+    expect(result.current[0]).toBe(10);
+    // Setter (setter 시점 key = 'k20-a') · 곧이어 key 변경. 같은 act 안에 두 update.
+    act(() => {
+      result.current[1](200);
+      rerender({ key: 'k20-b' });
+    });
+    // setter 는 이전 key 에 저장.
+    expect(localStorage.getItem('k20-a')).toBe('200');
+    // 새 key 는 오염되지 않음.
+    expect(localStorage.getItem('k20-b')).toBe('99');
+    // 최종 value 는 새 key 의 hydrated 값.
+    expect(result.current[0]).toBe(99);
+  });
+
+  // v0.219 R4 F-K: setter 만 있고 key 변경 없어도 정상 동작 (regression 방지).
+  it('R4 F-K: setter 만 (key 변경 없음) 는 여전히 현재 key 에 저장', () => {
+    const { result } = renderHook(() => useLocalStorageState<number>('k21', 0));
+    act(() => result.current[1](300));
+    expect(localStorage.getItem('k21')).toBe('300');
+    expect(result.current[0]).toBe(300);
+  });
 });
