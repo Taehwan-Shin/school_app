@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useCreateUser } from '../../api/usersCreate';
 import { useOrgunitsList } from '../../api/orgunitsList';
 import { useOrgunitsCreate } from '../../api/orgunitsCreate';
@@ -305,14 +306,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="create-user-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.232: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="create-user-error"
+          />
 
           {assignResults && (
             <div
