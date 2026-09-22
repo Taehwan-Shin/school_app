@@ -9,6 +9,7 @@ import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useAutoDismissBanner } from '../../lib/useAutoDismissBanner';
+import { SuccessBanner } from '../../components/SuccessBanner';
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -493,15 +494,8 @@ export function ClassroomTable() {
 
   return (
     <div className="space-y-4">
-      {/* v0.225: 「선호 초기화」 성공 배너. */}
-      {successBanner && (
-        <div
-          className="border border-state-success bg-surface p-4 text-small text-state-success"
-          data-testid="classroom-success-banner"
-        >
-          {successBanner}
-        </div>
-      )}
+      {/* v0.225: 「선호 초기화」 성공 배너 · v0.227: shared component. */}
+      <SuccessBanner message={successBanner} testId="classroom-success-banner" />
       <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
