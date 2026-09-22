@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.216 병합 완료** (`4379b04`) - AuditLogTable 컬럼 표시 토글 (admin 3 테이블 v0.199 패턴 확장) · Codex 2 라운드 (R1 실패 5 · R2 실패 2 · 조건부 승인) · 웹 1183. **v0.215** (`4d3ba50`) - 9 Table aria-label. **v0.214** (`d20425d`) - pageSize 200 옵션.
+> **v0.217 병합 완료** (`6edd3b4`) - TableCell truncate opt-in prop (5 사용처 refactor) · Codex 2 라운드 (R0 실패 1 F-A · R1 실패 1 test count mismatch → F-B 회귀 병합 해결) · 웹 1187. **v0.216** (`4379b04`) - AuditLogTable 컬럼 표시 토글. **v0.215** (`4d3ba50`) - 9 Table aria-label.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `6edd3b4` v0.217 - TableCell `truncate?: boolean` opt-in prop 추가 · 5 사용처 (UserGroups/UserAuditTrail/GroupAuditTrail/AuditLogTable/GroupsTable) refactor · Codex 2 라운드 (F-A 5번째 사이트 GroupsTable 반영 · F-B className 병합 회귀 추가) · 회귀 4건 · 웹 1187 (+4) · 감사 `RESEARCH/SCHOOL_APP_V217_CODEX_AUDIT.md`.
 - `4379b04` v0.216 - AuditLogTable 컬럼 표시 토글 (4 optional: role/target/reqId/message · 4 필수: 시간/행위자/액션/결과) · localStorage `auditLogTable.visibleColumns.v1` · quick actions · shared hooks · Codex 2 라운드 (F-A/C/D/E-부분 반영 · F-B/E-residual 4 테이블 통합 별도 유보) · 회귀 12건 · 웹 1183 (+12) · 감사 `RESEARCH/SCHOOL_APP_V216_CODEX_AUDIT.md`.
 - `4d3ba50` v0.215 - 9 Table 에 `aria-label` 추가 (Accounts/Groups/Classroom/AuditLog · UserAuditTrail/GroupAuditTrail/UserGroups/MembersTable/CourseMembersPanel) · `<Table>` 은 이미 spread props → 컴포넌트 수정 불필요 · 신규 회귀 1건 · 웹 1171 (+1).
 - `d20425d` v0.214 - admin 3 테이블 (Accounts/Groups/Classroom) `PAGE_SIZE_OPTIONS = [25, 50, 100, 200]` (power user 지원) · select map 자동 노출 · localStorage validation 이 200 accept · AuditLogTable 은 서버 pagination 이라 미포함 · AccountsTable 회귀 1건 갱신 + 1건 신규 · 웹 1170 (+1).

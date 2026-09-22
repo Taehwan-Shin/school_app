@@ -4971,6 +4971,60 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.218**: 4 테이블 통합 a11y (menuitem role + 방향키 · v0.216 F-B 해결).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-22 · v0.217 TableCell truncate opt-in prop (반복 pattern 정리 · Codex Buzz mention)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `3422177` | feat: v0.217 TableCell truncate opt-in prop (4 사용처) |
+| R1 fix (5번째 사이트) | `58df13a` | fix: GroupsTable description 셀 refactor 추가 |
+| 주석 정정 | `bace525` | fix: table.tsx:110 주석 5곳 정정 |
+| 병합 | `05317f5` | Merge feat/table-cell-truncate-v217 into main |
+| F-B 회귀 | `40b0756` · `6fa625c` | className 병합 회귀 + self-revert 정정 |
+| F-B 병합 | `6edd3b4` | Merge feat/table-cell-truncate-v217 (F-B 회귀 추가) |
+
+### 설계
+
+- **문제**: `<TableCell className="max-w-xs truncate" title={x}>` pattern 이 5곳에서 반복. 컴포넌트 API 확장으로 정리.
+- **해결**: `TableCell` 에 `truncate?: boolean` opt-in prop 추가.
+  - 기본 false (기존 사용처 무영향).
+  - true 시 `max-w-xs truncate` class 자동.
+  - title 은 caller 책임 유지 (children 이 string 이 아닐 수 있음).
+- **5 사용처 refactor**: `UserGroups.tsx:59` · `UserAuditTrail.tsx:90` · `GroupAuditTrail.tsx:90` · `AuditLogTable.tsx:1068` · `GroupsTable.tsx:707`.
+
+### Codex 감사 (Buzz mention · 첫 성공)
+
+**중요**: 로컬 codex CLI 는 v0.217 에서 두 번 hang (5시간+ · 0 output). Codex Buzz agent (`0221b0dd...`) 를 school_app_02 채널 mention 으로 감사 요청 · 성공. 이후 감사는 **Buzz mention 우선** 방식으로 고정.
+
+**R0** (HEAD `3422177`): 통과 7 · 실패 1 · 판정불가 0.
+- **F-A**: table.tsx:110 주석은 5 반복 사이트 중 super_admin index 를 언급하지만 실제 5번째는 admin/GroupsTable.tsx:709 (description 셀 · `truncate max-w-xs` 뒤집힌 순서). refactor 도 4곳만 완료 → GroupsTable 5번째 사이트 누락.
+- 통과: TableCellProps 확장 안전 · 4 refactor 동등 · tailwind-merge 2.6.1 실측 병합 정상.
+
+**R1 반영** (58df13a · bace525):
+- F-A fix: GroupsTable description 셀 refactor 추가 · 주석 5곳 정정.
+- 병합 `05317f5` main.
+
+**R1** (HEAD `05317f5`): 통과 5 · 실패 1 · 판정불가 0.
+- 5 사용처 refactor 확인 · F-A 해소.
+- 실패: Codex 실측 Vitest 1186 tests · head 주장 1187 mismatch. **원인**: F-B 회귀 (`40b0756`/`6fa625c`) 는 branch 에만 있고 `05317f5` 병합 시점 미포함. **해결**: `6edd3b4` 로 branch 를 main 에 재병합 · F-B 회귀 (className 병합 검증) 반영 · main 1187 tests 확립.
+
+감사 상세: `RESEARCH/SCHOOL_APP_V217_CODEX_AUDIT.md`.
+
+### 배운 것
+
+- **Codex Buzz mention 이 로컬 CLI 보다 안정**: 로컬 codex CLI 는 v0.217 감사 두 번 hang (프로세스 stuck · 0 output · 5시간+). Codex Buzz agent 는 Read-only sandbox 에서 안정적으로 실행 · 결과를 채널 message 로 회신.
+- **Codex 채널 활동 범위**: school_app_02 채널에서만 활동 확인 (school_app_03 은 감사 mention 미응답). 감사 요청은 school_app_02 로 보내야 함.
+- **audit 리포팅 mismatch 는 실 버그 아님**: R1 「실패」 는 test count 차이일 뿐. F-B 회귀 병합 후 자동 해소. Codex 는 정확히 target HEAD 상태 리포트 · head 는 branch/main 상태 구분 필요.
+- **Multi-session 동시 작업**: 이번 슬라이스는 여러 세션 (Claude Code_Honey + bliss00) 이 동시 branch 편집. `58df13a` · `bace525` · `40b0756` · `6fa625c` 4 개 fix 커밋 발생. Merge 시 self-revert 도 있었음.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.218**: 4 테이블 통합 a11y (menuitem role + 방향키 · v0.216 F-B 해결).
+  - **v0.219**: shared useLocalStorage hook 승격.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
