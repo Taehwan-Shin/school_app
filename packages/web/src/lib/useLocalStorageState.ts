@@ -62,29 +62,35 @@ export function useLocalStorageState<T>(
   useEffect(() => {
     if (prevKeyRef.current === key) return;
     prevKeyRef.current = key;
-    // key 전환 hydrate 는 저장하면 안 됨 (persistOnNextEffectRef 를 켜지 않음).
+    // key 전환 hydrate 는 저장하지 않음 (writeVersion 을 bump 하지 않음).
     setValue(hydrate(key, defaultValue));
     // defaultValue 매 렌더 신규 참조라도 hydrate 는 그 시점 값만 사용.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // v0.219 R2 F-F: side effect 를 updater 밖으로 분리. setter 호출 시에만 저장 트리거.
-  //                mount hydrate · key 전환 hydrate 시에는 저장 skip (기존 값 유지).
-  const persistOnNextEffectRef = useRef(false);
+  // v0.219 R2 F-F / R3 F-H: side effect 는 setter 호출 시에만. 이전 flag 방식 (persistOnNext
+  //                        EffectRef) 은 same-value setter 시 re-render skip → flag 가 다음
+  //                        key 전환에 잔류하는 F-H 버그. 대신 매 setter 호출마다 증가하는
+  //                        writeVersion 을 사용 — 값이 같아도 version 은 증가하므로 effect 가
+  //                        확실히 fire. mount 및 key 전환 hydrate 는 version 을 건드리지 않아
+  //                        저장 skip 유지.
+  const [writeVersion, setWriteVersion] = useState(0);
   useEffect(() => {
-    if (!persistOnNextEffectRef.current) return;
-    persistOnNextEffectRef.current = false;
+    if (writeVersion === 0) return; // mount skip.
     try {
       localStorage.setItem(key, serializeRef.current(value));
     } catch {
       // localStorage disabled / quota → no-op.
     }
-  }, [key, value]);
+    // key/value 도 최신 closure 사용. deps 는 version 만 (setter-only 트리거).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [writeVersion]);
 
   const setAndPersist = useCallback((next: SetStateAction<T>) => {
-    // v0.219 R1 F-A: functional updater 지원. state updater 는 pure (side effect 없음).
-    persistOnNextEffectRef.current = true;
+    // v0.219 R1 F-A: functional updater 지원. state updater 는 pure.
+    // v0.219 R3 F-H: version bump 는 setter 호출마다 (same-value 일 때도).
     setValue(next);
+    setWriteVersion((v) => v + 1);
   }, []);
 
   return [value, setAndPersist];

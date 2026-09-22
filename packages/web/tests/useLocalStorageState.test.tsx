@@ -190,4 +190,70 @@ describe('useLocalStorageState (v0.219)', () => {
     // k16-b hydrate (default 25) 만 · 저장 skip → 여전히 null.
     expect(localStorage.getItem('k16-b')).toBeNull();
   });
+
+  // v0.219 R3 F-H: same-value setter 후 key 전환 시 persist flag 잔류로 인한 새 key 오염 없음.
+  //                이전 flag 방식은 same-value setter → render skip → flag 남음 → 다음 key
+  //                전환에서 이전 값을 새 key 에 저장하는 버그. 버전 카운터로 해결.
+  it('R3 F-H: same-value setter 후 key 전환 시 새 key 오염 없음', () => {
+    localStorage.setItem('k17-a', '100');
+    const { result, rerender } = renderHook(
+      ({ key }) => useLocalStorageState<number>(key, 100),
+      { initialProps: { key: 'k17-a' } },
+    );
+    expect(result.current[0]).toBe(100);
+    // Same-value setter (state 100 → 100 · React re-render 는 skip 되지만 effect fires).
+    act(() => result.current[1](100));
+    // k17-a 는 setter 로 저장됨.
+    expect(localStorage.getItem('k17-a')).toBe('100');
+    // key 전환. hydrate 만 · 저장 skip.
+    rerender({ key: 'k17-b' });
+    expect(localStorage.getItem('k17-b')).toBeNull();
+  });
+
+  // v0.219 R3 F-J: custom deserializer 를 A → B 로 변경 후 key 전환 hydrate 는 새 deserializer 사용.
+  it('R3 F-J: deserializer A → B 변경 후 key 전환 hydrate 는 새 deserializer 사용', () => {
+    const dA = (raw: string) => Number.parseInt(raw, 10) * 2; // custom A: doubles
+    const dB = (raw: string) => Number.parseInt(raw, 10) * 3; // custom B: triples
+    localStorage.setItem('k18-a', '5');
+    localStorage.setItem('k18-b', '10');
+    const { result, rerender } = renderHook(
+      ({ des, key }: { des: (raw: string) => number | undefined; key: string }) =>
+        useLocalStorageState<number>(key, 0, undefined, des),
+      { initialProps: { des: dA, key: 'k18-a' } },
+    );
+    // dA: 5*2 = 10.
+    expect(result.current[0]).toBe(10);
+    // deserializer B 로 변경 + key 전환.
+    rerender({ des: dB, key: 'k18-b' });
+    // dB: 10*3 = 30.
+    expect(result.current[0]).toBe(30);
+  });
+
+  // v0.219 R3 F-J: custom deserializer 를 undefined 로 되돌리면 다음 hydrate 에서 기본 JSON.parse.
+  it('R3 F-J: deserializer 를 undefined 로 되돌리면 기본 JSON.parse 로 hydrate', () => {
+    const custom = (raw: string) => Number.parseInt(raw, 10) * 2;
+    localStorage.setItem('k19-a', '5');
+    localStorage.setItem('k19-b', '15');
+    const { result, rerender } = renderHook(
+      ({
+        des,
+        key,
+      }: {
+        des: ((raw: string) => number | undefined) | undefined;
+        key: string;
+      }) => useLocalStorageState<number>(key, 0, undefined, des),
+      {
+        initialProps: {
+          des: custom as ((raw: string) => number | undefined) | undefined,
+          key: 'k19-a',
+        },
+      },
+    );
+    // custom: 5*2 = 10.
+    expect(result.current[0]).toBe(10);
+    // deserializer undefined + key 전환 → 기본 JSON.parse.
+    rerender({ des: undefined, key: 'k19-b' });
+    // JSON.parse('15') = 15.
+    expect(result.current[0]).toBe(15);
+  });
 });
