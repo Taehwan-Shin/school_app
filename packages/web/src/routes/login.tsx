@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, signInWithGoogle, signInWithEmulator } from '../lib/auth';
 import { getRouteForRole } from './routeMap';
+import { Banner } from '../components/Banner';
 
 export function LoginPage() {
   const { user, role, loading } = useAuth();
@@ -56,11 +57,10 @@ export function LoginPage() {
           </p>
         </div>
 
-        {errorMessage && (
-          <div className="mt-4 px-4 py-3 border border-state-danger text-state-danger text-small">
-            {errorMessage}
-          </div>
-        )}
+        {/* v0.229: Banner shared component. */}
+        <div className="mt-4">
+          <Banner variant="error" message={errorMessage} testId="login-error" />
+        </div>
 
         <div className="mt-8 space-y-4">
           <button
