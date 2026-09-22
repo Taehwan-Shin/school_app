@@ -87,6 +87,8 @@ export function GroupsTable() {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkUpdateDescriptionOpen, setIsBulkUpdateDescriptionOpen] = useState(false);
+  // v0.225: 「선호 초기화」 성공 배너.
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
@@ -175,6 +177,9 @@ export function GroupsTable() {
     setSearchParams(next, { replace: false });
     setPage(0);
     setIsColumnMenuOpen(false);
+    // v0.225: 초기화 확인 배너 (2초 자동 dismiss).
+    setSuccessBanner('저장된 선호가 초기화되었습니다.');
+    setTimeout(() => setSuccessBanner(null), 2000);
   };
 
   useEffect(() => {
@@ -358,6 +363,15 @@ export function GroupsTable() {
 
   return (
     <div className="space-y-4">
+      {/* v0.225: 「선호 초기화」 성공 배너. */}
+      {successBanner && (
+        <div
+          className="border border-state-success bg-surface p-4 text-small text-state-success"
+          data-testid="groups-success-banner"
+        >
+          {successBanner}
+        </div>
+      )}
       <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           조직 내 등록된 Google Workspace 그룹 및 멤버 현황

@@ -184,6 +184,9 @@ export function AccountsTable() {
     setSearchParams(next, { replace: false });
     setPage(0);
     setIsColumnMenuOpen(false);
+    // v0.225: 초기화 확인 배너 (2초 자동 dismiss).
+    setSuccessBanner('저장된 선호가 초기화되었습니다.');
+    setTimeout(() => setSuccessBanner(null), 2000);
   };
 
   const handlePageSizeChange = (size: PageSize) => {
