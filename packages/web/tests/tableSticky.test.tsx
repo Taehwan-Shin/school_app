@@ -177,4 +177,31 @@ describe('Table sticky header (v0.208)', () => {
     expect(cell!.getAttribute('title')).toBe('전체 값');
     expect(cell!.className).toContain('truncate');
   });
+
+  // v0.217 R1: 실제 사용처 4곳 (UserGroups/*AuditTrail/AuditLogTable) 이 넘기는
+  //           `text-small text-fg-secondary` 병합 회귀. tailwind-merge 가
+  //           truncate + max-w-xs + caller 의 font-size/color 를 모두 유지해야 한다.
+  it('v0.217 R1: truncate + className (text-small text-fg-secondary) 병합 → 4개 class 모두 유지', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell
+              truncate
+              className="text-small text-fg-secondary"
+              data-testid="cell"
+            >
+              긴 값
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const cell = container.querySelector('[data-testid="cell"]');
+    expect(cell).not.toBeNull();
+    expect(cell!.className).toContain('max-w-xs');
+    expect(cell!.className).toContain('truncate');
+    expect(cell!.className).toContain('text-small');
+    expect(cell!.className).toContain('text-fg-secondary');
+  });
 });
