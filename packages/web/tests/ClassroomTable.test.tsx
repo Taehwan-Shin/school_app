@@ -1137,5 +1137,40 @@ describe('ClassroomTable component', () => {
       );
     });
   });
+
+  // v0.218: WAI-ARIA menu 패턴.
+  describe('v0.218: WAI-ARIA menu 패턴', () => {
+    function setup() {
+      mockUseClassroomList.mockReturnValue({
+        data: {
+          courses: [
+            { id: 'c-1', name: 'A', section: '', descriptionHeading: null, room: null, ownerId: 'u', courseState: 'ACTIVE', alternateLink: null, description: null, guardiansEnabled: false, calendarId: null },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    }
+    it("quick actions 는 role='menuitem'", () => {
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      fireEvent.click(screen.getByTestId('classroom-column-menu-btn'));
+      expect(screen.getByTestId('classroom-column-show-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('classroom-column-hide-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('classroom-reset-user-prefs').getAttribute('role')).toBe('menuitem');
+    });
+
+    it("checkbox input 은 role='menuitemcheckbox' + aria-checked", () => {
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      fireEvent.click(screen.getByTestId('classroom-column-menu-btn'));
+      const items = screen.getAllByRole('menuitemcheckbox');
+      expect(items.length).toBe(5);
+      for (const item of items) {
+        expect(item.getAttribute('aria-checked')).toBe('true');
+      }
+    });
+  });
 });
 
