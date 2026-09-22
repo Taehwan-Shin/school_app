@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { userHasCap } from '@school-app/shared';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
+import { Banner } from '../../components/Banner';
 import { useClassroomList } from '../../api/classroomList';
 import { CourseMembersPanel } from './CourseMembersPanel';
 import {
@@ -160,14 +161,16 @@ export function ClassroomDetailPage() {
               불러오는 중...
             </p>
           )}
-          {isError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="classroom-detail-error"
-            >
-              코스 정보를 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-            </div>
-          )}
+          {/* v0.240: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={
+              isError
+                ? `코스 정보를 불러오지 못했습니다: ${error?.message || '알 수 없는 오류'}`
+                : null
+            }
+            testId="classroom-detail-error"
+          />
           {!isLoading && !isError && !course && (
             <p
               className="text-small text-fg-secondary"

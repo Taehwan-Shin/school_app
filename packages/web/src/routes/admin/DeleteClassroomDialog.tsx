@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useClassroomDelete } from '../../api/classroomDelete';
 
 export interface DeleteClassroomTarget {
@@ -83,14 +84,12 @@ export function DeleteClassroomDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="delete-classroom-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.240: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="delete-classroom-error"
+          />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>

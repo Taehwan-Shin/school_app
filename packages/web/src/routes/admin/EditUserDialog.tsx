@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { Banner } from "../../components/Banner";
 import { useUpdateUser, type UsersUpdateRequest } from "../../api/usersUpdate";
 import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from "../../lib/userLimits";
 
@@ -140,14 +141,12 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="edit-user-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.240: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="edit-user-error"
+          />
 
           <div className="space-y-4">
             <div>
