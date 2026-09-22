@@ -13,6 +13,7 @@ import {
   serializeVisibleColumns,
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
+import { deserializeSort, type StoredSortPref } from '../../lib/sortStorage';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -70,26 +71,7 @@ const deserializeVisibleColumns = makeVisibleColumnsDeserializer<ToggleColumnKey
   DEFAULT_VISIBLE_COLUMNS,
 );
 
-interface StoredSortPref {
-  sort?: string;
-  dir?: string;
-}
-
-// v0.221: useLocalStorageState 이식 (AccountsTable 대칭).
-function deserializeSort(raw: string): StoredSortPref | null | undefined {
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed === null) return null;
-    if (typeof parsed !== 'object') return undefined;
-    const rec = parsed as Record<string, unknown>;
-    return {
-      sort: typeof rec.sort === 'string' ? rec.sort : undefined,
-      dir: typeof rec.dir === 'string' ? rec.dir : undefined,
-    };
-  } catch {
-    return undefined;
-  }
-}
+// v0.221 R1: `deserializeSort` 를 shared `sortStorage.ts` factory 로 이식.
 
 export function GroupsTable() {
   const { data, isLoading, isError, error } = useGroupsList();
@@ -171,12 +153,18 @@ export function GroupsTable() {
     visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
-  // v0.209: 실수 방지 confirm. v0.220/v0.221: 모두 hook 이 저장 (removeItem 불필요).
+  // v0.209: 실수 방지 confirm. v0.220/v0.221/v0.222: 모두 hook 이 저장.
+  // v0.221 R1 F-B 방어: sort 는 removeItem 도 시도 (setItem("null") quota 실패 방어).
   const resetUserPreferences = () => {
     const ok = window.confirm(
       '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
     );
     if (!ok) return;
+    try {
+      localStorage.removeItem(SORT_STORAGE_KEY);
+    } catch {
+      // localStorage disabled → no-op.
+    }
     setPageSize(DEFAULT_PAGE_SIZE);
     setStoredSort(null);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
