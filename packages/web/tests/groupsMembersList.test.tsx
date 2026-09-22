@@ -231,8 +231,10 @@ describe('groupsMembersList API & Hook', () => {
         result.current.reload();
       });
 
-      await waitFor(() => expect(result.current.members).toHaveLength(2));
-      expect(result.current.members[1].email).toBe('member3@cam.hs.kr');
+      await waitFor(() =>
+        expect(result.current.members[1]?.email).toBe('member3@cam.hs.kr'),
+      );
+      expect(result.current.members).toHaveLength(2);
     });
   });
 });
