@@ -29,5 +29,9 @@ export const StorageKeys = {
     pageSize: 'auditLogTable.pageSize.v1',
     visibleColumns: 'auditLogTable.visibleColumns.v1',
   },
+  superAdmin: {
+    // v0.114: 감사 로그 필터 preset 저장 (audit_filter_presets_v1).
+    auditFilterPresets: 'audit_filter_presets_v1',
+  },
   theme: 'theme',
 } as const;

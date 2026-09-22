@@ -1,8 +1,10 @@
 // v0.114: 감사 로그 필터 preset 저장·조회·삭제 유틸.
 // v0.114b F69/F70/F71: write 실패 상태 전달 · read 시 정규화·dedup·상한 · 이름 정규화 공유.
+// v0.224: STORAGE_KEY 를 shared catalog (`storageKeys.ts`) 로 이관.
 // localStorage 기반 (도메인·사용자 단위 로컬 상태).
+import { StorageKeys } from '../../lib/storageKeys';
 
-const STORAGE_KEY = 'audit_filter_presets_v1';
+const STORAGE_KEY = StorageKeys.superAdmin.auditFilterPresets;
 export const MAX_PRESETS = 20;
 export const MAX_NAME_LENGTH = 60;
 

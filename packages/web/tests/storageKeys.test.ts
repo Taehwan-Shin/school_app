@@ -31,4 +31,9 @@ describe('StorageKeys (v0.224 catalog)', () => {
   it('theme (전역)', () => {
     expect(StorageKeys.theme).toBe('theme');
   });
+
+  // v0.224 R1 F-A: super_admin filterPresets 도 catalog 에 등록.
+  it('superAdmin.auditFilterPresets (v0.114 key)', () => {
+    expect(StorageKeys.superAdmin.auditFilterPresets).toBe('audit_filter_presets_v1');
+  });
 });
