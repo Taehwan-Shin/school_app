@@ -1034,6 +1034,7 @@ describe('GroupsTable component', () => {
     });
 
     // v0.221 R1 F-B: setItem quota 실패 시에도 「선호 초기화」 로 sort 는 removeItem 방어.
+    // v0.221 R2: try/finally 로 prototype 복원 보장.
     it('R1 F-B: setItem quota 실패 시에도 「선호 초기화」 로 sort 는 제거', () => {
       localStorage.setItem(
         'groupsTable.sort.v1',
@@ -1041,15 +1042,18 @@ describe('GroupsTable component', () => {
       );
       const originalSetItem = Storage.prototype.setItem;
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-      renderWithRouter(<GroupsTable />, ['/admin/groups']);
-      fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
-      Storage.prototype.setItem = () => {
-        throw new Error('QuotaExceededError');
-      };
-      fireEvent.click(screen.getByTestId('groups-reset-user-prefs'));
-      expect(localStorage.getItem('groupsTable.sort.v1')).toBeNull();
-      Storage.prototype.setItem = originalSetItem;
-      confirmSpy.mockRestore();
+      try {
+        renderWithRouter(<GroupsTable />, ['/admin/groups']);
+        fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
+        Storage.prototype.setItem = () => {
+          throw new Error('QuotaExceededError');
+        };
+        fireEvent.click(screen.getByTestId('groups-reset-user-prefs'));
+        expect(localStorage.getItem('groupsTable.sort.v1')).toBeNull();
+      } finally {
+        Storage.prototype.setItem = originalSetItem;
+        confirmSpy.mockRestore();
+      }
     });
 
     it('localStorage 손상값은 무시', () => {
