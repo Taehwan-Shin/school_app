@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useUsersUpdateRole } from '../../api/usersUpdateRole';
 import { useUserRole } from '../../api/usersGetRole';
 import type { Role } from '@school-app/shared';
@@ -152,23 +153,17 @@ export function EditUserRoleDialog({ open, onOpenChange, user }: EditUserRoleDia
             </div>
           </div>
 
-          {validationError && (
-            <div
-              className="border border-state-warning p-2 text-small text-state-warning"
-              data-testid="edit-user-role-validation-error"
-            >
-              {validationError}
-            </div>
-          )}
-
-          {error && (
-            <div
-              className="border border-state-danger p-2 text-small text-state-danger"
-              data-testid="edit-user-role-error"
-            >
-              변경 실패: {error.message}
-            </div>
-          )}
+          {/* v0.236: Banner 이식 (warning + error variant). */}
+          <Banner
+            variant="warning"
+            message={validationError}
+            testId="edit-user-role-validation-error"
+          />
+          <Banner
+            variant="error"
+            message={error ? `변경 실패: ${error.message}` : null}
+            testId="edit-user-role-error"
+          />
 
           <DialogFooter>
             <Button
