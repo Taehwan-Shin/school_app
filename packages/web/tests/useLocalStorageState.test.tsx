@@ -288,4 +288,56 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(localStorage.getItem('k21')).toBe('300');
     expect(result.current[0]).toBe(300);
   });
+
+  // v0.219 R5 F-N: setter 와 serializer 변경이 한 배치일 때, 저장은 setter 시점 serializer.
+  it('R5 F-N: setter + serializer 변경이 한 배치 → 이전 serializer 로 저장', () => {
+    const sA = (v: number) => `A:${v}`;
+    const sB = (v: number) => `B:${v}`;
+    const { result, rerender } = renderHook(
+      ({ ser }: { ser: (v: number) => string }) =>
+        useLocalStorageState<number>('k22', 0, ser),
+      { initialProps: { ser: sA } },
+    );
+    act(() => {
+      result.current[1](50);
+      rerender({ ser: sB });
+    });
+    // setter 시점 serializer = sA.
+    expect(localStorage.getItem('k22')).toBe('A:50');
+  });
+
+  // v0.219 R5 F-K + F-N: setter · serializer · key 세 update 가 한 배치 → 이전 key/serializer.
+  it('R5 F-K+F-N: setter + serializer + key 변경 한 배치 → 이전 key 에 이전 serializer 로 저장', () => {
+    const sA = (v: number) => `A:${v}`;
+    const sB = (v: number) => `B:${v}`;
+    localStorage.setItem('k23-b', '{"stored":true}');
+    const { result, rerender } = renderHook(
+      ({ ser, key }: { ser: (v: number) => string; key: string }) =>
+        useLocalStorageState<number>(key, 0, ser),
+      { initialProps: { ser: sA, key: 'k23-a' } },
+    );
+    act(() => {
+      result.current[1](77);
+      rerender({ ser: sB, key: 'k23-b' });
+    });
+    // setter 시점 key = 'k23-a' · serializer = sA.
+    expect(localStorage.getItem('k23-a')).toBe('A:77');
+    // 새 key 는 오염되지 않음 (hydrate 만).
+    expect(localStorage.getItem('k23-b')).toBe('{"stored":true}');
+  });
+
+  // v0.219 R5 F-M: StrictMode 에서 functional updater 가 두 번 호출돼도 pendingWriteRef snapshot
+  //                은 한 번만 (updater 밖에서 sync 하게 기록). 저장 결과는 결정적.
+  it('R5 F-M: functional updater 다중 호출 안전 (StrictMode-style)', () => {
+    const { result } = renderHook(() => useLocalStorageState<number>('k24', 0));
+    // 두 번 setter 호출 (act 안 배치 · functional updater 는 두 번 처리됨).
+    act(() => {
+      result.current[1]((prev) => prev + 5);
+      result.current[1]((prev) => prev + 10);
+    });
+    // 결과: 0 + 5 + 10 = 15.
+    expect(result.current[0]).toBe(15);
+    // 저장값도 최종 15 (pending overwrite 로 마지막 setter 시점 snapshot).
+    expect(localStorage.getItem('k24')).toBe('15');
+  });
 });

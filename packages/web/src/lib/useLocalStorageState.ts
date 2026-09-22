@@ -68,36 +68,44 @@ export function useLocalStorageState<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // v0.219 R2 F-F / R3 F-H / R4 F-K: side effect 는 setter 호출 시에만. 매 setter 호출마다
-  //   증가하는 `writeVersion` 을 사용 — same-value 도 effect 확실히 fire (F-H).
-  //   setter 호출 시점 `key` 와 resolved `value` 를 `pendingWriteRef` 에 snapshot 하여
-  //   setter + key 변경이 한 배치라도 effect 가 setter 시점 key 에 저장 (F-K).
+  // v0.219 R2 F-F / R3 F-H / R4 F-K / R5 F-M/F-N: side effect 는 setter 호출 시에만.
+  //   매 setter 호출마다 증가하는 `writeVersion` 을 사용 — same-value 도 effect 확실히 fire (F-H).
+  //   setter 호출 시점의 `key` 와 `serialize` 를 `pendingWriteRef` 에 sync snapshot (R5 F-K/F-N).
+  //   snapshot 은 state updater 밖에서 이뤄져 updater purity 유지 — StrictMode/concurrent 시
+  //   updater 가 두 번 호출돼도 side effect 는 한 번만 (R5 F-M).
+  //   effect 는 pending.key + pending.serialize + React 가 계산한 최신 `value` 로 저장.
   const [writeVersion, setWriteVersion] = useState(0);
-  const pendingWriteRef = useRef<{ key: string; value: T } | null>(null);
+  const pendingWriteRef = useRef<{
+    key: string;
+    serialize: (v: T) => string;
+  } | null>(null);
   useEffect(() => {
     if (writeVersion === 0) return; // mount skip.
     const pending = pendingWriteRef.current;
     if (!pending) return;
     pendingWriteRef.current = null;
     try {
-      localStorage.setItem(pending.key, serializeRef.current(pending.value));
+      localStorage.setItem(pending.key, pending.serialize(value));
     } catch {
       // localStorage disabled / quota → no-op.
     }
+    // key/value/serialize 는 setter 시점 snapshot + React 커밋 value 사용. deps 는 version 만.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [writeVersion]);
 
-  const setAndPersist = useCallback((next: SetStateAction<T>) => {
-    // v0.219 R4 F-K: setter 호출 시점 key 를 sync 하게 capture. functional updater 안에서
-    //                resolved value 를 계산해 pendingWriteRef 에 저장.
-    const capturedKey = key;
-    setValue((prev) => {
-      const resolved =
-        typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-      pendingWriteRef.current = { key: capturedKey, value: resolved };
-      return resolved;
-    });
-    setWriteVersion((v) => v + 1);
-  }, [key]);
+  const setAndPersist = useCallback(
+    (next: SetStateAction<T>) => {
+      // v0.219 R5 F-K/F-N: setter 호출 시점의 key + serialize 를 sync 하게 snapshot.
+      //                    state updater 는 호출하지 않음 → purity 유지 (F-M).
+      pendingWriteRef.current = {
+        key,
+        serialize: serializeRef.current,
+      };
+      setValue(next); // React 가 functional next 를 pure 하게 처리.
+      setWriteVersion((v) => v + 1);
+    },
+    [key],
+  );
 
   return [value, setAndPersist];
 }
