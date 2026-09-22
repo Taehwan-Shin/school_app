@@ -1785,8 +1785,11 @@ describe("AccountsTable component", () => {
         expect(localStorage.getItem("accountsTable.sort.v1")).not.toBeNull();
       });
       fireEvent.click(screen.getByTestId("accounts-clear-filters-btn"));
+      // v0.221: hook 이 null 을 「null」 문자열로 저장 (removeItem 대신). semantic 동일
+      // (다음 mount 시 default null fallback). null 또는 "null" 모두 허용.
       await waitFor(() => {
-        expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
+        const raw = localStorage.getItem("accountsTable.sort.v1");
+        expect(raw === null || raw === 'null').toBe(true);
       });
     });
 
@@ -2178,11 +2181,14 @@ describe("AccountsTable component", () => {
       fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
       expect(confirmSpy).toHaveBeenCalledTimes(1);
       await waitFor(() => {
-        expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
+        // v0.221: sort 는 useLocalStorageState 이식 → setStoredSort(null) 이 localStorage
+        //         에 「null」 저장. null 또는 "null" 모두 default 의미.
+        const storedSort = localStorage.getItem("accountsTable.sort.v1");
+        expect(storedSort === null || storedSort === 'null').toBe(true);
         // v0.220: pageSize 는 useLocalStorageState 이식 → removeItem 후 setPageSize(DEFAULT)
         //         가 localStorage 재저장. 결과: null 이거나 default 문자열 (둘 다 기본값 의미).
-        const stored = localStorage.getItem("accountsTable.pageSize.v1");
-        expect(stored === null || stored === "25").toBe(true);
+        const storedPageSize = localStorage.getItem("accountsTable.pageSize.v1");
+        expect(storedPageSize === null || storedPageSize === "25").toBe(true);
         expect(localStorage.getItem("accountsTable.visibleColumns.v1")).toBeNull();
       });
       expect(

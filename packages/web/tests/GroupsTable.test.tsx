@@ -1026,8 +1026,10 @@ describe('GroupsTable component', () => {
         expect(localStorage.getItem('groupsTable.sort.v1')).not.toBeNull();
       });
       fireEvent.click(screen.getByTestId('groups-clear-filters-btn'));
+      // v0.221: hook 이 null 을 「null」 문자열로 저장 (removeItem 대신). semantic 동일.
       await waitFor(() => {
-        expect(localStorage.getItem('groupsTable.sort.v1')).toBeNull();
+        const raw = localStorage.getItem('groupsTable.sort.v1');
+        expect(raw === null || raw === 'null').toBe(true);
       });
     });
 

@@ -61,19 +61,19 @@ interface StoredSortPref {
   dir?: string;
 }
 
-function readStoredSortPref(): StoredSortPref | null {
+// v0.221: useLocalStorageState 이식 (v0.160/v0.161 대칭).
+function deserializeSort(raw: string): StoredSortPref | null | undefined {
   try {
-    const raw = localStorage.getItem(SORT_STORAGE_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return null;
+    if (parsed === null) return null;
+    if (typeof parsed !== 'object') return undefined;
     const rec = parsed as Record<string, unknown>;
     return {
       sort: typeof rec.sort === 'string' ? rec.sort : undefined,
       dir: typeof rec.dir === 'string' ? rec.dir : undefined,
     };
   } catch {
-    return null;
+    return undefined;
   }
 }
 type KpiFilter = 'active' | 'archived' | null;
@@ -155,6 +155,13 @@ export function ClassroomTable() {
     serializePageSize,
     deserializePageSize,
   );
+  // v0.221: sort 선호 useLocalStorageState 이식 (v0.162 대칭).
+  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
+    SORT_STORAGE_KEY,
+    null,
+    undefined,
+    deserializeSort,
+  );
 
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
@@ -225,20 +232,19 @@ export function ClassroomTable() {
     visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
-  // v0.209: 실수 방지 confirm.
+  // v0.209: 실수 방지 confirm. v0.220/v0.221: pageSize/sort hook 사용.
   const resetUserPreferences = () => {
     const ok = window.confirm(
       '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
     );
     if (!ok) return;
     try {
-      localStorage.removeItem(SORT_STORAGE_KEY);
-      localStorage.removeItem(PAGE_SIZE_STORAGE_KEY);
       localStorage.removeItem(VISIBLE_COLUMNS_STORAGE_KEY);
     } catch {
       // localStorage disabled → no-op.
     }
     setPageSize(DEFAULT_PAGE_SIZE);
+    setStoredSort(null);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
     const next = new URLSearchParams(searchParams);
     next.delete('sort');
@@ -253,40 +259,36 @@ export function ClassroomTable() {
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
   // v0.162: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
-  // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link) 저장값 무시.
+  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
   useEffect(() => {
     if (searchParams.has('sort')) return;
-    const stored = readStoredSortPref();
-    if (!stored) return;
+    if (!storedSort) return;
     const next = new URLSearchParams(searchParams);
-    if (stored.sort === 'name' || stored.sort === 'section' || stored.sort === 'state') {
-      next.set('sort', stored.sort);
+    if (
+      storedSort.sort === 'name' ||
+      storedSort.sort === 'section' ||
+      storedSort.sort === 'state'
+    ) {
+      next.set('sort', storedSort.sort);
     }
-    if (stored.dir === 'asc' || stored.dir === 'desc') {
-      next.set('dir', stored.dir);
+    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
+      next.set('dir', storedSort.dir);
     }
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-    // Mount-only hydrate: intentionally empty deps.
+    // Mount-only hydrate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // v0.162: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제.
+  // v0.162: sortColumn/sortDirection 변경 시 저장. v0.221: hook setter.
   useEffect(() => {
-    try {
-      if (sortColumn) {
-        localStorage.setItem(
-          SORT_STORAGE_KEY,
-          JSON.stringify({ sort: sortColumn, dir: sortDirection }),
-        );
-      } else {
-        localStorage.removeItem(SORT_STORAGE_KEY);
-      }
-    } catch {
-      // localStorage disabled or quota exceeded → no-op.
+    if (sortColumn) {
+      setStoredSort({ sort: sortColumn, dir: sortDirection });
+    } else {
+      setStoredSort(null);
     }
-  }, [sortColumn, sortDirection]);
+  }, [sortColumn, sortDirection, setStoredSort]);
 
   const handleSort = (column: 'name' | 'section' | 'state') => {
     const next = new URLSearchParams(searchParams);
