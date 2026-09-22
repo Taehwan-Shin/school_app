@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils';
 import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
+import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import {
   listPresets,
   savePreset,
@@ -145,6 +146,7 @@ export function AuditLogTable() {
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
   useFocusTrap(columnMenuRef, isColumnMenuOpen);
+  useMenuArrowNav(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -733,9 +735,11 @@ export function AuditLogTable() {
                 data-testid="audit-log-column-menu"
                 className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
               >
+                {/* v0.218: WAI-ARIA menu 패턴 — menuitem/menuitemcheckbox role · 방향키. */}
                 <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllColumnsVisible(true)}
                     disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
                     data-testid="audit-log-column-show-all"
@@ -746,6 +750,7 @@ export function AuditLogTable() {
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllColumnsVisible(false)}
                     disabled={visibleColumns.size === 0}
                     data-testid="audit-log-column-hide-all"
@@ -757,6 +762,8 @@ export function AuditLogTable() {
                 {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
                   <label
                     key={key}
+                    role="menuitemcheckbox"
+                    aria-checked={visibleColumns.has(key)}
                     className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
                   >
                     <input

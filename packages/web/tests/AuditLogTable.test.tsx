@@ -2255,6 +2255,47 @@ describe('AuditLogTable component', () => {
       fireEvent.click(btn);
       expect(btn.getAttribute('aria-expanded')).toBe('true');
     });
+
+    // v0.218: WAI-ARIA menu 패턴 — quick actions role=menuitem, checkbox 는 menuitemcheckbox.
+    it('v0.218: quick action button 은 role="menuitem"', () => {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
+      expect(screen.getByTestId('audit-log-column-show-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('audit-log-column-hide-all').getAttribute('role')).toBe('menuitem');
+    });
+
+    it('v0.218: checkbox 라벨은 role="menuitemcheckbox" + aria-checked 반영', () => {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
+      // role/menuitemcheckbox 로 4개 조회.
+      const items = screen.getAllByRole('menuitemcheckbox');
+      expect(items.length).toBe(4);
+      // 모두 default 체크됨 → aria-checked="true".
+      for (const item of items) {
+        expect(item.getAttribute('aria-checked')).toBe('true');
+      }
+      // role 컬럼 언체크 → aria-checked="false".
+      fireEvent.click(screen.getByTestId('audit-log-column-toggle-role'));
+      const items2 = screen.getAllByRole('menuitemcheckbox');
+      const roleItem = items2.find((el) =>
+        el.querySelector('[data-testid="audit-log-column-toggle-role"]'),
+      );
+      expect(roleItem?.getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('v0.218: 방향키 (ArrowDown) 로 menuitem 간 focus 이동', () => {
+      renderWithRouter(<AuditLogTable />);
+      fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
+      // hide-all 로 시작 (show-all 은 기본 상태 disabled ← size === length).
+      (screen.getByTestId('audit-log-column-hide-all') as HTMLElement).focus();
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('audit-log-column-hide-all');
+      // ArrowDown → 첫 checkbox (role toggle) 로.
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('audit-log-column-toggle-role');
+      // ArrowUp → 다시 hide-all 로.
+      fireEvent.keyDown(document, { key: 'ArrowUp' });
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('audit-log-column-hide-all');
+    });
   });
 });
 

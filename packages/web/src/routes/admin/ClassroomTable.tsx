@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth';
 import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
+import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import {
   Table,
   TableBody,
@@ -175,6 +176,7 @@ export function ClassroomTable() {
   useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
   useEscapeKey(closeColumnMenu, isColumnMenuOpen);
   useFocusTrap(columnMenuRef, isColumnMenuOpen);
+  useMenuArrowNav(columnMenuRef, isColumnMenuOpen);
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -605,9 +607,11 @@ export function ClassroomTable() {
                 className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
               >
                 {/* v0.204/v0.205: 전체 표시 · 간결 · 전체 숨김 quick actions. */}
+                {/* v0.218: WAI-ARIA menu 패턴 — menuitem/menuitemcheckbox role · 방향키. */}
                 <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllVisible(true)}
                     disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
                     data-testid="classroom-column-show-all"
@@ -618,6 +622,7 @@ export function ClassroomTable() {
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={applyMinimalPreset}
                     disabled={isMinimalActive}
                     data-testid="classroom-column-preset-minimal"
@@ -629,6 +634,7 @@ export function ClassroomTable() {
                   <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => setAllVisible(false)}
                     disabled={visibleColumns.size === 0}
                     data-testid="classroom-column-hide-all"
@@ -640,6 +646,8 @@ export function ClassroomTable() {
                 {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
                   <label
                     key={key}
+                    role="menuitemcheckbox"
+                    aria-checked={visibleColumns.has(key)}
                     className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
                   >
                     <input
@@ -656,6 +664,7 @@ export function ClassroomTable() {
                 <div className="border-t border-border-subtle mt-1 pt-2 px-3">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={resetUserPreferences}
                     data-testid="classroom-reset-user-prefs"
                     className="text-micro text-fg-primary underline hover:text-fg-secondary"
