@@ -33,10 +33,12 @@ export function useMenuArrowNav(
       ) {
         return;
       }
+      // v0.218 R1 F-A: container 외부에서 발생한 방향키는 가로채지 않음.
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !container.contains(active)) return;
       const focusables = getFocusables();
       if (focusables.length === 0) return;
-      const active = document.activeElement as HTMLElement | null;
-      const currentIdx = active ? focusables.indexOf(active) : -1;
+      const currentIdx = focusables.indexOf(active);
       let nextIdx: number;
       if (e.key === 'ArrowDown') {
         nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % focusables.length;

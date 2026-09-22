@@ -1254,6 +1254,37 @@ describe('GroupsTable component', () => {
       );
     });
   });
+
+  // v0.218: WAI-ARIA menu 패턴.
+  describe('v0.218: WAI-ARIA menu 패턴', () => {
+    function setupOne() {
+      mockUseGroupsList.mockReturnValue({
+        data: { groups: [{ email: 'a@cam.hs.kr', name: 'A', description: '', directMembersCount: 1 }] },
+        isLoading: false,
+        isError: false,
+        error: null,
+      });
+    }
+    it("quick actions 는 role='menuitem'", () => {
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
+      expect(screen.getByTestId('groups-column-show-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('groups-column-hide-all').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('groups-reset-user-prefs').getAttribute('role')).toBe('menuitem');
+    });
+
+    it("checkbox input 은 role='menuitemcheckbox' + aria-checked", () => {
+      setupOne();
+      renderWithRouter(<GroupsTable />);
+      fireEvent.click(screen.getByTestId('groups-column-menu-btn'));
+      const items = screen.getAllByRole('menuitemcheckbox');
+      expect(items.length).toBe(4);
+      for (const item of items) {
+        expect(item.getAttribute('aria-checked')).toBe('true');
+      }
+    });
+  });
 });
 
 

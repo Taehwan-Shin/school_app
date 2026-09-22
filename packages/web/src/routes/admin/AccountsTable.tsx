@@ -553,12 +553,12 @@ export function AccountsTable() {
                 {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
                   <label
                     key={key}
-                    role="menuitemcheckbox"
-                    aria-checked={visibleColumns.has(key)}
                     className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
                   >
                     <input
                       type="checkbox"
+                      role="menuitemcheckbox"
+                      aria-checked={visibleColumns.has(key)}
                       checked={visibleColumns.has(key)}
                       onChange={() => toggleColumn(key)}
                       data-testid={`accounts-column-toggle-${key}`}

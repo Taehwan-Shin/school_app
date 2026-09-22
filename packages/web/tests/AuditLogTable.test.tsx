@@ -2264,10 +2264,10 @@ describe('AuditLogTable component', () => {
       expect(screen.getByTestId('audit-log-column-hide-all').getAttribute('role')).toBe('menuitem');
     });
 
-    it('v0.218: checkbox 라벨은 role="menuitemcheckbox" + aria-checked 반영', () => {
+    it('v0.218: checkbox input 은 role="menuitemcheckbox" + aria-checked 반영', () => {
       renderWithRouter(<AuditLogTable />);
       fireEvent.click(screen.getByTestId('audit-log-column-menu-btn'));
-      // role/menuitemcheckbox 로 4개 조회.
+      // role/menuitemcheckbox 로 4개 조회 (input 이 role holder · v0.218 R1 F-B).
       const items = screen.getAllByRole('menuitemcheckbox');
       expect(items.length).toBe(4);
       // 모두 default 체크됨 → aria-checked="true".
@@ -2277,8 +2277,8 @@ describe('AuditLogTable component', () => {
       // role 컬럼 언체크 → aria-checked="false".
       fireEvent.click(screen.getByTestId('audit-log-column-toggle-role'));
       const items2 = screen.getAllByRole('menuitemcheckbox');
-      const roleItem = items2.find((el) =>
-        el.querySelector('[data-testid="audit-log-column-toggle-role"]'),
+      const roleItem = items2.find(
+        (el) => el.getAttribute('data-testid') === 'audit-log-column-toggle-role',
       );
       expect(roleItem?.getAttribute('aria-checked')).toBe('false');
     });

@@ -99,4 +99,14 @@ describe('useMenuArrowNav', () => {
     const notPreventedTab = fireEvent.keyDown(document, { key: 'Tab' });
     expect(notPreventedTab).toBe(true); // 그대로 통과.
   });
+
+  // v0.218 R1 F-A: container 외부 focus 상태에서 방향키는 가로채지 않음.
+  it('R1 F-A: container 외부 focus 시 방향키 무시', () => {
+    render(<TestContainer enabled={true} />);
+    (document.querySelector('[data-testid="outside-before"]') as HTMLElement).focus();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('outside-before');
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    // focus 그대로 (외부 → container 이동 안 함).
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('outside-before');
+  });
 });
