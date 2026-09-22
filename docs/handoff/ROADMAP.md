@@ -141,6 +141,7 @@
 - **AuditLogTable 컬럼 표시 토글** - v0.216 완료 (admin 3 테이블 v0.199~v0.207 패턴 확장). 4 optional column · 「전체 표시」/「전체 숨김」 quick actions · shared hooks 재사용. Codex 2 라운드 (R1 실패 5 · R2 조건부 승인). F-B (menuitem role · 방향키) · F-E-residual (외부 클릭 · focus 순환 회귀) 는 4 테이블 통합 a11y 슬라이스로 별도 진행. 회귀 12건 · 웹 1183 (+12).
 - **TableCell truncate opt-in prop** - v0.217 완료 (반복 pattern 정리). 5 사용처 (UserGroups/UserAuditTrail/GroupAuditTrail/AuditLogTable/GroupsTable) refactor. Codex 2 라운드 (F-A 5번째 사이트 GroupsTable 반영 · F-B className 병합 회귀 추가). 회귀 4건 · 웹 1187 (+4).
 - **4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴** - v0.218 완료 (v0.216 F-B 잔여 해결). 신규 shared hook `useMenuArrowNav` (Arrow Up/Down/Home/End · wrap · disabled skip · container-scope guard). Accounts/Groups/Classroom/AuditLog 4 테이블에 `role="menuitem"` (quick actions) · `role="menuitemcheckbox"` + `aria-checked` (checkbox input) 부착. Codex 2 라운드 (R0 실패 2 F-A/F-B → R1 근본 원인 정리 role holder=focus 대상). 회귀 19건 · 웹 1205 (+19).
+- **`useLocalStorageState` shared hook** - v0.219 완료 (인프라). React state + localStorage 자동 동기화 · SetStateAction<T> · serialize/deserialize ref pattern · key 변경 재 hydrate. Codex R0 실패 4 (F-A setter API · F-B stale serializer · F-C key 변경 · F-D getItem 예외) → R1 반영. 회귀 12건 · 웹 1217 (+12). 실 이식 (4 테이블 pageSize/sort/visibleColumns) 은 v0.220+ 로 분리.
 
 남은 후보:
 - 없음 (Phase 6 완료 상태에 가까움).

@@ -5076,6 +5076,56 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.220**: 4 테이블 컬럼 메뉴에 `aria-activedescendant` 대안 (roving tabindex vs activedescendant).
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-22 · v0.219 useLocalStorageState shared hook (인프라 · 미이식)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `c7b7dd2` | feat: v0.219 useLocalStorageState shared hook (인프라) |
+| R1 fix | `713fbfe` | fix: v0.219 R1 Codex 실패 4건 반영 (F-A/F-B/F-C/F-D) |
+| 병합 | `ebb66c8` | Merge feat/use-local-storage-v219 into main + R1 fix |
+
+### 설계
+
+- **문제**: 4 테이블 (Accounts/Groups/Classroom/AuditLog) 이 `pageSize/sort/visibleColumns` 각각 localStorage try/catch + JSON parse + default fallback 반복 (12+ 사이트). Shared hook 필요.
+- **해결**: `useLocalStorageState<T>(key, defaultValue, serialize?, deserialize?)` hook 신규.
+  - Lazy init · SetStateAction<T> · serialize/deserialize ref pattern · key 변경 재 hydrate.
+  - 기본 JSON · 커스텀 serialize/deserialize (pageSize `String` · sort/visibleColumns JSON).
+- **이번 슬라이스는 인프라만**: 실 이식 (4 테이블) 은 후속 슬라이스 (v0.220+) 로 분리. Zero regression.
+
+### Codex 감사
+
+**R0** (HEAD `c7b7dd2`): 통과 7 · 실패 4 · 판정불가 1.
+- **F-A**: setter 가 `T` 만 · `SetStateAction<T>` 미지원.
+- **F-B**: useCallback deps 에 `_serialize` 미포함 → stale.
+- **F-C**: key 변경 시 initializer 재실행 안 됨.
+- **F-D**: test 에 read 예외 회귀 없음.
+- **판정불가**: concurrent-tab storage 이벤트 미지원 (API 계약에 미포함).
+
+**R1 반영** (HEAD `713fbfe` · 병합 `ebb66c8`):
+- F-A: setter `SetStateAction<T>`. React 표준 대칭.
+- F-B: `useRef` 로 serialize/deserialize · 매 렌더 caller 함수 갱신 · setter deps `[key]` 만.
+- F-C: `useEffect + prevKeyRef` 로 key 변경 감지 · 새 key 재 hydrate.
+- F-D: getItem 예외 회귀 추가.
+- R1 회귀 2건 (functional updater · key 변경).
+
+감사 상세: `RESEARCH/SCHOOL_APP_V219_CODEX_AUDIT.md`.
+
+### 배운 것
+
+- **Ref pattern 은 useCallback deps 오염 회피**: caller 가 매 렌더 새 함수를 전달할 때 useCallback deps 에 넣으면 매번 재생성. `useRef` 로 최신 함수 보유 · deps 는 stable `[key]` 만 → setter 안정성 유지 + 최신 caller 동작 반영.
+- **useState initializer 는 mount 한 번**: prop 변경 (예: key 변경) 이 후속되면 initializer 는 재실행 안 됨. 명시적 `useEffect` 로 재 hydrate 해야. `prevKeyRef` 로 실 변경만 감지 (중복 실행 방지).
+- **인프라 슬라이스 분리 원칙**: hook 을 만들고 즉시 4 테이블 이식하면 병합 단위가 커짐 · regression 위험. 인프라 (v0.219) + 이식 (v0.220+) 분리 = 각 슬라이스 zero-risk.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.220**: 4 테이블 pageSize `useLocalStorageState` 이식 (최소 refactor 시나리오).
+  - **v0.221**: 4 테이블 visibleColumns 이식.
+  - **v0.222**: 3 admin 테이블 sort 이식.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
