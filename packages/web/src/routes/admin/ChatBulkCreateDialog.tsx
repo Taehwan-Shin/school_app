@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatCreate } from '../../api/chatCreate';
 import { callChatList } from '../../api/chatList';
@@ -254,11 +255,16 @@ function ChatBulkCreateDialogContent({
                 </div>
               )}
 
-              {basicDataQuery.isError && (
-                <div className="border border-state-danger p-3 text-small text-state-danger" data-testid="bulk-create-chat-error">
-                  오류: {basicDataQuery.error?.message || '기초 데이터를 불러올 수 없습니다.'}
-                </div>
-              )}
+              {/* v0.237: Banner 이식. */}
+              <Banner
+                variant="error"
+                message={
+                  basicDataQuery.isError
+                    ? `오류: ${basicDataQuery.error?.message || '기초 데이터를 불러올 수 없습니다.'}`
+                    : null
+                }
+                testId="bulk-create-chat-error"
+              />
 
               {!basicDataQuery.isLoading && !basicDataQuery.isError && grades.length === 0 && (
                 <p className="text-small text-fg-muted py-4 text-center">
