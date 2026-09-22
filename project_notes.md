@@ -5025,6 +5025,57 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.219**: shared useLocalStorage hook 승격.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-22 · v0.218 4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴 (v0.216 F-B 잔여 해결)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `9ccceaa` | feat: v0.218 4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴 |
+| R1 fix | `a068892` | fix: v0.218 R1 Codex 실패 2건 반영 (F-A · F-B) |
+| R1 병합 | `7bfe0b6` | Merge feat/column-menu-a11y-v218 into main + R1 fix |
+| R2 test 확장 | `444b619` | fix: v0.218 R1 ClassroomTable v0.218 회귀 |
+| R2 병합 | `930476f` | Merge feat/column-menu-a11y-v218 (ClassroomTable 회귀 추가) |
+
+### 설계
+
+- **문제**: v0.216 F-B 잔여 — 4 테이블 (Accounts/Groups/Classroom/AuditLog) 컬럼 메뉴가 `role="menu"` 를 갖지만 자식 항목에 `menuitem` role 없음 · 방향키 탐색 없음. WAI-ARIA menu 패턴 미충족.
+- **해결**:
+  - 신규 shared hook `useMenuArrowNav(containerRef, enabled)`: Arrow Up/Down/Home/End · wrap · disabled/tabindex=-1 skip.
+  - 4 테이블 컬럼 메뉴 각각에 hook 이식 + role 부착.
+  - Quick actions (전체 표시/간결/전체 숨김/선호 초기화 button): `role="menuitem"`.
+  - Checkbox `<input type="checkbox">`: `role="menuitemcheckbox"` + `aria-checked` (label 이 아닌 input 에 · R1 정리).
+
+### Codex 감사
+
+**R0** (HEAD `9ccceaa`): 통과 7 · 실패 2 · 판정불가 0.
+- **F-A** (`useMenuArrowNav.ts:20`): 탐색 selector 가 `menuitemcheckbox` 라벨이 아닌 내부 input 을 포커스 → role holder 와 방향키 대상 어긋남.
+- **F-B** (`AuditLogTable.test.tsx:2294`): 회귀도 내부 input focus 를 정답 고정 → F-A 검출 실패.
+
+**R1 반영** (HEAD `a068892` · 병합 `7bfe0b6`):
+- **근본 원인 정리**: role holder = 포커스 대상 정합. `<label role="menuitemcheckbox" aria-checked>` → `<input type="checkbox" role="menuitemcheckbox" aria-checked>`. label 은 visual click affordance 만.
+- **container-외부 focus 가드**: `useMenuArrowNav.ts` 에 `container.contains(document.activeElement)` 체크 추가.
+- **Test 갱신**: item lookup 이 input testid 기반으로 변경 · Accounts/Groups v0.218 describe 신규 · useMenuArrowNav R1 F-A 회귀.
+
+**R2 test 확장** (HEAD `444b619` · 병합 `930476f`):
+- ClassroomTable v0.218 회귀 대칭 완성 (3 admin 테이블 role 회귀 커버리지 확장).
+
+감사 상세: `RESEARCH/SCHOOL_APP_V218_CODEX_AUDIT.md`.
+
+### 배운 것
+
+- **role holder = focus 대상 = 방향키 대상 정합**: WAI-ARIA menu 패턴에서 세 개가 반드시 같은 요소여야. label 에 role 부여하면 focus 는 input 이 받아 방향키 이동이 role holder 를 skip.
+- **shared hook 재사용의 힘**: `useClickOutside` (v0.202) + `useEscapeKey` (v0.203) + `useFocusTrap` (v0.206) + `useMenuArrowNav` (v0.218) 이제 4 hook 조합으로 full menu 패턴. 컴포넌트별 구현 제로.
+- **container-scope guard 중요성**: hook 이 document-level keydown 을 청취하면 hook 이 관심 없는 focus 상태에서도 트리거. `container.contains(activeElement)` 로 scope 를 localize 해야 side-effect 없음.
+- **Multi-session 병렬 작업 정합**: 여러 Honey 세션이 동일 branch 편집 시 R0 감사 결과를 서로 알지 못하고 각자 fix. 최종 병합 시 정합성 검증 필요.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.219**: shared useLocalStorage hook 승격 (반복 try/catch 정리).
+  - **v0.220**: 4 테이블 컬럼 메뉴에 `aria-activedescendant` 대안 (roving tabindex vs activedescendant).
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 

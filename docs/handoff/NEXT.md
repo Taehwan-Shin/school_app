@@ -1,10 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.217 병합 완료** (`6edd3b4`) - TableCell truncate opt-in prop (5 사용처 refactor) · Codex 2 라운드 (R0 실패 1 F-A · R1 실패 1 test count mismatch → F-B 회귀 병합 해결) · 웹 1187. **v0.216** (`4379b04`) - AuditLogTable 컬럼 표시 토글. **v0.215** (`4d3ba50`) - 9 Table aria-label.
+> **v0.218 병합 완료** (`930476f`) - 4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴 (v0.216 F-B 잔여 해결) · Codex 2 라운드 · 웹 1205. **v0.217** (`6edd3b4`) - TableCell truncate opt-in prop. **v0.216** (`4379b04`) - AuditLogTable 컬럼 표시 토글.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
+- `930476f` v0.218 - 4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴 완성 · 신규 shared hook `useMenuArrowNav` (Arrow Up/Down/Home/End · wrap · disabled skip · container-scope guard) · Quick actions `role="menuitem"` · checkbox input `role="menuitemcheckbox"` + `aria-checked` · Codex 2 라운드 (R0 실패 2건 F-A/F-B → R1 근본 원인 정리 role holder=focus 대상 정합) · 회귀 19건 · 웹 1205 (+19) · 감사 `RESEARCH/SCHOOL_APP_V218_CODEX_AUDIT.md`.
 - `6edd3b4` v0.217 - TableCell `truncate?: boolean` opt-in prop 추가 · 5 사용처 (UserGroups/UserAuditTrail/GroupAuditTrail/AuditLogTable/GroupsTable) refactor · Codex 2 라운드 (F-A 5번째 사이트 GroupsTable 반영 · F-B className 병합 회귀 추가) · 회귀 4건 · 웹 1187 (+4) · 감사 `RESEARCH/SCHOOL_APP_V217_CODEX_AUDIT.md`.
 - `4379b04` v0.216 - AuditLogTable 컬럼 표시 토글 (4 optional: role/target/reqId/message · 4 필수: 시간/행위자/액션/결과) · localStorage `auditLogTable.visibleColumns.v1` · quick actions · shared hooks · Codex 2 라운드 (F-A/C/D/E-부분 반영 · F-B/E-residual 4 테이블 통합 별도 유보) · 회귀 12건 · 웹 1183 (+12) · 감사 `RESEARCH/SCHOOL_APP_V216_CODEX_AUDIT.md`.
 - `4d3ba50` v0.215 - 9 Table 에 `aria-label` 추가 (Accounts/Groups/Classroom/AuditLog · UserAuditTrail/GroupAuditTrail/UserGroups/MembersTable/CourseMembersPanel) · `<Table>` 은 이미 spread props → 컴포넌트 수정 불필요 · 신규 회귀 1건 · 웹 1171 (+1).
