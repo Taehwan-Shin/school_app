@@ -8,6 +8,7 @@ import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
+import { useAutoDismissBanner } from '../../lib/useAutoDismissBanner';
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -112,8 +113,9 @@ export function ClassroomTable() {
   // v0.134: 일괄 이름 변경.
   const [isBulkRenameOpen, setIsBulkRenameOpen] = useState(false);
   const [isBulkTransferOwnerOpen, setIsBulkTransferOwnerOpen] = useState(false);
-  // v0.225: 「선호 초기화」 성공 배너.
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  // v0.225: 「선호 초기화」 성공 배너 · v0.226: shared hook (unmount cleanup 안전).
+  const { message: successBanner, show: showSuccessBanner } =
+    useAutoDismissBanner();
 
   // v0.137: URL 기반 검색·필터·정렬. AccountsTable (v0.125) · GroupsTable (v0.127) 대칭.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -210,9 +212,8 @@ export function ClassroomTable() {
     setSearchParams(next, { replace: false });
     setPage(0);
     setIsColumnMenuOpen(false);
-    // v0.225: 초기화 확인 배너 (2초 자동 dismiss).
-    setSuccessBanner('저장된 선호가 초기화되었습니다.');
-    setTimeout(() => setSuccessBanner(null), 2000);
+    // v0.225: 초기화 확인 배너 · v0.226: shared hook.
+    showSuccessBanner('저장된 선호가 초기화되었습니다.');
   };
 
   useEffect(() => {
