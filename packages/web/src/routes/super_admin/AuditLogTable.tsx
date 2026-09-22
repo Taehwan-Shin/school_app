@@ -23,6 +23,10 @@ import {
   makePageSizeDeserializer,
 } from '../../lib/pageSizeStorage';
 import {
+  serializeVisibleColumns,
+  makeVisibleColumnsDeserializer,
+} from '../../lib/visibleColumnsStorage';
+import {
   listPresets,
   savePreset,
   deletePreset,
@@ -52,30 +56,15 @@ const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
   { key: 'reqId', label: '요청 ID' },
   { key: 'message', label: '메시지' },
 ];
-const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = ['role', 'target', 'reqId', 'message'];
+const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = ['role', 'target', 'reqId', 'message'];
 const VISIBLE_COLUMNS_STORAGE_KEY = 'auditLogTable.visibleColumns.v1';
 
-function readStoredVisibleColumns(): Set<ToggleColumnKey> {
-  try {
-    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
-    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
-    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
-    const filtered = parsed.filter((k): k is ToggleColumnKey =>
-      typeof k === 'string' && validKeys.includes(k),
-    );
-    // v0.216 R1 F-A fix: 저장값이 있었는데 valid key 가 하나도 남지 않으면 (전부 unknown)
-    //                    빈 Set 대신 default 로 복구. 「사용자가 명시적으로 전부 숨김」 상태
-    //                    (empty array `[]`) 는 그대로 존중 (parsed.length === 0 → 유지).
-    if (parsed.length > 0 && filtered.length === 0) {
-      return new Set(DEFAULT_VISIBLE_COLUMNS);
-    }
-    return new Set(filtered);
-  } catch {
-    return new Set(DEFAULT_VISIBLE_COLUMNS);
-  }
-}
+// v0.221: shared visibleColumnsStorage factory 사용 (v0.216 R1 F-A 로직 보존).
+const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];
+const deserializeVisibleColumns = makeVisibleColumnsDeserializer<ToggleColumnKey>(
+  VALID_COLUMN_KEYS,
+  DEFAULT_VISIBLE_COLUMNS,
+);
 
 function renderActor(actor: string) {
   if (typeof actor === 'string' && actor.toLowerCase().endsWith(ALLOWED_DOMAIN_SUFFIX)) {
@@ -133,9 +122,12 @@ export function AuditLogTable() {
     setPageSize(size);
   };
 
-  // v0.216: 컬럼 표시 여부 (admin 3 테이블 v0.199~v0.207 패턴 확장).
-  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
-    () => readStoredVisibleColumns(),
+  // v0.216: 컬럼 표시 여부. v0.221: useLocalStorageState 이식 · shared factory.
+  const [visibleColumns, setVisibleColumns] = useLocalStorageState<Set<ToggleColumnKey>>(
+    VISIBLE_COLUMNS_STORAGE_KEY,
+    new Set(DEFAULT_VISIBLE_COLUMNS),
+    serializeVisibleColumns,
+    deserializeVisibleColumns,
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
@@ -151,31 +143,14 @@ export function AuditLogTable() {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      try {
-        localStorage.setItem(
-          VISIBLE_COLUMNS_STORAGE_KEY,
-          JSON.stringify(Array.from(next)),
-        );
-      } catch {
-        // localStorage disabled → no-op.
-      }
       return next;
     });
   };
 
   const setAllColumnsVisible = (visible: boolean) => {
-    const next: Set<ToggleColumnKey> = visible
-      ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key))
-      : new Set();
-    setVisibleColumns(next);
-    try {
-      localStorage.setItem(
-        VISIBLE_COLUMNS_STORAGE_KEY,
-        JSON.stringify(Array.from(next)),
-      );
-    } catch {
-      // localStorage disabled → no-op.
-    }
+    setVisibleColumns(
+      visible ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key)) : new Set(),
+    );
   };
 
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(pageSize, {
