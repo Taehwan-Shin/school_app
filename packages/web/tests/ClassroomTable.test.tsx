@@ -1054,6 +1054,15 @@ describe('ClassroomTable component', () => {
       expect(select.value).toBe('25');
     });
 
+    // v0.220 R1 F-A: parseInt partial-parse ("100xyz"→100) 는 거부.
+    it("partial-parse 값 '100xyz' 도 fallback (v0.220 R1 F-A)", () => {
+      localStorage.setItem('classroomTable.pageSize.v1', '100xyz');
+      setup();
+      renderWithRouter(<ClassroomTable />);
+      const select = screen.getByTestId('classroom-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+    });
+
     // v0.196: page N of M 표기.
     it('v0.196: 「1 / 2 페이지」 표기 + 다음 페이지 시 「2 / 2」', async () => {
       setup();

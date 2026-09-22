@@ -4,6 +4,11 @@ import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
+import { useLocalStorageState } from '../../lib/useLocalStorageState';
+import {
+  serializePageSize,
+  makePageSizeDeserializer,
+} from '../../lib/pageSizeStorage';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -30,17 +35,9 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'groupsTable.pageSize.v1';
 
-function readStoredPageSize(): PageSize {
-  try {
-    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
-    if (!raw) return DEFAULT_PAGE_SIZE;
-    const parsed = Number.parseInt(raw, 10);
-    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
-    return DEFAULT_PAGE_SIZE;
-  } catch {
-    return DEFAULT_PAGE_SIZE;
-  }
-}
+// v0.220: useLocalStorageState 이식 · 커스텀 serialize (raw number string).
+// v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
+const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.161: 정렬 선호 localStorage 키 (v0.160 AccountsTable 대칭).
 const SORT_STORAGE_KEY = 'groupsTable.sort.v1';
@@ -118,17 +115,17 @@ export function GroupsTable() {
   })();
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
-  // v0.194: 페이지 크기 선택 (v0.193 AccountsTable 대칭).
-  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+  // v0.194: 페이지 크기 선택 (v0.193 AccountsTable 대칭). v0.220: useLocalStorageState 이식.
+  const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
+    PAGE_SIZE_STORAGE_KEY,
+    DEFAULT_PAGE_SIZE,
+    serializePageSize,
+    deserializePageSize,
+  );
 
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
     setPage(0);
-    try {
-      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
-    } catch {
-      // localStorage disabled → no-op.
-    }
   };
 
   // v0.200: 컬럼 표시 여부 (v0.199 AccountsTable 대칭).

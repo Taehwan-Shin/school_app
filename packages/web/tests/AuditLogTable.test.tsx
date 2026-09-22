@@ -2030,6 +2030,15 @@ describe('AuditLogTable component', () => {
       const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
       expect(select.value).toBe('25');
     });
+
+    // v0.220 R1 F-A: parseInt partial-parse ("50abc"→50) 는 거부.
+    it("partial-parse 값 '50abc' 도 fallback (v0.220 R1 F-A)", () => {
+      localStorage.setItem('auditLogTable.pageSize.v1', '50abc');
+      mockUseAuditLogList.mockReturnValue(defaultMockReturn);
+      renderWithRouter(<AuditLogTable />);
+      const select = screen.getByTestId('audit-log-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+    });
   });
 
   // v0.198: 「더 보기」 버튼 pageSize 반영 + hasMore 시각화.

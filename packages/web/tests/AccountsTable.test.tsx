@@ -1874,6 +1874,15 @@ describe("AccountsTable component", () => {
       expect(select.value).toBe("25");
     });
 
+    // v0.220 R1 F-A: parseInt partial-parse ("25junk"→25) 는 거부.
+    it("partial-parse 값 '25junk' 도 fallback (v0.220 R1 F-A)", () => {
+      localStorage.setItem("accountsTable.pageSize.v1", "25junk");
+      setup();
+      renderWithRouter(<AccountsTable />);
+      const select = screen.getByTestId("accounts-page-size-select") as HTMLSelectElement;
+      expect(select.value).toBe("25");
+    });
+
     // v0.214: 200 옵션 추가 (power user 지원).
     it("v0.214: 200 은 유효 옵션 → hydrate", () => {
       localStorage.setItem("accountsTable.pageSize.v1", "200");
@@ -2170,7 +2179,10 @@ describe("AccountsTable component", () => {
       expect(confirmSpy).toHaveBeenCalledTimes(1);
       await waitFor(() => {
         expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
-        expect(localStorage.getItem("accountsTable.pageSize.v1")).toBeNull();
+        // v0.220: pageSize 는 useLocalStorageState 이식 → removeItem 후 setPageSize(DEFAULT)
+        //         가 localStorage 재저장. 결과: null 이거나 default 문자열 (둘 다 기본값 의미).
+        const stored = localStorage.getItem("accountsTable.pageSize.v1");
+        expect(stored === null || stored === "25").toBe(true);
         expect(localStorage.getItem("accountsTable.visibleColumns.v1")).toBeNull();
       });
       expect(
