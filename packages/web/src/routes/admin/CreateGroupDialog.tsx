@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { Banner } from "../../components/Banner";
 import { useCreateGroup } from "../../api/groupsCreate";
 import {
   EMAIL_DOMAIN,
@@ -125,14 +126,12 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="create-group-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.232: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="create-group-error"
+          />
 
           <div className="space-y-4">
             <div>
