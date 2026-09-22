@@ -4920,6 +4920,57 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.217**: 테이블 default TableCell truncate + title tooltip.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-22 · v0.216 AuditLogTable 컬럼 표시 토글 (Codex 감사 재개)
+
+### 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 R1 | `7929904` | feat: v0.216 AuditLogTable 컬럼 표시 토글 |
+| R1 fix | `6713d01` | fix: v0.216 R1 Codex 실패 3.5건 반영 |
+| 병합 | `4379b04` | Merge feat/auditlog-column-toggle-v216 |
+
+### 설계
+
+- **문제**: v0.199~v0.207 은 admin 3 테이블 (Accounts/Groups/Classroom) 에 컬럼 표시 토글 · 「전체 표시」/「전체 숨김」/focus trap/Escape 닫힘 UX 완성. super_admin AuditLogTable 은 미포함.
+- **해결**: v0.199 AccountsTable 패턴을 AuditLogTable 로 확장.
+  - 4 optional column: role/target/reqId/message · 4 필수: 시간/행위자/액션/결과.
+  - localStorage `auditLogTable.visibleColumns.v1` (JSON array).
+  - shared hooks 재사용 (useClickOutside · useEscapeKey · useFocusTrap).
+  - Popover UI + 「전체 표시」/「전체 숨김」 quick actions.
+
+### Codex 감사 (사용자 지시 · 「감사 충실히」 재확립)
+
+**R1** (HEAD `7929904`): 통과 6 · 실패 5 · 판정불가 1.
+- **F-A** readStoredVisibleColumns: unknown key 만 필터 · empty 결과면 빈 Set hydrate. → default 복구 필요.
+- **F-B** `role="menu"` 자식 menuitem role · 방향키 탐색 부재. → WAI-ARIA menu 패턴 미충족.
+- **F-C** non-array · all-unknown fallback 회귀 부재.
+- **F-D** quick action localStorage 저장 · disabled 경계 회귀 부재.
+- **F-E** Escape · focus trap · focus restore · ARIA 회귀 부재.
+
+**R1 반영** (HEAD `6713d01`):
+- F-A fix: `parsed.length > 0 && filtered.length === 0 → DEFAULT` · 명시적 `[]` 유지.
+- F-C/D/E 부분: 회귀 7건 추가 (non-array · all-unknown · empty 유지 · quick action storage/disabled 양쪽 · Escape · aria-expanded).
+- **F-B 유보**: admin 3 테이블 (v0.199~v0.207) 도 동일 precedent. 4 테이블 통합 a11y 슬라이스로 별도 추진.
+- **F-E residual**: 외부 클릭 · focus 순환/복원 회귀는 각 hook 자체 테스트 (v0.202/v0.203/v0.206) 로 이미 검증. AuditLog 통합 회귀는 후속 슬라이스.
+
+**R2** (HEAD `6713d01`): 통과 9 · 실패 2 (F-B/F-E residual · 조건부 승인) · 판정불가 1.
+
+감사 상세: `RESEARCH/SCHOOL_APP_V216_CODEX_AUDIT.md`.
+
+### 배운 것
+
+- **Codex 감사는 자기 검증 실질 강화 요소**: v0.205~v0.215 11 슬라이스는 skip · 헤드 검증만. bliss00 이 「감사 충실히 진행하는거지?」 지적. v0.216 부터 감사 재개. R1 5 실패 중 F-A 는 실 로직 버그 (사용자 저장값 corruption 시 UX 손상) 였음 · 감사가 유효 필터.
+- **Precedent 유보 원칙**: F-B (menuitem/arrow nav) 는 admin 3 테이블도 동일 미해결. AuditLog 단독으로 해결하면 4 테이블 UX 분리. 대신 「4 테이블 통합 a11y」 를 후속 슬라이스로 명시 추적.
+- **Codex R2 프로세스 hang**: R2 첫 시도 13시간 실행 · 0 output · kill 후 shorter prompt 로 재시도 성공. 프롬프트 크기 · 프로세스 안정성 주의.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.217**: TableCell truncate + title tooltip.
+  - **v0.218**: 4 테이블 통합 a11y (menuitem role + 방향키 · v0.216 F-B 해결).
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
