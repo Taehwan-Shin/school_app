@@ -199,14 +199,12 @@ export function CourseMembersPanel({
         </div>
       )}
 
-      {isError && (
-        <div
-          className="border border-state-danger p-4 text-small text-state-danger"
-          data-testid="course-members-error"
-        >
-          오류: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
+      {/* v0.235: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={isError ? `오류: ${error?.message || '알 수 없는 오류'}` : null}
+        testId="course-members-error"
+      />
 
       {!showLoading && !isError && currentQuery.data && (
         <>
