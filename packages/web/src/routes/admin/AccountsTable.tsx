@@ -9,6 +9,7 @@ import { useEscapeKey } from "../../lib/useEscapeKey";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 import { useMenuArrowNav } from "../../lib/useMenuArrowNav";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
+import { useAutoDismissBanner } from "../../lib/useAutoDismissBanner";
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -97,7 +98,9 @@ export function AccountsTable() {
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null);
   const [editRoleTarget, setEditRoleTarget] = useState<EditUserRoleTarget | null>(null);
   const [resetTarget, setResetTarget] = useState<ResetPasswordTarget | null>(null);
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  // v0.226: shared auto-dismiss banner hook (unmount cleanup 안전).
+  const { message: successBanner, show: showSuccessBanner } =
+    useAutoDismissBanner();
   const sortColumn: SortColumn = (() => {
     const raw = searchParams.get('sort');
     return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
@@ -184,9 +187,8 @@ export function AccountsTable() {
     setSearchParams(next, { replace: false });
     setPage(0);
     setIsColumnMenuOpen(false);
-    // v0.225: 초기화 확인 배너 (2초 자동 dismiss).
-    setSuccessBanner('저장된 선호가 초기화되었습니다.');
-    setTimeout(() => setSuccessBanner(null), 2000);
+    // v0.225: 초기화 확인 배너 · v0.226: shared hook (unmount cleanup).
+    showSuccessBanner('저장된 선호가 초기화되었습니다.');
   };
 
   const handlePageSizeChange = (size: PageSize) => {
@@ -1004,10 +1006,7 @@ export function AccountsTable() {
         }}
         user={resetTarget}
         onSuccess={() => {
-          setSuccessBanner("비밀번호가 재설정되었습니다.");
-          setTimeout(() => {
-            setSuccessBanner(null);
-          }, 3000);
+          showSuccessBanner("비밀번호가 재설정되었습니다.", 3000);
         }}
       />
 
