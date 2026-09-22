@@ -87,7 +87,7 @@ export function UserAuditTrail({ targetEmail }: UserAuditTrailProps) {
                       <TableCell className={`text-micro font-medium whitespace-nowrap ${resultColor}`}>
                         {e.result}
                       </TableCell>
-                      <TableCell className="text-small text-fg-secondary max-w-xs truncate" title={e.message}>
+                      <TableCell truncate className="text-small text-fg-secondary" title={e.message}>
                         {e.message || '-'}
                       </TableCell>
                     </TableRow>

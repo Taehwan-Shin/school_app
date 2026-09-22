@@ -706,7 +706,8 @@ export function GroupsTable() {
                     )}
                     {visibleColumns.has('description') && (
                       <TableCell
-                        className="text-small text-fg-secondary truncate max-w-xs"
+                        truncate
+                        className="text-small text-fg-secondary"
                         title={group.description || ''}
                       >
                         {group.description || '-'}
