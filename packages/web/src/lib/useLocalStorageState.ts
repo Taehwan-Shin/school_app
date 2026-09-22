@@ -96,12 +96,17 @@ export function useLocalStorageState<T>(
   const setAndPersist = useCallback(
     (next: SetStateAction<T>) => {
       // v0.219 R5 F-K/F-N: setter 호출 시점의 key + serialize 를 sync 하게 snapshot.
-      //                    state updater 는 호출하지 않음 → purity 유지 (F-M).
+      // v0.219 F-M 계약: 아래 세 줄 순서를 지킨다.
+      //   1. pending snapshot 을 sync 로 기록 (setValue 이전 · React 가 이 코드를 재실행하지 않음).
+      //   2. `setValue(next)` — `next` 는 사용자 값 (T) 이거나 사용자 functional (prev => T).
+      //      hook 은 next 를 wrap 하지 않고 그대로 넘긴다. React 는 이 updater 를 pure 로 취급 ·
+      //      StrictMode 에서 두 번 호출할 수 있으므로 여기서 hook 이 side effect 를 감싸면 안 됨.
+      //   3. writeVersion++ 로 persistence effect 트리거. same-value setter 도 fire.
       pendingWriteRef.current = {
         key,
         serialize: serializeRef.current,
       };
-      setValue(next); // React 가 functional next 를 pure 하게 처리.
+      setValue(next);
       setWriteVersion((v) => v + 1);
     },
     [key],
