@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
@@ -13,6 +13,9 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
+import { useClickOutside } from '../../lib/useClickOutside';
+import { useEscapeKey } from '../../lib/useEscapeKey';
+import { useFocusTrap } from '../../lib/useFocusTrap';
 import {
   listPresets,
   savePreset,
@@ -38,6 +41,41 @@ function readStoredPageSize(): PageSize {
     return DEFAULT_PAGE_SIZE;
   } catch {
     return DEFAULT_PAGE_SIZE;
+  }
+}
+
+// v0.216: 컬럼 표시 여부 선택. 시간/행위자/액션/결과 4 개는 필수 (항상 표시).
+// 나머지 4개 (역할/대상/요청 ID/메시지) 는 사용자가 숨김/표시 가능.
+// admin 3 테이블 (v0.199~v0.207) 패턴을 AuditLog 로 확장.
+type ToggleColumnKey = 'role' | 'target' | 'reqId' | 'message';
+const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
+  { key: 'role', label: '역할' },
+  { key: 'target', label: '대상' },
+  { key: 'reqId', label: '요청 ID' },
+  { key: 'message', label: '메시지' },
+];
+const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = ['role', 'target', 'reqId', 'message'];
+const VISIBLE_COLUMNS_STORAGE_KEY = 'auditLogTable.visibleColumns.v1';
+
+function readStoredVisibleColumns(): Set<ToggleColumnKey> {
+  try {
+    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
+    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
+    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
+    const filtered = parsed.filter((k): k is ToggleColumnKey =>
+      typeof k === 'string' && validKeys.includes(k),
+    );
+    // v0.216 R1 F-A fix: 저장값이 있었는데 valid key 가 하나도 남지 않으면 (전부 unknown)
+    //                    빈 Set 대신 default 로 복구. 「사용자가 명시적으로 전부 숨김」 상태
+    //                    (empty array `[]`) 는 그대로 존중 (parsed.length === 0 → 유지).
+    if (parsed.length > 0 && filtered.length === 0) {
+      return new Set(DEFAULT_VISIBLE_COLUMNS);
+    }
+    return new Set(filtered);
+  } catch {
+    return new Set(DEFAULT_VISIBLE_COLUMNS);
   }
 }
 
@@ -91,6 +129,50 @@ export function AuditLogTable() {
     setPageSize(size);
     try {
       localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+    } catch {
+      // localStorage disabled → no-op.
+    }
+  };
+
+  // v0.216: 컬럼 표시 여부 (admin 3 테이블 v0.199~v0.207 패턴 확장).
+  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
+    () => readStoredVisibleColumns(),
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
+  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
+  useEscapeKey(closeColumnMenu, isColumnMenuOpen);
+  useFocusTrap(columnMenuRef, isColumnMenuOpen);
+
+  const toggleColumn = (key: ToggleColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(
+          VISIBLE_COLUMNS_STORAGE_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // localStorage disabled → no-op.
+      }
+      return next;
+    });
+  };
+
+  const setAllColumnsVisible = (visible: boolean) => {
+    const next: Set<ToggleColumnKey> = visible
+      ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key))
+      : new Set();
+    setVisibleColumns(next);
+    try {
+      localStorage.setItem(
+        VISIBLE_COLUMNS_STORAGE_KEY,
+        JSON.stringify(Array.from(next)),
+      );
     } catch {
       // localStorage disabled → no-op.
     }
@@ -629,6 +711,67 @@ export function AuditLogTable() {
               </option>
             ))}
           </select>
+          {/* v0.216: 컬럼 표시 토글. admin 3 테이블 (v0.199~v0.207) 패턴 확장. */}
+          <div className="relative ml-2">
+            <Button
+              ref={columnMenuBtnRef}
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              data-testid="audit-log-column-menu-btn"
+              aria-expanded={isColumnMenuOpen}
+              aria-haspopup="menu"
+              title="컬럼 표시 여부 선택"
+            >
+              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
+            </Button>
+            {isColumnMenuOpen && (
+              <div
+                ref={columnMenuRef}
+                role="menu"
+                aria-label="컬럼 표시"
+                data-testid="audit-log-column-menu"
+                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
+              >
+                <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
+                  <button
+                    type="button"
+                    onClick={() => setAllColumnsVisible(true)}
+                    disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
+                    data-testid="audit-log-column-show-all"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    전체 표시
+                  </button>
+                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setAllColumnsVisible(false)}
+                    disabled={visibleColumns.size === 0}
+                    data-testid="audit-log-column-hide-all"
+                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    전체 숨김
+                  </button>
+                </div>
+                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(key)}
+                      onChange={() => toggleColumn(key)}
+                      data-testid={`audit-log-column-toggle-${key}`}
+                      className="cursor-pointer"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
               hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
               도달 시 partial 표시. */}
@@ -865,12 +1008,12 @@ export function AuditLogTable() {
                   <TableRow>
                     <TableHead>시간</TableHead>
                     <TableHead>행위자</TableHead>
-                    <TableHead>역할</TableHead>
+                    {visibleColumns.has('role') && <TableHead>역할</TableHead>}
                     <TableHead>액션</TableHead>
-                    <TableHead>대상</TableHead>
+                    {visibleColumns.has('target') && <TableHead>대상</TableHead>}
                     <TableHead>결과</TableHead>
-                    <TableHead>요청 ID</TableHead>
-                    <TableHead>메시지</TableHead>
+                    {visibleColumns.has('reqId') && <TableHead>요청 ID</TableHead>}
+                    {visibleColumns.has('message') && <TableHead>메시지</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody striped>
@@ -900,27 +1043,35 @@ export function AuditLogTable() {
                         <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
                           {renderActor(entry.actor)}
                         </TableCell>
-                        <TableCell className={`text-micro whitespace-nowrap ${roleColor}`}>
-                          {entry.role}
-                        </TableCell>
+                        {visibleColumns.has('role') && (
+                          <TableCell className={`text-micro whitespace-nowrap ${roleColor}`}>
+                            {entry.role}
+                          </TableCell>
+                        )}
                         <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
                           {entry.action}
                         </TableCell>
-                        <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
-                          {entry.target}
-                        </TableCell>
+                        {visibleColumns.has('target') && (
+                          <TableCell className="font-mono text-small text-fg-primary whitespace-nowrap">
+                            {entry.target}
+                          </TableCell>
+                        )}
                         <TableCell className={`text-micro font-medium whitespace-nowrap ${resultColor}`}>
                           {entry.result}
                         </TableCell>
-                        <TableCell className="text-micro font-mono text-fg-muted whitespace-nowrap">
-                          {shortRequestId}
-                        </TableCell>
-                        <TableCell
-                          className="text-small text-fg-secondary max-w-xs truncate"
-                          title={entry.message}
-                        >
-                          {entry.message || '-'}
-                        </TableCell>
+                        {visibleColumns.has('reqId') && (
+                          <TableCell className="text-micro font-mono text-fg-muted whitespace-nowrap">
+                            {shortRequestId}
+                          </TableCell>
+                        )}
+                        {visibleColumns.has('message') && (
+                          <TableCell
+                            className="text-small text-fg-secondary max-w-xs truncate"
+                            title={entry.message}
+                          >
+                            {entry.message || '-'}
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
