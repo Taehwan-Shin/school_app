@@ -112,6 +112,8 @@ export function ClassroomTable() {
   // v0.134: 일괄 이름 변경.
   const [isBulkRenameOpen, setIsBulkRenameOpen] = useState(false);
   const [isBulkTransferOwnerOpen, setIsBulkTransferOwnerOpen] = useState(false);
+  // v0.225: 「선호 초기화」 성공 배너.
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   // v0.137: URL 기반 검색·필터·정렬. AccountsTable (v0.125) · GroupsTable (v0.127) 대칭.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -208,6 +210,9 @@ export function ClassroomTable() {
     setSearchParams(next, { replace: false });
     setPage(0);
     setIsColumnMenuOpen(false);
+    // v0.225: 초기화 확인 배너 (2초 자동 dismiss).
+    setSuccessBanner('저장된 선호가 초기화되었습니다.');
+    setTimeout(() => setSuccessBanner(null), 2000);
   };
 
   useEffect(() => {
@@ -487,6 +492,15 @@ export function ClassroomTable() {
 
   return (
     <div className="space-y-4">
+      {/* v0.225: 「선호 초기화」 성공 배너. */}
+      {successBanner && (
+        <div
+          className="border border-state-success bg-surface p-4 text-small text-state-success"
+          data-testid="classroom-success-banner"
+        >
+          {successBanner}
+        </div>
+      )}
       <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           {data?.courses ? `${data.courses.length}개 코스` : '코스 목록'}
