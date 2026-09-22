@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLocalStorageState } from '../src/lib/useLocalStorageState';
 
@@ -379,24 +379,9 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(localStorage.getItem('k26')).toBe('42');
   });
 
-  // v0.219 R7 F-M: hook 이 setValue 에 넘긴 user functional updater 자체는 side effect 없음을 spy 로 검증.
-  //                실 F-M 문제 (hook 내부 side effect in state updater) 는 결과값으로 관측 불가하며
-  //                (Codex R6 지적: StrictMode 는 updater 반환값을 두 번 누적하지 않으므로 R4 mutation 도
-  //                결과 동일), hook 소스 파일에서 「setValue 콜백 안 side effect 금지」 를 코드-레벨로
-  //                문서화. 이 회귀는 대신 hook 이 spy 를 그대로 setValue 에 넘기는지 (wrap 없이) 를
-  //                간접 검증: spy 가 최소 1 회 호출 · 결과가 spy 반환값 (7) 과 일치 · 저장값 = 7.
-  it('R7 F-M: hook 은 user updater 를 wrap 하지 않고 setValue 에 그대로 전달', () => {
-    const updaterSpy = vi.fn((prev: number) => prev + 7);
-    const { result } = renderHook(() => useLocalStorageState<number>('k27', 0));
-    act(() => result.current[1](updaterSpy));
-    // spy 가 최소 1 회 호출됨 (StrictMode 여부 환경 의존 · 결과 결정성 이 정답).
-    expect(updaterSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
-    // spy 가 호출됐다면 첫 인자는 prev = 0.
-    expect(updaterSpy.mock.calls[0][0]).toBe(0);
-    // React 가 spy 반환값을 state 로 승격. hook 이 wrap 하면 이 값이 다를 수 있음.
-    expect(result.current[0]).toBe(7);
-    // pending snapshot 이 setter 시점 정확한 값 (7) 으로 저장 — hook 이 user updater 반환값을
-    // pending value 로 승격했음을 저장값으로 확인.
-    expect(localStorage.getItem('k27')).toBe('7');
-  });
+  // v0.219 F-M 계약: 결과값 검출 한계 인정 (Codex R6/R7).
+  // hook 이 「setValue 콜백 안 side effect 없음」 을 유지하는지는 결과값만으론 관측 불가.
+  // (StrictMode 는 updater 반환값을 두 번 누적하지 않고 · wrap vs unwrap 구현은 동일 결과 산출.)
+  // 이 계약은 `useLocalStorageState.ts` `setAndPersist` 소스 파일에서 코드-레벨로 문서화.
+  // R6 회귀는 StrictMode wrapper 안에서 결과 결정성을 유지하는 것 자체를 검증.
 });
