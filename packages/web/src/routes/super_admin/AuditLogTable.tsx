@@ -17,6 +17,7 @@ import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
+import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import {
   listPresets,
   savePreset,
@@ -33,17 +34,14 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'auditLogTable.pageSize.v1';
 
-function readStoredPageSize(): PageSize {
-  try {
-    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
-    if (!raw) return DEFAULT_PAGE_SIZE;
-    const parsed = Number.parseInt(raw, 10);
-    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
-    return DEFAULT_PAGE_SIZE;
-  } catch {
-    return DEFAULT_PAGE_SIZE;
-  }
-}
+// v0.220: useLocalStorageState 이식 · 커스텀 serialize.
+const serializePageSize = (v: PageSize): string => String(v);
+const deserializePageSize = (raw: string): PageSize | undefined => {
+  const parsed = Number.parseInt(raw, 10);
+  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
+    ? (parsed as PageSize)
+    : undefined;
+};
 
 // v0.216: 컬럼 표시 여부 선택. 시간/행위자/액션/결과 4 개는 필수 (항상 표시).
 // 나머지 4개 (역할/대상/요청 ID/메시지) 는 사용자가 숨김/표시 가능.
@@ -125,14 +123,15 @@ export function AuditLogTable() {
   })();
 
   // v0.197: 페이지 크기 선택 (v0.193/v0.194/v0.195 대칭 · 서버 요청 pageSize 변경).
-  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+  // v0.220: useLocalStorageState 이식.
+  const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
+    PAGE_SIZE_STORAGE_KEY,
+    DEFAULT_PAGE_SIZE,
+    serializePageSize,
+    deserializePageSize,
+  );
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
-    try {
-      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
-    } catch {
-      // localStorage disabled → no-op.
-    }
   };
 
   // v0.216: 컬럼 표시 여부 (admin 3 테이블 v0.199~v0.207 패턴 확장).

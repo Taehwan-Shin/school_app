@@ -7,6 +7,7 @@ import { useClickOutside } from '../../lib/useClickOutside';
 import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
+import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import {
   Table,
   TableBody,
@@ -79,17 +80,14 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'classroomTable.pageSize.v1';
 
-function readStoredPageSize(): PageSize {
-  try {
-    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
-    if (!raw) return DEFAULT_PAGE_SIZE;
-    const parsed = Number.parseInt(raw, 10);
-    if (PAGE_SIZE_OPTIONS.includes(parsed as PageSize)) return parsed as PageSize;
-    return DEFAULT_PAGE_SIZE;
-  } catch {
-    return DEFAULT_PAGE_SIZE;
-  }
-}
+// v0.220: useLocalStorageState 이식 · 커스텀 serialize.
+const serializePageSize = (v: PageSize): string => String(v);
+const deserializePageSize = (raw: string): PageSize | undefined => {
+  const parsed = Number.parseInt(raw, 10);
+  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
+    ? (parsed as PageSize)
+    : undefined;
+};
 
 // v0.201: 컬럼 표시 여부 (v0.199/v0.200 대칭). 선택/관리 2 개는 필수. 5 필드 토글.
 type ToggleColumnKey = 'name' | 'section' | 'state' | 'id' | 'link';
@@ -151,17 +149,17 @@ export function ClassroomTable() {
   })();
   const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
   const [page, setPage] = useState(0);
-  // v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭).
-  const [pageSize, setPageSize] = useState<PageSize>(() => readStoredPageSize());
+  // v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭). v0.220: useLocalStorageState 이식.
+  const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
+    PAGE_SIZE_STORAGE_KEY,
+    DEFAULT_PAGE_SIZE,
+    serializePageSize,
+    deserializePageSize,
+  );
 
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
     setPage(0);
-    try {
-      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
-    } catch {
-      // localStorage disabled → no-op.
-    }
   };
 
   // v0.201: 컬럼 표시 여부 (v0.199/v0.200 대칭).

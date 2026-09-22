@@ -2170,7 +2170,10 @@ describe("AccountsTable component", () => {
       expect(confirmSpy).toHaveBeenCalledTimes(1);
       await waitFor(() => {
         expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
-        expect(localStorage.getItem("accountsTable.pageSize.v1")).toBeNull();
+        // v0.220: pageSize 는 useLocalStorageState 이식 → removeItem 후 setPageSize(DEFAULT)
+        //         가 localStorage 재저장. 결과: null 이거나 default 문자열 (둘 다 기본값 의미).
+        const stored = localStorage.getItem("accountsTable.pageSize.v1");
+        expect(stored === null || stored === "25").toBe(true);
         expect(localStorage.getItem("accountsTable.visibleColumns.v1")).toBeNull();
       });
       expect(
