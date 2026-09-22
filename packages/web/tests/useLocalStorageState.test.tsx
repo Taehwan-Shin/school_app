@@ -85,4 +85,57 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(result.current[0]).toBe(100);
     localStorage.setItem = original;
   });
+
+  // v0.219 R1 F-A: `SetStateAction<T>` (functional updater) 지원.
+  it('R1 F-A: functional updater 지원 (setValue(prev => ...))', () => {
+    localStorage.setItem('k9', '10');
+    const { result } = renderHook(() => useLocalStorageState<number>('k9', 0));
+    expect(result.current[0]).toBe(10);
+    act(() => result.current[1]((prev) => prev + 5));
+    expect(result.current[0]).toBe(15);
+    expect(localStorage.getItem('k9')).toBe('15');
+    act(() => result.current[1]((prev) => prev * 2));
+    expect(result.current[0]).toBe(30);
+    expect(localStorage.getItem('k9')).toBe('30');
+  });
+
+  // v0.219 R1 F-C: key prop 변경 시 새 key 로 재 hydrate.
+  it('R1 F-C: key 변경 시 새 key 값 재 hydrate', () => {
+    localStorage.setItem('k10-a', '100');
+    localStorage.setItem('k10-b', '200');
+    const { result, rerender } = renderHook(
+      ({ key }) => useLocalStorageState<number>(key, 25),
+      { initialProps: { key: 'k10-a' } },
+    );
+    expect(result.current[0]).toBe(100);
+    rerender({ key: 'k10-b' });
+    expect(result.current[0]).toBe(200);
+    // 새 key setter 는 새 key 에 저장.
+    act(() => result.current[1](500));
+    expect(localStorage.getItem('k10-b')).toBe('500');
+    expect(localStorage.getItem('k10-a')).toBe('100');
+  });
+
+  it('R1 F-C: key 를 저장값 없는 key 로 변경 → defaultValue fallback', () => {
+    localStorage.setItem('k11-a', '100');
+    const { result, rerender } = renderHook(
+      ({ key }) => useLocalStorageState<number>(key, 25),
+      { initialProps: { key: 'k11-a' } },
+    );
+    expect(result.current[0]).toBe(100);
+    rerender({ key: 'k11-b' });
+    // k11-b 에 저장값 없음 → default 25.
+    expect(result.current[0]).toBe(25);
+  });
+
+  // v0.219 R1 F-D: getItem 예외 (SecurityError · SSR 등) → defaultValue fallback.
+  it('R1 F-D: localStorage.getItem 예외 → defaultValue fallback', () => {
+    const original = localStorage.getItem;
+    (localStorage as { getItem: unknown }).getItem = () => {
+      throw new Error('SecurityError');
+    };
+    const { result } = renderHook(() => useLocalStorageState<number>('k12', 25));
+    expect(result.current[0]).toBe(25);
+    localStorage.getItem = original;
+  });
 });
