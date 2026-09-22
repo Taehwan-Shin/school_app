@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useBasicDataSet } from '../../api/basicDataSet';
 import type { BasicDataYear } from '@school-app/shared';
 
@@ -117,17 +118,17 @@ export function EditRostersDialog({
             ))}
           </div>
 
-          {validationError && (
-            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="edit-rosters-validation-error">
-              {validationError}
-            </div>
-          )}
-
-          {mutationError && (
-            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="edit-rosters-error">
-              저장 실패: {mutationError.message}
-            </div>
-          )}
+          {/* v0.238: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={validationError}
+            testId="edit-rosters-validation-error"
+          />
+          <Banner
+            variant="error"
+            message={mutationError ? `저장 실패: ${mutationError.message}` : null}
+            testId="edit-rosters-error"
+          />
 
           <DialogFooter>
             <Button
