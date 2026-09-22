@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useBasicDataSet } from '../../api/basicDataSet';
 
 export interface ImportBasicDataDialogProps {
@@ -107,14 +108,12 @@ export function ImportBasicDataDialog({
               data-testid="import-basic-data-file-input"
               className="block w-full text-body text-fg-primary file:mr-4 file:py-2 file:px-4 file:border file:border-border-subtle file:bg-canvas file:text-fg-primary file:cursor-pointer"
             />
-            {parseError && (
-              <div
-                className="border border-state-danger p-4 text-small text-state-danger"
-                data-testid="import-basic-data-parse-error"
-              >
-                {parseError}
-              </div>
-            )}
+            {/* v0.233: Banner 이식. */}
+            <Banner
+              variant="error"
+              message={parseError}
+              testId="import-basic-data-parse-error"
+            />
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
@@ -165,14 +164,12 @@ export function ImportBasicDataDialog({
                 </strong>
               </div>
             </div>
-            {saveError && (
-              <div
-                className="border border-state-danger p-4 text-small text-state-danger"
-                data-testid="import-basic-data-save-error"
-              >
-                저장 실패: {saveError}
-              </div>
-            )}
+            {/* v0.233: Banner 이식. */}
+            <Banner
+              variant="error"
+              message={saveError ? `저장 실패: ${saveError}` : null}
+              testId="import-basic-data-save-error"
+            />
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
