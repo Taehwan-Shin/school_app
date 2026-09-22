@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useClassroomTransferOwnership } from '../../api/classroomTransferOwnership';
 import {
   EMAIL_DOMAIN,
@@ -137,14 +138,12 @@ export function TransferClassroomOwnerDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="transfer-owner-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.239: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="transfer-owner-error"
+          />
 
           {mutationResult && (
             <div

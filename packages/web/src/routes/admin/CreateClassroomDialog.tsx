@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useClassroomCreate } from '../../api/classroomCreate';
 import type { ClassroomCourse } from '../../api/classroomList';
 import {
@@ -184,23 +185,17 @@ export function CreateClassroomDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="create-classroom-error"
-            >
-              {errorMessage}
-            </div>
-          )}
-
-          {fieldLengthError && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="create-classroom-field-length-error"
-            >
-              {fieldLengthError}
-            </div>
-          )}
+          {/* v0.239: Banner 이식 (2 error banner). */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="create-classroom-error"
+          />
+          <Banner
+            variant="error"
+            message={fieldLengthError}
+            testId="create-classroom-field-length-error"
+          />
 
           <div className="space-y-4">
             <div>
