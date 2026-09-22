@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -78,14 +79,18 @@ export function ChatSpaceMembersDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {deleteMutation.isError && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger mb-3"
-              data-testid="chat-members-action-error"
-            >
-              오류: {deleteMutation.error?.message || '알 수 없는 오류'}
-            </div>
-          )}
+          {/* v0.231: Banner 이식 · 원래 markup 에 있던 mb-3 은 wrapper 로 유지. */}
+          <div className="mb-3">
+            <Banner
+              variant="error"
+              message={
+                deleteMutation.isError
+                  ? `오류: ${deleteMutation.error?.message || '알 수 없는 오류'}`
+                  : null
+              }
+              testId="chat-members-action-error"
+            />
+          </div>
 
           {spaceName && !isLoading && !isError && (
             <div className="flex justify-end gap-2 mb-3">
