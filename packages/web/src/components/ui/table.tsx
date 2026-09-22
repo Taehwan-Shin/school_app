@@ -107,7 +107,7 @@ const TableHead = React.forwardRef<
 TableHead.displayName = "TableHead";
 
 // v0.217: `truncate` opt-in prop → 긴 값 셀에 `max-w-xs truncate` 자동 부착.
-//          기존 사용처 4곳 (UserGroups/UserAuditTrail/GroupAuditTrail/AuditLogTable) 이
+//          기존 사용처 5곳 (UserGroups/UserAuditTrail/GroupAuditTrail/AuditLogTable/GroupsTable) 이
 //          동일 pattern (`max-w-xs truncate` + title) 을 반복. 이 prop 으로 반복 제거.
 //          `title` 은 여전히 caller 책임 (children 이 string 이 아닐 수 있음).
 interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {

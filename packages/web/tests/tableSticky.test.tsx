@@ -178,8 +178,8 @@ describe('Table sticky header (v0.208)', () => {
     expect(cell!.className).toContain('truncate');
   });
 
-  // v0.217 R1: 실제 사용처 4곳 (UserGroups/*AuditTrail/AuditLogTable) 이 넘기는
-  //           `text-small text-fg-secondary` 병합 회귀. tailwind-merge 가
+  // v0.217 R1: 실제 사용처 5곳 (UserGroups/*AuditTrail/AuditLogTable/GroupsTable)
+  //           이 넘기는 `text-small text-fg-secondary` 병합 회귀. tailwind-merge 가
   //           truncate + max-w-xs + caller 의 font-size/color 를 모두 유지해야 한다.
   it('v0.217 R1: truncate + className (text-small text-fg-secondary) 병합 → 4개 class 모두 유지', () => {
     const { container } = render(
