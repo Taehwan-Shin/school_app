@@ -126,4 +126,55 @@ describe('Table sticky header (v0.208)', () => {
     expect(table).not.toBeNull();
     expect(table!.getAttribute('aria-label')).toBe('테스트 목록');
   });
+
+  // v0.217: TableCell `truncate` opt-in prop → max-w-xs + truncate class.
+  it('v0.217: TableCell 기본 (truncate=false) → truncate class 없음', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell data-testid="cell">A</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const cell = container.querySelector('[data-testid="cell"]');
+    expect(cell).not.toBeNull();
+    expect(cell!.className).not.toContain('truncate');
+    expect(cell!.className).not.toContain('max-w-xs');
+  });
+
+  it('v0.217: TableCell truncate → max-w-xs truncate class 포함', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell truncate data-testid="cell">긴 값</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const cell = container.querySelector('[data-testid="cell"]');
+    expect(cell).not.toBeNull();
+    expect(cell!.className).toContain('max-w-xs');
+    expect(cell!.className).toContain('truncate');
+  });
+
+  it('v0.217: TableCell truncate + title prop → 네이티브 title 전달', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell truncate title="전체 값" data-testid="cell">
+              잘린 값...
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const cell = container.querySelector('[data-testid="cell"]');
+    expect(cell).not.toBeNull();
+    expect(cell!.getAttribute('title')).toBe('전체 값');
+    expect(cell!.className).toContain('truncate');
+  });
 });

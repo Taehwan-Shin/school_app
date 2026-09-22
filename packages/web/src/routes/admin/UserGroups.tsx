@@ -56,7 +56,7 @@ export function UserGroups({ userEmail }: UserGroupsProps) {
                     </Link>
                   </TableCell>
                   <TableCell className="text-fg-primary">{g.name}</TableCell>
-                  <TableCell className="text-small text-fg-secondary max-w-xs truncate" title={g.description}>
+                  <TableCell truncate className="text-small text-fg-secondary" title={g.description}>
                     {g.description || '-'}
                   </TableCell>
                   <TableCell className="text-right font-mono text-small text-fg-primary">

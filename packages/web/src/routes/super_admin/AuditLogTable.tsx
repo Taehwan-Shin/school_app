@@ -1066,7 +1066,8 @@ export function AuditLogTable() {
                         )}
                         {visibleColumns.has('message') && (
                           <TableCell
-                            className="text-small text-fg-secondary max-w-xs truncate"
+                            truncate
+                            className="text-small text-fg-secondary"
                             title={entry.message}
                           >
                             {entry.message || '-'}
