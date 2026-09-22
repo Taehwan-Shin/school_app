@@ -1,7 +1,7 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.220 병합 완료** (`61c539e` · v0.219 R6 `caaf998`) - 4 테이블 pageSize `useLocalStorageState` 이식 · Codex R2 통과 (통과 13) · 웹 1242. **v0.219** (`ebb66c8` + R2~R6 iterations) - shared hook 6 라운드 순회. **v0.218** (`930476f`) - 4 테이블 컬럼 메뉴 WAI-ARIA menu 패턴.
+> **v0.222 병합 완료** (`8efec66`) - visibleColumns hook 이식 · Codex R0 CLEAN 10/0/0. **v0.221** (`c49aa08`) - sort factory + R1 refactor. **v0.220** (`61c539e`) - pageSize hook 이식. **v0.219 R9** (`3fa1480`) - useLocalStorageState 최종.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
