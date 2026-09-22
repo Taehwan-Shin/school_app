@@ -18,6 +18,7 @@ import {
   makeVisibleColumnsDeserializer,
 } from "../../lib/visibleColumnsStorage";
 import { deserializeSort, type StoredSortPref } from "../../lib/sortStorage";
+import { StorageKeys } from "../../lib/storageKeys";
 import {
   Table,
   TableBody,
@@ -49,12 +50,12 @@ type SortDirection = 'asc' | 'desc';
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
-const PAGE_SIZE_STORAGE_KEY = 'accountsTable.pageSize.v1';
+const PAGE_SIZE_STORAGE_KEY = StorageKeys.accounts.pageSize;
 const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.160: 정렬 선호 localStorage 키. URL 이 authoritative — localStorage 는 URL 이
 // 비어있을 때만 default 로 hydrate. 손상된 값은 조용히 무시.
-const SORT_STORAGE_KEY = 'accountsTable.sort.v1';
+const SORT_STORAGE_KEY = StorageKeys.accounts.sort;
 
 // v0.199: 컬럼 표시 여부 선택. 선택/이메일/관리 3 개는 필수 (항상 표시).
 // 나머지 4개 (이름 · 조직 단위 · 관리자 · 정지) 는 사용자가 숨김/표시 가능.
@@ -71,7 +72,7 @@ const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = [
   'admin',
   'suspended',
 ];
-const VISIBLE_COLUMNS_STORAGE_KEY = 'accountsTable.visibleColumns.v1';
+const VISIBLE_COLUMNS_STORAGE_KEY = StorageKeys.accounts.visibleColumns;
 
 // v0.221: shared visibleColumnsStorage factory 사용.
 const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];

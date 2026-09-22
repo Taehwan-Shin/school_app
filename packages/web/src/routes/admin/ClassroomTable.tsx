@@ -17,6 +17,7 @@ import {
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
 import { deserializeSort, type StoredSortPref } from '../../lib/sortStorage';
+import { StorageKeys } from '../../lib/storageKeys';
 import {
   Table,
   TableBody,
@@ -59,7 +60,7 @@ type SortColumn = 'name' | 'section' | 'state' | null;
 type SortDirection = 'asc' | 'desc';
 
 // v0.162: 정렬 선호 localStorage 키 (v0.160/v0.161 대칭).
-const SORT_STORAGE_KEY = 'classroomTable.sort.v1';
+const SORT_STORAGE_KEY = StorageKeys.classroom.sort;
 
 // v0.221 R1: `deserializeSort` 를 shared `sortStorage.ts` factory 로 이식.
 type KpiFilter = 'active' | 'archived' | null;
@@ -68,7 +69,7 @@ type KpiFilter = 'active' | 'archived' | null;
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
-const PAGE_SIZE_STORAGE_KEY = 'classroomTable.pageSize.v1';
+const PAGE_SIZE_STORAGE_KEY = StorageKeys.classroom.pageSize;
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize.
 // v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
@@ -84,7 +85,7 @@ const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
   { key: 'link', label: '링크' },
 ];
 const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = ['name', 'section', 'state', 'id', 'link'];
-const VISIBLE_COLUMNS_STORAGE_KEY = 'classroomTable.visibleColumns.v1';
+const VISIBLE_COLUMNS_STORAGE_KEY = StorageKeys.classroom.visibleColumns;
 
 // v0.221: shared visibleColumnsStorage factory 사용.
 const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];

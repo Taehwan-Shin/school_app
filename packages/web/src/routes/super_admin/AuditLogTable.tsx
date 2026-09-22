@@ -26,6 +26,7 @@ import {
   serializeVisibleColumns,
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
+import { StorageKeys } from '../../lib/storageKeys';
 import {
   listPresets,
   savePreset,
@@ -40,7 +41,7 @@ const ALLOWED_DOMAIN_SUFFIX = '@cam.hs.kr';
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
-const PAGE_SIZE_STORAGE_KEY = 'auditLogTable.pageSize.v1';
+const PAGE_SIZE_STORAGE_KEY = StorageKeys.auditLog.pageSize;
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize.
 // v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
@@ -57,7 +58,7 @@ const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
   { key: 'message', label: '메시지' },
 ];
 const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = ['role', 'target', 'reqId', 'message'];
-const VISIBLE_COLUMNS_STORAGE_KEY = 'auditLogTable.visibleColumns.v1';
+const VISIBLE_COLUMNS_STORAGE_KEY = StorageKeys.auditLog.visibleColumns;
 
 // v0.221: shared visibleColumnsStorage factory 사용 (v0.216 R1 F-A 로직 보존).
 const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];

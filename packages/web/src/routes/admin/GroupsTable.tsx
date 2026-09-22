@@ -14,6 +14,7 @@ import {
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
 import { deserializeSort, type StoredSortPref } from '../../lib/sortStorage';
+import { StorageKeys } from '../../lib/storageKeys';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -38,14 +39,14 @@ type SortDirection = 'asc' | 'desc';
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
-const PAGE_SIZE_STORAGE_KEY = 'groupsTable.pageSize.v1';
+const PAGE_SIZE_STORAGE_KEY = StorageKeys.groups.pageSize;
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize (raw number string).
 // v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
 const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.161: 정렬 선호 localStorage 키 (v0.160 AccountsTable 대칭).
-const SORT_STORAGE_KEY = 'groupsTable.sort.v1';
+const SORT_STORAGE_KEY = StorageKeys.groups.sort;
 
 // v0.200: 컬럼 표시 여부 (v0.199 AccountsTable 대칭). 선택/이메일/관리 3 개는 필수.
 // name · description · aliases · directMembersCount 4 개는 사용자 토글.
@@ -62,7 +63,7 @@ const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = [
   'aliases',
   'directMembersCount',
 ];
-const VISIBLE_COLUMNS_STORAGE_KEY = 'groupsTable.visibleColumns.v1';
+const VISIBLE_COLUMNS_STORAGE_KEY = StorageKeys.groups.visibleColumns;
 
 // v0.221: shared visibleColumnsStorage factory 사용.
 const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];
