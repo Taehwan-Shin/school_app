@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { Banner } from "../../components/Banner";
 import { useDeleteUser } from "../../api/usersDelete";
 
 export interface DeleteUserTarget {
@@ -75,14 +76,12 @@ export function DeleteUserDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="delete-user-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.234: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="delete-user-error"
+          />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>
