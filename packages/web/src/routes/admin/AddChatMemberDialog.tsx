@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useChatMembersAdd } from '../../api/chatMembersAdd';
 
 export interface AddChatMemberDialogProps {
@@ -83,14 +84,14 @@ export function AddChatMemberDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {addMutation.isError && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="add-chat-member-error"
-            >
-              {addMutation.error?.message || '알 수 없는 오류'}
-            </div>
-          )}
+          {/* v0.238: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={
+              addMutation.isError ? addMutation.error?.message || '알 수 없는 오류' : null
+            }
+            testId="add-chat-member-error"
+          />
 
           <div className="space-y-2">
             <label htmlFor="add-chat-member-email-input" className="text-small text-fg-secondary mb-1 block">
