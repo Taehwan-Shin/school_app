@@ -2185,11 +2185,15 @@ describe("AccountsTable component", () => {
         //         에 「null」 저장. null 또는 "null" 모두 default 의미.
         const storedSort = localStorage.getItem("accountsTable.sort.v1");
         expect(storedSort === null || storedSort === 'null').toBe(true);
-        // v0.220: pageSize 는 useLocalStorageState 이식 → removeItem 후 setPageSize(DEFAULT)
-        //         가 localStorage 재저장. 결과: null 이거나 default 문자열 (둘 다 기본값 의미).
+        // v0.220: pageSize hook · v0.221: visibleColumns hook — reset 시 hook 이 default 재저장.
+        //         결과: null 이거나 default 문자열 (둘 다 기본값 의미).
         const storedPageSize = localStorage.getItem("accountsTable.pageSize.v1");
         expect(storedPageSize === null || storedPageSize === "25").toBe(true);
-        expect(localStorage.getItem("accountsTable.visibleColumns.v1")).toBeNull();
+        const storedVisible = localStorage.getItem("accountsTable.visibleColumns.v1");
+        expect(
+          storedVisible === null ||
+            storedVisible === JSON.stringify(['name', 'orgUnitPath', 'admin', 'suspended']),
+        ).toBe(true);
       });
       expect(
         (screen.getByTestId("accounts-page-size-select") as HTMLSelectElement).value,

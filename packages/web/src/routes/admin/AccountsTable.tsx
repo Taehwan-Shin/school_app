@@ -14,6 +14,10 @@ import {
   makePageSizeDeserializer,
 } from "../../lib/pageSizeStorage";
 import {
+  serializeVisibleColumns,
+  makeVisibleColumnsDeserializer,
+} from "../../lib/visibleColumnsStorage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -60,24 +64,20 @@ const TOGGLEABLE_COLUMNS: readonly { key: ToggleColumnKey; label: string }[] = [
   { key: 'admin', label: '관리자' },
   { key: 'suspended', label: '정지' },
 ];
-const DEFAULT_VISIBLE_COLUMNS: ToggleColumnKey[] = ['name', 'orgUnitPath', 'admin', 'suspended'];
+const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = [
+  'name',
+  'orgUnitPath',
+  'admin',
+  'suspended',
+];
 const VISIBLE_COLUMNS_STORAGE_KEY = 'accountsTable.visibleColumns.v1';
 
-function readStoredVisibleColumns(): Set<ToggleColumnKey> {
-  try {
-    const raw = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
-    if (!raw) return new Set(DEFAULT_VISIBLE_COLUMNS);
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set(DEFAULT_VISIBLE_COLUMNS);
-    const validKeys = TOGGLEABLE_COLUMNS.map((c) => c.key) as string[];
-    const filtered = parsed.filter((k): k is ToggleColumnKey =>
-      typeof k === 'string' && validKeys.includes(k),
-    );
-    return new Set(filtered);
-  } catch {
-    return new Set(DEFAULT_VISIBLE_COLUMNS);
-  }
-}
+// v0.221: shared visibleColumnsStorage factory 사용.
+const VALID_COLUMN_KEYS = TOGGLEABLE_COLUMNS.map((c) => c.key) as readonly ToggleColumnKey[];
+const deserializeVisibleColumns = makeVisibleColumnsDeserializer<ToggleColumnKey>(
+  VALID_COLUMN_KEYS,
+  DEFAULT_VISIBLE_COLUMNS,
+);
 
 interface StoredSortPref {
   sort?: string;
@@ -136,9 +136,12 @@ export function AccountsTable() {
     undefined,
     deserializeSort,
   );
-  // v0.199: 컬럼 표시 여부. lazy init from localStorage.
-  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleColumnKey>>(
-    () => readStoredVisibleColumns(),
+  // v0.199: 컬럼 표시 여부. v0.221: useLocalStorageState 이식 · shared factory.
+  const [visibleColumns, setVisibleColumns] = useLocalStorageState<Set<ToggleColumnKey>>(
+    VISIBLE_COLUMNS_STORAGE_KEY,
+    new Set(DEFAULT_VISIBLE_COLUMNS),
+    serializeVisibleColumns,
+    deserializeVisibleColumns,
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   // v0.202: outside-click auto-close.
@@ -155,63 +158,32 @@ export function AccountsTable() {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      try {
-        localStorage.setItem(
-          VISIBLE_COLUMNS_STORAGE_KEY,
-          JSON.stringify(Array.from(next)),
-        );
-      } catch {
-        // localStorage disabled → no-op.
-      }
       return next;
     });
   };
 
   // v0.204: 전체 표시 / 전체 숨김 quick actions.
   const setAllVisible = (visible: boolean) => {
-    const next: Set<ToggleColumnKey> = visible
-      ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key))
-      : new Set();
-    setVisibleColumns(next);
-    try {
-      localStorage.setItem(
-        VISIBLE_COLUMNS_STORAGE_KEY,
-        JSON.stringify(Array.from(next)),
-      );
-    } catch {
-      // localStorage disabled → no-op.
-    }
+    setVisibleColumns(
+      visible ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key)) : new Set(),
+    );
   };
 
   // v0.205: 「간결」 preset — 이름 컬럼만 표시 (이메일 + 관리 는 필수라 항상 있음).
   const applyMinimalPreset = () => {
-    const next: Set<ToggleColumnKey> = new Set(['name']);
-    setVisibleColumns(next);
-    try {
-      localStorage.setItem(
-        VISIBLE_COLUMNS_STORAGE_KEY,
-        JSON.stringify(Array.from(next)),
-      );
-    } catch {
-      // localStorage disabled → no-op.
-    }
+    setVisibleColumns(new Set(['name']));
   };
   const isMinimalActive =
     visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
   // v0.209: 실수 방지 confirm.
-  // v0.220: pageSize hook 이 default 재저장 · v0.221: sort hook 이 null 저장 (semantic 동일).
+  // v0.220/v0.221: pageSize/sort/visibleColumns 모두 hook 이 저장 (removeItem 불필요).
   const resetUserPreferences = () => {
     const ok = window.confirm(
       '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
     );
     if (!ok) return;
-    try {
-      localStorage.removeItem(VISIBLE_COLUMNS_STORAGE_KEY);
-    } catch {
-      // localStorage disabled → no-op.
-    }
     setPageSize(DEFAULT_PAGE_SIZE);
     setStoredSort(null);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
