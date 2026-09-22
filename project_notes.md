@@ -5173,7 +5173,46 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.222**: 3 admin 테이블 sort hook 이식.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-23 · v0.221 ~ v0.227 (다세션 shared modules 카탈로그 확대)
 
+### 커밋 표
+
+| 슬라이스 | 병합 | 요약 |
+|---|---|---|
+| v0.221 | `c49aa08` | 3 admin 테이블 sort 저장 shared `sortStorage.ts` factory (label swap 으로 다른 세션 구현 채택). Codex 3 라운드 iteration. |
+| v0.222 | `8efec66` | 4 테이블 visibleColumns `useLocalStorageState` 이식. Shared `visibleColumnsStorage.ts` factory. Codex R0 CLEAN 10/0/0. |
+| v0.224 | `58b9578` | 신규 `storageKeys.ts` catalog (13 localStorage 키 통합). 4 테이블 + filterPresets. Codex R0 실패 1 (F-A) → R1 반영. |
+| v0.225 | `cb7271b` | 「선호 초기화」 성공 배너 3 admin 테이블 통합. Groups/Classroom 신규 state. 2초 자동 dismiss. |
+| v0.226 | `81aa949` | 신규 `useAutoDismissBanner` shared hook. `show(msg, ms?=2000)`/`clear()`. Unmount timer cleanup 안전. 3 테이블 이식. |
+| v0.227 | `829e5da` | 신규 `SuccessBanner` shared component. role=status · aria-live=polite. 3 admin 테이블 markup 통합. |
+
+### Shared modules 최종 카탈로그 (v0.219~v0.227)
+
+| # | 모듈 | 역할 |
+|---|---|---|
+| 1 | `lib/useLocalStorageState` | React state + localStorage 자동 동기화 hook. |
+| 2 | `lib/useMenuArrowNav` | WAI-ARIA menu 방향키 nav. |
+| 3 | `lib/useAutoDismissBanner` | 자동 dismiss 배너 hook (unmount cleanup 안전). |
+| 4 | `lib/pageSizeStorage` | pageSize serialize/deserialize factory. |
+| 5 | `lib/sortStorage` | sort pref factory (null=reset vs undefined=invalid). |
+| 6 | `lib/visibleColumnsStorage` | Set<K> visibleColumns factory (명시적 empty 유지 · all-unknown fallback). |
+| 7 | `lib/storageKeys` | 13 localStorage 키 통합 catalog. |
+| 8 | `components/SuccessBanner` | 성공 상태 배너 shared component. |
+
+### 배운 것 (7 슬라이스)
+
+- **다세션 병렬 iteration 강력**: v0.221 sort factory 는 세 세션이 각자 다른 factory 설계 · 최종 병합에서 가장 정교한 API (`null=reset`/`undefined=invalid`) 채택. Multi-session convergence 이점.
+- **Label swap 관찰**: 여러 세션이 병렬로 v0.221/v0.222 라벨을 서로 다르게 할당. 병합 시 정합성 검증 필요.
+- **Codex iteration 은 정교화 필터**: 매 감사 라운드가 edge case (partial parse · empty vs unknown · setItem quota · updater purity · StrictMode) 드러냄. 단일 세션으로는 도달 불가능한 정교화.
+- **성공 배너 leak 사례**: v0.225 에서 flagged 된 setTimeout leak 을 v0.226 에서 hook 으로 해결. Codex 지적이 실제 hook 설계에 반영.
+- **hook + component 분리**: v0.226 (hook, state 관리) + v0.227 (component, render markup) 완전 분리 · SoC 유지.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.228+**: 다른 시나리오 (error banner · warning banner) 로 SuccessBanner pattern 확장.
+  - **v0.229+**: Test infra (React Testing Library helpers).
+- 로드맵 남은 (blocked): 위와 동일.
 
 
 

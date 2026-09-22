@@ -1,7 +1,18 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.222 병합 완료** (`8efec66`) - visibleColumns hook 이식 · Codex R0 CLEAN 10/0/0. **v0.221** (`c49aa08`) - sort factory + R1 refactor. **v0.220** (`61c539e`) - pageSize hook 이식. **v0.219 R9** (`3fa1480`) - useLocalStorageState 최종.
+> **v0.227 병합 완료** (`829e5da`) - SuccessBanner shared component · 웹 1279. **v0.226** (`81aa949`) - useAutoDismissBanner shared hook (setTimeout unmount cleanup). **v0.225** (`cb7271b`) - 선호 초기화 성공 배너 3 테이블 통합. **v0.224** (`58b9578`) - storageKeys catalog (13 키 통합). **v0.222** (`8efec66`) - visibleColumns hook · CLEAN. **v0.221** (`c49aa08`) - sort factory. **v0.220** (`61c539e`) - pageSize hook. **v0.219 R9** (`3fa1480`) - useLocalStorageState 최종.
+
+## Shared modules 카탈로그 (v0.219~v0.227)
+
+1. `lib/useLocalStorageState.ts` — React state + localStorage 자동 동기화 hook.
+2. `lib/useMenuArrowNav.ts` — WAI-ARIA menu 방향키 navigation.
+3. `lib/useAutoDismissBanner.ts` — 자동 dismiss 배너 hook (unmount cleanup 안전).
+4. `lib/pageSizeStorage.ts` — pageSize serialize/deserialize factory.
+5. `lib/sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
+6. `lib/visibleColumnsStorage.ts` — Set<K> visibleColumns factory.
+7. `lib/storageKeys.ts` — 13 localStorage 키 통합 catalog.
+8. `components/SuccessBanner.tsx` — 성공 상태 배너 shared component (role=status · aria-live).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 

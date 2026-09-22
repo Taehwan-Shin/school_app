@@ -28,6 +28,10 @@
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.227 | `829e5da` (main) | 신규 `SuccessBanner` shared component (role=status + aria-live · 3 admin 테이블 반복 markup 대체). 회귀 3건. 웹 1279 (+3) · lint clean · 서버 무변경. |
+| v0.226 | `81aa949` (main) | 신규 `useAutoDismissBanner` shared hook. `show(msg, ms?=2000)`/`clear()` · unmount timer cleanup 안전 (v0.225 flagged leak 해결). 3 admin 테이블 setTimeout 사용처 이식. 회귀 6건. 웹 1276 (+6). |
+| v0.225 | `cb7271b` (main) | 「선호 초기화」 성공 배너 3 admin 테이블 통합. Accounts 는 기존 state 재사용, Groups/Classroom 은 신규 state + 렌더. 2초 자동 dismiss. |
+| v0.224 | `58b9578` (main) | 신규 `storageKeys.ts` catalog (13 웹 localStorage 키). 4 테이블 + filterPresets 이 catalog 참조 · 값 동일 (backward compat). Codex R0 실패 1 (F-A filterPresets 누락) → R1 반영. 회귀 6건. 웹 1270. |
 | v0.222 | `8efec66` (main) | 4 테이블 visibleColumns useLocalStorageState 이식. Shared `visibleColumnsStorage.ts` factory (Set serializer · 명시적 empty 유지 · all-unknown fallback · non-array undefined · v0.216 R1 F-A 보존). 4 테이블 hydrate/toggle/setAll/preset/reset 모두 hook 위에. Codex R0 통과 10/0/0. 감사 `RESEARCH/SCHOOL_APP_V221_V222_CODEX_AUDIT.md`. |
 | v0.221 | `c49aa08` (main) | 3 admin 테이블 sort 저장 shared `sortStorage.ts` factory. `deserializeSort` (null=reset vs undefined=invalid 구분) · `persistSortPref`. 3 테이블 mount hydrate + change persist inline 함수 대체. Codex R0 실패 2 · R1 refactor 및 fix. |
 | v0.220 | `61c539e` (main) | 4 테이블 pageSize `useLocalStorageState` 이식. Shared `pageSizeStorage.ts` factory (Number.isInteger + whitelist · partial/float/손상값 거부). 4 테이블 각 UI hydrate 회귀 (`25junk`/`50junk`/`100xyz`/`50abc`). Codex R2 통과 13 · 실패 0 · 판정불가 0. 웹 1242 · lint clean · 서버 무변경. 감사 `RESEARCH/SCHOOL_APP_V220_CODEX_AUDIT.md`. |
