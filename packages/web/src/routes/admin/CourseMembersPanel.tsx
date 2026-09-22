@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -173,16 +174,21 @@ export function CourseMembersPanel({
           </Button>
         </div>
       )}
-      {currentAdd.error && (
-        <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-add-error">
-          추가 실패: {currentAdd.error.message}
-        </div>
-      )}
-      {currentDelete.error && (
-        <div className="border border-state-danger p-2 text-small text-state-danger mb-4" data-testid="course-members-delete-error">
-          삭제 실패: {currentDelete.error.message}
-        </div>
-      )}
+      {/* v0.234: Banner 이식 · 원래 mb-4 유지. */}
+      <div className={currentAdd.error ? 'mb-4' : ''}>
+        <Banner
+          variant="error"
+          message={currentAdd.error ? `추가 실패: ${currentAdd.error.message}` : null}
+          testId="course-members-add-error"
+        />
+      </div>
+      <div className={currentDelete.error ? 'mb-4' : ''}>
+        <Banner
+          variant="error"
+          message={currentDelete.error ? `삭제 실패: ${currentDelete.error.message}` : null}
+          testId="course-members-delete-error"
+        />
+      </div>
 
       {showLoading && (
         <div
