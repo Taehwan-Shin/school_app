@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useUpdateMemberRole } from '../../api/groupsMembersUpdate';
 
 export interface EditMemberRoleDialogProps {
@@ -88,14 +89,12 @@ export function EditMemberRoleDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="edit-member-role-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.231: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="edit-member-role-error"
+          />
 
           <div className="space-y-3 bg-surface p-4 border border-border-subtle text-small">
             <div className="flex justify-between">

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useRemoveMember } from '../../api/groupsMembersDelete';
 
 export interface RemoveMemberTarget {
@@ -80,14 +81,12 @@ export function RemoveMemberDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="remove-member-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.231: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="remove-member-error"
+          />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>
