@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLocalStorageState } from '../src/lib/useLocalStorageState';
@@ -328,7 +329,7 @@ describe('useLocalStorageState (v0.219)', () => {
 
   // v0.219 R5 F-M: StrictMode 에서 functional updater 가 두 번 호출돼도 pendingWriteRef snapshot
   //                은 한 번만 (updater 밖에서 sync 하게 기록). 저장 결과는 결정적.
-  it('R5 F-M: functional updater 다중 호출 안전 (StrictMode-style)', () => {
+  it('R5 F-M: functional updater 다중 호출 안전 (act 배치)', () => {
     const { result } = renderHook(() => useLocalStorageState<number>('k24', 0));
     // 두 번 setter 호출 (act 안 배치 · functional updater 는 두 번 처리됨).
     act(() => {
@@ -339,5 +340,42 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(result.current[0]).toBe(15);
     // 저장값도 최종 15 (pending overwrite 로 마지막 setter 시점 snapshot).
     expect(localStorage.getItem('k24')).toBe('15');
+  });
+
+  // v0.219 R6 F-M: 실제 <StrictMode> wrapper 로 state updater 이중 호출을 재현.
+  //                이전 「StrictMode-style」 회귀는 wrapper 없어서 R4 의 updater 내부
+  //                ref mutation 도 통과했음 (Codex R5 F-M).
+  //                pure updater 는 이중 호출돼도 결정적 · localStorage 는 setter 당 정확히 1번 저장.
+  it('R6 F-M: <StrictMode> 안에서 functional updater ×N 은 결정적 결과 (updater purity)', () => {
+    const { result } = renderHook(
+      () => useLocalStorageState<number>('k25', 0),
+      { wrapper: StrictMode },
+    );
+    // functional updater — StrictMode 는 이걸 render 마다 두 번 호출.
+    // updater 안 side effect (ref mutation) 가 있으면 결과가 뒤엉킴.
+    act(() => {
+      result.current[1]((prev) => prev + 7);
+    });
+    // 정확히 +7. StrictMode 이중 호출로 +14 가 되면 F-M 회귀.
+    expect(result.current[0]).toBe(7);
+    expect(localStorage.getItem('k25')).toBe('7');
+
+    // 다시 한 번 (누적).
+    act(() => {
+      result.current[1]((prev) => prev + 3);
+    });
+    expect(result.current[0]).toBe(10);
+    expect(localStorage.getItem('k25')).toBe('10');
+  });
+
+  // v0.219 R6 F-M: <StrictMode> 안에서 non-functional setter 도 결정적.
+  it('R6 F-M: <StrictMode> 안에서 non-functional setter 결정적', () => {
+    const { result } = renderHook(
+      () => useLocalStorageState<number>('k26', 0),
+      { wrapper: StrictMode },
+    );
+    act(() => result.current[1](42));
+    expect(result.current[0]).toBe(42);
+    expect(localStorage.getItem('k26')).toBe('42');
   });
 });
