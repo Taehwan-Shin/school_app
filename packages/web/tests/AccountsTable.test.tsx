@@ -1795,24 +1795,27 @@ describe("AccountsTable component", () => {
 
     // v0.221 R1 F-B: 「선호 초기화」 시 sort key removeItem 이 hook setItem 이전에 실행되어
     //                setItem quota 실패 시에도 sort 는 확실히 제거됨을 검증.
+    // v0.221 R2: try/finally 로 prototype 복원 보장 (assertion 실패 시 오염 방지).
     it("R1 F-B: setItem quota 실패 시에도 「선호 초기화」 로 sort 는 제거 (removeItem 방어)", () => {
       localStorage.setItem(
         "accountsTable.sort.v1",
         JSON.stringify({ sort: "email", dir: "desc" }),
       );
-      // reset 시점부터 setItem 을 모두 throw 로 stub → hook 의 setItem("null") 실패 유도.
       const originalSetItem = Storage.prototype.setItem;
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      renderWithRouter(<AccountsTable />, ["/admin"]);
-      fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
-      Storage.prototype.setItem = () => {
-        throw new Error("QuotaExceededError");
-      };
-      fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
-      // removeItem 이 hook setItem 실패 이전에 실행 → sort 는 제거됨.
-      expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
-      Storage.prototype.setItem = originalSetItem;
-      confirmSpy.mockRestore();
+      try {
+        renderWithRouter(<AccountsTable />, ["/admin"]);
+        fireEvent.click(screen.getByTestId("accounts-column-menu-btn"));
+        Storage.prototype.setItem = () => {
+          throw new Error("QuotaExceededError");
+        };
+        fireEvent.click(screen.getByTestId("accounts-reset-user-prefs"));
+        // removeItem 이 hook setItem 실패 이전에 실행 → sort 는 제거됨.
+        expect(localStorage.getItem("accountsTable.sort.v1")).toBeNull();
+      } finally {
+        Storage.prototype.setItem = originalSetItem;
+        confirmSpy.mockRestore();
+      }
     });
 
     it("localStorage 손상값은 무시 (JSON parse 실패)", () => {
