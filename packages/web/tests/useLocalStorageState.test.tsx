@@ -342,25 +342,23 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(localStorage.getItem('k24')).toBe('15');
   });
 
-  // v0.219 R6 F-M: 실제 <StrictMode> wrapper 로 state updater 이중 호출을 재현.
-  //                이전 「StrictMode-style」 회귀는 wrapper 없어서 R4 의 updater 내부
-  //                ref mutation 도 통과했음 (Codex R5 F-M).
-  //                pure updater 는 이중 호출돼도 결정적 · localStorage 는 setter 당 정확히 1번 저장.
-  it('R6 F-M: <StrictMode> 안에서 functional updater ×N 은 결정적 결과 (updater purity)', () => {
+  // v0.219 R6: <StrictMode> wrapper 안에서 결과 결정성 검증. Codex R8 판정불가 (F-M):
+  //            공개 state/storage 결과로 impure updater 재발을 관측할 수 없음. 이 회귀는
+  //            F-M purity 재발을 직접 검출하지 않는다 (Codex R7 F-P). 단 「StrictMode 하
+  //            functional/non-functional setter 가 state 와 저장값을 결정적으로 유지」 라는
+  //            공개 계약 자체는 검증 가치가 있어 유지. F-M 계약은 소스 파일에서 문서화.
+  it('R6: <StrictMode> 안에서 functional updater 는 결과가 결정적 (StrictMode 계약)', () => {
     const { result } = renderHook(
       () => useLocalStorageState<number>('k25', 0),
       { wrapper: StrictMode },
     );
-    // functional updater — StrictMode 는 이걸 render 마다 두 번 호출.
-    // updater 안 side effect (ref mutation) 가 있으면 결과가 뒤엉킴.
     act(() => {
       result.current[1]((prev) => prev + 7);
     });
-    // 정확히 +7. StrictMode 이중 호출로 +14 가 되면 F-M 회귀.
     expect(result.current[0]).toBe(7);
     expect(localStorage.getItem('k25')).toBe('7');
 
-    // 다시 한 번 (누적).
+    // 누적.
     act(() => {
       result.current[1]((prev) => prev + 3);
     });
@@ -368,8 +366,8 @@ describe('useLocalStorageState (v0.219)', () => {
     expect(localStorage.getItem('k25')).toBe('10');
   });
 
-  // v0.219 R6 F-M: <StrictMode> 안에서 non-functional setter 도 결정적.
-  it('R6 F-M: <StrictMode> 안에서 non-functional setter 결정적', () => {
+  // v0.219 R6: <StrictMode> 안에서 non-functional setter 결과 결정성.
+  it('R6: <StrictMode> 안에서 non-functional setter 결과 결정적', () => {
     const { result } = renderHook(
       () => useLocalStorageState<number>('k26', 0),
       { wrapper: StrictMode },
