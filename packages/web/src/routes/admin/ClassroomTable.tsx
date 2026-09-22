@@ -9,6 +9,10 @@ import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import {
+  serializePageSize,
+  makePageSizeDeserializer,
+} from '../../lib/pageSizeStorage';
+import {
   Table,
   TableBody,
   TableCell,
@@ -81,13 +85,8 @@ const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'classroomTable.pageSize.v1';
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize.
-const serializePageSize = (v: PageSize): string => String(v);
-const deserializePageSize = (raw: string): PageSize | undefined => {
-  const parsed = Number.parseInt(raw, 10);
-  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
-    ? (parsed as PageSize)
-    : undefined;
-};
+// v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
+const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.201: 컬럼 표시 여부 (v0.199/v0.200 대칭). 선택/관리 2 개는 필수. 5 필드 토글.
 type ToggleColumnKey = 'name' | 'section' | 'state' | 'id' | 'link';

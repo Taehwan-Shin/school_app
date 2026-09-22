@@ -5,6 +5,10 @@ import { useEscapeKey } from '../../lib/useEscapeKey';
 import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
+import {
+  serializePageSize,
+  makePageSizeDeserializer,
+} from '../../lib/pageSizeStorage';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
 import {
@@ -32,13 +36,8 @@ const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'groupsTable.pageSize.v1';
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize (raw number string).
-const serializePageSize = (v: PageSize): string => String(v);
-const deserializePageSize = (raw: string): PageSize | undefined => {
-  const parsed = Number.parseInt(raw, 10);
-  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
-    ? (parsed as PageSize)
-    : undefined;
-};
+// v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
+const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.161: 정렬 선호 localStorage 키 (v0.160 AccountsTable 대칭).
 const SORT_STORAGE_KEY = 'groupsTable.sort.v1';

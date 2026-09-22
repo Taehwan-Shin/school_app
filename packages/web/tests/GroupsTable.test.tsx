@@ -1166,6 +1166,15 @@ describe('GroupsTable component', () => {
       expect(select.value).toBe('25');
     });
 
+    // v0.220 R1 F-A: parseInt partial-parse ("50junk"→50) 는 거부.
+    it("partial-parse 값 '50junk' 도 fallback (v0.220 R1 F-A)", () => {
+      localStorage.setItem('groupsTable.pageSize.v1', '50junk');
+      setup();
+      renderWithRouter(<GroupsTable />);
+      const select = screen.getByTestId('groups-page-size-select') as HTMLSelectElement;
+      expect(select.value).toBe('25');
+    });
+
     // v0.196: page N of M 표기.
     it('v0.196: 「1 / 2 페이지」 표기 + 다음 페이지 시 「2 / 2」', async () => {
       setup();

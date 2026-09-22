@@ -10,6 +10,10 @@ import { useFocusTrap } from "../../lib/useFocusTrap";
 import { useMenuArrowNav } from "../../lib/useMenuArrowNav";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
 import {
+  serializePageSize,
+  makePageSizeDeserializer,
+} from "../../lib/pageSizeStorage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,18 +40,12 @@ type SortDirection = 'asc' | 'desc';
 
 // v0.193: 페이지 크기 셀렉터. 사용자 선택은 localStorage 에 저장 (도메인 · 사용자 로컬).
 // v0.220: useLocalStorageState 이식 — 커스텀 serialize/deserialize 로 raw number string 유지.
+// v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'accountsTable.pageSize.v1';
-
-const serializePageSize = (v: PageSize): string => String(v);
-const deserializePageSize = (raw: string): PageSize | undefined => {
-  const parsed = Number.parseInt(raw, 10);
-  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
-    ? (parsed as PageSize)
-    : undefined;
-};
+const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.160: 정렬 선호 localStorage 키. URL 이 authoritative — localStorage 는 URL 이
 // 비어있을 때만 default 로 hydrate. 손상된 값은 조용히 무시.

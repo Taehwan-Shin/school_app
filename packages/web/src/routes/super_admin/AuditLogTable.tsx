@@ -19,6 +19,10 @@ import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import {
+  serializePageSize,
+  makePageSizeDeserializer,
+} from '../../lib/pageSizeStorage';
+import {
   listPresets,
   savePreset,
   deletePreset,
@@ -35,13 +39,8 @@ const DEFAULT_PAGE_SIZE: PageSize = 25;
 const PAGE_SIZE_STORAGE_KEY = 'auditLogTable.pageSize.v1';
 
 // v0.220: useLocalStorageState 이식 · 커스텀 serialize.
-const serializePageSize = (v: PageSize): string => String(v);
-const deserializePageSize = (raw: string): PageSize | undefined => {
-  const parsed = Number.parseInt(raw, 10);
-  return PAGE_SIZE_OPTIONS.includes(parsed as PageSize)
-    ? (parsed as PageSize)
-    : undefined;
-};
+// v0.220 R1: shared `pageSizeStorage` 로 4 테이블 공통 (F-A: Number.isInteger 엄격 검증).
+const deserializePageSize = makePageSizeDeserializer(PAGE_SIZE_OPTIONS);
 
 // v0.216: 컬럼 표시 여부 선택. 시간/행위자/액션/결과 4 개는 필수 (항상 표시).
 // 나머지 4개 (역할/대상/요청 ID/메시지) 는 사용자가 숨김/표시 가능.
