@@ -5126,6 +5126,53 @@ ROADMAP 남은 후보 (v0.154+):
   - **v0.222**: 3 admin 테이블 sort 이식.
 - 로드맵 남은 (blocked): 위와 동일.
 
+## 2026-09-22 · v0.219 R2~R6 · v0.220 (Codex 6+2 라운드 iteration)
+
+### 커밋 표 (v0.219 iteration continued)
+
+| 라운드 | 커밋 | 요약 |
+|---|---|---|
+| R2 | `726f787` | F-E/F/G 반영 (undefined revert · updater purity · serializer switch 회귀) |
+| R3 | `8afcea1` | F-H/I/J 반영 (writeVersion pattern · same-value setter · deserializer 재 hydrate) |
+| R4 | `cf7c01c` | F-K/L 반영 (setter+key 동시 배치 pendingWriteRef) |
+| R5 | `002cc42` | F-M/N/O 반영 (updater purity 재확보 · pending snapshot 3-tuple) |
+| R6 | `caaf998` | F-P 반영 (real StrictMode wrapper 회귀) |
+
+### v0.220 커밋 표
+
+| 단계 | 커밋 | 요약 |
+|---|---|---|
+| 슬라이스 | `634a825` | feat: v0.220 4 테이블 pageSize useLocalStorageState 이식 (rebased) |
+| R1 fix | `3adcd56` | fix: v0.220 R1 Codex 실패 2건 반영 (F-A partial-parse) · shared factory 승격 |
+| 병합 | `61c539e` | Merge feat/pagesize-hook-v220 into main |
+
+### v0.219 최종 학습 요약 (6 라운드)
+
+- **Same-value setter → effect skip 문제** (F-H): React 는 `setValue(prev)` 결과가 이전 값이면 re-render skip → useEffect 미실행 → flag ref 잔류. 해결: setter 마다 증가하는 `writeVersion` state.
+- **setter+key 동시 배치** (F-K): 같은 batch 에서 setter 호출 + key 변경 시, effect 는 새 key 에 setter 값을 쓸 위험. 해결: pending snapshot `{key, value, serializer}` 3-tuple 을 setter 호출 시점 capture · effect 는 snapshot 기준 저장.
+- **Updater purity vs snapshot capture** (F-M): pending snapshot 을 state updater 안에서 mutation 하면 React StrictMode double-invoke 시 중복 side effect. 해결: pending capture 를 `setValue` 호출 **전**에 수행 · state updater 는 pure.
+- **StrictMode 회귀 필수** (F-P): React 18 + StrictMode 는 개발 시 updater 를 double-invoke. 회귀 테스트는 실제 `<StrictMode>` wrapper 로 구성해야 검증 가능.
+
+### v0.220 결과물
+
+- Shared `pageSizeStorage.ts` factory 승격 (v0.220 R1 · 다른 세션): Number.isInteger + whitelist · partial 문자열 · float · 손상값 거부.
+- 4 테이블 (Accounts/Groups/Classroom/AuditLog) 이식.
+- 4 테이블 UI hydrate junk-fallback 회귀 (`25junk`/`50junk`/`100xyz`/`50abc`).
+- Codex R2 (`caaf998` 대상): 통과 13 · 실패 0 · 판정불가 0. **CLEAN**.
+
+### 배운 것 (v0.219 R2~R6 · v0.220)
+
+- **다세션 병렬 감사 iteration 은 강력**: 여러 Honey 세션이 각자 Codex R0/R1/R2 fix 를 독립적으로 처리. 각 세션의 fix commit 이 main 에 stack 됨. R0 → R6 총 6 라운드 · 각 라운드 1-2 실패 지적 → 정교한 hook 로 수렴.
+- **shared factory 승격 (v0.220 R1)**: 4 테이블에서 pageSize serialize/deserialize 반복 → `pageSizeStorage.ts` factory 로 승격. 이는 v0.220 이 v0.219 hook 위에 있음에도 별도 factory 층을 추가한 것 · serialize/deserialize 로직도 shared 가치.
+- **감사 iteration 은 코드 품질 필터**: 매 라운드가 특정 edge case 드러냄 (same-value / batch / purity / StrictMode). Codex 없이 단일 세션으로는 이 정도 로직 정교화는 불가능.
+
+### 다음 세션에 이어갈 것
+
+- 순차 다음 후보:
+  - **v0.221**: 4 테이블 visibleColumns hook 이식 (v0.220 패턴 반복).
+  - **v0.222**: 3 admin 테이블 sort hook 이식.
+- 로드맵 남은 (blocked): 위와 동일.
+
 
 
 
