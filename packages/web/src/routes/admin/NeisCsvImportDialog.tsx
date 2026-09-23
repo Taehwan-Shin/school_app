@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
@@ -331,19 +332,25 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
               </p>
             ) : (
               <>
-                {overlyLongRows.length > 0 && (
-                  <div
-                    className="border border-state-danger bg-canvas p-3 space-y-1"
-                    data-testid="neis-preview-name-limit-warning"
-                  >
-                    <p className="text-small text-state-danger font-medium">
-                      코스 이름 상한 초과 {overlyLongRows.length}개 행 — 실행 불가
-                    </p>
-                    <p className="text-small text-fg-muted">
-                      Google Classroom `courses.name` 은 최대 {COURSE_NAME_MAX}자입니다. CSV 를 수정 후 다시 미리보기 하세요.
-                    </p>
-                  </div>
-                )}
+                {/* v0.252: Banner 이식 (bodyClass 로 space-y-1, header/body 색상 자식 개별 유지). */}
+                <Banner
+                  variant="error"
+                  message={
+                    overlyLongRows.length > 0 ? (
+                      <>
+                        <p className="text-state-danger font-medium">
+                          코스 이름 상한 초과 {overlyLongRows.length}개 행 — 실행 불가
+                        </p>
+                        <p className="text-fg-muted">
+                          Google Classroom `courses.name` 은 최대 {COURSE_NAME_MAX}자입니다. CSV 를 수정 후 다시 미리보기 하세요.
+                        </p>
+                      </>
+                    ) : null
+                  }
+                  testId="neis-preview-name-limit-warning"
+                  bodyClass="space-y-1"
+                />
+
                 <div className="max-h-96 overflow-y-auto border border-border-subtle bg-canvas">
                   <table className="w-full text-small">
                     <thead className="border-b border-border-subtle bg-surface">
