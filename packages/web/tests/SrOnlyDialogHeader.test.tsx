@@ -69,16 +69,16 @@ describe('SrOnlyDialogHeader (v0.275)', () => {
         </DialogContent>
       </Dialog>,
     );
-    // DialogContent 는 자체 닫기 라벨 sr-only span 을 항상 렌더.
-    // 헤더 wrapper 는 title/description 을 감싸는 별도 요소.
+    // DialogContent 는 항상 닫기 라벨 <span className="sr-only">닫기</span> 를
+    // 렌더한다. 헤더 wrapper (title/description 감싸는 요소) 와는 반드시 다른
+    // element 여야 한다.
     const titleWrapper = findAncestorWithClass(screen.getByText('X'), 'sr-only');
-    const closeLabel = screen.queryByText('닫기');
     expect(titleWrapper).not.toBeNull();
-    if (closeLabel) {
-      const closeWrapper = findAncestorWithClass(closeLabel, 'sr-only');
-      // 닫기 label 자체가 sr-only 이거나 wrapper 가 sr-only 이면 됨.
-      // 헤더 wrapper 와는 다른 element 여야 함.
-      expect(closeWrapper !== titleWrapper || closeLabel !== titleWrapper).toBe(true);
-    }
+    // getByText 로 닫기 라벨 존재 강제.
+    const closeLabel = screen.getByText('닫기');
+    // 닫기 label 자체가 sr-only span (packages/web/src/components/ui/dialog.tsx).
+    expect(closeLabel.classList.contains('sr-only')).toBe(true);
+    // 헤더 wrapper 와 다른 element 여야 함.
+    expect(closeLabel).not.toBe(titleWrapper);
   });
 });
