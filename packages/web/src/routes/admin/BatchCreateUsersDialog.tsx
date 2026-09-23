@@ -917,25 +917,30 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                   );
                 if (partialFails.length === 0) return null;
                 return (
-                  <div
-                    className="border border-state-warning p-3 text-small text-fg-primary space-y-1"
-                    data-testid="batch-create-users-classroom-failures"
-                  >
-                    <p>
-                      계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다 (
-                      <strong className="font-mono">{partialFails.length}</strong>건). 필요 시
-                      각 클래스룸 상세 페이지에서 직접 추가하세요.
-                    </p>
-                    <ul className="pl-4 list-disc space-y-1 max-h-40 overflow-y-auto">
-                      {partialFails.map((f, i) => (
-                        <li key={`${f.email}::${f.courseId}::${i}`} className="text-state-danger">
-                          <span className="font-mono">{f.email}</span> →{" "}
-                          <span className="font-mono">{f.courseName || f.courseId}</span>:{" "}
-                          {f.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  /* v0.251: Banner 이식 (bodyClass 로 text-fg-primary 유지). */
+                  <Banner
+                    variant="warning"
+                    message={
+                      <>
+                        <p>
+                          계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다 (
+                          <strong className="font-mono">{partialFails.length}</strong>건). 필요 시
+                          각 클래스룸 상세 페이지에서 직접 추가하세요.
+                        </p>
+                        <ul className="pl-4 list-disc space-y-1 max-h-40 overflow-y-auto">
+                          {partialFails.map((f, i) => (
+                            <li key={`${f.email}::${f.courseId}::${i}`} className="text-state-danger">
+                              <span className="font-mono">{f.email}</span> →{" "}
+                              <span className="font-mono">{f.courseName || f.courseId}</span>:{" "}
+                              {f.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    }
+                    testId="batch-create-users-classroom-failures"
+                    bodyClass="text-fg-primary space-y-1"
+                  />
                 );
               })()}
               <DialogFooter>
