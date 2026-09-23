@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
+import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { callClassroomPatch } from '../../api/classroomPatch';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
@@ -364,22 +365,12 @@ export function BulkRenameClassroomDialog({
               <DialogDescription>일괄 이름 변경이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="bulk-rename-classroom-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                완료:{' '}
-                <strong className="text-state-success font-mono">
-                  {activeRows.length - failures.length}
-                </strong>
-                개 성공
-                {failures.length > 0 && (
-                  <>
-                    {' · '}
-                    <strong className="text-state-danger font-mono">
-                      {failures.length}
-                    </strong>
-                    개 실패
-                  </>
-                )}
-              </p>
+              {/* v0.267: BulkDoneSummary 이식. */}
+              <BulkDoneSummary
+                successCount={activeRows.length - failures.length}
+                failureCount={failures.length}
+                unit="개"
+              />
               {failures.length > 0 && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
