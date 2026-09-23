@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
+import { BulkProgress } from '../../components/BulkProgress';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
@@ -489,20 +490,13 @@ function CourseBulkCreateDialogContent({
               <DialogTitle>코스 일괄 생성 진행 중</DialogTitle>
               <DialogDescription>코스를 순차적으로 생성하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="bulk-create-running">
-              <div className="text-body text-fg-primary">
-                코스 생성 진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{selectedItems.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${selectedItems.length > 0 ? (progress / selectedItems.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.260: BulkProgress 이식 (label prop 커스텀). */}
+            <BulkProgress
+              progress={progress}
+              total={selectedItems.length}
+              testId="bulk-create-running"
+              label="코스 생성 진행 중:"
+            />
           </>
         )}
 
