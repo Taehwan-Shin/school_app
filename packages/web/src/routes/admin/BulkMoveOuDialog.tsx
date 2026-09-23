@@ -13,6 +13,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkMoveOuDialogProps {
@@ -134,10 +135,8 @@ export function BulkMoveOuDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 조직 이동 진행 중</DialogTitle>
-              <DialogDescription>계정 조직 단위를 이동하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 조직 이동 진행 중" description="계정 조직 단위를 이동하고 있습니다." />
             {/* v0.259: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -149,10 +148,8 @@ export function BulkMoveOuDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 조직 이동 완료</DialogTitle>
-              <DialogDescription>일괄 조직 이동 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 조직 이동 완료" description="일괄 조직 이동 작업이 완료되었습니다." />
             <div data-testid="bulk-move-ou-done" className="space-y-3">
               {/* v0.265: BulkDoneSummary 이식. */}
               <BulkDoneSummary

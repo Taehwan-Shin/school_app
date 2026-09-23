@@ -14,6 +14,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkSuspendDialogProps {
@@ -123,10 +124,8 @@ export function BulkSuspendDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 정지 진행 중</DialogTitle>
-              <DialogDescription>계정을 정지하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 정지 진행 중" description="계정을 정지하고 있습니다." />
             {/* v0.257: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -138,10 +137,8 @@ export function BulkSuspendDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 정지 완료</DialogTitle>
-              <DialogDescription>일괄 정지 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 정지 완료" description="일괄 정지 작업이 완료되었습니다." />
             <div data-testid="bulk-suspend-done" className="space-y-3">
               {/* v0.265: BulkDoneSummary 이식. */}
               <BulkDoneSummary

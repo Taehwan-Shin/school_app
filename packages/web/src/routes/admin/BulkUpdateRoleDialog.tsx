@@ -14,6 +14,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersUpdateRole } from "../../api/usersUpdateRole";
 import type { Role } from "@school-app/shared";
 
@@ -163,10 +164,8 @@ export function BulkUpdateRoleDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 역할 변경 진행 중</DialogTitle>
-              <DialogDescription>계정 역할을 변경하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 역할 변경 진행 중" description="계정 역할을 변경하고 있습니다." />
             {/* v0.257: BulkProgress 이식 (label prop 으로 「{role} 로 변경」 커스텀). */}
             <BulkProgress
               progress={progress}
@@ -179,10 +178,8 @@ export function BulkUpdateRoleDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 역할 변경 완료</DialogTitle>
-              <DialogDescription>일괄 역할 변경 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 역할 변경 완료" description="일괄 역할 변경 작업이 완료되었습니다." />
             <div data-testid="bulk-update-role-done" className="space-y-3">
               {/* v0.265: BulkDoneSummary 이식 (label prop 커스텀). */}
               <BulkDoneSummary
