@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
+import { PreviewList } from "../../components/PreviewList";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkRestoreDialogProps {
@@ -94,16 +95,13 @@ export function BulkRestoreDialog({
                 변경 없이 성공으로 처리됩니다.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {emails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {emails.length > 5 && (
-                <li className="text-fg-muted">... 외 {emails.length - 5}명</li>
-              )}
-            </ul>
+            {/* v0.262: PreviewList 이식. */}
+            <PreviewList
+              items={emails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="명"
+            />
             {/* v0.254: ConfirmCountInput 이식. */}
             <ConfirmCountInput
               expectedCount={emails.length}

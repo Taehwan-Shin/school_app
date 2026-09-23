@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
+import { PreviewList } from "../../components/PreviewList";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkMoveOuDialogProps {
@@ -88,16 +89,13 @@ export function BulkMoveOuDialog({
                 선택한 {emails.length}명 계정의 조직 단위 (orgUnitPath) 를 아래 값으로 이동합니다.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {emails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {emails.length > 5 && (
-                <li className="text-fg-muted">... 외 {emails.length - 5}명</li>
-              )}
-            </ul>
+            {/* v0.262: PreviewList 이식. */}
+            <PreviewList
+              items={emails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="명"
+            />
             <div>
               {/* v0.129 (== v0.124 F100 대칭): htmlFor/id 로 프로그램적 연결. */}
               <label
