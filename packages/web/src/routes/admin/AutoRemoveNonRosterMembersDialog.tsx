@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { callGroupsMembersList, type GroupMemberItem } from '../../api/groupsMembersList';
 import { callGroupsMembersDelete } from '../../api/groupsMembersDelete';
 import { buildGroupEmail } from './AutoInviteStudentsDialog';
@@ -374,14 +375,18 @@ export function AutoRemoveNonRosterMembersDialog({
                 </table>
               </div>
             )}
-            {scanErrors.length > 0 && (
-              <div
-                className="border border-state-warning p-2 text-micro text-fg-secondary"
-                data-testid="auto-remove-nonroster-scan-errors"
-              >
-                스캔 실패 (그룹 없음 or 권한): {scanErrors.map((e) => e.groupEmail).join(', ')}
-              </div>
-            )}
+            {/* v0.252: Banner 이식 (bodyClass 로 p-2 + text-micro/fg-secondary override). */}
+            <Banner
+              variant="warning"
+              message={
+                scanErrors.length > 0
+                  ? `스캔 실패 (그룹 없음 or 권한): ${scanErrors.map((e) => e.groupEmail).join(', ')}`
+                  : null
+              }
+              testId="auto-remove-nonroster-scan-errors"
+              bodyClass="p-2 text-micro text-fg-secondary"
+            />
+
             {toRemove.length > 0 && (
               <div className="space-y-1">
                 <label

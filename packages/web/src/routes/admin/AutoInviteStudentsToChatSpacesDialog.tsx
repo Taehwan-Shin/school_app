@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { callChatList, type ChatSpaceItem } from '../../api/chatList';
 import { callChatMembersAdd } from '../../api/chatMembersAdd';
 import { courseName, isAlreadyExistsError } from './CourseBulkCreateDialog';
@@ -285,21 +286,27 @@ export function AutoInviteStudentsToChatSpacesDialog({
                 매칭된 챗방이 없습니다. 「학급 통합 생성」 으로 챗방을 먼저 만드세요.
               </p>
             )}
-            {unmatched.length > 0 && (
-              <div
-                className="max-h-40 overflow-y-auto border border-state-warning p-2 space-y-1"
-                data-testid="auto-invite-chat-unmatched"
-              >
-                <p className="text-small text-fg-primary font-medium">
-                  챗방이 없는 반 ({unmatched.length}건, skip):
-                </p>
-                <ul className="text-micro text-fg-secondary font-mono list-disc pl-4">
-                  {unmatched.map((u) => (
-                    <li key={`${u.grade}-${u.class}`}>{u.displayName}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* v0.252: Banner 이식 (bodyClass 로 p-2 + max-h/overflow + 자식 색상 유지). */}
+            <Banner
+              variant="warning"
+              message={
+                unmatched.length > 0 ? (
+                  <>
+                    <p className="text-fg-primary font-medium">
+                      챗방이 없는 반 ({unmatched.length}건, skip):
+                    </p>
+                    <ul className="text-micro text-fg-secondary font-mono list-disc pl-4">
+                      {unmatched.map((u) => (
+                        <li key={`${u.grade}-${u.class}`}>{u.displayName}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null
+              }
+              testId="auto-invite-chat-unmatched"
+              bodyClass="p-2 space-y-1 max-h-40 overflow-y-auto"
+            />
+
             {totalTargets > 0 && (
               <div className="space-y-1">
                 <label
