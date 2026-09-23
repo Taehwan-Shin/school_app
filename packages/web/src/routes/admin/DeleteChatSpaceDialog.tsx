@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useDeleteChatSpace } from '../../api/chatDelete';
 
 export interface DeleteChatSpaceTarget {
@@ -77,14 +78,8 @@ export function DeleteChatSpaceDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="delete-chat-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.246: Banner 이식. */}
+          <Banner variant="error" message={errorMessage} testId="delete-chat-error" />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>

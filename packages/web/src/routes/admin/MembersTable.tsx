@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useGroupMembersList, type GroupMemberItem } from '../../api/groupsMembersList';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -162,18 +163,20 @@ export function MembersTable({ groupEmail }: MembersTableProps) {
         </div>
       )}
 
-      {error && (
-        <div
-          className="border border-state-danger p-4 text-small text-state-danger"
-          data-testid="members-error"
-        >
-          {error.message?.includes('permission-denied') ||
-          error.message?.includes('PERMISSION_DENIED') ||
-          error.message?.includes('http_403')
-            ? '멤버 목록을 조회할 권한이 없거나 스코프가 부족합니다.'
-            : `멤버 목록을 불러오지 못했습니다: ${error.message || '알 수 없는 오류'}`}
-        </div>
-      )}
+      {/* v0.246: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={
+          error
+            ? error.message?.includes('permission-denied') ||
+              error.message?.includes('PERMISSION_DENIED') ||
+              error.message?.includes('http_403')
+              ? '멤버 목록을 조회할 권한이 없거나 스코프가 부족합니다.'
+              : `멤버 목록을 불러오지 못했습니다: ${error.message || '알 수 없는 오류'}`
+            : null
+        }
+        testId="members-error"
+      />
 
       {!loading && !error && members.length === 0 && (
         <div className="py-12 text-center text-small text-fg-secondary" data-testid="members-empty">
