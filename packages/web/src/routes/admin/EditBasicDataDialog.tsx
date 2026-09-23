@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useBasicDataSet } from '../../api/basicDataSet';
 import type { BasicDataGradeClass, BasicDataYear } from '@school-app/shared';
 
@@ -195,22 +196,17 @@ export function EditBasicDataDialog({
               </label>
             </div>
           )}
-          {validationError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="edit-basic-data-validation-error"
-            >
-              {validationError}
-            </div>
-          )}
-          {mutationError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="edit-basic-data-error"
-            >
-              저장 실패: {mutationError.message}
-            </div>
-          )}
+          {/* v0.245: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={validationError}
+            testId="edit-basic-data-validation-error"
+          />
+          <Banner
+            variant="error"
+            message={mutationError ? `저장 실패: ${mutationError.message}` : null}
+            testId="edit-basic-data-error"
+          />
 
           <div className="space-y-3">
             {rows.map((row, idx) => (

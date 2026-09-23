@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { Banner } from "../../components/Banner";
 import { useDeleteGroup } from "../../api/groupsDelete";
 
 export interface DeleteGroupTarget {
@@ -70,14 +71,8 @@ export function DeleteGroupDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="delete-group-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.245: Banner 이식. */}
+          <Banner variant="error" message={errorMessage} testId="delete-group-error" />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>
