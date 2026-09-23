@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
+import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -253,19 +254,13 @@ export function BulkTransferClassroomOwnerDialog({
               <DialogDescription>일괄 소유자 이관 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="bulk-transfer-owner-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                「{displayOwner}」 로 이관 완료:{" "}
-                <strong className="text-state-success font-mono">{successes.length}</strong>
-                개 성공
-                {failures.length > 0 && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <strong className="text-state-danger font-mono">{failures.length}</strong>
-                    개 실패
-                  </>
-                )}
-              </p>
+              {/* v0.266: BulkDoneSummary 이식 (label prop 커스텀). */}
+              <BulkDoneSummary
+                successCount={successes.length}
+                failureCount={failures.length}
+                unit="개"
+                label={`「${displayOwner}」 로 이관 완료:`}
+              />
               {failures.length > 0 && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
