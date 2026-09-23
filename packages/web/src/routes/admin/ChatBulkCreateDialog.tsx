@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatCreate } from '../../api/chatCreate';
 import { callChatList } from '../../api/chatList';
@@ -461,20 +462,17 @@ function ChatBulkCreateDialogContent({
                     ))}
                 </ul>
               )}
-              {results.some((r) => r.kind === 'failed') && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-create-chat-failures"
-                >
-                  {results
-                    .filter((r) => r.kind === 'failed')
-                    .map((r, i) => (
-                      <li key={`${r.gradeClass}-${i}`}>
-                        <span className="font-mono">{r.displayName}</span>: {r.message}
-                      </li>
-                    ))}
-                </ul>
-              )}
+              {/* v0.274: BulkFailureList 이식 (복합 key). */}
+              <BulkFailureList
+                items={results.filter((r) => r.kind === 'failed')}
+                getKey={(r, i) => `${r.gradeClass}-${i}`}
+                renderItem={(r) => (
+                  <>
+                    <span className="font-mono">{r.displayName}</span>: {r.message}
+                  </>
+                )}
+                testId="bulk-create-chat-failures"
+              />
               <DialogFooter>
                 <Button
                   onClick={() => {
