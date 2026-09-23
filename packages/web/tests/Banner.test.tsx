@@ -48,4 +48,28 @@ describe('Banner (v0.228)', () => {
     );
     expect(screen.getByTestId('inner')).toBeDefined();
   });
+
+  // v0.250: bodyClass override — tailwind-merge 로 기본 text-state-* 를 override.
+  it('bodyClass=text-fg-primary → text-state-warning 대신 적용 (tailwind-merge)', () => {
+    render(
+      <Banner
+        variant="warning"
+        message="rich"
+        testId="b-body"
+        bodyClass="text-fg-primary space-y-1"
+      />,
+    );
+    const el = screen.getByTestId('b-body');
+    expect(el.className).toContain('text-fg-primary');
+    expect(el.className).not.toContain('text-state-warning');
+    expect(el.className).toContain('space-y-1');
+    // border color 는 유지.
+    expect(el.className).toContain('border-state-warning');
+  });
+
+  it('bodyClass 미지정 → 기존 variant 색상 유지 (backwards compat)', () => {
+    render(<Banner variant="warning" message="default" testId="b-default" />);
+    const el = screen.getByTestId('b-default');
+    expect(el.className).toContain('text-state-warning');
+  });
 });

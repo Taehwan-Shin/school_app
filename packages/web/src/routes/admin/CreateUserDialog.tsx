@@ -313,25 +313,31 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             testId="create-user-error"
           />
 
-          {assignResults && (
-            <div
-              className="border border-state-warning p-3 text-small text-fg-primary space-y-1"
-              data-testid="create-user-assign-results"
-            >
-              <p>
-                계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다. 필요 시 클래스룸 상세
-                페이지에서 직접 추가해 주세요.
-              </p>
-              <ul className="pl-4 list-disc space-y-1">
-                {assignResults.map((r) => (
-                  <li key={r.courseId} className={r.ok ? 'text-state-success' : 'text-state-danger'}>
-                    <span className="font-mono">{r.courseName || r.courseId}</span>:{' '}
-                    {r.ok ? '성공' : `실패 — ${r.message}`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* v0.250: Banner 이식 (bodyClass 로 text-fg-primary 유지). */}
+          <Banner
+            variant="warning"
+            message={
+              assignResults ? (
+                <>
+                  <p>
+                    계정은 생성됐으나 일부 클래스룸 배정이 실패했습니다. 필요 시 클래스룸 상세
+                    페이지에서 직접 추가해 주세요.
+                  </p>
+                  <ul className="pl-4 list-disc space-y-1">
+                    {assignResults.map((r) => (
+                      <li key={r.courseId} className={r.ok ? 'text-state-success' : 'text-state-danger'}>
+                        <span className="font-mono">{r.courseName || r.courseId}</span>:{' '}
+                        {r.ok ? '성공' : `실패 — ${r.message}`}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null
+            }
+            testId="create-user-assign-results"
+            bodyClass="text-fg-primary space-y-1"
+          />
+
 
           {/* v0.144: 폼 (왼쪽) · 클래스룸 배정 (오른쪽) 2컬럼 (md 이상). */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
