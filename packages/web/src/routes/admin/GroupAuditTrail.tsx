@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -43,11 +44,12 @@ export function GroupAuditTrail({ groupEmail }: GroupAuditTrailProps) {
           이력을 불러오는 중...
         </div>
       )}
-      {error && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="group-audit-error">
-          이력을 불러오지 못했습니다: {error.message}
-        </div>
-      )}
+      {/* v0.244: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={error ? `이력을 불러오지 못했습니다: ${error.message}` : null}
+        testId="group-audit-error"
+      />
       {!loading && !error && entries.length === 0 && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="group-audit-empty">
           이 그룹에 대한 감사 이력이 없습니다.
