@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatMembersAdd } from '../../api/chatMembersAdd';
 
@@ -373,20 +374,17 @@ function ChatBulkInviteDialogContent({
                     ))}
                 </ul>
               )}
-              {results.some((r) => r.kind === 'failed') && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="chat-bulk-invite-failures"
-                >
-                  {results
-                    .filter((r) => r.kind === 'failed')
-                    .map((r, i) => (
-                      <li key={`${r.email}-${i}`}>
-                        <span className="font-mono">{r.email}</span>: {r.message}
-                      </li>
-                    ))}
-                </ul>
-              )}
+              {/* v0.274: BulkFailureList 이식 (복합 key). */}
+              <BulkFailureList
+                items={results.filter((r) => r.kind === 'failed')}
+                getKey={(r, i) => `${r.email}-${i}`}
+                renderItem={(r) => (
+                  <>
+                    <span className="font-mono">{r.email}</span>: {r.message}
+                  </>
+                )}
+                testId="chat-bulk-invite-failures"
+              />
               <DialogFooter>
                 <Button
                   onClick={() => {
