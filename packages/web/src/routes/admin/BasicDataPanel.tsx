@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { useBasicDataListYears } from '../../api/basicDataListYears';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { EditBasicDataDialog } from './EditBasicDataDialog';
 import { AutoCreateGroupsDialog } from './AutoCreateGroupsDialog';
 import { AutoCreateDepartmentGroupsDialog } from './AutoCreateDepartmentGroupsDialog';
@@ -216,11 +217,14 @@ export function BasicDataPanel() {
         </div>
       )}
 
-      {isError && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="basic-data-error">
-          기초값을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
+      {/* v0.248: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={
+          isError ? `기초값을 불러오지 못했습니다: ${error?.message || '알 수 없는 오류'}` : null
+        }
+        testId="basic-data-error"
+      />
 
       {!isLoading && !isError && !data?.data && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="basic-data-empty">
