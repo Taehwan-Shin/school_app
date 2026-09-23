@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
+import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -301,22 +302,14 @@ export function AutoCreateDepartmentGroupsDialog({
                 const skippedCount = results.filter((r) => r.kind === 'skipped').length;
                 const failedCount = results.filter((r) => r.kind === 'failed').length;
                 return (
-                  <p className="text-body text-fg-primary">
-                    완료:{' '}
-                    <strong className="text-state-success font-mono">{okCount}</strong>개 성공
-                    {skippedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-warning font-mono">{skippedCount}</strong>개 이미 존재 (skip)
-                      </>
-                    )}
-                    {failedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-danger font-mono">{failedCount}</strong>개 실패
-                      </>
-                    )}
-                  </p>
+                  /* v0.268: BulkDoneSummary 이식 (3-category, skippedSuffix 커스텀). */
+                  <BulkDoneSummary
+                    successCount={okCount}
+                    failureCount={failedCount}
+                    unit="개"
+                    skippedCount={skippedCount}
+                    skippedSuffix="이미 존재 (skip)"
+                  />
                 );
               })()}
               {results.some((r) => r.kind === 'skipped') && (

@@ -80,4 +80,84 @@ describe('BulkDoneSummary (v0.264)', () => {
     );
     expect(screen.getByTestId('bds-label').textContent).toBe('custom');
   });
+
+  // v0.268: 3-category (skipped) 지원.
+  it('skippedCount > 0 → 성공 뒤에 「· N{unit} {skippedSuffix}」 노출 (warning 기본)', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={5}
+        failureCount={0}
+        unit="개"
+        skippedCount={2}
+        skippedSuffix="이미 멤버 (skip)"
+      />,
+    );
+    const text = container.textContent ?? '';
+    expect(text).toContain('5개 성공');
+    expect(text).toContain('2개 이미 멤버 (skip)');
+    expect(text).not.toContain('실패');
+    const strongs = container.querySelectorAll('strong');
+    expect(strongs.length).toBe(2);
+    expect(strongs[1].className).toContain('text-state-warning');
+  });
+
+  it('skippedCount + failureCount 모두 > 0 → 성공·skipped·실패 3중', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={4}
+        failureCount={1}
+        unit="명"
+        skippedCount={3}
+        skippedSuffix="이미 초대됨"
+      />,
+    );
+    const text = container.textContent ?? '';
+    expect(text).toContain('4명 성공');
+    expect(text).toContain('3명 이미 초대됨');
+    expect(text).toContain('1명 실패');
+    const strongs = container.querySelectorAll('strong');
+    expect(strongs.length).toBe(3);
+    expect(strongs[0].className).toContain('text-state-success');
+    expect(strongs[1].className).toContain('text-state-warning');
+    expect(strongs[2].className).toContain('text-state-danger');
+  });
+
+  it('skippedCount=0 → skipped 부분 미노출', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={2}
+        failureCount={0}
+        unit="개"
+        skippedCount={0}
+        skippedSuffix="skip"
+      />,
+    );
+    const text = container.textContent ?? '';
+    expect(text).toContain('2개 성공');
+    expect(text).not.toContain('skip');
+    const strongs = container.querySelectorAll('strong');
+    expect(strongs.length).toBe(1);
+  });
+
+  it('skippedSuffix 생략 시 "skip" default', () => {
+    const { container } = render(
+      <BulkDoneSummary successCount={1} failureCount={0} unit="개" skippedCount={4} />,
+    );
+    expect(container.textContent).toContain('4개 skip');
+  });
+
+  it('skippedVariant="danger" → text-state-danger 적용', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={1}
+        failureCount={0}
+        unit="개"
+        skippedCount={2}
+        skippedSuffix="차단"
+        skippedVariant="danger"
+      />,
+    );
+    const strongs = container.querySelectorAll('strong');
+    expect(strongs[1].className).toContain('text-state-danger');
+  });
 });
