@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { BulkProgress } from "../../components/BulkProgress";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkMoveOuDialogProps {
@@ -137,20 +138,12 @@ export function BulkMoveOuDialog({
               <DialogTitle>일괄 조직 이동 진행 중</DialogTitle>
               <DialogDescription>계정 조직 단위를 이동하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="bulk-move-ou-running">
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{displayEmails.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.259: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={displayEmails.length}
+              testId="bulk-move-ou-running"
+            />
           </>
         )}
 

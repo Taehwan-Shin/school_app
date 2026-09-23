@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { Banner } from "../../components/Banner";
+import { BulkProgress } from "../../components/BulkProgress";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -858,20 +859,12 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
               <DialogTitle>전입생 일괄 생성 진행 중</DialogTitle>
               <DialogDescription>계정을 순차 생성하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="batch-create-users-running">
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{displayRows.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${displayRows.length > 0 ? (progress / displayRows.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.259: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={displayRows.length}
+              testId="batch-create-users-running"
+            />
           </>
         )}
 
