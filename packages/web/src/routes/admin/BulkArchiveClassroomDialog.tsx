@@ -13,6 +13,7 @@ import { ConfirmCountInput } from '../../components/ConfirmCountInput';
 import { BulkProgress } from '../../components/BulkProgress';
 import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -171,18 +172,17 @@ export function BulkArchiveClassroomDialog({
                 failureCount={failures.length}
                 unit="개"
               />
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-archive-classroom-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.id}>
-                      <span className="font-mono">{f.id}</span>: {f.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.272: BulkFailureList 이식. */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.id}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.id}</span>: {f.message}
+                  </>
+                )}
+                testId="bulk-archive-classroom-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>
