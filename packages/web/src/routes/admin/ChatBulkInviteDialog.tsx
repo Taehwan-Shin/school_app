@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
+import { BulkProgress } from '../../components/BulkProgress';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatMembersAdd } from '../../api/chatMembersAdd';
 
@@ -325,20 +326,13 @@ function ChatBulkInviteDialogContent({
               <DialogTitle>학생 초대 진행 중</DialogTitle>
               <DialogDescription>학생들을 챗방에 순차적으로 초대하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="chat-bulk-invite-running">
-              <div className="text-body text-fg-primary">
-                초대 진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{targets.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${targets.length > 0 ? (progress / targets.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.260: BulkProgress 이식 (label prop 커스텀). */}
+            <BulkProgress
+              progress={progress}
+              total={targets.length}
+              testId="chat-bulk-invite-running"
+              label="초대 진행 중:"
+            />
           </>
         )}
 
