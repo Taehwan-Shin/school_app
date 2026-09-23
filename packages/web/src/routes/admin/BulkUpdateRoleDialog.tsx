@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
+import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { callUsersUpdateRole } from "../../api/usersUpdateRole";
 import type { Role } from "@school-app/shared";
 
@@ -182,21 +183,13 @@ export function BulkUpdateRoleDialog({
               <DialogDescription>일괄 역할 변경 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="bulk-update-role-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                「{roleLabel(displayRole)}」 로 변경 완료:{" "}
-                <strong className="text-state-success font-mono">
-                  {displayEmails.length - failures.length}
-                </strong>
-                명 성공
-                {failures.length > 0 && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <strong className="text-state-danger font-mono">{failures.length}</strong>
-                    명 실패
-                  </>
-                )}
-              </p>
+              {/* v0.265: BulkDoneSummary 이식 (label prop 커스텀). */}
+              <BulkDoneSummary
+                successCount={displayEmails.length - failures.length}
+                failureCount={failures.length}
+                unit="명"
+                label={`「${roleLabel(displayRole)}」 로 변경 완료:`}
+              />
               {failures.length > 0 && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
