@@ -67,8 +67,8 @@ describe('BulkFailureList (v0.270)', () => {
     expect(screen.getByTestId('item-1').className).toContain('font-mono');
   });
 
-  it('getKey 는 각 item 마다 호출됨 (spy)', () => {
-    const getKeySpy = vi.fn((x: { id: string }) => x.id);
+  it('getKey 는 각 item 마다 (item, index) 두 인자로 호출됨 (v0.273)', () => {
+    const getKeySpy = vi.fn((x: { id: string }, _i: number) => x.id);
     render(
       <BulkFailureList
         items={[{ id: 'x1' }, { id: 'x2' }, { id: 'x3' }]}
@@ -78,9 +78,27 @@ describe('BulkFailureList (v0.270)', () => {
       />,
     );
     expect(getKeySpy).toHaveBeenCalledTimes(3);
-    expect(getKeySpy).toHaveBeenNthCalledWith(1, { id: 'x1' });
-    expect(getKeySpy).toHaveBeenNthCalledWith(2, { id: 'x2' });
-    expect(getKeySpy).toHaveBeenNthCalledWith(3, { id: 'x3' });
+    expect(getKeySpy).toHaveBeenNthCalledWith(1, { id: 'x1' }, 0);
+    expect(getKeySpy).toHaveBeenNthCalledWith(2, { id: 'x2' }, 1);
+    expect(getKeySpy).toHaveBeenNthCalledWith(3, { id: 'x3' }, 2);
+  });
+
+  it('getKey (item, index) 복합 key 지원 (v0.273 · AutoInvite 등 대응)', () => {
+    // 동일 email 이 여러 dept 에서 반복될 때 index 조합으로 unique key 확보.
+    const items = [
+      { email: 'dup@x.com', dept: 'A' },
+      { email: 'dup@x.com', dept: 'B' },
+      { email: 'unique@x.com', dept: 'C' },
+    ];
+    const { container } = render(
+      <BulkFailureList
+        items={items}
+        getKey={(f, i) => `${f.dept}-${f.email}-${i}`}
+        renderItem={(f) => `${f.dept}: ${f.email}`}
+        testId="bfl-composite-key"
+      />,
+    );
+    expect(container.querySelectorAll('li').length).toBe(3);
   });
 
   it('key 로 li DOM 정체성 유지 (rerender 전 li ref 캡처 → 재정렬 후 동일 노드 확인)', () => {
