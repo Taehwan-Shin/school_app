@@ -11,6 +11,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
+import { BulkProgress } from '../../components/BulkProgress';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoInviteStudentsDialogProps {
@@ -241,20 +242,12 @@ export function AutoInviteStudentsDialog({
               <DialogTitle>학생 자동 초대 진행 중</DialogTitle>
               <DialogDescription>학생들을 반 그룹에 자동 초대하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="auto-invite-students-running">
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{targets.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${targets.length > 0 ? (progress / targets.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.259: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={targets.length}
+              testId="auto-invite-students-running"
+            />
           </>
         )}
 

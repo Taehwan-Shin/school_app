@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { BulkProgress } from '../../components/BulkProgress';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -279,20 +280,12 @@ export function AutoCreateDepartmentGroupsDialog({
               <DialogTitle>부서 그룹 자동 생성 진행 중</DialogTitle>
               <DialogDescription>부서 그룹을 자동 생성하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="auto-create-dept-groups-running">
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{totalOps}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${totalOps > 0 ? (progress / totalOps) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.259: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={totalOps}
+              testId="auto-create-dept-groups-running"
+            />
           </>
         )}
 
