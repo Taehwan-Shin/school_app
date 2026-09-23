@@ -4,8 +4,11 @@
 //   error/warning 은 role=alert + aria-live=assertive (즉시 알림 필요).
 //   success 는 role=status + aria-live=polite (기존 v0.227 유지).
 // - message 가 null 이면 미렌더.
+// v0.250: bodyClass 옵션 추가. 리치 콘텐츠 배너 (헤더 semantic 색 + 본문 fg-primary/secondary) 를
+//   Banner 에 이식할 수 있도록, 기본 text-state-* 를 override 할 수 있게 tailwind-merge (cn) 로 병합.
 
 import type { ReactNode } from 'react';
+import { cn } from '../lib/utils';
 
 export type BannerVariant = 'success' | 'error' | 'warning';
 
@@ -13,6 +16,7 @@ export interface BannerProps {
   variant: BannerVariant;
   message: ReactNode | null;
   testId: string;
+  bodyClass?: string;
 }
 
 const VARIANT_CLASSES: Record<BannerVariant, string> = {
@@ -30,12 +34,12 @@ const VARIANT_ARIA: Record<
   warning: { role: 'alert', ariaLive: 'assertive' },
 };
 
-export function Banner({ variant, message, testId }: BannerProps) {
+export function Banner({ variant, message, testId, bodyClass }: BannerProps) {
   if (message === null || message === undefined) return null;
   const aria = VARIANT_ARIA[variant];
   return (
     <div
-      className={VARIANT_CLASSES[variant]}
+      className={cn(VARIANT_CLASSES[variant], bodyClass)}
       role={aria.role}
       aria-live={aria.ariaLive}
       data-testid={testId}
