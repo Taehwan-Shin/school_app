@@ -10,6 +10,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { ConfirmCountInput } from '../../components/ConfirmCountInput';
+import { BulkProgress } from '../../components/BulkProgress';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -149,23 +150,12 @@ export function BulkArchiveClassroomDialog({
               <DialogTitle>일괄 {actionLabel} 진행 중</DialogTitle>
               <DialogDescription>클래스룸 상태를 변경하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div
-              className="py-8 text-center space-y-3"
-              data-testid="bulk-archive-classroom-running"
-            >
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{activeCourses.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${activeCourses.length > 0 ? (progress / activeCourses.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.257: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={activeCourses.length}
+              testId="bulk-archive-classroom-running"
+            />
           </>
         )}
 
