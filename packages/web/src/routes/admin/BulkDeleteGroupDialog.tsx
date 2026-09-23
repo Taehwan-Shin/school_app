@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { callGroupsDelete } from "../../api/groupsDelete";
 
 export interface BulkDeleteGroupDialogProps {
@@ -96,23 +97,13 @@ export function BulkDeleteGroupDialog({
                 <li className="text-fg-muted">... 외 {emails.length - 5}개</li>
               )}
             </ul>
-            <div>
-              {/* v0.165 (== v0.124 F100 대칭): htmlFor/id 로 label 프로그램적 연결. */}
-              <label
-                htmlFor="bulk-delete-group-confirm-input"
-                className="text-small text-fg-primary"
-              >
-                확인을 위해 대상 개수 (<strong>{emails.length}</strong>)를 입력하세요:
-              </label>
-              <input
-                id="bulk-delete-group-confirm-input"
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                data-testid="bulk-delete-group-confirm-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
-              />
-            </div>
+            {/* v0.253: 「대상 개수 정확 입력」 관문 → 신규 ConfirmCountInput shared. */}
+            <ConfirmCountInput
+              expectedCount={emails.length}
+              value={confirmText}
+              onChange={setConfirmText}
+              idPrefix="bulk-delete-group"
+            />
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
