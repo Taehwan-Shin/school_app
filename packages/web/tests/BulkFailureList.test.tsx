@@ -83,9 +83,11 @@ describe('BulkFailureList (v0.270)', () => {
     expect(getKeySpy).toHaveBeenNthCalledWith(3, { id: 'x3' });
   });
 
-  it('key 로 li DOM 정체성 유지 (재정렬 시 순서만 뒤집힘)', () => {
-    // key 가 id 기반이면 재정렬 시 React 가 DOM 노드를 재사용. 원본 li ref 를
-    // 캡처해두면 재정렬 후 DOM 위치가 바뀌었어도 동일 노드가 유지된다.
+  it('key 로 li DOM 정체성 유지 (rerender 전 li ref 캡처 → 재정렬 후 동일 노드 확인)', () => {
+    // 인덱스 key 는 재정렬 시 각 li 를 다른 item 에 재사용해 DOM 노드가 그대로
+    // 남지만 렌더 내용이 바뀌므로 「id → li」 매핑이 유지 안 된다.
+    // 반면 getKey(item)=id 기반 key 는 각 li 가 자신의 item 을 따라다녀
+    // rerender 전 캡처한 「id → li」 매핑이 그대로 유지된다.
     function Row({ id }: { id: string }) {
       return <span data-testid={`row-${id}`}>{id}</span>;
     }
@@ -99,7 +101,11 @@ describe('BulkFailureList (v0.270)', () => {
         testId="bfl-reorder"
       />,
     );
-    expect(screen.getByTestId('row-a')).toBeDefined();
+    // rerender 전 각 id 의 li ref 캡처.
+    const liA = screen.getByTestId('row-a').closest('li');
+    const liB = screen.getByTestId('row-b').closest('li');
+    const liC = screen.getByTestId('row-c').closest('li');
+    expect(liA).not.toBeNull();
     rerender(
       <BulkFailureList
         items={items2}
@@ -108,10 +114,12 @@ describe('BulkFailureList (v0.270)', () => {
         testId="bfl-reorder"
       />,
     );
-    // 재정렬 후에도 모든 id 렌더링 (key 가 id 기반이면 정상 재사용).
-    expect(screen.getByTestId('row-a').textContent).toBe('a');
-    expect(screen.getByTestId('row-c').textContent).toBe('c');
-    // DOM 순서 확인.
+    // 재정렬 후 각 id 의 li ref 를 다시 취득 → 저장했던 참조와 동일해야 한다.
+    // (인덱스 key 였다면 row-a 는 이전 liC 위치의 li 를 가리키게 됨.)
+    expect(screen.getByTestId('row-a').closest('li')).toBe(liA);
+    expect(screen.getByTestId('row-b').closest('li')).toBe(liB);
+    expect(screen.getByTestId('row-c').closest('li')).toBe(liC);
+    // DOM 순서도 뒤집혔는지 확인 (완결 회귀).
     const rows = document.querySelectorAll('[data-testid^="row-"]');
     expect(rows[0].getAttribute('data-testid')).toBe('row-c');
     expect(rows[2].getAttribute('data-testid')).toBe('row-a');
