@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
+import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { callUsersDelete } from "../../api/usersDelete";
 
 export interface BulkDeleteDialogProps {
@@ -153,23 +154,12 @@ export function BulkDeleteDialog({
               <DialogDescription>일괄 삭제 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="bulk-delete-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                완료:{" "}
-                <strong className="text-state-success font-mono">
-                  {displayEmails.length - failures.length}
-                </strong>
-                명 성공
-                {failures.length > 0 && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <strong className="text-state-danger font-mono">
-                      {failures.length}
-                    </strong>
-                    명 실패
-                  </>
-                )}
-              </p>
+              {/* v0.265: BulkDoneSummary 이식. */}
+              <BulkDoneSummary
+                successCount={displayEmails.length - failures.length}
+                failureCount={failures.length}
+                unit="명"
+              />
               {failures.length > 0 && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
