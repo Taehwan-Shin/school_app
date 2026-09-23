@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button";
 import { Banner } from "../../components/Banner";
 import { BulkProgress } from "../../components/BulkProgress";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
+import { BulkFailureList } from "../../components/BulkFailureList";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -882,20 +883,17 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                 failureCount={failCount}
                 unit="명"
               />
-              {failCount > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="batch-create-users-failures"
-                >
-                  {results
-                    .filter((r) => !r.ok)
-                    .map((r) => (
-                      <li key={r.primaryEmail}>
-                        <span className="font-mono">{r.primaryEmail}</span>: {r.message}
-                      </li>
-                    ))}
-                </ul>
-              )}
+              {/* v0.273: BulkFailureList 이식 (failed results 만 filter 해서 전달). */}
+              <BulkFailureList
+                items={results.filter((r) => !r.ok)}
+                getKey={(r) => r.primaryEmail}
+                renderItem={(r) => (
+                  <>
+                    <span className="font-mono">{r.primaryEmail}</span>: {r.message}
+                  </>
+                )}
+                testId="batch-create-users-failures"
+              />
               {/* v0.151: 계정 성공 · classroom 배정 일부 실패한 경우 별도 표시. */}
               {(() => {
                 const partialFails = results

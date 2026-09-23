@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { callClassroomPatch } from '../../api/classroomPatch';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
@@ -371,18 +372,17 @@ export function BulkRenameClassroomDialog({
                 failureCount={failures.length}
                 unit="개"
               />
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-rename-classroom-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.id}>
-                      <span className="font-mono">{f.id}</span>: {f.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.273: BulkFailureList 이식. */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.id}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.id}</span>: {f.message}
+                  </>
+                )}
+                testId="bulk-rename-classroom-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>

@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoInviteStudentsDialogProps {
@@ -288,20 +289,17 @@ export function AutoInviteStudentsDialog({
                     ))}
                 </ul>
               )}
-              {results.some((r) => r.kind === 'failed') && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="auto-invite-students-failures"
-                >
-                  {results
-                    .filter((r) => r.kind === 'failed')
-                    .map((r, i) => (
-                      <li key={`${r.groupEmail}-${r.memberEmail}-${i}`}>
-                        <span className="font-mono">{r.memberEmail}</span>: {r.message}
-                      </li>
-                    ))}
-                </ul>
-              )}
+              {/* v0.273: BulkFailureList 이식 (failed filter + composite key). */}
+              <BulkFailureList
+                items={results.filter((r) => r.kind === 'failed')}
+                getKey={(r, i) => `${r.groupEmail}-${r.memberEmail}-${i}`}
+                renderItem={(r) => (
+                  <>
+                    <span className="font-mono">{r.memberEmail}</span>: {r.message}
+                  </>
+                )}
+                testId="auto-invite-students-failures"
+              />
               <DialogFooter>
                 <Button
                   onClick={() => {

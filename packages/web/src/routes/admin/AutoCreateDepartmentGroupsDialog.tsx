@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -326,20 +327,17 @@ export function AutoCreateDepartmentGroupsDialog({
                     ))}
                 </ul>
               )}
-              {results.some((r) => r.kind === 'failed') && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="auto-create-dept-groups-failures"
-                >
-                  {results
-                    .filter((r) => r.kind === 'failed')
-                    .map((r, i) => (
-                      <li key={`${r.deptName}-${r.email}-${i}`}>
-                        <span className="font-mono">{r.email}</span>: {r.message}
-                      </li>
-                    ))}
-                </ul>
-              )}
+              {/* v0.273: BulkFailureList 이식 (failed filter + composite key). */}
+              <BulkFailureList
+                items={results.filter((r) => r.kind === 'failed')}
+                getKey={(r, i) => `${r.deptName}-${r.email}-${i}`}
+                renderItem={(r) => (
+                  <>
+                    <span className="font-mono">{r.email}</span>: {r.message}
+                  </>
+                )}
+                testId="auto-create-dept-groups-failures"
+              />
               <DialogFooter>
                 <Button
                   onClick={() => {
