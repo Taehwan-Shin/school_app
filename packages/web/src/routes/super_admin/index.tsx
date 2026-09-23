@@ -11,6 +11,7 @@ import { useUsersResolveRoleSplit } from '../../api/usersResolveRoleSplit';
 import { useUsersRecheckRoleSplit } from '../../api/usersRecheckRoleSplit';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuperAdminPage() {
@@ -429,11 +430,17 @@ export function SuperAdminPage() {
               불러오는 중...
             </div>
           )}
-          {summaryQuery.isError && (
-            <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="super-admin-preview-error">
-              감사 로그를 불러오지 못했습니다: {summaryQuery.error?.message}
-            </div>
-          )}
+          {/* v0.249: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={
+              summaryQuery.isError
+                ? `감사 로그를 불러오지 못했습니다: ${summaryQuery.error?.message}`
+                : null
+            }
+            testId="super-admin-preview-error"
+          />
+
           {!summaryQuery.isLoading && !summaryQuery.isError && previewEntries.length > 0 && (
             <ul className="space-y-2" data-testid="super-admin-recent-events">
               {previewEntries.slice(0, 5).map((e) => (
@@ -636,14 +643,17 @@ export function SuperAdminPage() {
               불러오는 중...
             </div>
           )}
-          {breakdownSummaryQuery.isError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="super-admin-breakdown-error"
-            >
-              집계를 불러오지 못했습니다: {breakdownSummaryQuery.error?.message}
-            </div>
-          )}
+          {/* v0.249: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={
+              breakdownSummaryQuery.isError
+                ? `집계를 불러오지 못했습니다: ${breakdownSummaryQuery.error?.message}`
+                : null
+            }
+            testId="super-admin-breakdown-error"
+          />
+
           {!breakdownSummaryQuery.isLoading && !breakdownSummaryQuery.isError && (() => {
             // v0.120b F97: 구 Functions 응답 (필드 미제공) 과 실제 빈 집계 ({})
             // 를 구분한다. undefined 이면 「집계 미제공」 안내로 노출.

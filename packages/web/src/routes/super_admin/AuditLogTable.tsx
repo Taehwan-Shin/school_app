@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { AUDIT_ACTIONS } from '@school-app/shared';
 import {
   Table,
@@ -938,19 +939,22 @@ export function AuditLogTable() {
         </div>
       )}
 
-      {error && (
-        <div
-          className="border border-state-danger p-4 text-small text-state-danger"
-          data-testid="audit-log-error"
-        >
-          {error.message.includes('permission-denied') ||
-          error.message.includes('PERMISSION_DENIED') ||
-          error.message.includes('failed-precondition') ||
-          error.message.includes('http_403')
-            ? '이 기능은 최고 관리자만 사용할 수 있습니다.'
-            : `감사 로그를 불러오지 못했습니다: ${error.message || '알 수 없는 오류'}`}
-        </div>
-      )}
+      {/* v0.249: Banner 이식 (permission-denied 분기 보존). */}
+      <Banner
+        variant="error"
+        message={
+          error
+            ? error.message.includes('permission-denied') ||
+              error.message.includes('PERMISSION_DENIED') ||
+              error.message.includes('failed-precondition') ||
+              error.message.includes('http_403')
+              ? '이 기능은 최고 관리자만 사용할 수 있습니다.'
+              : `감사 로그를 불러오지 못했습니다: ${error.message || '알 수 없는 오류'}`
+            : null
+        }
+        testId="audit-log-error"
+      />
+
 
       {!loading && !error && entries.length === 0 && (
         <div
