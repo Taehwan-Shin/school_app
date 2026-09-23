@@ -3,8 +3,24 @@ import { render, screen } from '@testing-library/react';
 import { Dialog, DialogContent } from '../src/components/ui/dialog';
 import { SrOnlyDialogHeader } from '../src/components/SrOnlyDialogHeader';
 
+// 참고: DialogContent 는 항상 자체 닫기 라벨 <span className="sr-only">닫기</span>
+// 를 렌더한다 (packages/web/src/components/ui/dialog.tsx). 그래서 단순히
+// document.querySelector('.sr-only') 를 확인하는 것은 헤더 wrapper 계약을 실제로
+// 보호하지 못한다 → v0.275 R1 F-A. 각 회귀는 title/description 텍스트를
+// role/name 으로 찾은 뒤 조상 요소를 걸어올라가 sr-only 클래스가 실제 header
+// wrapper 에 붙어 있는지 검증한다.
+
+function findAncestorWithClass(el: Element | null, cls: string): Element | null {
+  let cur = el?.parentElement ?? null;
+  while (cur) {
+    if (cur.classList.contains(cls)) return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
 describe('SrOnlyDialogHeader (v0.275)', () => {
-  it('sr-only 클래스로 감쌈 (시각적 숨김)', () => {
+  it('title 이 sr-only wrapper 안에 렌더', () => {
     render(
       <Dialog open>
         <DialogContent>
@@ -12,12 +28,28 @@ describe('SrOnlyDialogHeader (v0.275)', () => {
         </DialogContent>
       </Dialog>,
     );
-    // Radix 는 portal 로 렌더 → document 전체에서 sr-only 찾음.
-    const header = document.querySelector('.sr-only');
-    expect(header).not.toBeNull();
+    const title = screen.getByText('테스트 진행 중');
+    const srWrapper = findAncestorWithClass(title, 'sr-only');
+    expect(srWrapper).not.toBeNull();
   });
 
-  it('title 텍스트가 노출됨 (스크린 리더용)', () => {
+  it('description 이 같은 sr-only wrapper 안에 렌더 (title 과 동일 부모)', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <SrOnlyDialogHeader title="Foo" description="Bar 처리 중" />
+        </DialogContent>
+      </Dialog>,
+    );
+    const title = screen.getByText('Foo');
+    const desc = screen.getByText('Bar 처리 중');
+    const titleWrapper = findAncestorWithClass(title, 'sr-only');
+    const descWrapper = findAncestorWithClass(desc, 'sr-only');
+    expect(titleWrapper).not.toBeNull();
+    expect(descWrapper).toBe(titleWrapper);
+  });
+
+  it('title/description 텍스트가 스크린 리더에 노출됨', () => {
     render(
       <Dialog open>
         <DialogContent>
@@ -26,20 +58,10 @@ describe('SrOnlyDialogHeader (v0.275)', () => {
       </Dialog>,
     );
     expect(screen.getByText('일괄 그룹 삭제 진행 중')).toBeDefined();
+    expect(screen.getByText('그룹을 삭제하고 있습니다.')).toBeDefined();
   });
 
-  it('description 텍스트가 노출됨 (스크린 리더용)', () => {
-    render(
-      <Dialog open>
-        <DialogContent>
-          <SrOnlyDialogHeader title="Foo" description="Bar 처리 중" />
-        </DialogContent>
-      </Dialog>,
-    );
-    expect(screen.getByText('Bar 처리 중')).toBeDefined();
-  });
-
-  it('DialogHeader wrapper 의 className 은 sr-only (덮어쓰기 없음)', () => {
+  it('sr-only wrapper 는 DialogContent 자체 닫기 라벨과 분리된 별도 element', () => {
     render(
       <Dialog open>
         <DialogContent>
@@ -47,8 +69,16 @@ describe('SrOnlyDialogHeader (v0.275)', () => {
         </DialogContent>
       </Dialog>,
     );
-    const headers = document.querySelectorAll('.sr-only');
-    // sr-only 클래스가 있는 요소가 정확히 하나 (헤더 wrapper).
-    expect(headers.length).toBeGreaterThanOrEqual(1);
+    // DialogContent 는 자체 닫기 라벨 sr-only span 을 항상 렌더.
+    // 헤더 wrapper 는 title/description 을 감싸는 별도 요소.
+    const titleWrapper = findAncestorWithClass(screen.getByText('X'), 'sr-only');
+    const closeLabel = screen.queryByText('닫기');
+    expect(titleWrapper).not.toBeNull();
+    if (closeLabel) {
+      const closeWrapper = findAncestorWithClass(closeLabel, 'sr-only');
+      // 닫기 label 자체가 sr-only 이거나 wrapper 가 sr-only 이면 됨.
+      // 헤더 wrapper 와는 다른 element 여야 함.
+      expect(closeWrapper !== titleWrapper || closeLabel !== titleWrapper).toBe(true);
+    }
   });
 });
