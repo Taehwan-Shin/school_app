@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
+import { BulkProgress } from "../../components/BulkProgress";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -237,25 +238,13 @@ export function BulkTransferClassroomOwnerDialog({
               <DialogTitle>일괄 소유자 이관 진행 중</DialogTitle>
               <DialogDescription>클래스룸 소유자를 이관하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="bulk-transfer-owner-running">
-              <div className="text-body text-fg-primary">
-                진행 중 (「{displayOwner}」 로 이관):{" "}
-                <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{displayCourses.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${
-                      displayCourses.length > 0
-                        ? (progress / displayCourses.length) * 100
-                        : 0
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.258: BulkProgress 이식 (label prop 으로 「{owner} 로 이관」 커스텀). */}
+            <BulkProgress
+              progress={progress}
+              total={displayCourses.length}
+              testId="bulk-transfer-owner-running"
+              label={`진행 중 (「${displayOwner}」 로 이관):`}
+            />
           </>
         )}
 
