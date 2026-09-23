@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
+import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
 import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
@@ -180,21 +181,12 @@ export function BulkUpdateGroupDescriptionDialog({
               <DialogDescription>일괄 설명 변경 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="bulk-update-group-description-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                완료:{" "}
-                <strong className="text-state-success font-mono">
-                  {displayEmails.length - failures.length}
-                </strong>
-                개 성공
-                {failures.length > 0 && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <strong className="text-state-danger font-mono">{failures.length}</strong>
-                    개 실패
-                  </>
-                )}
-              </p>
+              {/* v0.266: BulkDoneSummary 이식. */}
+              <BulkDoneSummary
+                successCount={displayEmails.length - failures.length}
+                failureCount={failures.length}
+                unit="개"
+              />
               {runDescription !== null && runDescription !== "" && (
                 <p
                   className="text-small text-fg-secondary"
