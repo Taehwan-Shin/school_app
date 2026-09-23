@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { BulkProgress } from '../../components/BulkProgress';
 import { callClassroomPatch } from '../../api/classroomPatch';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
@@ -347,23 +348,12 @@ export function BulkRenameClassroomDialog({
                 클래스룸 이름을 변경하고 있습니다.
               </DialogDescription>
             </DialogHeader>
-            <div
-              className="py-8 text-center space-y-3"
-              data-testid="bulk-rename-classroom-running"
-            >
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{' '}
-                <strong className="font-mono">{activeRows.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${activeRows.length > 0 ? (progress / activeRows.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.257: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={activeRows.length}
+              testId="bulk-rename-classroom-running"
+            />
           </>
         )}
 

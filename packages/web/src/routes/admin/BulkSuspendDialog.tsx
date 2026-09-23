@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
+import { BulkProgress } from "../../components/BulkProgress";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkSuspendDialogProps {
@@ -126,20 +127,12 @@ export function BulkSuspendDialog({
               <DialogTitle>일괄 정지 진행 중</DialogTitle>
               <DialogDescription>계정을 정지하고 있습니다.</DialogDescription>
             </DialogHeader>
-            <div className="py-8 text-center space-y-3" data-testid="bulk-suspend-running">
-              <div className="text-body text-fg-primary">
-                진행 중: <strong className="font-mono">{progress}</strong> /{" "}
-                <strong className="font-mono">{displayEmails.length}</strong>
-              </div>
-              <div className="w-full bg-canvas h-2 border border-border-subtle">
-                <div
-                  className="bg-fg-primary h-full transition-all"
-                  style={{
-                    width: `${displayEmails.length > 0 ? (progress / displayEmails.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-            </div>
+            {/* v0.257: BulkProgress 이식. */}
+            <BulkProgress
+              progress={progress}
+              total={displayEmails.length}
+              testId="bulk-suspend-running"
+            />
           </>
         )}
 
