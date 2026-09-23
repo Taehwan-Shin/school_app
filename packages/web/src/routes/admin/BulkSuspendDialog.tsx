@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkSuspendDialogProps {
@@ -97,24 +98,13 @@ export function BulkSuspendDialog({
                 <li className="text-fg-muted">... 외 {emails.length - 5}명</li>
               )}
             </ul>
-            <div>
-              {/* v0.124 (== v0.123b F100 대칭): htmlFor/id 로 프로그램적 연결
-                  (UI_SYSTEM.md label semantics). getByLabelText 회귀 가능. */}
-              <label
-                htmlFor="bulk-suspend-confirm-input"
-                className="text-small text-fg-primary"
-              >
-                확인을 위해 대상 개수 (<strong>{emails.length}</strong>)를 입력하세요:
-              </label>
-              <input
-                id="bulk-suspend-confirm-input"
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                data-testid="bulk-suspend-confirm-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
-              />
-            </div>
+            {/* v0.254: ConfirmCountInput 이식. */}
+            <ConfirmCountInput
+              expectedCount={emails.length}
+              value={confirmText}
+              onChange={setConfirmText}
+              idPrefix="bulk-suspend"
+            />
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
