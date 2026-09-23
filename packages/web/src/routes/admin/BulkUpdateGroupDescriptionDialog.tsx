@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
+import { PreviewList } from "../../components/PreviewList";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
 import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
@@ -125,16 +126,13 @@ export function BulkUpdateGroupDescriptionDialog({
               </p>
             </div>
 
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {emails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {emails.length > 5 && (
-                <li className="text-fg-muted">... 외 {emails.length - 5}개</li>
-              )}
-            </ul>
+            {/* v0.263: PreviewList 이식. */}
+            <PreviewList
+              items={emails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="개"
+            />
 
             {validationError && (
               <p

@@ -10,6 +10,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
+import { PreviewList } from "../../components/PreviewList";
 import { callGroupsMembersDelete } from "../../api/groupsMembersDelete";
 
 export interface BulkRemoveMembersDialogProps {
@@ -91,16 +92,13 @@ export function BulkRemoveMembersDialog({
                 <span className="font-mono">{groupEmail}</span> 에서 {memberEmails.length}명 멤버를 제거합니다. 그룹 자체는 유지됩니다.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {memberEmails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {memberEmails.length > 5 && (
-                <li className="text-fg-muted">... 외 {memberEmails.length - 5}명</li>
-              )}
-            </ul>
+            {/* v0.263: PreviewList 이식. */}
+            <PreviewList
+              items={memberEmails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="명"
+            />
             <div>
               {/* v0.131 (== v0.124 F100 대칭): htmlFor/id 로 프로그램적 연결. */}
               <label
