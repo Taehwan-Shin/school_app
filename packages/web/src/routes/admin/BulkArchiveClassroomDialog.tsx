@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { ConfirmCountInput } from '../../components/ConfirmCountInput';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -114,22 +115,13 @@ export function BulkArchiveClassroomDialog({
                 <li className="text-fg-muted">... 외 {courses.length - 5}개</li>
               )}
             </ul>
-            <div>
-              <label
-                htmlFor="bulk-archive-classroom-confirm-input"
-                className="text-small text-fg-primary block mb-2"
-              >
-                확인을 위해 대상 개수 (<strong>{courses.length}</strong>)를 입력하세요:
-              </label>
-              <input
-                id="bulk-archive-classroom-confirm-input"
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                data-testid="bulk-archive-classroom-confirm-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
-              />
-            </div>
+            {/* v0.255: ConfirmCountInput 이식 (원본 label block mb-2 → 신규 input mt-2 로 유사 여백). */}
+            <ConfirmCountInput
+              expectedCount={courses.length}
+              value={confirmText}
+              onChange={setConfirmText}
+              idPrefix="bulk-archive-classroom"
+            />
             <DialogFooter>
               <Button
                 variant="secondary"

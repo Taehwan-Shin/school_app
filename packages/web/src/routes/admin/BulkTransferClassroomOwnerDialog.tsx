@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -198,22 +199,13 @@ export function BulkTransferClassroomOwnerDialog({
               )}
             </ul>
 
-            <div>
-              <label
-                htmlFor="bulk-transfer-owner-confirm-input"
-                className="text-small text-fg-primary"
-              >
-                확인을 위해 대상 개수 (<strong>{courses.length}</strong>)를 입력하세요:
-              </label>
-              <input
-                id="bulk-transfer-owner-confirm-input"
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                data-testid="bulk-transfer-owner-confirm-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
-              />
-            </div>
+            {/* v0.255: ConfirmCountInput 이식. */}
+            <ConfirmCountInput
+              expectedCount={courses.length}
+              value={confirmText}
+              onChange={setConfirmText}
+              idPrefix="bulk-transfer-owner"
+            />
 
             {validationError && (
               <p
