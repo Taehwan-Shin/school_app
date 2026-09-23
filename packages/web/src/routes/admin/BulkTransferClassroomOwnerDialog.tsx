@@ -13,6 +13,7 @@ import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
+import { BulkFailureList } from "../../components/BulkFailureList";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -261,25 +262,24 @@ export function BulkTransferClassroomOwnerDialog({
                 unit="개"
                 label={`「${displayOwner}」 로 이관 완료:`}
               />
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-transfer-owner-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.courseId}>
-                      <span className="font-mono">{f.courseName ?? f.courseId}</span>:{" "}
-                      {f.message}
-                      {f.addedTeacherButPatchFailed && (
-                        <span className="ml-1 text-state-warning">
-                          {" "}
-                          (교사가 남아 있을 수 있음 — 수동 정리 필요)
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.272: BulkFailureList 이식 (addedTeacherButPatchFailed 추가 warning 보존). */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.courseId}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.courseName ?? f.courseId}</span>:{" "}
+                    {f.message}
+                    {f.addedTeacherButPatchFailed && (
+                      <span className="ml-1 text-state-warning">
+                        {" "}
+                        (교사가 남아 있을 수 있음 — 수동 정리 필요)
+                      </span>
+                    )}
+                  </>
+                )}
+                testId="bulk-transfer-owner-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>

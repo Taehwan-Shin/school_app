@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
+import { BulkFailureList } from "../../components/BulkFailureList";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
 import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
@@ -195,18 +196,17 @@ export function BulkUpdateGroupDescriptionDialog({
                   적용된 설명: <span className="font-mono">「{runDescription}」</span>
                 </p>
               )}
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-update-group-description-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.email}>
-                      <span className="font-mono">{f.email}</span>: {f.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.272: BulkFailureList 이식. */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.email}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.email}</span>: {f.message}
+                  </>
+                )}
+                testId="bulk-update-group-description-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>

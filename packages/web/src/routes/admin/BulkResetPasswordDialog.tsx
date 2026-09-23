@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
 import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { BulkFailureList } from '../../components/BulkFailureList';
 import { callUsersResetPassword } from '../../api/usersResetPassword';
 
 export interface BulkResetPasswordDialogProps {
@@ -244,18 +245,17 @@ export function BulkResetPasswordDialog({
                 failureCount={failures.length}
                 unit="명"
               />
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-reset-password-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.email}>
-                      <span className="font-mono">{f.email}</span>: {f.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.272: BulkFailureList 이식. */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.email}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.email}</span>: {f.message}
+                  </>
+                )}
+                testId="bulk-reset-password-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>
