@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
+import { PreviewList } from "../../components/PreviewList";
 import { callGroupsDelete } from "../../api/groupsDelete";
 
 export interface BulkDeleteGroupDialogProps {
@@ -88,16 +89,13 @@ export function BulkDeleteGroupDialog({
                 삭제된 그룹의 멤버 매핑도 함께 사라집니다.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {emails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {emails.length > 5 && (
-                <li className="text-fg-muted">... 외 {emails.length - 5}개</li>
-              )}
-            </ul>
+            {/* v0.261: PreviewList 이식. */}
+            <PreviewList
+              items={emails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="개"
+            />
             {/* v0.253: 「대상 개수 정확 입력」 관문 → 신규 ConfirmCountInput shared. */}
             <ConfirmCountInput
               expectedCount={emails.length}
