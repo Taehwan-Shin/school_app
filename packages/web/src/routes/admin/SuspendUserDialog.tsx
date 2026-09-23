@@ -10,6 +10,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { useUpdateUser } from "../../api/usersUpdate";
 import { cn } from "../../lib/utils";
+import { Banner } from "../../components/Banner";
 
 export interface SuspendUserTarget {
   email: string;
@@ -87,14 +88,13 @@ export function SuspendUserDialog({ open, onOpenChange, user }: SuspendUserDialo
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="suspend-user-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.248: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="suspend-user-error"
+          />
+
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>

@@ -9,6 +9,7 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { useResetPassword } from "../../api/usersResetPassword";
+import { Banner } from "../../components/Banner";
 
 export interface ResetPasswordTarget {
   email: string;
@@ -107,14 +108,13 @@ export function ResetPasswordDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="reset-password-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.248: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={errorMessage}
+            testId="reset-password-error"
+          />
+
 
           <div className="p-4 border border-border-subtle bg-surface space-y-1">
             <div>
