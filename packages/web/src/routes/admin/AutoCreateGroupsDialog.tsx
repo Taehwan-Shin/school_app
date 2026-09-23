@@ -11,6 +11,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
+import { ConfirmCountInput } from '../../components/ConfirmCountInput';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -267,18 +268,13 @@ export function AutoCreateGroupsDialog({
               testId="auto-create-groups-duplicate-error"
             />
 
-            <div>
-              <label className="text-small text-fg-primary">
-                확인을 위해 대상 개수 (<strong>{targets.length}</strong>)를 입력하세요:
-              </label>
-              <input
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                data-testid="auto-create-groups-confirm-input"
-                className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong mt-2"
-              />
-            </div>
+            {/* v0.255: ConfirmCountInput 이식. 원본 label htmlFor 없었으나 신규 컴포넌트가 id/htmlFor 자동 연결 (접근성 개선). */}
+            <ConfirmCountInput
+              expectedCount={targets.length}
+              value={confirmText}
+              onChange={setConfirmText}
+              idPrefix="auto-create-groups"
+            />
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
