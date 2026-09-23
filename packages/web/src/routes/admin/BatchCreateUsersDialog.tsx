@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
+import { Banner } from "../../components/Banner";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -370,14 +371,8 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
               </DialogDescription>
             </DialogHeader>
 
-            {validationError && (
-              <div
-                className="border border-state-danger p-3 text-small text-state-danger"
-                data-testid="batch-create-users-error"
-              >
-                {validationError}
-              </div>
-            )}
+            {/* v0.242: Banner 이식. */}
+            <Banner variant="error" message={validationError} testId="batch-create-users-error" />
 
             {/* 공통 필드 */}
             <div className="space-y-3 border border-border-subtle p-3 bg-elevated">
