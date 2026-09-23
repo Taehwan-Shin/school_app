@@ -145,17 +145,18 @@ export function TransferClassroomOwnerDialog({
             testId="transfer-owner-error"
           />
 
-          {mutationResult && (
-            <div
-              className="border border-state-success p-3 text-small text-fg-primary"
-              data-testid="transfer-owner-success"
-            >
-              이관 완료.
-              {mutationResult.addedAsTeacher
-                ? ' 새 소유자를 교사로 자동 추가한 뒤 이관했습니다.'
-                : ' (새 소유자는 이미 교사였습니다.)'}
-            </div>
-          )}
+          {/* v0.251: Banner 이식 (bodyClass 로 text-fg-primary 유지). */}
+          <Banner
+            variant="success"
+            message={
+              mutationResult
+                ? `이관 완료.${mutationResult.addedAsTeacher ? ' 새 소유자를 교사로 자동 추가한 뒤 이관했습니다.' : ' (새 소유자는 이미 교사였습니다.)'}`
+                : null
+            }
+            testId="transfer-owner-success"
+            bodyClass="text-fg-primary"
+          />
+
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>

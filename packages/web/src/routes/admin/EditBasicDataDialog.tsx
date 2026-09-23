@@ -170,32 +170,38 @@ export function EditBasicDataDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {staleWarnings.length > 0 && (
-            <div
-              className="border border-state-warning p-4 space-y-2"
-              data-testid="edit-basic-data-stale-warning"
-            >
-              <div className="text-small text-state-warning">
-                이 저장으로 아래 반의 학생 명단 ({staleWarnings.reduce((s, w) => s + w.count, 0)}명) 이 함께 제거됩니다:
-              </div>
-              <ul className="text-small text-fg-secondary font-mono max-h-24 overflow-y-auto">
-                {staleWarnings.map((w) => (
-                  <li key={`${w.grade}-${w.class}`}>
-                    {w.grade}학년 {w.class}반: {w.count}명
-                  </li>
-                ))}
-              </ul>
-              <label className="flex items-center gap-2 text-small text-fg-primary">
-                <input
-                  type="checkbox"
-                  checked={confirmedStaleReconcile}
-                  onChange={(e) => setConfirmedStaleReconcile(e.target.checked)}
-                  data-testid="edit-basic-data-confirm-stale-reconcile"
-                />
-                위 학생 명단 제거를 확인합니다
-              </label>
-            </div>
-          )}
+          {/* v0.251: Banner 이식 (bodyClass 로 space-y-2 + 자식 요소별 explicit color). */}
+          <Banner
+            variant="warning"
+            message={
+              staleWarnings.length > 0 ? (
+                <>
+                  <div className="text-state-warning">
+                    이 저장으로 아래 반의 학생 명단 ({staleWarnings.reduce((s, w) => s + w.count, 0)}명) 이 함께 제거됩니다:
+                  </div>
+                  <ul className="text-fg-secondary font-mono max-h-24 overflow-y-auto">
+                    {staleWarnings.map((w) => (
+                      <li key={`${w.grade}-${w.class}`}>
+                        {w.grade}학년 {w.class}반: {w.count}명
+                      </li>
+                    ))}
+                  </ul>
+                  <label className="flex items-center gap-2 text-fg-primary">
+                    <input
+                      type="checkbox"
+                      checked={confirmedStaleReconcile}
+                      onChange={(e) => setConfirmedStaleReconcile(e.target.checked)}
+                      data-testid="edit-basic-data-confirm-stale-reconcile"
+                    />
+                    위 학생 명단 제거를 확인합니다
+                  </label>
+                </>
+              ) : null
+            }
+            testId="edit-basic-data-stale-warning"
+            bodyClass="space-y-2"
+          />
+
           {/* v0.245: Banner 이식. */}
           <Banner
             variant="error"
