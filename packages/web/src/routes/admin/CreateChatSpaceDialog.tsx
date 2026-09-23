@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useCreateChatSpace } from '../../api/chatCreate';
 
 export interface CreateChatSpaceDialogProps {
@@ -65,22 +66,17 @@ export function CreateChatSpaceDialog({ open, onOpenChange }: CreateChatSpaceDia
               className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
             />
           </div>
-          {validationError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="create-chat-validation-error"
-            >
-              {validationError}
-            </div>
-          )}
-          {mutationError && (
-            <div
-              className="border border-state-danger p-4 text-small text-state-danger"
-              data-testid="create-chat-error"
-            >
-              생성 실패: {mutationError.message}
-            </div>
-          )}
+          {/* v0.247: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={validationError}
+            testId="create-chat-validation-error"
+          />
+          <Banner
+            variant="error"
+            message={mutationError ? `생성 실패: ${mutationError.message}` : null}
+            testId="create-chat-error"
+          />
           <DialogFooter>
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>
               취소
