@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { Banner } from "../../components/Banner";
 import { BulkProgress } from "../../components/BulkProgress";
+import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -875,16 +876,12 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
               <DialogDescription>일괄 생성 작업이 완료되었습니다.</DialogDescription>
             </DialogHeader>
             <div data-testid="batch-create-users-done" className="space-y-3">
-              <p className="text-body text-fg-primary">
-                완료:{" "}
-                <strong className="text-state-success font-mono">{successCount}</strong>명 성공
-                {failCount > 0 && (
-                  <>
-                    {" · "}
-                    <strong className="text-state-danger font-mono">{failCount}</strong>명 실패
-                  </>
-                )}
-              </p>
+              {/* v0.267: BulkDoneSummary 이식. */}
+              <BulkDoneSummary
+                successCount={successCount}
+                failureCount={failCount}
+                unit="명"
+              />
               {failCount > 0 && (
                 <ul
                   className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
