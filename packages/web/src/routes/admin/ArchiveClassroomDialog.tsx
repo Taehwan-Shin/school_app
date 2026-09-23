@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useClassroomPatch } from '../../api/classroomPatch';
 
 export interface ArchiveClassroomTarget {
@@ -74,14 +75,8 @@ export function ArchiveClassroomDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="archive-classroom-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.241: Banner 이식. */}
+          <Banner variant="error" message={errorMessage} testId="archive-classroom-error" />
 
           <div className="p-4 border border-border-subtle bg-surface space-y-2">
             <div>
