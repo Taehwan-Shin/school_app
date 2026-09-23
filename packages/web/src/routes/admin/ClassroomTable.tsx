@@ -9,6 +9,7 @@ import { useFocusTrap } from '../../lib/useFocusTrap';
 import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useAutoDismissBanner } from '../../lib/useAutoDismissBanner';
+import { Banner } from '../../components/Banner';
 import { SuccessBanner } from '../../components/SuccessBanner';
 import {
   serializePageSize,
@@ -777,11 +778,16 @@ export function ClassroomTable() {
           클래스룸 코스 목록을 불러오는 중...
         </div>
       )}
-      {isError && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="classroom-list-error">
-          클래스룸 코스 목록을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
+      {/* v0.243: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={
+          isError
+            ? `클래스룸 코스 목록을 불러오지 못했습니다: ${error?.message || '알 수 없는 오류'}`
+            : null
+        }
+        testId="classroom-list-error"
+      />
       {!isLoading && !isError && (!data?.courses || data.courses.length === 0) && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="classroom-list-empty">
           표시할 클래스룸 코스가 없습니다.

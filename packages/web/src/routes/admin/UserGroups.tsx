@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useGroupsList } from '../../api/groupsList';
+import { Banner } from '../../components/Banner';
 import {
   Table,
   TableBody,
@@ -23,11 +24,14 @@ export function UserGroups({ userEmail }: UserGroupsProps) {
           소속 그룹을 불러오는 중...
         </div>
       )}
-      {isError && (
-        <div className="border border-state-danger p-4 text-small text-state-danger" data-testid="user-groups-error">
-          소속 그룹을 불러오지 못했습니다: {error?.message || '알 수 없는 오류'}
-        </div>
-      )}
+      {/* v0.243: Banner 이식. */}
+      <Banner
+        variant="error"
+        message={
+          isError ? `소속 그룹을 불러오지 못했습니다: ${error?.message || '알 수 없는 오류'}` : null
+        }
+        testId="user-groups-error"
+      />
       {!isLoading && !isError && (!data?.groups || data.groups.length === 0) && (
         <div className="py-8 text-center text-small text-fg-secondary" data-testid="user-groups-empty">
           이 사용자는 어떤 그룹에도 속하지 않습니다.
