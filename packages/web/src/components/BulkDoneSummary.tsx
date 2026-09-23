@@ -10,6 +10,9 @@
 //   집계가 필요한 사이트 대응. `skippedCount` > 0 이면 성공 뒤·실패 앞에 삽입.
 //   `skippedSuffix` 로 각 사이트 문구 커스텀 (예: 「이미 멤버 (skip)」).
 //   `skippedVariant` 기본 'warning'.
+// v0.269: `successSuffix` (기본 「성공」) · `failureSuffix` (기본 「실패」) 추가.
+//   Chat/CourseBulkCreate 처럼 「N개 생성」, ClassroomChatPair 처럼
+//   「N개 course+chat 생성」 등 성공 문구 커스텀 대응.
 
 import type { ReactNode } from 'react';
 
@@ -20,6 +23,8 @@ export interface BulkDoneSummaryProps {
   failureCount: number;
   unit: string;
   label?: ReactNode;
+  successSuffix?: string;
+  failureSuffix?: string;
   skippedCount?: number;
   skippedSuffix?: string;
   skippedVariant?: SkippedVariant;
@@ -35,6 +40,8 @@ export function BulkDoneSummary({
   failureCount,
   unit,
   label = '완료:',
+  successSuffix = '성공',
+  failureSuffix = '실패',
   skippedCount,
   skippedSuffix,
   skippedVariant = 'warning',
@@ -43,7 +50,7 @@ export function BulkDoneSummary({
   return (
     <p className="text-body text-fg-primary">
       {label} <strong className="text-state-success font-mono">{successCount}</strong>
-      {unit} 성공
+      {unit} {successSuffix}
       {showSkipped && (
         <>
           {' '}
@@ -58,7 +65,7 @@ export function BulkDoneSummary({
           {' '}
           ·{' '}
           <strong className="text-state-danger font-mono">{failureCount}</strong>
-          {unit} 실패
+          {unit} {failureSuffix}
         </>
       )}
     </p>

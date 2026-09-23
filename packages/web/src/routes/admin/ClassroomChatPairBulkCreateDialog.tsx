@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
+import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
@@ -529,22 +530,15 @@ function ClassroomChatPairBulkCreateDialogContent({
                   (r) => r.courseKind === 'failed' || r.chatKind === 'failed',
                 ).length;
                 return (
-                  <p className="text-body text-fg-primary">
-                    완료:{' '}
-                    <strong className="text-state-success font-mono">{bothOk}</strong>개 course+chat 생성
-                    {partial > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-warning font-mono">{partial}</strong>개 부분 완료/skip
-                      </>
-                    )}
-                    {failed > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-danger font-mono">{failed}</strong>개 실패
-                      </>
-                    )}
-                  </p>
+                  /* v0.269: BulkDoneSummary 이식 (successSuffix + skippedSuffix 커스텀). */
+                  <BulkDoneSummary
+                    successCount={bothOk}
+                    failureCount={failed}
+                    unit="개"
+                    successSuffix="course+chat 생성"
+                    skippedCount={partial}
+                    skippedSuffix="부분 완료/skip"
+                  />
                 );
               })()}
               {results.length > 0 && (
