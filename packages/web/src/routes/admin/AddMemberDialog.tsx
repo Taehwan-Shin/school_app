@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { useAddMember } from '../../api/groupsMembersInsert';
 
 export interface AddMemberDialogProps {
@@ -94,14 +95,8 @@ export function AddMemberDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {errorMessage && (
-            <div
-              className="border border-state-danger p-3 text-small text-state-danger"
-              data-testid="add-member-error"
-            >
-              {errorMessage}
-            </div>
-          )}
+          {/* v0.241: Banner 이식. */}
+          <Banner variant="error" message={errorMessage} testId="add-member-error" />
 
           <div className="space-y-2">
             <label htmlFor="memberEmail" className="text-small text-fg-secondary mb-1 block">
