@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { AppShell } from '../../components/shell/AppShell';
+import { Banner } from '../../components/Banner';
 import { useUsersList } from '../../api/usersList';
 import { UserAuditTrail } from './UserAuditTrail';
 import { UserGroups } from './UserGroups';
@@ -131,11 +132,12 @@ export function UserDetailPage() {
             )}
           </div>
           {isLoading && <p className="text-small text-fg-secondary">불러오는 중...</p>}
-          {isError && (
-            <div className="border border-state-danger p-4 text-small text-state-danger">
-              사용자 정보를 불러오지 못했습니다.
-            </div>
-          )}
+          {/* v0.242: Banner 이식. */}
+          <Banner
+            variant="error"
+            message={isError ? '사용자 정보를 불러오지 못했습니다.' : null}
+            testId="user-detail-error"
+          />
           {!isLoading && !isError && !user && (
             <p className="text-small text-fg-secondary" data-testid="user-detail-not-found">
               사용자를 찾을 수 없습니다: {userEmail}

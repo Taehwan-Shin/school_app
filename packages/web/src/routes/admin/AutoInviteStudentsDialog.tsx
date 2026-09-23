@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoInviteStudentsDialogProps {
@@ -192,15 +193,16 @@ export function AutoInviteStudentsDialog({
                 </tbody>
               </table>
             </div>
-            {hasAmbiguity && (
-              <div
-                className="border border-state-danger p-4 text-small text-state-danger"
-                data-testid="auto-invite-students-ambiguous-error"
-              >
-                다음 그룹 이메일에 여러 반이 매핑됩니다 ({ambiguousEmails.length}건): {ambiguousEmails.slice(0, 3).join(', ')}
-                {ambiguousEmails.length > 3 && ` 외 ${ambiguousEmails.length - 3}`}. 반 이름을 구분되게 조정하세요.
-              </div>
-            )}
+            {/* v0.242: Banner 이식. */}
+            <Banner
+              variant="error"
+              message={
+                hasAmbiguity
+                  ? `다음 그룹 이메일에 여러 반이 매핑됩니다 (${ambiguousEmails.length}건): ${ambiguousEmails.slice(0, 3).join(', ')}${ambiguousEmails.length > 3 ? ` 외 ${ambiguousEmails.length - 3}` : ''}. 반 이름을 구분되게 조정하세요.`
+                  : null
+              }
+              testId="auto-invite-students-ambiguous-error"
+            />
             <div>
               <label className="text-small text-fg-primary">
                 확인을 위해 대상 학생 수 (<strong>{targets.length}</strong>)를 입력하세요:
