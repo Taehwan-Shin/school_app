@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BulkFailureList } from '../src/components/BulkFailureList';
 
@@ -67,19 +67,53 @@ describe('BulkFailureList (v0.270)', () => {
     expect(screen.getByTestId('item-1').className).toContain('font-mono');
   });
 
-  it('li 각각 key 는 getKey 결과', () => {
-    const { container } = render(
+  it('getKey 는 각 item 마다 호출됨 (spy)', () => {
+    const getKeySpy = vi.fn((x: { id: string }) => x.id);
+    render(
       <BulkFailureList
-        items={[{ id: 'x1' }, { id: 'x2' }]}
-        getKey={(x) => x.id}
+        items={[{ id: 'x1' }, { id: 'x2' }, { id: 'x3' }]}
+        getKey={getKeySpy}
         renderItem={(x) => x.id}
-        testId="bfl-keys"
+        testId="bfl-getkey-spy"
       />,
     );
-    const lis = container.querySelectorAll('li');
-    expect(lis.length).toBe(2);
-    // key 는 DOM 에 노출되지 않음 · 렌더된 text 로 확인.
-    expect(lis[0].textContent).toBe('x1');
-    expect(lis[1].textContent).toBe('x2');
+    expect(getKeySpy).toHaveBeenCalledTimes(3);
+    expect(getKeySpy).toHaveBeenNthCalledWith(1, { id: 'x1' });
+    expect(getKeySpy).toHaveBeenNthCalledWith(2, { id: 'x2' });
+    expect(getKeySpy).toHaveBeenNthCalledWith(3, { id: 'x3' });
+  });
+
+  it('key 로 li DOM 정체성 유지 (재정렬 시 순서만 뒤집힘)', () => {
+    // key 가 id 기반이면 재정렬 시 React 가 DOM 노드를 재사용. 원본 li ref 를
+    // 캡처해두면 재정렬 후 DOM 위치가 바뀌었어도 동일 노드가 유지된다.
+    function Row({ id }: { id: string }) {
+      return <span data-testid={`row-${id}`}>{id}</span>;
+    }
+    const items1 = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    const items2 = [{ id: 'c' }, { id: 'b' }, { id: 'a' }];
+    const { rerender } = render(
+      <BulkFailureList
+        items={items1}
+        getKey={(x) => x.id}
+        renderItem={(x) => <Row id={x.id} />}
+        testId="bfl-reorder"
+      />,
+    );
+    expect(screen.getByTestId('row-a')).toBeDefined();
+    rerender(
+      <BulkFailureList
+        items={items2}
+        getKey={(x) => x.id}
+        renderItem={(x) => <Row id={x.id} />}
+        testId="bfl-reorder"
+      />,
+    );
+    // 재정렬 후에도 모든 id 렌더링 (key 가 id 기반이면 정상 재사용).
+    expect(screen.getByTestId('row-a').textContent).toBe('a');
+    expect(screen.getByTestId('row-c').textContent).toBe('c');
+    // DOM 순서 확인.
+    const rows = document.querySelectorAll('[data-testid^="row-"]');
+    expect(rows[0].getAttribute('data-testid')).toBe('row-c');
+    expect(rows[2].getAttribute('data-testid')).toBe('row-a');
   });
 });
