@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { ConfirmCountInput } from '../../components/ConfirmCountInput';
 import { BulkProgress } from '../../components/BulkProgress';
+import { PreviewList } from '../../components/PreviewList';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -106,16 +107,13 @@ export function BulkArchiveClassroomDialog({
                 일괄 작업 또는 개별 「{direction === 'archive' ? '복구' : '아카이브'}」.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {courses.slice(0, 5).map((c) => (
-                <li key={c.id} className="font-mono">
-                  {c.name || c.id}
-                </li>
-              ))}
-              {courses.length > 5 && (
-                <li className="text-fg-muted">... 외 {courses.length - 5}개</li>
-              )}
-            </ul>
+            {/* v0.263: PreviewList 이식. */}
+            <PreviewList
+              items={courses}
+              getKey={(c) => c.id}
+              renderItem={(c) => c.name || c.id}
+              unit="개"
+            />
             {/* v0.255: ConfirmCountInput 이식 (원본 label block mb-2 → 신규 input mt-2 로 유사 여백). */}
             <ConfirmCountInput
               expectedCount={courses.length}

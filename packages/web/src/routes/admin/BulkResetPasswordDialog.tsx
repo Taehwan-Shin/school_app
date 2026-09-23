@@ -9,6 +9,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
+import { PreviewList } from '../../components/PreviewList';
 import { callUsersResetPassword } from '../../api/usersResetPassword';
 
 export interface BulkResetPasswordDialogProps {
@@ -129,16 +130,13 @@ export function BulkResetPasswordDialog({
                 변경 강제 옵션은 기본 활성.
               </DialogDescription>
             </DialogHeader>
-            <ul className="text-small text-fg-secondary max-h-40 overflow-y-auto space-y-1">
-              {emails.slice(0, 5).map((e) => (
-                <li key={e} className="font-mono">
-                  {e}
-                </li>
-              ))}
-              {emails.length > 5 && (
-                <li className="text-fg-muted">... 외 {emails.length - 5}명</li>
-              )}
-            </ul>
+            {/* v0.263: PreviewList 이식. */}
+            <PreviewList
+              items={emails}
+              getKey={(e) => e}
+              renderItem={(e) => e}
+              unit="명"
+            />
             {/* v0.113b F66: label 이 input 을 참조하도록 htmlFor + id 연결. 보조기술이 두
                 필드를 구분할 수 있게. UI_SYSTEM label semantics 규약 준수. */}
             <div className="space-y-3">
