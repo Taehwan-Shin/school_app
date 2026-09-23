@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
+import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
 
@@ -347,22 +348,14 @@ function ClassroomBulkInviteDialogContent({
                 const skippedCount = results.filter((r) => r.kind === 'skipped').length;
                 const failedCount = results.filter((r) => r.kind === 'failed').length;
                 return (
-                  <p className="text-body text-fg-primary">
-                    완료:{' '}
-                    <strong className="text-state-success font-mono">{okCount}</strong>명 성공
-                    {skippedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-warning font-mono">{skippedCount}</strong>명 이미 멤버 (skip)
-                      </>
-                    )}
-                    {failedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-danger font-mono">{failedCount}</strong>명 실패
-                      </>
-                    )}
-                  </p>
+                  /* v0.269: BulkDoneSummary 이식. */
+                  <BulkDoneSummary
+                    successCount={okCount}
+                    failureCount={failedCount}
+                    unit="명"
+                    skippedCount={skippedCount}
+                    skippedSuffix="이미 멤버 (skip)"
+                  />
                 );
               })()}
               {results.some((r) => r.kind === 'skipped') && (

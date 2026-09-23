@@ -160,4 +160,31 @@ describe('BulkDoneSummary (v0.264)', () => {
     const strongs = container.querySelectorAll('strong');
     expect(strongs[1].className).toContain('text-state-danger');
   });
+
+  // v0.269: successSuffix / failureSuffix 커스텀.
+  it('successSuffix 커스텀 (예: "생성") · "성공" 미노출', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={5}
+        failureCount={0}
+        unit="개"
+        successSuffix="생성"
+      />,
+    );
+    expect(container.textContent).toContain('5개 생성');
+    expect(container.textContent).not.toContain('성공');
+  });
+
+  it('failureSuffix 커스텀 · "실패" 미노출', () => {
+    const { container } = render(
+      <BulkDoneSummary
+        successCount={2}
+        failureCount={3}
+        unit="명"
+        failureSuffix="차단됨"
+      />,
+    );
+    expect(container.textContent).toContain('3명 차단됨');
+    expect(container.textContent).not.toContain('실패');
+  });
 });

@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
+import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatCreate } from '../../api/chatCreate';
 import { callChatList } from '../../api/chatList';
@@ -435,22 +436,15 @@ function ChatBulkCreateDialogContent({
                 const skippedCount = results.filter((r) => r.kind === 'skipped').length;
                 const failedCount = results.filter((r) => r.kind === 'failed').length;
                 return (
-                  <p className="text-body text-fg-primary">
-                    완료:{' '}
-                    <strong className="text-state-success font-mono">{okCount}</strong>개 생성
-                    {skippedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-warning font-mono">{skippedCount}</strong>개 이미 존재 (skip)
-                      </>
-                    )}
-                    {failedCount > 0 && (
-                      <>
-                        {' '}
-                        · <strong className="text-state-danger font-mono">{failedCount}</strong>개 실패
-                      </>
-                    )}
-                  </p>
+                  /* v0.269: BulkDoneSummary 이식 (successSuffix="생성" 커스텀). */
+                  <BulkDoneSummary
+                    successCount={okCount}
+                    failureCount={failedCount}
+                    unit="개"
+                    successSuffix="생성"
+                    skippedCount={skippedCount}
+                    skippedSuffix="이미 존재 (skip)"
+                  />
                 );
               })()}
               {results.some((r) => r.kind === 'skipped') && (
