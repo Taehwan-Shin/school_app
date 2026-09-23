@@ -13,6 +13,7 @@ import { ConfirmCountInput } from "../../components/ConfirmCountInput";
 import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
+import { BulkFailureList } from "../../components/BulkFailureList";
 import { callUsersUpdateRole } from "../../api/usersUpdateRole";
 import type { Role } from "@school-app/shared";
 
@@ -190,18 +191,17 @@ export function BulkUpdateRoleDialog({
                 unit="명"
                 label={`「${roleLabel(displayRole)}」 로 변경 완료:`}
               />
-              {failures.length > 0 && (
-                <ul
-                  className="text-small text-state-danger space-y-1 max-h-40 overflow-y-auto"
-                  data-testid="bulk-update-role-failures"
-                >
-                  {failures.map((f) => (
-                    <li key={f.email}>
-                      <span className="font-mono">{f.email}</span>: {f.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* v0.271: BulkFailureList 이식. */}
+              <BulkFailureList
+                items={failures}
+                getKey={(f) => f.email}
+                renderItem={(f) => (
+                  <>
+                    <span className="font-mono">{f.email}</span>: {f.message}
+                  </>
+                )}
+                testId="bulk-update-role-failures"
+              />
               <DialogFooter>
                 <Button onClick={() => handleOpenChange(false)}>확인</Button>
               </DialogFooter>
