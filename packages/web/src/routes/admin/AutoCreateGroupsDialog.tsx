@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { Banner } from '../../components/Banner';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -255,15 +256,17 @@ export function AutoCreateGroupsDialog({
                 </tbody>
               </table>
             </div>
-            {hasDuplicates && (
-              <div
-                className="border border-state-danger p-4 text-small text-state-danger"
-                data-testid="auto-create-groups-duplicate-error"
-              >
-                다음 이메일이 중복됩니다 ({duplicateEmails.length}건): {duplicateEmails.slice(0, 3).join(', ')}
-                {duplicateEmails.length > 3 && ` 외 ${duplicateEmails.length - 3}`}. 반 이름을 구분되게 조정하세요.
-              </div>
-            )}
+            {/* v0.249: Banner 이식. */}
+            <Banner
+              variant="error"
+              message={
+                hasDuplicates
+                  ? `다음 이메일이 중복됩니다 (${duplicateEmails.length}건): ${duplicateEmails.slice(0, 3).join(', ')}${duplicateEmails.length > 3 ? ` 외 ${duplicateEmails.length - 3}` : ''}. 반 이름을 구분되게 조정하세요.`
+                  : null
+              }
+              testId="auto-create-groups-duplicate-error"
+            />
+
             <div>
               <label className="text-small text-fg-primary">
                 확인을 위해 대상 개수 (<strong>{targets.length}</strong>)를 입력하세요:
