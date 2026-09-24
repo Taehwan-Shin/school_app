@@ -14,6 +14,7 @@ import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoInviteStudentsDialogProps {
@@ -240,10 +241,8 @@ export function AutoInviteStudentsDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학생 자동 초대 진행 중</DialogTitle>
-              <DialogDescription>학생들을 반 그룹에 자동 초대하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학생 자동 초대 진행 중" description="학생들을 반 그룹에 자동 초대하고 있습니다." />
             {/* v0.259: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -255,10 +254,8 @@ export function AutoInviteStudentsDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학생 자동 초대 완료</DialogTitle>
-              <DialogDescription>학생 자동 초대 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학생 자동 초대 완료" description="학생 자동 초대 작업이 완료되었습니다." />
             <div data-testid="auto-invite-students-done" className="space-y-3">
               {(() => {
                 const okCount = results.filter((r) => r.kind === 'ok').length;

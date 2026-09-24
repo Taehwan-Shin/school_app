@@ -13,6 +13,7 @@ import { Banner } from "../../components/Banner";
 import { BulkProgress } from "../../components/BulkProgress";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -857,10 +858,8 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>전입생 일괄 생성 진행 중</DialogTitle>
-              <DialogDescription>계정을 순차 생성하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="전입생 일괄 생성 진행 중" description="계정을 순차 생성하고 있습니다." />
             {/* v0.259: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -872,10 +871,8 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>전입생 일괄 생성 완료</DialogTitle>
-              <DialogDescription>일괄 생성 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="전입생 일괄 생성 완료" description="일괄 생성 작업이 완료되었습니다." />
             <div data-testid="batch-create-users-done" className="space-y-3">
               {/* v0.267: BulkDoneSummary 이식. */}
               <BulkDoneSummary
