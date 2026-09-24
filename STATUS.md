@@ -61,6 +61,8 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.307 | `3a23e9e` (main) | **Perf**: route hover-preload · 신규 `lib/routePreload.ts` (10 route MAP + idempotent preloadRoute) + Sidebar Link `onMouseEnter`/`onFocus` 배선. nav hover/focus 시 chunk background 다운로드 → 클릭 즉시 render (100-300ms latency 흡수). 신규 5 spy-based tests (exact key set · idempotent · unknown no-op · reject 후 재시도). R1: R0 F-A (not.toThrow 만) → spy 강화. 웹 1415 (+5). Codex R1 통과 5/0. |
+| v0.306 | `324c9f8` (main) | STATUS/NEXT.md sync (v0.303 문서 sync + v0.304 vendor split + v0.305 preconnect 반영). Codex 통과 5/0. |
 | v0.305 | `f59fd03` (main) | **Perf**: index.html preconnect hints 5 endpoint 추가 (identitytoolkit + securetoken + firestore + Functions asia-northeast3 + cdn.jsdelivr.net). TLS handshake + DNS eager 시작 → 첫 API 100~200ms 단축. 웹 1410 유지. Codex 응답 지연 (30분+ 착수 후 빈 메시지) → 기계 관문 대체 (shared build + lint + test + build 모두 통과, 5줄 표준 W3C spec 낮은 리스크). |
 | v0.304 | `9d33815` (main) | **Perf**: vite manualChunks vendor split 4-way (vendor-react 163kB + vendor-firebase 237kB + vendor-ui 66kB + vendor-query 42kB). main 464kB → **135kB** (**71% ↓** · gzip 130→32kB). 총 shipped 동일, HTTP/2 병렬 + 안정 vendor 캐시 (deploy 시 route 만 새로 받음). 웹 1410 유지. Codex 통과 5/0. |
 | v0.303 | `022f9f2` (main) | STATUS/NEXT.md sync (v0.301 문서 sync + v0.302 route code splitting 반영). Codex 통과 5/0. |
