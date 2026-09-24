@@ -7,7 +7,6 @@ import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useAutoDismissBanner } from '../../lib/useAutoDismissBanner';
 import { Banner } from '../../components/Banner';
-import { SuccessBanner } from '../../components/SuccessBanner';
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -366,8 +365,8 @@ export function GroupsTable() {
 
   return (
     <div className="space-y-4">
-      {/* v0.225: 「선호 초기화」 성공 배너 · v0.227: shared component. */}
-      <SuccessBanner message={successBanner} testId="groups-success-banner" />
+      {/* v0.225: 「선호 초기화」 성공 배너 · v0.287: Banner variant=success 직접 사용. */}
+      <Banner variant="success" message={successBanner} testId="groups-success-banner" />
       <div className="flex justify-between items-center gap-4">
         <p className="text-small text-fg-secondary">
           조직 내 등록된 Google Workspace 그룹 및 멤버 현황

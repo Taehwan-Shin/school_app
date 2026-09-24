@@ -11,7 +11,6 @@ import { useMenuArrowNav } from "../../lib/useMenuArrowNav";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
 import { useAutoDismissBanner } from "../../lib/useAutoDismissBanner";
 import { Banner } from "../../components/Banner";
-import { SuccessBanner } from "../../components/SuccessBanner";
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -572,7 +571,7 @@ export function AccountsTable() {
         </div>
       </div>
 
-      <SuccessBanner message={successBanner} testId="accounts-success-banner" />
+      <Banner variant="success" message={successBanner} testId="accounts-success-banner" />
 
       {selectedEmails.size > 0 && (
         <div
