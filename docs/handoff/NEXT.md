@@ -1,16 +1,15 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.292 병합 완료** (`5efae46`) - 신규 useVisibleColumns hook + 4 admin table 이식 (admin 3 + AuditLog) · 웹 1384.
+> **v0.295 병합 완료** (`841d37a`) - 신규 useUrlSort hook + admin 3 table 이식 (URL 기반 sort state 4 pieces shared) · 웹 1402.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.292 대량 shared component/hook 이식 11 시리즈 완료 후 특별한 오더 없음.
+v0.228~v0.295 대량 shared component/hook 이식 13 시리즈 완료 후 특별한 오더 없음.
 남은 후보:
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
 - audit_log durable sink 실 설정 (사용자 조치 대기)
-- `resetUserPreferences` 21-line 함수 (admin 3 site 반복) generic 화 후보 · 10-param 호출부 → 좋은 abstraction 필요
 - Chat/Classroom bulk 5 site (4-phase 패턴) 위한 generic 화된 hook 확장 (필요 시)
 - AutoRemoveNonRoster + AutoInviteStudentsToChatSpaces (5-phase `confirm → scanning → preview → running → done`) 위한 phase-superset hook (필요 시)
 
@@ -26,27 +25,29 @@ v0.228~v0.292 대량 shared component/hook 이식 11 시리즈 완료 후 특별
 7. `useBulkDialogPhase.ts` — bulk dialog 3-phase 상태 (v0.281~v0.284 · phase state + open reset + handleOpenChange running-lock/done onDone/onClose sensitive cleanup · 16 site).
 8. `useColumnMenu.ts` — admin 컬럼 popover 상태 + 4 hook 배선 (isOpen/open/close/toggle/buttonRef/menuRef · useClickOutside/useEscapeKey/useFocusTrap/useMenuArrowNav) · v0.289~v0.290 · 4 site.
 9. `useVisibleColumns.ts` — 컬럼 표시 여부 (Set<K>) + toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive 4 helper · minimalKeys optional · useLocalStorageState 위 · v0.292 · 4 site.
+10. `useUrlSort.ts` — URL 기반 sort state 4 pieces shared (sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort) · storageKey/validColumns/searchParams/setSearchParams · v0.295 · admin 3 site (AuditLog server pagination 대상 외).
 
 **Factories (`lib/`)**:
-10. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
-11. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
-12. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
-13. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
+11. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
+12. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
+13. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
+14. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
 
 **Components (`components/`)**:
-14. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live. v0.287: SuccessBanner wrapper 흡수.
-15. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
-16. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
-17. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
-18. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
-19. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
-20. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
-21. `ColumnMenu.tsx` — admin 컬럼 표시 popover (트리거 + quick actions + 체크박스 + [선호 초기화?]). buttonRef/menuRef/isOpen/onToggle + columns + toggleColumn + showAll/hideAll + minimalPreset?/onResetPreferences? + testIdPrefix + buttonSize?/className? · WAI-ARIA menu · v0.291 · 4 site.
-22. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
-23. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
+15. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live. v0.287: SuccessBanner wrapper 흡수.
+16. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
+17. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
+18. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
+19. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
+20. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
+21. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
+22. `ColumnMenu.tsx` — admin 컬럼 표시 popover (트리거 + quick actions + 체크박스 + [선호 초기화?]). buttonRef/menuRef/isOpen/onToggle + columns + toggleColumn + showAll/hideAll + minimalPreset?/onResetPreferences? + testIdPrefix + buttonSize?/className? · WAI-ARIA menu · v0.291 · 4 site.
+23. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
+24. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
 
 **Utilities (`lib/`)**:
-24. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
+25. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
+26. `resetTablePreferences.ts` — admin 「선호 초기화」 boilerplate shared: window.confirm (고정 문구) + localStorage.removeItem try/catch + URL 'sort/dir' 삭제 + onAfterReset 콜백. `RESET_TABLE_PREFERENCES_CONFIRM_MESSAGE` / `_BANNER_MESSAGE` 상수. v0.294 · admin 3 site (AuditLog 미도입 대상 외).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
