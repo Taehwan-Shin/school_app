@@ -17,6 +17,7 @@ import {
 import { cn } from '../../lib/utils';
 import { useColumnMenu } from '../../lib/useColumnMenu';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
+import { useVisibleColumns } from '../../lib/useVisibleColumns';
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -122,13 +123,19 @@ export function AuditLogTable() {
     setPageSize(size);
   };
 
-  // v0.216: 컬럼 표시 여부. v0.221: useLocalStorageState 이식 · shared factory.
-  const [visibleColumns, setVisibleColumns] = useLocalStorageState<Set<ToggleColumnKey>>(
-    VISIBLE_COLUMNS_STORAGE_KEY,
-    new Set(DEFAULT_VISIBLE_COLUMNS),
-    serializeVisibleColumns,
-    deserializeVisibleColumns,
-  );
+  // v0.216: 컬럼 표시 여부 (Set<K>) + helper. v0.292: useVisibleColumns hook shared.
+  // AuditLog 는 minimalKeys 미도입 (v0.216 부터).
+  const {
+    visibleColumns,
+    toggleColumn,
+    setAllVisible: setAllColumnsVisible,
+  } = useVisibleColumns<ToggleColumnKey>({
+    storageKey: VISIBLE_COLUMNS_STORAGE_KEY,
+    columns: TOGGLEABLE_COLUMNS,
+    defaults: DEFAULT_VISIBLE_COLUMNS,
+    serialize: serializeVisibleColumns,
+    deserialize: deserializeVisibleColumns,
+  });
   // v0.290: 컬럼 메뉴 popover 상태 + 4 hook 배선 shared (v0.289 hook 이식).
   const {
     isOpen: isColumnMenuOpen,
@@ -136,21 +143,6 @@ export function AuditLogTable() {
     buttonRef: columnMenuBtnRef,
     menuRef: columnMenuRef,
   } = useColumnMenu();
-
-  const toggleColumn = (key: ToggleColumnKey) => {
-    setVisibleColumns((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const setAllColumnsVisible = (visible: boolean) => {
-    setVisibleColumns(
-      visible ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key)) : new Set(),
-    );
-  };
 
   const { entries, loading, error, hasMore, loadMore, reload } = useAuditLogList(pageSize, {
     filterActor: actorFilter || undefined,

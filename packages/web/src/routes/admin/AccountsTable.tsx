@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { sortHeaderKbdProps } from "./sortHeader";
 import { useColumnMenu } from "../../lib/useColumnMenu";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
+import { useVisibleColumns } from "../../lib/useVisibleColumns";
 import { useAutoDismissBanner } from "../../lib/useAutoDismissBanner";
 import { Banner } from "../../components/Banner";
 import { ColumnMenu } from "../../components/ColumnMenu";
@@ -72,6 +73,7 @@ const DEFAULT_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = [
   'admin',
   'suspended',
 ];
+const MINIMAL_VISIBLE_COLUMNS: readonly ToggleColumnKey[] = ['name'];
 const VISIBLE_COLUMNS_STORAGE_KEY = StorageKeys.accounts.visibleColumns;
 
 // v0.221: shared visibleColumnsStorage factory 사용.
@@ -121,13 +123,22 @@ export function AccountsTable() {
     undefined,
     deserializeSort,
   );
-  // v0.199: 컬럼 표시 여부. v0.221: useLocalStorageState 이식 · shared factory.
-  const [visibleColumns, setVisibleColumns] = useLocalStorageState<Set<ToggleColumnKey>>(
-    VISIBLE_COLUMNS_STORAGE_KEY,
-    new Set(DEFAULT_VISIBLE_COLUMNS),
-    serializeVisibleColumns,
-    deserializeVisibleColumns,
-  );
+  // v0.199/v0.221: 컬럼 표시 여부 (Set<K>) + 4 helper. v0.292: useVisibleColumns hook shared.
+  const {
+    visibleColumns,
+    setVisibleColumns,
+    toggleColumn,
+    setAllVisible,
+    applyMinimalPreset,
+    isMinimalActive,
+  } = useVisibleColumns<ToggleColumnKey>({
+    storageKey: VISIBLE_COLUMNS_STORAGE_KEY,
+    columns: TOGGLEABLE_COLUMNS,
+    defaults: DEFAULT_VISIBLE_COLUMNS,
+    serialize: serializeVisibleColumns,
+    deserialize: deserializeVisibleColumns,
+    minimalKeys: MINIMAL_VISIBLE_COLUMNS,
+  });
   // v0.289: 컬럼 메뉴 popover 상태 + 4 hook 배선 shared.
   const {
     isOpen: isColumnMenuOpen,
@@ -136,29 +147,6 @@ export function AccountsTable() {
     buttonRef: columnMenuBtnRef,
     menuRef: columnMenuRef,
   } = useColumnMenu();
-
-  const toggleColumn = (key: ToggleColumnKey) => {
-    setVisibleColumns((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  // v0.204: 전체 표시 / 전체 숨김 quick actions.
-  const setAllVisible = (visible: boolean) => {
-    setVisibleColumns(
-      visible ? new Set(TOGGLEABLE_COLUMNS.map((c) => c.key)) : new Set(),
-    );
-  };
-
-  // v0.205: 「간결」 preset — 이름 컬럼만 표시 (이메일 + 관리 는 필수라 항상 있음).
-  const applyMinimalPreset = () => {
-    setVisibleColumns(new Set(['name']));
-  };
-  const isMinimalActive =
-    visibleColumns.size === 1 && visibleColumns.has('name');
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
   // v0.209: 실수 방지 confirm.
