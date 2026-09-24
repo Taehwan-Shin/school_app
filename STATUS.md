@@ -24,11 +24,12 @@
 
 없음.
 
-## Shared component 시리즈 (v0.228~v0.287)
+## Shared component 시리즈 (v0.228~v0.292)
 
-Codex 감사 통과된 8개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
-및 반복 markup·로직 148+ site 통합. 웹 1279 → **1348** (+69).
+Codex 감사 통과된 11개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
+및 반복 markup·로직 160+ site 통합. 웹 1279 → **1384** (+105).
 v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner 얇은 wrapper 제거 (Banner variant=success 직접 사용, -3 test).
+v0.289~v0.292: admin 4 테이블 컬럼 메뉴 인프라 3 시리즈 완결 (useColumnMenu · ColumnMenu · useVisibleColumns).
 
 | 시리즈 | 버전 범위 | shared module | site 수 | 대상 |
 |---|---|---|---|---|
@@ -40,8 +41,11 @@ v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner �
 | BulkFailureList | v0.270~v0.274 | `components/BulkFailureList.tsx` (items/getKey(item,index)/renderItem/testId) | 20 | done phase 실패 리스트 통일 (composite key 지원) |
 | SrOnlyDialogHeader | v0.275~v0.279 | `components/SrOnlyDialogHeader.tsx` (title/description) | 22 files (44 site) | running/done phase 스크린 리더용 sr-only DialogHeader 통일 |
 | useBulkDialogPhase | v0.281~v0.284 | `lib/useBulkDialogPhase.ts` (open/onOpenChange/onDone?/onOpen?/onClose?) | 16 | bulk dialog 3-phase 상태 shared hook (Phase state · open reset · handleOpenChange running-lock + done onDone · onClose sensitive cleanup) |
+| useColumnMenu | v0.289~v0.290 | `lib/useColumnMenu.ts` (isOpen/open/close/toggle/buttonRef/menuRef + 4 hook 배선) | 4 | admin 컬럼 popover 상태 · useClickOutside/useEscapeKey/useFocusTrap/useMenuArrowNav 배선 shared |
+| ColumnMenu | v0.291 | `components/ColumnMenu.tsx` (buttonRef/menuRef/isOpen/onToggle + columns + onToggleColumn/onShowAll/onHideAll + minimalPreset?/onResetPreferences? + testIdPrefix + buttonSize?/className?) | 4 | admin 컬럼 표시 popover JSX 흡수 (90-line 블록 → 15-line) · WAI-ARIA menu 유지 |
+| useVisibleColumns | v0.292 | `lib/useVisibleColumns.ts` (storageKey/columns/defaults/serialize/deserialize/minimalKeys? → visibleColumns/setVisibleColumns/toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive) | 4 | admin 컬럼 표시 여부 (Set<K>) + 4 helper shared (useLocalStorageState 위) |
 
-**참고**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
+**참고 (bulk 4-phase)**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
 는 4-phase (`select → preview → running → done`) 패턴이라 3-phase useBulkDialogPhase
 대상 외 · 실질 완결 16 site.
 
@@ -49,6 +53,11 @@ v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner �
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.292 | `5efae46` (main) | 신규 `useVisibleColumns` hook (visibleColumns state + toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive shared · minimalKeys optional) + 4 admin table 이식 (admin 3 + AuditLog). MINIMAL_VISIBLE_COLUMNS 모듈-scope 상수. 웹 1384 (+11). Codex 통과 6/0. |
+| v0.291 | `f260576` (main) | 신규 `ColumnMenu` 컴포넌트 (156 lines) + 4 admin table 이식. 90-line JSX 블록 → 15-line 호출 · minimalPreset/onResetPreferences optional · testIdPrefix propagation · WAI-ARIA menu 유지. 웹 1373 (+14). Codex 통과 5/0. |
+| v0.290 | `2b1b454` (main) | useColumnMenu 이식 AuditLogTable · **4 site 완결**. v0.289 착오 정정 (실제 동일 pattern). 코드 refactor only · 웹 1359 유지. Codex 통과 6/0. |
+| v0.289 | `d3939fe` (main) | 신규 `useColumnMenu` hook (isOpen/open/close/toggle/buttonRef/menuRef + 4 hook 배선) + admin 3 table 이식. 8줄 반복 → 7줄 destructure. R1: TestMenuHost 실 DOM 렌더로 useFocusTrap/useMenuArrowNav 회귀 방어. 웹 1359 (+11, +2 R1). Codex 통과 4/0. |
+| v0.288 | `485cc13` (main) | STATUS/NEXT.md sync (v0.286 utils cn + v0.287 SuccessBanner 반영). R1: NEXT.md 카탈로그 번호 중복 정정 (1~21 순차). 문서 sync only. Codex 통과 3/0. |
 | v0.287 | `86a5424` (main) | SuccessBanner 얇은 wrapper 제거 · GroupsTable/AccountsTable/ClassroomTable 3 site 를 `<Banner variant="success">` 직접 사용 · Banner.test.tsx 가 success variant 커버로 wrapper test 3건 안전 삭제. 웹 1348 (1351 → 1348). Codex 통과 5/0. |
 | v0.286 | `731416d` (main) | 신규 utils.ts `cn()` 회귀 방어망 10 test (v0.9x tailwind-merge 커스텀 UI_SYSTEM 토큰 오인 버그 재발 방지). 코드 무변경 · 실증: no-extend 로 임시 회귀 → 「핵심 회귀」 test 실패. 웹 1351 (1341 → 1351). Codex 통과 4/0. |
 | v0.284 | `f2fc683` (main) | useBulkDialogPhase 이식 5 site (BulkRename/BatchCreateUsers/AutoInvite/AutoCreateGroups/AutoCreateDeptGroups) · **16 site 시리즈 완결** (Chat/Classroom bulk 5 는 4-phase 라 대상 외). R2: AutoCreateDeptGroups departments 재동기화 useEffect 6-state 리셋 복원. 웹 1341. |
