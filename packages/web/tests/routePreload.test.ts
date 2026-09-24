@@ -1,61 +1,91 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   preloadRoute,
   ROUTE_PRELOAD_MAP,
   _resetPreloadedForTests,
 } from '../src/lib/routePreload';
 
-// v0.307: route hover preload helper.
-// - ROUTE_PRELOAD_MAP 은 App.tsx lazy() 경로와 대칭이라야 chunk 재사용.
-// - preloadRoute 는 idempotent + 알 수 없는 path 는 no-op + 실패 시 재시도 가능.
+// v0.307 R1: routePreload 계약 강제 회귀 방어.
+// - ROUTE_PRELOAD_MAP 은 App.tsx lazy() 경로와 exact set 대칭 (누락/오탈자 방어)
+// - preloadRoute: import 함수 실제 호출 (spy 검증) · idempotent (1회만) · unknown no-op · reject 시 재시도 가능
+
+const EXPECTED_ROUTE_PATHS: readonly string[] = [
+  '/super_admin',
+  '/super_admin/audit',
+  '/super_admin/capabilities',
+  '/super_admin/chat',
+  '/super_admin/classrooms',
+  '/admin',
+  '/admin/chat',
+  '/admin/classrooms',
+  '/admin/groups',
+  '/teacher',
+];
 
 describe('routePreload', () => {
+  const originalMap: Record<string, () => Promise<unknown>> = {};
+
   beforeEach(() => {
     _resetPreloadedForTests();
-  });
-
-  it('ROUTE_PRELOAD_MAP 는 11 route 를 포함 (App.tsx lazy 대칭)', () => {
-    // App.tsx 의 lazy import 순서:
-    // super_admin, super_admin/audit, super_admin/capabilities,
-    // super_admin/chat (= admin/chat), super_admin/classrooms (= admin/classrooms),
-    // admin, admin/chat, admin/classrooms, admin/groups (+ admin/groups/:email, admin/classrooms/:id, admin/users/:email 는 dynamic segment 라 preload map 미포함),
-    // teacher
-    const expected = [
-      '/super_admin',
-      '/super_admin/audit',
-      '/super_admin/capabilities',
-      '/super_admin/chat',
-      '/super_admin/classrooms',
-      '/admin',
-      '/admin/chat',
-      '/admin/classrooms',
-      '/admin/groups',
-      '/teacher',
-    ];
-    for (const path of expected) {
-      expect(ROUTE_PRELOAD_MAP[path]).toBeTypeOf('function');
+    // Restore original map after each test (테스트에서 mock 으로 교체할 수 있게).
+    for (const k of Object.keys(originalMap)) {
+      ROUTE_PRELOAD_MAP[k] = originalMap[k];
+      delete originalMap[k];
     }
   });
 
-  it('preloadRoute(known path): 첫 호출은 import 함수 호출', () => {
-    // 이 test 는 실제 chunk 다운로드 여부가 아니라 map 조회가 실행되는지 확인.
-    // 알 수 없는 path 는 map 조회 실패로 no-op.
-    expect(() => preloadRoute('/admin')).not.toThrow();
+  it('ROUTE_PRELOAD_MAP 은 10 route path 를 exact set 으로 포함 (App.tsx lazy 대칭)', () => {
+    const actualKeys = Object.keys(ROUTE_PRELOAD_MAP).sort();
+    const expectedKeys = [...EXPECTED_ROUTE_PATHS].sort();
+    expect(actualKeys).toEqual(expectedKeys);
+    // 각 값은 실제로 함수 (dynamic import).
+    for (const key of expectedKeys) {
+      expect(typeof ROUTE_PRELOAD_MAP[key]).toBe('function');
+    }
   });
 
-  it('preloadRoute(unknown path): no-op (throw 안 함)', () => {
-    expect(() => preloadRoute('/nonexistent')).not.toThrow();
+  it('preloadRoute(known path): map 의 import 함수를 정확히 1회 호출', () => {
+    const spy = vi.fn(() => Promise.resolve({}));
+    originalMap['/admin'] = ROUTE_PRELOAD_MAP['/admin'];
+    ROUTE_PRELOAD_MAP['/admin'] = spy;
+    preloadRoute('/admin');
+    expect(spy).toHaveBeenCalledOnce();
   });
 
-  it('preloadRoute(same path 여러 번): idempotent (여러 번 호출 안전)', () => {
-    expect(() => {
-      preloadRoute('/admin');
-      preloadRoute('/admin');
-      preloadRoute('/admin');
-    }).not.toThrow();
+  it('preloadRoute(idempotent): 같은 path 를 여러 번 호출해도 import 는 1회만', () => {
+    const spy = vi.fn(() => Promise.resolve({}));
+    originalMap['/admin'] = ROUTE_PRELOAD_MAP['/admin'];
+    ROUTE_PRELOAD_MAP['/admin'] = spy;
+    preloadRoute('/admin');
+    preloadRoute('/admin');
+    preloadRoute('/admin');
+    expect(spy).toHaveBeenCalledOnce();
   });
 
-  it('preloadRoute(빈 문자열): no-op', () => {
-    expect(() => preloadRoute('')).not.toThrow();
+  it('preloadRoute(unknown path): map 조회 실패 → 아무 함수도 호출 안 함', () => {
+    // 실 map 의 알려진 path 들이 호출되지 않았는지 확인 하기 위해 하나에 spy 부여.
+    const spy = vi.fn(() => Promise.resolve({}));
+    originalMap['/admin'] = ROUTE_PRELOAD_MAP['/admin'];
+    ROUTE_PRELOAD_MAP['/admin'] = spy;
+    preloadRoute('/nonexistent');
+    preloadRoute('');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('preloadRoute(fetch reject): preloaded 집합에서 제거되어 재시도 가능 (2번 호출됨)', async () => {
+    let attempt = 0;
+    const spy = vi.fn(() => {
+      attempt += 1;
+      return attempt === 1
+        ? Promise.reject(new Error('network fail'))
+        : Promise.resolve({});
+    });
+    originalMap['/admin'] = ROUTE_PRELOAD_MAP['/admin'];
+    ROUTE_PRELOAD_MAP['/admin'] = spy;
+    preloadRoute('/admin');
+    // catch 콜백은 microtask 라 다음 tick 에 실행됨. flush.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    preloadRoute('/admin');
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
