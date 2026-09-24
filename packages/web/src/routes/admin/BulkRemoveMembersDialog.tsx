@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useContext } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callGroupsMembersDelete } from "../../api/groupsMembersDelete";
 
 export interface BulkRemoveMembersDialogProps {
@@ -24,7 +25,6 @@ export interface BulkRemoveMembersDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
 
 export function BulkRemoveMembersDialog({
   open,
@@ -34,7 +34,6 @@ export function BulkRemoveMembersDialog({
   onDone,
 }: BulkRemoveMembersDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
@@ -43,23 +42,18 @@ export function BulkRemoveMembersDialog({
 
   const requiredPhrase = `제거 ${memberEmails.length}`;
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.283: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setConfirmText("");
       setRunMemberEmails(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     // F99: snapshot 을 phase 전환과 동시에 확정.

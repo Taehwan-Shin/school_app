@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -27,8 +28,6 @@ export interface BulkArchiveClassroomDialogProps {
   onDone?: () => void;
 }
 
-type Phase = 'confirm' | 'running' | 'done';
-
 // v0.115: 원본 Apps Script archiveClassrooms 포팅. courseState 를 ACTIVE ↔ ARCHIVED
 // 로 순차 전환. classroomPatch callable 을 for-loop 호출, 개별 실패 수집.
 export function BulkArchiveClassroomDialog({
@@ -39,7 +38,6 @@ export function BulkArchiveClassroomDialog({
   onDone,
 }: BulkArchiveClassroomDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ id: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState('');
@@ -51,24 +49,21 @@ export function BulkArchiveClassroomDialog({
     direction: BulkArchiveDirection;
   } | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  // v0.283: 3-phase 상태 shared hook · onClose 로 close 시 confirmText 즉시 초기화.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setConfirmText('');
       setSnapshot(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    if (!newOpen) {
+    },
+    onClose: () => {
       setConfirmText('');
-      if (phase === 'done') onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   // running/done phase 는 snapshot 을 원본으로 삼는다 (F73). confirm phase 는
   // 부모 prop 을 그대로 반영해서 선택이 바뀌면 즉시 반영되도록 한다.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callUsersResetPassword } from '../../api/usersResetPassword';
 
 export interface BulkResetPasswordDialogProps {
@@ -22,7 +23,6 @@ export interface BulkResetPasswordDialogProps {
   onDone?: () => void;
 }
 
-type Phase = 'confirm' | 'running' | 'done';
 
 // v0.113: 원본 「비밀번호 일괄 변경」 (Apps Script updateUserPasswords) 포팅.
 // 선택된 계정에 공통 비밀번호 하나를 순차 적용. changePasswordAtNextLogin=true (기본) 로
@@ -34,7 +34,6 @@ export function BulkResetPasswordDialog({
   emails,
   onDone,
 }: BulkResetPasswordDialogProps) {
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [newPassword, setNewPassword] = useState('');
@@ -46,9 +45,12 @@ export function BulkResetPasswordDialog({
   // prop 이라 실행 중 부모 selection 변경 시 처리 대상이 달라질 수 있음.
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  // v0.283: 3-phase 상태 shared hook · onClose 로 F65 sensitive state 즉시 clear.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setNewPassword('');
@@ -56,26 +58,14 @@ export function BulkResetPasswordDialog({
       setChangePasswordAtNextLogin(true);
       setValidationError(null);
       setRunEmails(null);
-    }
-  }, [open]);
-
-  // v0.113b F65: 평문 비밀번호가 dialog state 에 잔존하지 않도록 close 시 즉시 clear.
-  const clearSensitiveState = () => {
-    setNewPassword('');
-    setConfirmPassword('');
-    setValidationError(null);
-  };
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    if (!newOpen) {
-      clearSensitiveState();
-      if (phase === 'done') {
-        onDone?.();
-      }
-    }
-    onOpenChange(newOpen);
-  };
+    },
+    onClose: () => {
+      // v0.113b F65: 평문 비밀번호가 dialog state 에 잔존하지 않도록 즉시 clear.
+      setNewPassword('');
+      setConfirmPassword('');
+      setValidationError(null);
+    },
+  });
 
   const validate = (): string | null => {
     if (newPassword.length < 8) return '비밀번호는 최소 8자 이상.';
@@ -98,7 +88,10 @@ export function BulkResetPasswordDialog({
     const forceChangeForRun = changePasswordAtNextLogin;
     const snapshot = [...emails];
     setRunEmails(snapshot);
-    clearSensitiveState();
+    // v0.283: clearSensitiveState 인라인 (hook 이식으로 별도 함수 제거).
+    setNewPassword('');
+    setConfirmPassword('');
+    setValidationError(null);
     setPhase('running');
     const localFailures: { email: string; message: string }[] = [];
     for (let i = 0; i < snapshot.length; i++) {

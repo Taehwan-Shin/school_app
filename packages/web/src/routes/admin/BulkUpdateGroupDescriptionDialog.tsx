@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
 import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
@@ -24,7 +25,6 @@ export interface BulkUpdateGroupDescriptionDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
 
 // v0.166 → v0.173: shared constant (`lib/groupLimits`) 로 승격 · CreateGroup/EditGroup 과 통일.
 const DESCRIPTION_MAX = GROUP_DESCRIPTION_MAX;
@@ -36,7 +36,6 @@ export function BulkUpdateGroupDescriptionDialog({
   onDone,
 }: BulkUpdateGroupDescriptionDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [description, setDescription] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -45,25 +44,20 @@ export function BulkUpdateGroupDescriptionDialog({
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
   const [runDescription, setRunDescription] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.283: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setDescription("");
       setValidationError(null);
       setProgress(0);
       setFailures([]);
       setRunEmails(null);
       setRunDescription(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     setValidationError(null);

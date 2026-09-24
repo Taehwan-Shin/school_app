@@ -8,6 +8,10 @@
 //   - 그 외에는 부모 `onOpenChange` 그대로 전달
 // - `onOpen?` (opt): dialog 가 열릴 때 caller-owned state 리셋용 콜백.
 //   각 dialog 는 자기만의 state (failures/runEmails/confirmText 등) 를 여기서 초기화.
+// v0.283: `onClose?` 추가. close 시 (running 아닌 상태) caller-owned cleanup.
+//   BulkResetPassword F65 (평문 비밀번호 sensitive state 즉시 clear) 및
+//   BulkArchive setConfirmText('') 같이 close 즉시 정리해야 하는 사이트 대응.
+//   실행 순서: running 차단 → onClose?.() → done 시 onDone?.() → 부모 onOpenChange.
 //
 // 사용 예:
 //   const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
@@ -16,6 +20,9 @@
 //       setProgress(0);
 //       setFailures([]);
 //       setConfirmText('');
+//     },
+//     onClose: () => {
+//       setNewPassword('');  // sensitive
 //     },
 //   });
 
@@ -28,6 +35,7 @@ export interface UseBulkDialogPhaseOptions {
   onOpenChange: (open: boolean) => void;
   onDone?: () => void;
   onOpen?: () => void;
+  onClose?: () => void;
 }
 
 export interface UseBulkDialogPhaseResult {
@@ -41,6 +49,7 @@ export function useBulkDialogPhase({
   onOpenChange,
   onDone,
   onOpen,
+  onClose,
 }: UseBulkDialogPhaseOptions): UseBulkDialogPhaseResult {
   const [phase, setPhase] = useState<BulkDialogPhase>('confirm');
 
@@ -55,8 +64,11 @@ export function useBulkDialogPhase({
 
   const handleOpenChange = (newOpen: boolean) => {
     if (phase === 'running') return;
-    if (!newOpen && phase === 'done') {
-      onDone?.();
+    if (!newOpen) {
+      onClose?.();
+      if (phase === 'done') {
+        onDone?.();
+      }
     }
     onOpenChange(newOpen);
   };
