@@ -14,6 +14,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callClassroomPatch } from '../../api/classroomPatch';
 
 export type BulkArchiveDirection = 'archive' | 'restore';
@@ -146,10 +147,8 @@ export function BulkArchiveClassroomDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 {actionLabel} 진행 중</DialogTitle>
-              <DialogDescription>클래스룸 상태를 변경하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식 (title 은 template literal). */}
+            <SrOnlyDialogHeader title={`일괄 ${actionLabel} 진행 중`} description="클래스룸 상태를 변경하고 있습니다." />
             {/* v0.257: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -161,10 +160,8 @@ export function BulkArchiveClassroomDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 {actionLabel} 완료</DialogTitle>
-              <DialogDescription>일괄 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식 (title 은 template literal). */}
+            <SrOnlyDialogHeader title={`일괄 ${actionLabel} 완료`} description="일괄 작업이 완료되었습니다." />
             <div data-testid="bulk-archive-classroom-done" className="space-y-3">
               {/* v0.266: BulkDoneSummary 이식. */}
               <BulkDoneSummary

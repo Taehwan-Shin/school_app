@@ -13,6 +13,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callGroupsUpdate } from "../../api/groupsUpdate";
 import { GROUP_DESCRIPTION_MAX } from "../../lib/groupLimits";
 
@@ -162,10 +163,8 @@ export function BulkUpdateGroupDescriptionDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 설명 변경 진행 중</DialogTitle>
-              <DialogDescription>그룹 설명을 변경하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 설명 변경 진행 중" description="그룹 설명을 변경하고 있습니다." />
             {/* v0.258: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -177,10 +176,8 @@ export function BulkUpdateGroupDescriptionDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 설명 변경 완료</DialogTitle>
-              <DialogDescription>일괄 설명 변경 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 설명 변경 완료" description="일괄 설명 변경 작업이 완료되었습니다." />
             <div data-testid="bulk-update-group-description-done" className="space-y-3">
               {/* v0.266: BulkDoneSummary 이식. */}
               <BulkDoneSummary
