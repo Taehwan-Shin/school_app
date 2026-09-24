@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callGroupsDelete } from "../../api/groupsDelete";
 
 export interface BulkDeleteGroupDialogProps {
@@ -24,8 +25,6 @@ export interface BulkDeleteGroupDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
-
 export function BulkDeleteGroupDialog({
   open,
   onOpenChange,
@@ -33,30 +32,24 @@ export function BulkDeleteGroupDialog({
   onDone,
 }: BulkDeleteGroupDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
   // v0.165 (== v0.124 F99 대칭): confirm 시점 emails snapshot.
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.281: 3-phase 상태 + handleOpenChange shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setConfirmText("");
       setRunEmails(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     const snapshot = [...emails];
