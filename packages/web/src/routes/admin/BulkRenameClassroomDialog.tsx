@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callClassroomPatch } from '../../api/classroomPatch';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
@@ -344,12 +345,8 @@ export function BulkRenameClassroomDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 이름 변경 진행 중</DialogTitle>
-              <DialogDescription>
-                클래스룸 이름을 변경하고 있습니다.
-              </DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 이름 변경 진행 중" description="클래스룸 이름을 변경하고 있습니다." />
             {/* v0.257: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -361,10 +358,8 @@ export function BulkRenameClassroomDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 이름 변경 완료</DialogTitle>
-              <DialogDescription>일괄 이름 변경이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 이름 변경 완료" description="일괄 이름 변경이 완료되었습니다." />
             <div data-testid="bulk-rename-classroom-done" className="space-y-3">
               {/* v0.267: BulkDoneSummary 이식. */}
               <BulkDoneSummary

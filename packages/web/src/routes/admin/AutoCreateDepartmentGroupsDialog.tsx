@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -278,10 +279,8 @@ export function AutoCreateDepartmentGroupsDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>부서 그룹 자동 생성 진행 중</DialogTitle>
-              <DialogDescription>부서 그룹을 자동 생성하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="부서 그룹 자동 생성 진행 중" description="부서 그룹을 자동 생성하고 있습니다." />
             {/* v0.259: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -293,10 +292,8 @@ export function AutoCreateDepartmentGroupsDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>부서 그룹 자동 생성 완료</DialogTitle>
-              <DialogDescription>부서 그룹 자동 생성 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.278: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="부서 그룹 자동 생성 완료" description="부서 그룹 자동 생성 작업이 완료되었습니다." />
             <div data-testid="auto-create-dept-groups-done" className="space-y-3">
               {(() => {
                 const okCount = results.filter((r) => r.kind === 'ok').length;
