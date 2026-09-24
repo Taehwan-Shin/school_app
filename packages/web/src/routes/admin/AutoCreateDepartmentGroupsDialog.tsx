@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
   Dialog,
@@ -82,7 +82,6 @@ export function AutoCreateDepartmentGroupsDialog({
   const [results, setResults] = useState<Result[]>([]);
 
   // v0.284: 3-phase 상태 shared hook 이식.
-  // 원본 useEffect deps 에 `departments` 포함 → open 시점 departments closure 로 slug/owner 초기화.
   const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
     open,
     onOpenChange,
@@ -94,6 +93,17 @@ export function AutoCreateDepartmentGroupsDialog({
       setConfirmText('');
     },
   });
+
+  // v0.284 R1 F-A: 원본 useEffect deps 에 `departments` 포함되어 있었음
+  // (v0.284 R0 회귀). React Query 결과가 open 중에 재발화하여 departments
+  // length/순서가 바뀌면 slugs/owners 배열이 index 어긋남. departments 자체 변경
+  // 시에도 재초기화하여 원본 동작 보존.
+  useEffect(() => {
+    if (open) {
+      setSlugs(departments.map((_, i) => defaultSlug(i)));
+      setOwners(departments.map(() => ''));
+    }
+  }, [open, departments]);
 
   const preview = departments.map((dept, i) => {
     const slug = (slugs[i] ?? '').trim().toLowerCase();
