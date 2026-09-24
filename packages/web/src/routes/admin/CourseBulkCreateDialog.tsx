@@ -13,6 +13,7 @@ import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
@@ -488,10 +489,8 @@ function CourseBulkCreateDialogContent({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>코스 일괄 생성 진행 중</DialogTitle>
-              <DialogDescription>코스를 순차적으로 생성하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="코스 일괄 생성 진행 중" description="코스를 순차적으로 생성하고 있습니다." />
             {/* v0.260: BulkProgress 이식 (label prop 커스텀). */}
             <BulkProgress
               progress={progress}
@@ -504,10 +503,8 @@ function CourseBulkCreateDialogContent({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>코스 일괄 생성 완료</DialogTitle>
-              <DialogDescription>코스 일괄 생성 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="코스 일괄 생성 완료" description="코스 일괄 생성 작업이 완료되었습니다." />
             <div data-testid="bulk-create-done" className="space-y-3">
               {(() => {
                 const okCount = results.filter((r) => r.kind === 'ok').length;

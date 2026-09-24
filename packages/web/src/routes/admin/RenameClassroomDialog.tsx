@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callClassroomPatch } from '../../api/classroomPatch';
 // v0.189: hardcoded NAME_MAX/SECTION_MAX 를 shared `lib/classroomLimits.ts` 로 승격
 // (v0.175 CreateClassroom 검증에서 이미 사용 중).
@@ -238,10 +239,8 @@ export function RenameClassroomDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>변경 저장 중</DialogTitle>
-              <DialogDescription>클래스룸을 변경하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="변경 저장 중" description="클래스룸을 변경하고 있습니다." />
             <div
               className="py-8 text-center text-body text-fg-primary"
               data-testid="rename-classroom-running"
@@ -253,10 +252,8 @@ export function RenameClassroomDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>변경 완료</DialogTitle>
-              <DialogDescription>변경이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="변경 완료" description="변경이 완료되었습니다." />
             <div data-testid="rename-classroom-done" className="space-y-3">
               <p className="text-body text-state-success">변경이 저장되었습니다.</p>
               <DialogFooter>

@@ -13,6 +13,7 @@ import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callChatMembersAdd } from '../../api/chatMembersAdd';
 
@@ -324,10 +325,8 @@ function ChatBulkInviteDialogContent({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학생 초대 진행 중</DialogTitle>
-              <DialogDescription>학생들을 챗방에 순차적으로 초대하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학생 초대 진행 중" description="학생들을 챗방에 순차적으로 초대하고 있습니다." />
             {/* v0.260: BulkProgress 이식 (label prop 커스텀). */}
             <BulkProgress
               progress={progress}
@@ -340,10 +339,8 @@ function ChatBulkInviteDialogContent({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학생 초대 완료</DialogTitle>
-              <DialogDescription>학급 일괄 초대 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학생 초대 완료" description="학급 일괄 초대 작업이 완료되었습니다." />
             <div data-testid="chat-bulk-invite-done" className="space-y-3">
               {(() => {
                 const okCount = results.filter((r) => r.kind === 'ok').length;

@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
@@ -497,10 +498,8 @@ function ClassroomChatPairBulkCreateDialogContent({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학급 통합 생성 진행 중</DialogTitle>
-              <DialogDescription>Classroom 과 Chat 을 순차적으로 생성하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학급 통합 생성 진행 중" description="Classroom 과 Chat 을 순차적으로 생성하고 있습니다." />
             {/* v0.260: BulkProgress 이식 (label prop 커스텀). */}
             <BulkProgress
               progress={progress}
@@ -513,10 +512,8 @@ function ClassroomChatPairBulkCreateDialogContent({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>학급 통합 생성 완료</DialogTitle>
-              <DialogDescription>Classroom + Chat 통합 생성이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.279: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="학급 통합 생성 완료" description="Classroom + Chat 통합 생성이 완료되었습니다." />
             <div data-testid="pair-done" className="space-y-3">
               {(() => {
                 const bothOk = results.filter((r) => r.courseKind === 'ok' && r.chatKind === 'ok').length;
