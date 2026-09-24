@@ -24,13 +24,14 @@
 
 없음.
 
-## Shared component 시리즈 (v0.228~v0.295)
+## Shared component 시리즈 (v0.228~v0.297)
 
-Codex 감사 통과된 13개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
-및 반복 markup·로직 166+ site 통합. 웹 1279 → **1402** (+123).
+Codex 감사 통과된 14개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
+및 반복 markup·로직 168+ site 통합. 웹 1279 → **1402** (+123).
 v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner 얇은 wrapper 제거 (Banner variant=success 직접 사용, -3 test).
 v0.289~v0.292: admin 4 테이블 컬럼 메뉴 인프라 3 시리즈 완결 (useColumnMenu · ColumnMenu · useVisibleColumns).
 v0.294~v0.295: admin 3 테이블 「선호 초기화」 boilerplate + URL sort state 4 pieces shared (resetTablePreferences · useUrlSort).
+v0.297: near-identical UserAuditTrail/GroupAuditTrail wrapper 흡수 (AuditTrail shared component · 각 112 → 17~18 lines).
 
 | 시리즈 | 버전 범위 | shared module | site 수 | 대상 |
 |---|---|---|---|---|
@@ -47,6 +48,7 @@ v0.294~v0.295: admin 3 테이블 「선호 초기화」 boilerplate + URL sort s
 | useVisibleColumns | v0.292 | `lib/useVisibleColumns.ts` (storageKey/columns/defaults/serialize/deserialize/minimalKeys? → visibleColumns/setVisibleColumns/toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive) | 4 | admin 컬럼 표시 여부 (Set<K>) + 4 helper shared (useLocalStorageState 위) |
 | resetTablePreferences | v0.294 | `lib/resetTablePreferences.ts` (sortStorageKey/searchParams/setSearchParams/resetState/onAfterReset?) | 3 | admin 「선호 초기화」 21-line 함수 → 15-line 호출 · confirm 문구 + banner 문구 + URL 삭제 boilerplate shared (AuditLog 는 미도입 대상 외) |
 | useUrlSort | v0.295 | `lib/useUrlSort.ts` (storageKey/validColumns/searchParams/setSearchParams → sortColumn/sortDirection/handleSort) | 3 | admin URL 기반 sort state 4 pieces shared (sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort · AuditLog 는 server pagination 대상 외) |
+| AuditTrail | v0.297 | `routes/admin/AuditTrail.tsx` (targetEmail/testIdPrefix/tableAriaLabel/emptyMessage) | 2 | UserAuditTrail (v0.243) + GroupAuditTrail (v0.244) near-identical 112 lines × 2 흡수 · 감사 이력 5-column Table + loading/error/empty/hasMore · @cam.hs.kr actor auto-link 유지 · 두 wrapper 는 각 17~18 lines |
 
 **참고 (bulk 4-phase)**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
 는 4-phase (`select → preview → running → done`) 패턴이라 3-phase useBulkDialogPhase
@@ -56,6 +58,8 @@ v0.294~v0.295: admin 3 테이블 「선호 초기화」 boilerplate + URL sort s
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.297 | `2438a4b` (main) | 신규 `AuditTrail` 공통 컴포넌트 (143 lines) — UserAuditTrail (v0.243) + GroupAuditTrail (v0.244) near-identical 112 lines × 2 흡수. 두 wrapper 각 17~18 lines. 순 -33 lines. 웹 1402 유지 (기존 10 tests 회귀 없음). Codex 통과 5/0. |
+| v0.296 | `76cf794` (main) | STATUS/NEXT.md sync (v0.294 resetTablePreferences + v0.295 useUrlSort 반영 · 11 → 13 시리즈 · 160 → 166+ site · 1384 → 1402). 카탈로그 26 항목 리넘버. R1: STATUS.md 54 → 52 lines 정정. Codex 통과 4 (R1) + 5 (R0). |
 | v0.295 | `841d37a` (main) | 신규 `useUrlSort` hook (98 lines · URL 기반 sort state 4 pieces shared: sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort) + admin 3 table 이식. -183 lines 이식 코드. AuditLog 는 client sort 미도입 대상 외. 웹 1402 (+11). Codex 통과 7/0. |
 | v0.294 | `dd5a746` (main) | 신규 `resetTablePreferences` helper (52 lines · confirm + localStorage cleanup + URL 삭제 + onAfterReset shared) + admin 3 table 이식. CONFIRM/BANNER 문구 상수화. AuditLog 는 「선호 초기화」 미도입 대상 외. 웹 1391 (+7). Codex 통과 5/0. |
 | v0.293 | `5d177e2` (main) | STATUS/NEXT.md sync (v0.289~v0.292 useColumnMenu/ColumnMenu/useVisibleColumns 반영 · 8 → 11 시리즈 · 148 → 160+ site · 1348 → 1384). 카탈로그 24 항목 리넘버. Codex 통과 5/0. |
