@@ -1,4 +1,4 @@
-// v0.228: 상태 배너 공통 컴포넌트 (v0.227 SuccessBanner 확장).
+// v0.228: 상태 배너 공통 컴포넌트 (v0.287 SuccessBanner 래퍼 흡수).
 // - variant: 'success' | 'error' | 'warning'.
 // - 각 variant 는 UI_SYSTEM state 색상 (state-success/danger/warning) + role/aria-live 로 스크린 리더 알림.
 //   error/warning 은 role=alert + aria-live=assertive (즉시 알림 필요).
