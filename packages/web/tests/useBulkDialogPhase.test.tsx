@@ -82,4 +82,55 @@ describe('useBulkDialogPhase (v0.281)', () => {
     expect(() => act(() => result.current.handleOpenChange(false))).not.toThrow();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  // v0.283: onClose 콜백 (BulkResetPwd F65 · BulkArchive setConfirmText).
+  it('handleOpenChange · close 시 onClose 콜백 발화 (confirm + done phase)', () => {
+    const onClose = vi.fn();
+    const { result } = renderHook(() =>
+      useBulkDialogPhase({ open: true, onOpenChange: vi.fn(), onClose }),
+    );
+    // confirm phase close
+    act(() => result.current.handleOpenChange(false));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // done phase close
+    act(() => result.current.setPhase('done'));
+    act(() => result.current.handleOpenChange(false));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('handleOpenChange · open=true 전달 시 onClose 미호출', () => {
+    const onClose = vi.fn();
+    const { result } = renderHook(() =>
+      useBulkDialogPhase({ open: true, onOpenChange: vi.fn(), onClose }),
+    );
+    act(() => result.current.handleOpenChange(true));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('handleOpenChange · running phase 에서는 onClose 도 미호출 (lock)', () => {
+    const onClose = vi.fn();
+    const { result } = renderHook(() =>
+      useBulkDialogPhase({ open: true, onOpenChange: vi.fn(), onClose }),
+    );
+    act(() => result.current.setPhase('running'));
+    act(() => result.current.handleOpenChange(false));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('handleOpenChange · done close · onClose → onDone 순서', () => {
+    const seq: string[] = [];
+    const onClose = vi.fn(() => seq.push('close'));
+    const onDone = vi.fn(() => seq.push('done'));
+    const { result } = renderHook(() =>
+      useBulkDialogPhase({
+        open: true,
+        onOpenChange: vi.fn(),
+        onClose,
+        onDone,
+      }),
+    );
+    act(() => result.current.setPhase('done'));
+    act(() => result.current.handleOpenChange(false));
+    expect(seq).toEqual(['close', 'done']);
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -30,8 +31,6 @@ export interface BulkTransferClassroomOwnerDialogProps {
   courses: { id: string; name?: string }[];
   onDone?: () => void;
 }
-
-type Phase = "confirm" | "running" | "done";
 
 interface RowResult {
   courseId: string;
@@ -51,7 +50,6 @@ export function BulkTransferClassroomOwnerDialog({
   onDone,
 }: BulkTransferClassroomOwnerDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [confirmText, setConfirmText] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -61,9 +59,12 @@ export function BulkTransferClassroomOwnerDialog({
   const [runCourses, setRunCourses] = useState<{ id: string; name?: string }[] | null>(null);
   const [runOwner, setRunOwner] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.283: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setNewOwnerEmail("");
       setConfirmText("");
       setValidationError(null);
@@ -71,16 +72,8 @@ export function BulkTransferClassroomOwnerDialog({
       setResults([]);
       setRunCourses(null);
       setRunOwner(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     setValidationError(null);
