@@ -1,11 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.297 병합 완료** (`2438a4b`) - 신규 AuditTrail 공통 컴포넌트 흡수 (UserAuditTrail + GroupAuditTrail wrapper) · 웹 1402.
+> **v0.300 병합 완료** (`9de386b`) - 신규 BulkSuspendRestoreDialog 공통 컴포넌트 흡수 (BulkSuspend + BulkRestore wrapper) · 웹 1410.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.297 대량 shared component/hook 이식 14 시리즈 완료 후 특별한 오더 없음.
+v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 완료 후 특별한 오더 없음.
 남은 후보:
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
@@ -43,12 +43,13 @@ v0.228~v0.297 대량 shared component/hook 이식 14 시리즈 완료 후 특별
 21. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
 22. `ColumnMenu.tsx` — admin 컬럼 표시 popover (트리거 + quick actions + 체크박스 + [선호 초기화?]). buttonRef/menuRef/isOpen/onToggle + columns + toggleColumn + showAll/hideAll + minimalPreset?/onResetPreferences? + testIdPrefix + buttonSize?/className? · WAI-ARIA menu · v0.291 · 4 site.
 23. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
-24. `routes/admin/AuditTrail.tsx` — 감사 이력 5-column Table · targetEmail/testIdPrefix/tableAriaLabel/emptyMessage · loading/error/empty/hasMore · @cam.hs.kr actor auto-link · v0.297 · 2 site (User + Group wrapper).
-25. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
+24. `routes/admin/AuditTrail.tsx` — 감사 이력 5-column Table · targetEmail/testIdPrefix/tableAriaLabel/emptyMessage · loading/error/empty/hasMore · @cam.hs.kr actor auto-link · v0.297 · 2 site (User + Group wrapper) · v0.299 직접 회귀 test 8건.
+25. `routes/admin/BulkSuspendRestoreDialog.tsx` — 계정 일괄 정지/복구 3-phase dialog · open/onOpenChange/emails/onDone? + suspend (boolean) + testIdPrefix + labels[7] · F99 snapshot · useBulkDialogPhase · v0.300 · 2 site (Suspend + Restore wrapper).
+26. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
 
 **Utilities (`lib/`)**:
-26. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
-27. `resetTablePreferences.ts` — admin 「선호 초기화」 boilerplate shared: window.confirm (고정 문구) + localStorage.removeItem try/catch + URL 'sort/dir' 삭제 + onAfterReset 콜백. `RESET_TABLE_PREFERENCES_CONFIRM_MESSAGE` / `_BANNER_MESSAGE` 상수. v0.294 · admin 3 site (AuditLog 미도입 대상 외).
+27. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
+28. `resetTablePreferences.ts` — admin 「선호 초기화」 boilerplate shared: window.confirm (고정 문구) + localStorage.removeItem try/catch + URL 'sort/dir' 삭제 + onAfterReset 콜백. `RESET_TABLE_PREFERENCES_CONFIRM_MESSAGE` / `_BANNER_MESSAGE` 상수. v0.294 · admin 3 site (AuditLog 미도입 대상 외).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
