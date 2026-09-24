@@ -1,9 +1,14 @@
+import React, { useEffect } from 'react';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
-import { useColumnMenu } from '../src/lib/useColumnMenu';
+import { act, render, renderHook, fireEvent } from '@testing-library/react';
+import { useColumnMenu, type UseColumnMenuReturn } from '../src/lib/useColumnMenu';
 
 // v0.289: useColumnMenu hook (admin 컬럼 표시 popover menu · 8줄 shared).
-// - initial isOpen=false · open/close/toggle 계약 · ref 안정성 · 4 hook 배선 통합 검증.
+// - state/callback 계약: renderHook 기반 (배선 개별 hook 은 각자의 unit test 로 이미 커버).
+// - v0.289 R1 F-A: 배선 4개 hook 모두를 실제 DOM 을 통해 강제 (menuRef 를 진짜 DOM 노드에 붙임).
+//   - useFocusTrap: open 진입 시 첫 focusable 자동 focus.
+//   - useMenuArrowNav: ArrowDown/ArrowUp 이 focus 이동.
+//   - useClickOutside/useEscapeKey: 외부 mousedown / Escape 로 close.
 describe('useColumnMenu', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -93,5 +98,57 @@ describe('useColumnMenu', () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     expect(result.current.isOpen).toBe(false);
+  });
+
+  // v0.289 R1 F-A: 4개 배선 강제 (useFocusTrap · useMenuArrowNav 실제 DOM 회귀).
+  // menuRef 를 실제 DOM 컨테이너에 attach 하고 hook 을 통과시켜 자동 focus + 방향키 이동 검증.
+  function TestMenuHost({
+    onReady,
+  }: {
+    onReady?: (menu: UseColumnMenuReturn) => void;
+  }) {
+    const menu = useColumnMenu();
+    useEffect(() => {
+      onReady?.(menu);
+    }, [menu, onReady]);
+    return (
+      <div>
+        <button
+          ref={menu.buttonRef}
+          data-testid="trigger"
+          onClick={menu.toggle}
+        >
+          trigger
+        </button>
+        {menu.isOpen && (
+          <div ref={menu.menuRef} data-testid="menu">
+            <button data-testid="item-a">A</button>
+            <button data-testid="item-b">B</button>
+            <button data-testid="item-c">C</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  it('배선된 useFocusTrap 동작: open 진입 시 menu 내 첫 focusable 자동 focus', () => {
+    let controls: UseColumnMenuReturn | null = null;
+    render(<TestMenuHost onReady={(m) => (controls = m)} />);
+    expect(controls).not.toBeNull();
+    act(() => controls!.open());
+    // useFocusTrap 이 배선 됐다면 open 후 첫 item 이 focus 됨.
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('item-a');
+  });
+
+  it('배선된 useMenuArrowNav 동작: ArrowDown 이 다음 focusable 로 이동', () => {
+    let controls: UseColumnMenuReturn | null = null;
+    const { getByTestId } = render(<TestMenuHost onReady={(m) => (controls = m)} />);
+    act(() => controls!.open());
+    (getByTestId('item-a') as HTMLButtonElement).focus();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('item-a');
+    act(() => {
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
+    });
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('item-b');
   });
 });
