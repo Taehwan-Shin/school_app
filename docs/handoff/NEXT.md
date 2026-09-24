@@ -25,24 +25,24 @@ v0.228~v0.287 대량 shared component/hook 이식 8 시리즈 완료 후 특별�
 7. `useBulkDialogPhase.ts` — bulk dialog 3-phase 상태 (v0.281~v0.284 · phase state + open reset + handleOpenChange running-lock/done onDone/onClose sensitive cleanup · 16 site).
 
 **Factories (`lib/`)**:
-7. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
-8. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
-9. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
-10. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
+8. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
+9. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
+10. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
+11. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
 
 **Components (`components/`)**:
-11. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live. v0.287: SuccessBanner wrapper 흡수.
-12. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
-13. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
-14. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
-15. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
-16. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
-17. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
-18. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
-19. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
+12. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live. v0.287: SuccessBanner wrapper 흡수.
+13. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
+14. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
+15. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
+16. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
+17. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
+18. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
+19. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
+20. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
 
 **Utilities (`lib/`)**:
-20. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
+21. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
