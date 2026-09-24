@@ -8,6 +8,7 @@ import { useColumnMenu } from "../../lib/useColumnMenu";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
 import { useAutoDismissBanner } from "../../lib/useAutoDismissBanner";
 import { Banner } from "../../components/Banner";
+import { ColumnMenu } from "../../components/ColumnMenu";
 import {
   serializePageSize,
   makePageSizeDeserializer,
@@ -460,97 +461,21 @@ export function AccountsTable() {
           >
             JSON 내보내기{exportScope === 'selected' ? ` (선택 ${exportUsers.length})` : ''}
           </Button>
-          {/* v0.199: 컬럼 표시 토글. 클릭 시 checkbox 목록 pop. localStorage 저장. */}
-          <div className="relative">
-            <Button
-              ref={columnMenuBtnRef}
-              variant="secondary"
-              onClick={toggleColumnMenu}
-              data-testid="accounts-column-menu-btn"
-              aria-expanded={isColumnMenuOpen}
-              aria-haspopup="menu"
-              title="컬럼 표시 여부 선택"
-            >
-              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
-            </Button>
-            {isColumnMenuOpen && (
-              <div
-                ref={columnMenuRef}
-                role="menu"
-                aria-label="컬럼 표시"
-                data-testid="accounts-column-menu"
-                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
-              >
-                {/* v0.204: 전체 표시/전체 숨김 quick actions. v0.205: 「간결」 preset. */}
-                {/* v0.218: WAI-ARIA menu 패턴 — quick actions 는 menuitem · 방향키 탐색 (useMenuArrowNav). */}
-                <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => setAllVisible(true)}
-                    disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
-                    data-testid="accounts-column-show-all"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                  >
-                    전체 표시
-                  </button>
-                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={applyMinimalPreset}
-                    disabled={isMinimalActive}
-                    data-testid="accounts-column-preset-minimal"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                    title="이름 컬럼만 표시 (다른 선택 컬럼 숨김)"
-                  >
-                    간결
-                  </button>
-                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => setAllVisible(false)}
-                    disabled={visibleColumns.size === 0}
-                    data-testid="accounts-column-hide-all"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                  >
-                    전체 숨김
-                  </button>
-                </div>
-                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
-                  >
-                    <input
-                      type="checkbox"
-                      role="menuitemcheckbox"
-                      aria-checked={visibleColumns.has(key)}
-                      checked={visibleColumns.has(key)}
-                      onChange={() => toggleColumn(key)}
-                      data-testid={`accounts-column-toggle-${key}`}
-                      className="cursor-pointer"
-                    />
-                    {label}
-                  </label>
-                ))}
-                {/* v0.207: 선호 초기화 (sort · pageSize · visibleColumns 모두 default). */}
-                <div className="border-t border-border-subtle mt-1 pt-2 px-3">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={resetUserPreferences}
-                    data-testid="accounts-reset-user-prefs"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary"
-                    title="이 테이블의 정렬 · 페이지 크기 · 컬럼 표시 선호를 모두 기본값으로"
-                  >
-                    선호 초기화
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* v0.199: 컬럼 표시 토글. v0.291: shared ColumnMenu 컴포넌트. */}
+          <ColumnMenu
+            buttonRef={columnMenuBtnRef}
+            menuRef={columnMenuRef}
+            isOpen={isColumnMenuOpen}
+            onToggle={toggleColumnMenu}
+            columns={TOGGLEABLE_COLUMNS}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumn}
+            onShowAll={() => setAllVisible(true)}
+            onHideAll={() => setAllVisible(false)}
+            minimalPreset={{ onApply: applyMinimalPreset, isActive: isMinimalActive }}
+            onResetPreferences={resetUserPreferences}
+            testIdPrefix="accounts"
+          />
           <Button
             onClick={() => setIsCreateOpen(true)}
             data-testid="add-account-btn"
