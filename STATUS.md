@@ -24,14 +24,15 @@
 
 없음.
 
-## Shared component 시리즈 (v0.228~v0.284)
+## Shared component 시리즈 (v0.228~v0.287)
 
 Codex 감사 통과된 8개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
-및 반복 markup·로직 145+ site 통합. 웹 1279 → **1341** (+62).
+및 반복 markup·로직 148+ site 통합. 웹 1279 → **1348** (+69).
+v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner 얇은 wrapper 제거 (Banner variant=success 직접 사용, -3 test).
 
 | 시리즈 | 버전 범위 | shared module | site 수 | 대상 |
 |---|---|---|---|---|
-| Banner | v0.228~v0.252 | `components/Banner.tsx` (variant/message/testId/bodyClass) | 25+ | 전 admin dialog 에러/성공/warning 배너 통일 (role=alert/status · aria-live · sr-friendly) |
+| Banner | v0.228~v0.252 · v0.287 | `components/Banner.tsx` (variant/message/testId/bodyClass) | 28+ | 전 admin dialog 에러/성공/warning 배너 통일 (role=alert/status · aria-live · sr-friendly) · v0.287 SuccessBanner wrapper 흡수 (3 admin table 직접 사용) |
 | ConfirmCountInput | v0.253~v0.255 | `components/ConfirmCountInput.tsx` | 7 | 파괴적 bulk dialog 「대상 개수 정확 입력」 관문 통일 |
 | BulkProgress | v0.256~v0.260 | `components/BulkProgress.tsx` (progress/total/testId/label?) | 21 | 「진행 중: N / M」 + 진행 막대 통일 (BulkTransfer/BulkUpdateRole label 커스텀) |
 | PreviewList | v0.261~v0.263 | `components/PreviewList.tsx` (items/getKey/renderItem/unit?/limit?) | 11 | confirm phase 「대상 5건 미리보기 + 외 N 요약」 통일 |
@@ -48,6 +49,8 @@ Codex 감사 통과된 8개 대량 shared component/hook 이식 시리즈. UI �
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.287 | `86a5424` (main) | SuccessBanner 얇은 wrapper 제거 · GroupsTable/AccountsTable/ClassroomTable 3 site 를 `<Banner variant="success">` 직접 사용 · Banner.test.tsx 가 success variant 커버로 wrapper test 3건 안전 삭제. 웹 1348 (1351 → 1348). Codex 통과 5/0. |
+| v0.286 | `731416d` (main) | 신규 utils.ts `cn()` 회귀 방어망 10 test (v0.9x tailwind-merge 커스텀 UI_SYSTEM 토큰 오인 버그 재발 방지). 코드 무변경 · 실증: no-extend 로 임시 회귀 → 「핵심 회귀」 test 실패. 웹 1351 (1341 → 1351). Codex 통과 4/0. |
 | v0.284 | `f2fc683` (main) | useBulkDialogPhase 이식 5 site (BulkRename/BatchCreateUsers/AutoInvite/AutoCreateGroups/AutoCreateDeptGroups) · **16 site 시리즈 완결** (Chat/Classroom bulk 5 는 4-phase 라 대상 외). R2: AutoCreateDeptGroups departments 재동기화 useEffect 6-state 리셋 복원. 웹 1341. |
 | v0.283 | `081dc1b` (main) | useBulkDialogPhase API 확장 (`onClose?`) + 이식 5 site. BulkResetPwd F65 (평문 비밀번호 즉시 clear) · BulkArchive setConfirmText 대응. 웹 1341. |
 | v0.281 | `7623244` (main) | 신규 useBulkDialogPhase hook. 3-phase 상태 (phase · open reset · handleOpenChange running-lock + done onDone) shared. 첫 소비자 BulkDeleteGroupDialog. 웹 1337. |

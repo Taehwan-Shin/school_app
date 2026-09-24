@@ -1,16 +1,17 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.284 병합 완료** (`f2fc683`) - useBulkDialogPhase hook 16 site 시리즈 실질 완결 · 웹 1341.
+> **v0.287 병합 완료** (`86a5424`) - SuccessBanner 얇은 wrapper 제거 · Banner variant=success 직접 사용 · 웹 1348.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.284 대량 shared component/hook 이식 8 시리즈 완료 후 특별한 오더 없음.
+v0.228~v0.287 대량 shared component/hook 이식 8 시리즈 완료 후 특별한 오더 없음.
 남은 후보:
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
 - audit_log durable sink 실 설정 (사용자 조치 대기)
 - Chat/Classroom bulk 5 site (4-phase 패턴) 위한 generic 화된 hook 확장 (필요 시)
+- AutoRemoveNonRoster + AutoInviteStudentsToChatSpaces (5-phase `confirm → scanning → preview → running → done`) 위한 phase-superset hook (필요 시)
 
 ## Shared modules 카탈로그
 
@@ -24,14 +25,13 @@ v0.228~v0.284 대량 shared component/hook 이식 8 시리즈 완료 후 특별�
 7. `useBulkDialogPhase.ts` — bulk dialog 3-phase 상태 (v0.281~v0.284 · phase state + open reset + handleOpenChange running-lock/done onDone/onClose sensitive cleanup · 16 site).
 
 **Factories (`lib/`)**:
-7. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
-8. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
-9. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
-10. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
+8. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
+9. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
+10. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
+11. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
 
 **Components (`components/`)**:
-11. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live.
-12. `SuccessBanner.tsx` — v0.227 원본 (v0.228 Banner 로 확장).
+12. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live. v0.287: SuccessBanner wrapper 흡수.
 13. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
 14. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
 15. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
@@ -40,6 +40,9 @@ v0.228~v0.284 대량 shared component/hook 이식 8 시리즈 완료 후 특별�
 18. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
 19. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
 20. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
+
+**Utilities (`lib/`)**:
+21. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
