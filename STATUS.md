@@ -24,12 +24,13 @@
 
 없음.
 
-## Shared component 시리즈 (v0.228~v0.292)
+## Shared component 시리즈 (v0.228~v0.295)
 
-Codex 감사 통과된 11개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
-및 반복 markup·로직 160+ site 통합. 웹 1279 → **1384** (+105).
+Codex 감사 통과된 13개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
+및 반복 markup·로직 166+ site 통합. 웹 1279 → **1402** (+123).
 v0.286 utils.ts `cn()` 회귀 방어망 10 test 추가 · v0.287 SuccessBanner 얇은 wrapper 제거 (Banner variant=success 직접 사용, -3 test).
 v0.289~v0.292: admin 4 테이블 컬럼 메뉴 인프라 3 시리즈 완결 (useColumnMenu · ColumnMenu · useVisibleColumns).
+v0.294~v0.295: admin 3 테이블 「선호 초기화」 boilerplate + URL sort state 4 pieces shared (resetTablePreferences · useUrlSort).
 
 | 시리즈 | 버전 범위 | shared module | site 수 | 대상 |
 |---|---|---|---|---|
@@ -44,6 +45,8 @@ v0.289~v0.292: admin 4 테이블 컬럼 메뉴 인프라 3 시리즈 완결 (use
 | useColumnMenu | v0.289~v0.290 | `lib/useColumnMenu.ts` (isOpen/open/close/toggle/buttonRef/menuRef + 4 hook 배선) | 4 | admin 컬럼 popover 상태 · useClickOutside/useEscapeKey/useFocusTrap/useMenuArrowNav 배선 shared |
 | ColumnMenu | v0.291 | `components/ColumnMenu.tsx` (buttonRef/menuRef/isOpen/onToggle + columns + onToggleColumn/onShowAll/onHideAll + minimalPreset?/onResetPreferences? + testIdPrefix + buttonSize?/className?) | 4 | admin 컬럼 표시 popover JSX 흡수 (90-line 블록 → 15-line) · WAI-ARIA menu 유지 |
 | useVisibleColumns | v0.292 | `lib/useVisibleColumns.ts` (storageKey/columns/defaults/serialize/deserialize/minimalKeys? → visibleColumns/setVisibleColumns/toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive) | 4 | admin 컬럼 표시 여부 (Set<K>) + 4 helper shared (useLocalStorageState 위) |
+| resetTablePreferences | v0.294 | `lib/resetTablePreferences.ts` (sortStorageKey/searchParams/setSearchParams/resetState/onAfterReset?) | 3 | admin 「선호 초기화」 21-line 함수 → 15-line 호출 · confirm 문구 + banner 문구 + URL 삭제 boilerplate shared (AuditLog 는 미도입 대상 외) |
+| useUrlSort | v0.295 | `lib/useUrlSort.ts` (storageKey/validColumns/searchParams/setSearchParams → sortColumn/sortDirection/handleSort) | 3 | admin URL 기반 sort state 4 pieces shared (sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort · AuditLog 는 server pagination 대상 외) |
 
 **참고 (bulk 4-phase)**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
 는 4-phase (`select → preview → running → done`) 패턴이라 3-phase useBulkDialogPhase
@@ -53,6 +56,9 @@ v0.289~v0.292: admin 4 테이블 컬럼 메뉴 인프라 3 시리즈 완결 (use
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.295 | `841d37a` (main) | 신규 `useUrlSort` hook (98 lines · URL 기반 sort state 4 pieces shared: sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort) + admin 3 table 이식. -183 lines 이식 코드. AuditLog 는 client sort 미도입 대상 외. 웹 1402 (+11). Codex 통과 7/0. |
+| v0.294 | `dd5a746` (main) | 신규 `resetTablePreferences` helper (54 lines · confirm + localStorage cleanup + URL 삭제 + onAfterReset shared) + admin 3 table 이식. CONFIRM/BANNER 문구 상수화. AuditLog 는 「선호 초기화」 미도입 대상 외. 웹 1391 (+7). Codex 통과 5/0. |
+| v0.293 | `5d177e2` (main) | STATUS/NEXT.md sync (v0.289~v0.292 useColumnMenu/ColumnMenu/useVisibleColumns 반영 · 8 → 11 시리즈 · 148 → 160+ site · 1348 → 1384). 카탈로그 24 항목 리넘버. Codex 통과 5/0. |
 | v0.292 | `5efae46` (main) | 신규 `useVisibleColumns` hook (visibleColumns state + toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive shared · minimalKeys optional) + 4 admin table 이식 (admin 3 + AuditLog). MINIMAL_VISIBLE_COLUMNS 모듈-scope 상수. 웹 1384 (+11). Codex 통과 6/0. |
 | v0.291 | `f260576` (main) | 신규 `ColumnMenu` 컴포넌트 (156 lines) + 4 admin table 이식. 90-line JSX 블록 → 15-line 호출 · minimalPreset/onResetPreferences optional · testIdPrefix propagation · WAI-ARIA menu 유지. 웹 1373 (+14). Codex 통과 5/0. |
 | v0.290 | `2b1b454` (main) | useColumnMenu 이식 AuditLogTable · **4 site 완결**. v0.289 착오 정정 (실제 동일 pattern). 코드 refactor only · 웹 1359 유지. Codex 통과 6/0. |
