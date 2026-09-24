@@ -94,16 +94,20 @@ export function AutoCreateDepartmentGroupsDialog({
     },
   });
 
-  // v0.284 R1 F-A: 원본 useEffect deps 에 `departments` 포함되어 있었음
+  // v0.284 R2 F-A: 원본 useEffect deps 에 `departments` 포함되어 있었음
   // (v0.284 R0 회귀). React Query 결과가 open 중에 재발화하여 departments
-  // length/순서가 바뀌면 slugs/owners 배열이 index 어긋남. departments 자체 변경
-  // 시에도 재초기화하여 원본 동작 보존.
+  // length/순서가 바뀌면 원본은 slugs/owners 뿐 아니라 phase/progress/results/
+  // confirmText 도 함께 리셋 (R1 부분 반영 지적). 원본 전체 6 state 리셋 복원.
   useEffect(() => {
     if (open) {
+      setPhase('confirm');
+      setProgress(0);
+      setResults([]);
       setSlugs(departments.map((_, i) => defaultSlug(i)));
       setOwners(departments.map(() => ''));
+      setConfirmText('');
     }
-  }, [open, departments]);
+  }, [open, departments, setPhase]);
 
   const preview = departments.map((dept, i) => {
     const slug = (slugs[i] ?? '').trim().toLowerCase();
