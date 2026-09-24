@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuditLogList } from '../../api/auditLogList';
 import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
@@ -14,10 +14,7 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
-import { useClickOutside } from '../../lib/useClickOutside';
-import { useEscapeKey } from '../../lib/useEscapeKey';
-import { useFocusTrap } from '../../lib/useFocusTrap';
-import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
+import { useColumnMenu } from '../../lib/useColumnMenu';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import {
   serializePageSize,
@@ -131,14 +128,13 @@ export function AuditLogTable() {
     serializeVisibleColumns,
     deserializeVisibleColumns,
   );
-  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
-  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
-  const columnMenuRef = useRef<HTMLDivElement>(null);
-  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
-  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
-  useEscapeKey(closeColumnMenu, isColumnMenuOpen);
-  useFocusTrap(columnMenuRef, isColumnMenuOpen);
-  useMenuArrowNav(columnMenuRef, isColumnMenuOpen);
+  // v0.290: 컬럼 메뉴 popover 상태 + 4 hook 배선 shared (v0.289 hook 이식).
+  const {
+    isOpen: isColumnMenuOpen,
+    toggle: toggleColumnMenu,
+    buttonRef: columnMenuBtnRef,
+    menuRef: columnMenuRef,
+  } = useColumnMenu();
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -694,7 +690,7 @@ export function AuditLogTable() {
               ref={columnMenuBtnRef}
               variant="secondary"
               size="sm"
-              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              onClick={toggleColumnMenu}
               data-testid="audit-log-column-menu-btn"
               aria-expanded={isColumnMenuOpen}
               aria-haspopup="menu"
