@@ -1,12 +1,9 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { userHasCap } from '@school-app/shared';
 import { useClassroomList } from '../../api/classroomList';
 import { useAuth } from '../../lib/auth';
-import { useClickOutside } from '../../lib/useClickOutside';
-import { useEscapeKey } from '../../lib/useEscapeKey';
-import { useFocusTrap } from '../../lib/useFocusTrap';
-import { useMenuArrowNav } from '../../lib/useMenuArrowNav';
+import { useColumnMenu } from '../../lib/useColumnMenu';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useAutoDismissBanner } from '../../lib/useAutoDismissBanner';
 import { Banner } from '../../components/Banner';
@@ -158,15 +155,14 @@ export function ClassroomTable() {
     serializeVisibleColumns,
     deserializeVisibleColumns,
   );
-  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
-  // v0.202: outside-click auto-close.
-  const columnMenuBtnRef = useRef<HTMLButtonElement>(null);
-  const columnMenuRef = useRef<HTMLDivElement>(null);
-  const closeColumnMenu = useCallback(() => setIsColumnMenuOpen(false), []);
-  useClickOutside([columnMenuBtnRef, columnMenuRef], closeColumnMenu, isColumnMenuOpen);
-  useEscapeKey(closeColumnMenu, isColumnMenuOpen);
-  useFocusTrap(columnMenuRef, isColumnMenuOpen);
-  useMenuArrowNav(columnMenuRef, isColumnMenuOpen);
+  // v0.289: 컬럼 메뉴 popover 상태 + 4 hook 배선 shared.
+  const {
+    isOpen: isColumnMenuOpen,
+    close: closeColumnMenu,
+    toggle: toggleColumnMenu,
+    buttonRef: columnMenuBtnRef,
+    menuRef: columnMenuRef,
+  } = useColumnMenu();
 
   const toggleColumn = (key: ToggleColumnKey) => {
     setVisibleColumns((prev) => {
@@ -212,7 +208,7 @@ export function ClassroomTable() {
     next.delete('dir');
     setSearchParams(next, { replace: false });
     setPage(0);
-    setIsColumnMenuOpen(false);
+    closeColumnMenu();
     // v0.225: 초기화 확인 배너 · v0.226: shared hook.
     showSuccessBanner('저장된 선호가 초기화되었습니다.');
   };
@@ -554,7 +550,7 @@ export function ClassroomTable() {
             <Button
               ref={columnMenuBtnRef}
               variant="secondary"
-              onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+              onClick={toggleColumnMenu}
               data-testid="classroom-column-menu-btn"
               aria-expanded={isColumnMenuOpen}
               aria-haspopup="menu"
