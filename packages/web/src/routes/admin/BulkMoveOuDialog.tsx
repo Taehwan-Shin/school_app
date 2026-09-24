@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkMoveOuDialogProps {
@@ -23,8 +24,6 @@ export interface BulkMoveOuDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
-
 export function BulkMoveOuDialog({
   open,
   onOpenChange,
@@ -32,30 +31,24 @@ export function BulkMoveOuDialog({
   onDone,
 }: BulkMoveOuDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [targetOu, setTargetOu] = useState("");
   // v0.129 (== v0.124 F99 대칭): confirm 시점의 emails snapshot 확정.
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.282: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setTargetOu("");
       setRunEmails(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     const trimmed = targetOu.trim();
