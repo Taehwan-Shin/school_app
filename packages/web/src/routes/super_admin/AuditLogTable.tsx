@@ -4,6 +4,7 @@ import { useAuditLogList } from '../../api/auditLogList';
 import { fetchAllAuditLog, type AuditBatchExportProgress } from '../../api/auditLogBatchExport';
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
+import { ColumnMenu } from '../../components/ColumnMenu';
 import { AUDIT_ACTIONS } from '@school-app/shared';
 import {
   Table,
@@ -684,72 +685,21 @@ export function AuditLogTable() {
               </option>
             ))}
           </select>
-          {/* v0.216: 컬럼 표시 토글. admin 3 테이블 (v0.199~v0.207) 패턴 확장. */}
-          <div className="relative ml-2">
-            <Button
-              ref={columnMenuBtnRef}
-              variant="secondary"
-              size="sm"
-              onClick={toggleColumnMenu}
-              data-testid="audit-log-column-menu-btn"
-              aria-expanded={isColumnMenuOpen}
-              aria-haspopup="menu"
-              title="컬럼 표시 여부 선택"
-            >
-              컬럼 표시 ({visibleColumns.size} / {TOGGLEABLE_COLUMNS.length})
-            </Button>
-            {isColumnMenuOpen && (
-              <div
-                ref={columnMenuRef}
-                role="menu"
-                aria-label="컬럼 표시"
-                data-testid="audit-log-column-menu"
-                className="absolute right-0 mt-1 z-10 border border-border-subtle bg-canvas shadow-lg py-2 min-w-40"
-              >
-                {/* v0.218: WAI-ARIA menu 패턴 — menuitem/menuitemcheckbox role · 방향키. */}
-                <div className="flex flex-wrap gap-1 px-3 pb-2 border-b border-border-subtle mb-1">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => setAllColumnsVisible(true)}
-                    disabled={visibleColumns.size === TOGGLEABLE_COLUMNS.length}
-                    data-testid="audit-log-column-show-all"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                  >
-                    전체 표시
-                  </button>
-                  <span className="text-micro text-fg-muted" aria-hidden="true">·</span>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => setAllColumnsVisible(false)}
-                    disabled={visibleColumns.size === 0}
-                    data-testid="audit-log-column-hide-all"
-                    className="text-micro text-fg-primary underline hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                  >
-                    전체 숨김
-                  </button>
-                </div>
-                {TOGGLEABLE_COLUMNS.map(({ key, label }) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-2 px-3 py-1 text-small text-fg-primary cursor-pointer hover:bg-surface"
-                  >
-                    <input
-                      type="checkbox"
-                      role="menuitemcheckbox"
-                      aria-checked={visibleColumns.has(key)}
-                      checked={visibleColumns.has(key)}
-                      onChange={() => toggleColumn(key)}
-                      data-testid={`audit-log-column-toggle-${key}`}
-                      className="cursor-pointer"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* v0.216: 컬럼 표시 토글. v0.291: shared ColumnMenu 컴포넌트 (minimalPreset/resetPreferences 미도입). */}
+          <ColumnMenu
+            buttonRef={columnMenuBtnRef}
+            menuRef={columnMenuRef}
+            isOpen={isColumnMenuOpen}
+            onToggle={toggleColumnMenu}
+            columns={TOGGLEABLE_COLUMNS}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumn}
+            onShowAll={() => setAllColumnsVisible(true)}
+            onHideAll={() => setAllColumnsVisible(false)}
+            testIdPrefix="audit-log"
+            buttonSize="sm"
+            className="ml-2"
+          />
           {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
               hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
               도달 시 partial 표시. */}
