@@ -57,7 +57,7 @@ v0.294~v0.295: admin 3 테이블 「선호 초기화」 boilerplate + URL sort s
 | 버전 | 커밋 | 요약 |
 |---|---|---|
 | v0.295 | `841d37a` (main) | 신규 `useUrlSort` hook (98 lines · URL 기반 sort state 4 pieces shared: sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort) + admin 3 table 이식. -183 lines 이식 코드. AuditLog 는 client sort 미도입 대상 외. 웹 1402 (+11). Codex 통과 7/0. |
-| v0.294 | `dd5a746` (main) | 신규 `resetTablePreferences` helper (54 lines · confirm + localStorage cleanup + URL 삭제 + onAfterReset shared) + admin 3 table 이식. CONFIRM/BANNER 문구 상수화. AuditLog 는 「선호 초기화」 미도입 대상 외. 웹 1391 (+7). Codex 통과 5/0. |
+| v0.294 | `dd5a746` (main) | 신규 `resetTablePreferences` helper (52 lines · confirm + localStorage cleanup + URL 삭제 + onAfterReset shared) + admin 3 table 이식. CONFIRM/BANNER 문구 상수화. AuditLog 는 「선호 초기화」 미도입 대상 외. 웹 1391 (+7). Codex 통과 5/0. |
 | v0.293 | `5d177e2` (main) | STATUS/NEXT.md sync (v0.289~v0.292 useColumnMenu/ColumnMenu/useVisibleColumns 반영 · 8 → 11 시리즈 · 148 → 160+ site · 1348 → 1384). 카탈로그 24 항목 리넘버. Codex 통과 5/0. |
 | v0.292 | `5efae46` (main) | 신규 `useVisibleColumns` hook (visibleColumns state + toggleColumn/setAllVisible/applyMinimalPreset/isMinimalActive shared · minimalKeys optional) + 4 admin table 이식 (admin 3 + AuditLog). MINIMAL_VISIBLE_COLUMNS 모듈-scope 상수. 웹 1384 (+11). Codex 통과 6/0. |
 | v0.291 | `f260576` (main) | 신규 `ColumnMenu` 컴포넌트 (156 lines) + 4 admin table 이식. 90-line JSX 블록 → 15-line 호출 · minimalPreset/onResetPreferences optional · testIdPrefix propagation · WAI-ARIA menu 유지. 웹 1373 (+14). Codex 통과 5/0. |
