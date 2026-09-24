@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
@@ -38,7 +39,6 @@ const DOMAIN = "cam.hs.kr";
 // 대소문자는 서버가 정규화하지만 표시 목적상 그대로 유지. `@` 금지 (도메인 자동).
 const LOCAL_PART_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-type Phase = "confirm" | "running" | "done";
 type ClassroomRole = "teacher" | "student";
 
 interface RowInput {
@@ -96,7 +96,6 @@ export function buildRunRowsSnapshot(rows: RowInput[], domain: string): RunRowSn
 
 export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [rows, setRows] = useState<RowInput[]>(makeInitialRows);
   const [orgUnitPath, setOrgUnitPath] = useState("/");
   const [initialPassword, setInitialPassword] = useState("");
@@ -157,9 +156,12 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
     });
   };
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.284: 3-phase 상태 shared hook 이식.
+  // onDone 없음 (props 에 없음). 부모 close 는 hook 이 running 만 차단.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onOpen: () => {
       setRows(makeInitialRows());
       setOrgUnitPath("/");
       setInitialPassword("");
@@ -180,14 +182,8 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
       setNewOuValidationError(null);
       setNewOuSuccess(null);
       resetNewOuMutation();
-    }
-  }, [open, resetNewOuMutation]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    // 실행 중 X · Escape · outside 로 닫히지 않게 gate.
-    if (phase === "running") return;
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   // v0.159: 신규 OU 인라인 생성. v0.121 CreateUserDialog 대칭 (동일 검증 규칙).
   const handleCreateOrgunit = async () => {
