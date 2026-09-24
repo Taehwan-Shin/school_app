@@ -61,6 +61,8 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.302 | `7efcb5c` (main) | **Perf**: route-level code splitting (React.lazy + Suspense) · 11 admin/super_admin/teacher route 분리. Named export wrapper (`.then(m => ({ default: m.Named }))`) 로 test 무영향. 빌드: 단일 980kB → main 464kB (**52% ↓** · gzip 254→130kB) + 다중 route chunk · 500 kB 경고 해소. RouteLoadingFallback: role=status · aria-live=polite. 웹 1410 유지. Codex 통과 6/0. |
+| v0.301 | `21bc9c1` (main) | STATUS/NEXT.md sync (v0.298 R1 + v0.299 AuditTrail test + v0.300 BulkSuspendRestore 반영 · 14 → 15 시리즈 · 168+ → 170+ site · 1402 → 1410). 카탈로그 28 항목 리넘버. Codex 통과 5/0. |
 | v0.300 | `9de386b` (main) | 신규 `BulkSuspendRestoreDialog` 공통 컴포넌트 (178 lines) — BulkSuspendDialog (v0.123 · 164 lines) + BulkRestoreDialog (v0.123b · 169 lines) near-identical 3-phase flow 흡수. suspend boolean + labels grouped object + testIdPrefix. 두 wrapper 각 37~39 lines. 순 -78 lines. 웹 1410 유지 (기존 회귀 테스트 통과). Codex 통과 6/0. |
 | v0.299 | `72950b6` (main) | 신규 `AuditTrail.test.tsx` (234 lines · 8 tests) — shared 컴포넌트 직접 회귀 방어 (prop propagation hardcode 방어). 실증: testIdPrefix 하드코드 시 2/2 실패. 웹 1410 (+8). Codex 통과 4/0. |
 | v0.298 | `78a7fc5` (main) | STATUS/NEXT.md sync (v0.297 AuditTrail 반영 · 13 → 14 시리즈 · 166+ → 168+ site). 카탈로그 27 항목 리넘버. R1: AuditTrail 138 → 143 lines 정정. Codex 통과 5 (R1) + 4 (R0). |

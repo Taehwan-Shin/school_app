@@ -1,17 +1,18 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.300 병합 완료** (`9de386b`) - 신규 BulkSuspendRestoreDialog 공통 컴포넌트 흡수 (BulkSuspend + BulkRestore wrapper) · 웹 1410.
+> **v0.302 병합 완료** (`7efcb5c`) - Route-level code splitting (React.lazy + Suspense) · 초기 bundle 980kB → 464kB (52% ↓) · 웹 1410.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 완료 후 특별한 오더 없음.
+v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302 route code splitting 완료 후 특별한 오더 없음.
 남은 후보:
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
 - audit_log durable sink 실 설정 (사용자 조치 대기)
 - Chat/Classroom bulk 5 site (4-phase 패턴) 위한 generic 화된 hook 확장 (필요 시)
 - AutoRemoveNonRoster + AutoInviteStudentsToChatSpaces (5-phase `confirm → scanning → preview → running → done`) 위한 phase-superset hook (필요 시)
+- Vendor chunk 추가 분리 · route hover-preload (perceived perf 개선, 필요 시)
 
 ## Shared modules 카탈로그
 
