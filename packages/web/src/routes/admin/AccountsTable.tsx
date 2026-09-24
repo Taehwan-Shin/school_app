@@ -22,7 +22,7 @@ import {
   serializeVisibleColumns,
   makeVisibleColumnsDeserializer,
 } from "../../lib/visibleColumnsStorage";
-import { deserializeSort, type StoredSortPref } from "../../lib/sortStorage";
+import { useUrlSort } from "../../lib/useUrlSort";
 import { StorageKeys } from "../../lib/storageKeys";
 import {
   Table,
@@ -46,8 +46,8 @@ import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
 import { BulkUpdateRoleDialog } from "./BulkUpdateRoleDialog";
 
-type SortColumn = 'email' | 'name' | 'orgUnitPath' | null;
-type SortDirection = 'asc' | 'desc';
+type SortColumnKey = 'email' | 'name' | 'orgUnitPath';
+const VALID_SORT_COLUMNS: readonly SortColumnKey[] = ['email', 'name', 'orgUnitPath'];
 
 // v0.193: 페이지 크기 셀렉터. 사용자 선택은 localStorage 에 저장 (도메인 · 사용자 로컬).
 // v0.220: useLocalStorageState 이식 — 커스텀 serialize/deserialize 로 raw number string 유지.
@@ -106,11 +106,13 @@ export function AccountsTable() {
   // v0.226: shared auto-dismiss banner hook (unmount cleanup 안전).
   const { message: successBanner, show: showSuccessBanner } =
     useAutoDismissBanner();
-  const sortColumn: SortColumn = (() => {
-    const raw = searchParams.get('sort');
-    return raw === 'email' || raw === 'name' || raw === 'orgUnitPath' ? raw : null;
-  })();
-  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  // v0.295: URL 기반 sort state + hydrate + persist + handleSort shared hook.
+  const { sortColumn, sortDirection, handleSort } = useUrlSort<SortColumnKey>({
+    storageKey: SORT_STORAGE_KEY,
+    validColumns: VALID_SORT_COLUMNS,
+    searchParams,
+    setSearchParams,
+  });
   const [page, setPage] = useState(0);
   // v0.193: 페이지 크기 선택 (25/50/100/200). v0.220: useLocalStorageState 이식 · 커스텀 serialize.
   const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
@@ -119,14 +121,7 @@ export function AccountsTable() {
     serializePageSize,
     deserializePageSize,
   );
-  // v0.221: sort 선호도 useLocalStorageState 이식. URL 이 authoritative — hook 은 default null.
-  // Reset 은 setStoredSort(null) 로 · 「null」 저장 후 hydrate 시 null → mount effect 에서 skip (동일 semantic).
-  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
-    SORT_STORAGE_KEY,
-    null,
-    undefined,
-    deserializeSort,
-  );
+  // v0.221 → v0.295: sort 상태 · hydrate · persist · handleSort 모두 useUrlSort hook 안으로 이동.
   // v0.199/v0.221: 컬럼 표시 여부 (Set<K>) + 4 helper. v0.292: useVisibleColumns hook shared.
   const {
     visibleColumns,
@@ -161,7 +156,8 @@ export function AccountsTable() {
       setSearchParams,
       resetState: () => {
         setPageSize(DEFAULT_PAGE_SIZE);
-        setStoredSort(null);
+        // sort 는 URL 삭제 후 useUrlSort persist effect 가 자동으로 「null」 저장.
+        // localStorage.removeItem 은 resetTablePreferences 가 담당.
         setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
         setPage(0);
       },
@@ -177,41 +173,7 @@ export function AccountsTable() {
     setPage(0);
   };
 
-  // v0.160: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
-  // URL 이 authoritative → 이미 URL 에 sort 있으면 (deep link 등) 저장값 무시.
-  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
-  useEffect(() => {
-    if (searchParams.has('sort')) return;
-    if (!storedSort) return;
-    const next = new URLSearchParams(searchParams);
-    if (
-      storedSort.sort === 'email' ||
-      storedSort.sort === 'name' ||
-      storedSort.sort === 'orgUnitPath'
-    ) {
-      next.set('sort', storedSort.sort);
-    }
-    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
-      next.set('dir', storedSort.dir);
-    }
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true });
-    }
-    // Mount-only hydrate: intentionally empty deps. searchParams / setSearchParams / storedSort
-    // 는 매 렌더 신규 참조 가능성 → dep 에 넣으면 무한 loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // v0.160: sortColumn/sortDirection 변경 시 localStorage 저장. null 이면 삭제
-  // (「필터 초기화」 후 재방문에서 다시 정렬 안 씌우게).
-  // v0.221: hook setter 사용 · null 은 「null」 저장 (hydrate 시 default null · semantic 동일).
-  useEffect(() => {
-    if (sortColumn) {
-      setStoredSort({ sort: sortColumn, dir: sortDirection });
-    } else {
-      setStoredSort(null);
-    }
-  }, [sortColumn, sortDirection, setStoredSort]);
+  // v0.160/v0.221 → v0.295: mount hydrate + persist effect 모두 useUrlSort hook 안으로 이동.
 
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isBulkMoveOuOpen, setIsBulkMoveOuOpen] = useState(false);
@@ -229,18 +191,7 @@ export function AccountsTable() {
     setSelectedEmails(new Set());
   }, [page, searchQuery, kpiFilter, sortColumn, sortDirection]);
 
-  const handleSort = (column: 'email' | 'name' | 'orgUnitPath') => {
-    const next = new URLSearchParams(searchParams);
-    if (sortColumn === column) {
-      // 같은 컬럼: 방향 토글
-      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      // 다른 컬럼: 그 컬럼으로 asc
-      next.set('sort', column);
-      next.set('dir', 'asc');
-    }
-    setSearchParams(next, { replace: false });
-  };
+  // v0.295: handleSort → useUrlSort hook 안으로 이동.
 
   const sortedFilteredUsers = useMemo(() => {
     if (!data?.users) return [];
