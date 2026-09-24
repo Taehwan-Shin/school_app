@@ -7,7 +7,7 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
-| 다음 제품 방향 확정 (v0.209+) | 사용자 | 답 대기 | v0.104~v0.208 병합 완료. audit sink 실 설정 · 전입생 UX · 클래스룸 소유자 이관 · 일괄/개별 이름 변경 · 대시보드 window 사용자 정의 · ClassroomTable 검색·필터·정렬 · 정렬 헤더 키보드 접근성 · sortHeader helper 단위 테스트 · web ESLint 관문 · exhaustive-deps 13건 경고 전량 해소 (13→0 완주) · CreateUserDialog 클래스룸 UX 개선 (2컬럼 grid, 정렬/검색, 선택 유지) · 나이스 CSV 일괄 클래스룸 생성 + 초대 · CreateUserDialog OU 목록 로드 실패 fix 및 Google 재로그인 원클릭 자동 복구 버튼 (prompt=consent 강제) · classroom 상세 페이지 학생/교사 명단 CSV 내보내기 · 반 그룹 명단 밖 자동 제거 · 반 챗방 학생 자동 초대 · AccountsTable JSON 내보내기 · super_admin 결과 분포 위젯 · AccountsTable 선택 계정만 export · CourseMembersPanel 선택 명단 export · GroupsTable JSON 내보내기 · CreateUser/BatchCreate changePasswordAtNextLogin toggle · BatchCreate OU 인라인 생성 폼 · AccountsTable · GroupsTable · ClassroomTable 정렬 선호 localStorage 저장 (3 테이블 트릴로지 완결) · BulkUpdateRoleDialog (일괄 admin/teacher 역할 변경) · BulkTransferClassroomOwnerDialog (일괄 소유자 이관) · GroupsTable bulk selection + BulkDeleteGroupDialog + BulkUpdateGroupDescriptionDialog · CreateGroupDialog + CreateClassroomDialog + TransferClassroomOwnerDialog + BulkTransferClassroomOwnerDialog 모두 shared lib/emailInput.ts helper 로 local-part 자동 부착 통일 · courseState 3 dialog Korean label 통일 (lib/courseState.ts) · classroomDetail 복사 버튼 (courseId · ownerId · alternateLink) + 신규 CopyButton · userDetail · groupDetail 도 복사 버튼 이식 · CreateGroup + EditGroup description textarea + 4096자 상한 · CreateClassroomDialog description 30,000자 상한 + 카운터 · CreateClassroom name/section/room 상한 검증 · BulkRenameClassroomDialog row-level 상한 검증 · ClassroomTable CSV/JSON 내보내기 (Accounts · Groups · Classroom 3 테이블 export 트릴로지 완결) · CreateUser/BatchCreate 성/이름 60자 상한 검증 (Google Directory 규격) · EditUserDialog 60자 상한 이식 (Create/Batch/Edit 3 진입점 대칭 완결) · CreateGroup/EditGroup 이름 60자 상한 검증 (Workspace Directory groups.name) · CreateUser primaryEmail local-part 64자 상한 (RFC 5321) · NEIS CSV import 코스 이름 750자 상한 검증 · super_admin 액션별 위젯 CSV/JSON 내보내기 · BasicDataPanel 버튼 3-그룹핑 (편집/자동 워크플로우/데이터 I/O) · OrgUnit 이름 100자 상한 shared lib 승격 + 카운터 · AuditLog JSON export sourceQuery/sourcePath 재현용 필드 · CreateGroup/EditGroup description counter 스타일 통일 (v0.180 name counter 대칭) · CreateClassroom name/section/room 카운터 이식 + description 스타일 통일 · RenameClassroom + BulkRenameClassroom row-level 카운터 이식 (counter 스타일 통일 시리즈 완결) · BulkTransferClassroomOwner + CreateGroup + CreateClassroom + TransferClassroomOwner local-part 카운터 이식 (5 dialog 완결) · Accounts/Groups/Classroom/AuditLog 4 테이블 페이지 크기 셀렉터 (25/50/100 · localStorage 저장) · pagination info 「N / M 페이지」 표기 · AuditLog 「더 보기」 pageSize 반영 + hasMore 시각화 · Accounts/Groups/Classroom 3 테이블 컬럼 표시 토글 (localStorage · popover menu · column visibility 시리즈 완결) · 컬럼 메뉴 outside-click auto-close (shared useClickOutside hook) · 컬럼 메뉴 Escape 키 닫기 (shared useEscapeKey hook · 접근성) · 컬럼 메뉴 「전체 표시」 / 「전체 숨김」 quick actions (3 테이블) · 컬럼 메뉴 「간결」 preset (name 만) · Focus trap (Tab 순환 · shared useFocusTrap hook) · 「선호 초기화」 (sort · pageSize · visibleColumns 통합 리셋) · Table sticky top header (긴 목록 스크롤 시 컬럼 헤더 상단 고정). Phase 5/6 원본 Apps Script 포팅 대부분 커버. |
+| 다음 제품 방향 확정 (v0.280+) | 사용자 | 답 대기 | v0.104~v0.279 병합 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. v0.228~v0.279 는 대량 shared component 이식 시리즈로 UI 일관성 확립 (아래 「shared component 시리즈」 표 참조). 새 방향 필요 |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
 | Identity Platform 업그레이드 (배포 차단 관문) | 사용자 | 답 대기 | Firebase Console → Authentication → Settings → Upgrade to Firebase Authentication with Identity Platform |
@@ -24,10 +24,32 @@
 
 없음.
 
+## Shared component 시리즈 (v0.228~v0.279)
+
+Codex 감사 통과된 7개 대량 shared component 이식 시리즈. UI 일관성 확립 및
+반복 markup 100+ site 통합. 웹 1279 → **1329** (+50).
+
+| 시리즈 | 버전 범위 | shared component | site 수 | 대상 |
+|---|---|---|---|---|
+| Banner | v0.228~v0.252 | `components/Banner.tsx` (variant/message/testId/bodyClass) | 25+ | 전 admin dialog 에러/성공/warning 배너 통일 (role=alert/status · aria-live · sr-friendly) |
+| ConfirmCountInput | v0.253~v0.255 | `components/ConfirmCountInput.tsx` | 7 | 파괴적 bulk dialog 「대상 개수 정확 입력」 관문 통일 |
+| BulkProgress | v0.256~v0.260 | `components/BulkProgress.tsx` (progress/total/testId/label?) | 21 | 「진행 중: N / M」 + 진행 막대 통일 (BulkTransfer/BulkUpdateRole label 커스텀) |
+| PreviewList | v0.261~v0.263 | `components/PreviewList.tsx` (items/getKey/renderItem/unit?/limit?) | 11 | confirm phase 「대상 5건 미리보기 + 외 N 요약」 통일 |
+| BulkDoneSummary | v0.264~v0.269 | `components/BulkDoneSummary.tsx` (success/failure/unit/label?/skipped?/successSuffix?/failureSuffix?) | 21 | 「완료: N 성공 · S skip · M 실패」 3-category 통일 (label/successSuffix/skippedSuffix/failureSuffix 커스텀) |
+| BulkFailureList | v0.270~v0.274 | `components/BulkFailureList.tsx` (items/getKey(item,index)/renderItem/testId) | 20 | done phase 실패 리스트 통일 (composite key 지원) |
+| SrOnlyDialogHeader | v0.275~v0.279 | `components/SrOnlyDialogHeader.tsx` (title/description) | 22 files (44 site) | running/done phase 스크린 리더용 sr-only DialogHeader 통일 |
+
 ## 최근 병합 (요약, 상세는 `project_notes.md`)
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.279 | `d9a7af8` (main) | SrOnlyDialogHeader 이식 6 files (12 site) · **22 files / 44 site 시리즈 완결**. Chat/Classroom bulk 5 + RenameClassroom. 웹 1329. |
+| v0.274 | `140aaf0` (main) | BulkFailureList 이식 4 Chat/Classroom bulk site · **20 site 시리즈 완결**. 웹 1325. |
+| v0.269 | `dadd276` (main) | BulkDoneSummary successSuffix/failureSuffix API 확장 + 5 Chat/Classroom bulk site (**21 site 시리즈 완결**). 웹 1318. |
+| v0.263 | `027e690` (main) | PreviewList 이식 5 rich site · **11 site 시리즈 완결**. 웹 1304. |
+| v0.260 | `ce1b438` (main) | BulkProgress 이식 5 Chat/Classroom bulk site · **21 site 시리즈 완결**. 웹 1298. |
+| v0.255 | `83e40d6` (main) | ConfirmCountInput 이식 3 site · **7 site 시리즈 완결**. 웹 1292. |
+| v0.252 | `7a060bb` (main) | Banner 이식 25+ site 시리즈 완결 (compact/scrollable/inline 마무리). 웹 1298. |
 | v0.227 | `829e5da` (main) | 신규 `SuccessBanner` shared component (role=status + aria-live · 3 admin 테이블 반복 markup 대체). 회귀 3건. 웹 1279 (+3) · lint clean · 서버 무변경. |
 | v0.226 | `81aa949` (main) | 신규 `useAutoDismissBanner` shared hook. `show(msg, ms?=2000)`/`clear()` · unmount timer cleanup 안전 (v0.225 flagged leak 해결). 3 admin 테이블 setTimeout 사용처 이식. 회귀 6건. 웹 1276 (+6). |
 | v0.225 | `cb7271b` (main) | 「선호 초기화」 성공 배너 3 admin 테이블 통합. Accounts 는 기존 state 재사용, Groups/Classroom 은 신규 state + 렌더. 2초 자동 dismiss. |

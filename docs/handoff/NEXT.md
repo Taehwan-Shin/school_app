@@ -1,18 +1,44 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.227 병합 완료** (`829e5da`) - SuccessBanner shared component · 웹 1279. **v0.226** (`81aa949`) - useAutoDismissBanner shared hook (setTimeout unmount cleanup). **v0.225** (`cb7271b`) - 선호 초기화 성공 배너 3 테이블 통합. **v0.224** (`58b9578`) - storageKeys catalog (13 키 통합). **v0.222** (`8efec66`) - visibleColumns hook · CLEAN. **v0.221** (`c49aa08`) - sort factory. **v0.220** (`61c539e`) - pageSize hook. **v0.219 R9** (`3fa1480`) - useLocalStorageState 최종.
+> **v0.279 병합 완료** (`d9a7af8`) - SrOnlyDialogHeader 22 files (44 site) 시리즈 완결 · 웹 1329.
 
-## Shared modules 카탈로그 (v0.219~v0.227)
+## 다음 오더 후보 (사용자 답 대기)
 
-1. `lib/useLocalStorageState.ts` — React state + localStorage 자동 동기화 hook.
-2. `lib/useMenuArrowNav.ts` — WAI-ARIA menu 방향키 navigation.
-3. `lib/useAutoDismissBanner.ts` — 자동 dismiss 배너 hook (unmount cleanup 안전).
-4. `lib/pageSizeStorage.ts` — pageSize serialize/deserialize factory.
-5. `lib/sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
-6. `lib/visibleColumnsStorage.ts` — Set<K> visibleColumns factory.
-7. `lib/storageKeys.ts` — 13 localStorage 키 통합 catalog.
-8. `components/SuccessBanner.tsx` — 성공 상태 배너 shared component (role=status · aria-live).
+v0.228~v0.279 대량 shared component 이식 시리즈 완료 후 특별한 오더 없음.
+남은 후보:
+- `useBulkDialogPhase` hook 추출 (3-phase 상태 + handleOpenChange 공유)
+- 실제 제품 기능 (사용자 요청 대기)
+- Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
+- audit_log durable sink 실 설정 (사용자 조치 대기)
+
+## Shared modules 카탈로그
+
+**Hooks (`lib/`)**:
+1. `useLocalStorageState.ts` — React state + localStorage 자동 동기화 hook (SetStateAction<T> · key 변경 재 hydrate · StrictMode safe).
+2. `useMenuArrowNav.ts` — WAI-ARIA menu 방향키 navigation (Arrow/Home/End · wrap · disabled skip · container-scope guard).
+3. `useAutoDismissBanner.ts` — 자동 dismiss 배너 hook (unmount setTimeout cleanup 안전).
+4. `useClickOutside.ts` — 외부 mousedown 감지 (refs[] 배열 지원 · enabled toggle).
+5. `useEscapeKey.ts` — Escape 키 리스너 (enabled toggle).
+6. `useFocusTrap.ts` — Tab 순환 focus trap + unmount 시 focus 복원.
+
+**Factories (`lib/`)**:
+7. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
+8. `sortStorage.ts` — sort pref serialize/deserialize (null=reset vs undefined=invalid).
+9. `visibleColumnsStorage.ts` — Set<K> visibleColumns (all-unknown fallback · 명시적 empty 유지).
+10. `storageKeys.ts` — 13 localStorage 키 통합 catalog.
+
+**Components (`components/`)**:
+11. `Banner.tsx` — 3-variant (success/error/warning) + `bodyClass` override + role/aria-live.
+12. `SuccessBanner.tsx` — v0.227 원본 (v0.228 Banner 로 확장).
+13. `ConfirmCountInput.tsx` — 파괴적 bulk dialog 「대상 개수 정확 입력」 관문.
+14. `BulkProgress.tsx` — 「진행 중: N / M」 + 진행 막대 (label 커스텀).
+15. `PreviewList.tsx` — confirm phase 「대상 5건 + 외 N」 (unit/limit 커스텀).
+16. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
+17. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
+18. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
+19. `CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171).
+20. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
