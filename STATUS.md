@@ -61,6 +61,9 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.305 | `f59fd03` (main) | **Perf**: index.html preconnect hints 5 endpoint 추가 (identitytoolkit + securetoken + firestore + Functions asia-northeast3 + cdn.jsdelivr.net). TLS handshake + DNS eager 시작 → 첫 API 100~200ms 단축. 웹 1410 유지. Codex 응답 지연 (30분+ 착수 후 빈 메시지) → 기계 관문 대체 (shared build + lint + test + build 모두 통과, 5줄 표준 W3C spec 낮은 리스크). |
+| v0.304 | `9d33815` (main) | **Perf**: vite manualChunks vendor split 4-way (vendor-react 163kB + vendor-firebase 237kB + vendor-ui 66kB + vendor-query 42kB). main 464kB → **135kB** (**71% ↓** · gzip 130→32kB). 총 shipped 동일, HTTP/2 병렬 + 안정 vendor 캐시 (deploy 시 route 만 새로 받음). 웹 1410 유지. Codex 통과 5/0. |
+| v0.303 | `022f9f2` (main) | STATUS/NEXT.md sync (v0.301 문서 sync + v0.302 route code splitting 반영). Codex 통과 5/0. |
 | v0.302 | `7efcb5c` (main) | **Perf**: route-level code splitting (React.lazy + Suspense) · 11 admin/super_admin/teacher route 분리. Named export wrapper (`.then(m => ({ default: m.Named }))`) 로 test 무영향. 빌드: 단일 980kB → main 464kB (**52% ↓** · gzip 254→130kB) + 다중 route chunk · 500 kB 경고 해소. RouteLoadingFallback: role=status · aria-live=polite. 웹 1410 유지. Codex 통과 6/0. |
 | v0.301 | `21bc9c1` (main) | STATUS/NEXT.md sync (v0.298 R1 + v0.299 AuditTrail test + v0.300 BulkSuspendRestore 반영 · 14 → 15 시리즈 · 168+ → 170+ site · 1402 → 1410). 카탈로그 28 항목 리넘버. Codex 통과 5/0. |
 | v0.300 | `9de386b` (main) | 신규 `BulkSuspendRestoreDialog` 공통 컴포넌트 (178 lines) — BulkSuspendDialog (v0.123 · 164 lines) + BulkRestoreDialog (v0.123b · 169 lines) near-identical 3-phase flow 흡수. suspend boolean + labels grouped object + testIdPrefix. 두 wrapper 각 37~39 lines. 순 -78 lines. 웹 1410 유지 (기존 회귀 테스트 통과). Codex 통과 6/0. |
