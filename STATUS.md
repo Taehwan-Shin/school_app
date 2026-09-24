@@ -24,12 +24,12 @@
 
 없음.
 
-## Shared component 시리즈 (v0.228~v0.279)
+## Shared component 시리즈 (v0.228~v0.284)
 
-Codex 감사 통과된 7개 대량 shared component 이식 시리즈. UI 일관성 확립 및
-반복 markup 100+ site 통합. 웹 1279 → **1329** (+50).
+Codex 감사 통과된 8개 대량 shared component/hook 이식 시리즈. UI 일관성 확립
+및 반복 markup·로직 145+ site 통합. 웹 1279 → **1341** (+62).
 
-| 시리즈 | 버전 범위 | shared component | site 수 | 대상 |
+| 시리즈 | 버전 범위 | shared module | site 수 | 대상 |
 |---|---|---|---|---|
 | Banner | v0.228~v0.252 | `components/Banner.tsx` (variant/message/testId/bodyClass) | 25+ | 전 admin dialog 에러/성공/warning 배너 통일 (role=alert/status · aria-live · sr-friendly) |
 | ConfirmCountInput | v0.253~v0.255 | `components/ConfirmCountInput.tsx` | 7 | 파괴적 bulk dialog 「대상 개수 정확 입력」 관문 통일 |
@@ -38,11 +38,19 @@ Codex 감사 통과된 7개 대량 shared component 이식 시리즈. UI 일관�
 | BulkDoneSummary | v0.264~v0.269 | `components/BulkDoneSummary.tsx` (success/failure/unit/label?/skipped?/successSuffix?/failureSuffix?) | 21 | 「완료: N 성공 · S skip · M 실패」 3-category 통일 (label/successSuffix/skippedSuffix/failureSuffix 커스텀) |
 | BulkFailureList | v0.270~v0.274 | `components/BulkFailureList.tsx` (items/getKey(item,index)/renderItem/testId) | 20 | done phase 실패 리스트 통일 (composite key 지원) |
 | SrOnlyDialogHeader | v0.275~v0.279 | `components/SrOnlyDialogHeader.tsx` (title/description) | 22 files (44 site) | running/done phase 스크린 리더용 sr-only DialogHeader 통일 |
+| useBulkDialogPhase | v0.281~v0.284 | `lib/useBulkDialogPhase.ts` (open/onOpenChange/onDone?/onOpen?/onClose?) | 16 | bulk dialog 3-phase 상태 shared hook (Phase state · open reset · handleOpenChange running-lock + done onDone · onClose sensitive cleanup) |
+
+**참고**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
+는 4-phase (`select → preview → running → done`) 패턴이라 3-phase useBulkDialogPhase
+대상 외 · 실질 완결 16 site.
 
 ## 최근 병합 (요약, 상세는 `project_notes.md`)
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.284 | `f2fc683` (main) | useBulkDialogPhase 이식 5 site (BulkRename/BatchCreateUsers/AutoInvite/AutoCreateGroups/AutoCreateDeptGroups) · **16 site 시리즈 완결** (Chat/Classroom bulk 5 는 4-phase 라 대상 외). R2: AutoCreateDeptGroups departments 재동기화 useEffect 6-state 리셋 복원. 웹 1341. |
+| v0.283 | `081dc1b` (main) | useBulkDialogPhase API 확장 (`onClose?`) + 이식 5 site. BulkResetPwd F65 (평문 비밀번호 즉시 clear) · BulkArchive setConfirmText 대응. 웹 1341. |
+| v0.281 | `7623244` (main) | 신규 useBulkDialogPhase hook. 3-phase 상태 (phase · open reset · handleOpenChange running-lock + done onDone) shared. 첫 소비자 BulkDeleteGroupDialog. 웹 1337. |
 | v0.279 | `d9a7af8` (main) | SrOnlyDialogHeader 이식 6 files (12 site) · **22 files / 44 site 시리즈 완결**. Chat/Classroom bulk 5 + RenameClassroom. 웹 1329. |
 | v0.274 | `140aaf0` (main) | BulkFailureList 이식 4 Chat/Classroom bulk site · **20 site 시리즈 완결**. 웹 1325. |
 | v0.269 | `dadd276` (main) | BulkDoneSummary successSuffix/failureSuffix API 확장 + 5 Chat/Classroom bulk site (**21 site 시리즈 완결**). 웹 1318. |
