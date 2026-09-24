@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth';
 import { useColumnMenu } from '../../lib/useColumnMenu';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useVisibleColumns } from '../../lib/useVisibleColumns';
+import { useUrlSort } from '../../lib/useUrlSort';
 import {
   resetTablePreferences,
   RESET_TABLE_PREFERENCES_BANNER_MESSAGE,
@@ -21,7 +22,6 @@ import {
   serializeVisibleColumns,
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
-import { deserializeSort, type StoredSortPref } from '../../lib/sortStorage';
 import { StorageKeys } from '../../lib/storageKeys';
 import {
   Table,
@@ -61,8 +61,8 @@ import { translateCourseState } from '../../lib/courseState';
 // 로 승격. 기존 소비자 (classroomDetail.tsx) 는 아래 re-export 로 뒤호환.
 export { translateCourseState };
 
-type SortColumn = 'name' | 'section' | 'state' | null;
-type SortDirection = 'asc' | 'desc';
+type SortColumnKey = 'name' | 'section' | 'state';
+const VALID_SORT_COLUMNS: readonly SortColumnKey[] = ['name', 'section', 'state'];
 
 // v0.162: 정렬 선호 localStorage 키 (v0.160/v0.161 대칭).
 const SORT_STORAGE_KEY = StorageKeys.classroom.sort;
@@ -129,11 +129,13 @@ export function ClassroomTable() {
   // v0.137 F105 대칭: allowlist 밖 filter 는 fail-open (필터 미적용).
   const kpiFilter: KpiFilter =
     kpiFilterRaw === 'active' || kpiFilterRaw === 'archived' ? kpiFilterRaw : null;
-  const sortColumn: SortColumn = (() => {
-    const raw = searchParams.get('sort');
-    return raw === 'name' || raw === 'section' || raw === 'state' ? raw : null;
-  })();
-  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  // v0.295: URL 기반 sort state + hydrate + persist + handleSort shared hook.
+  const { sortColumn, sortDirection, handleSort } = useUrlSort<SortColumnKey>({
+    storageKey: SORT_STORAGE_KEY,
+    validColumns: VALID_SORT_COLUMNS,
+    searchParams,
+    setSearchParams,
+  });
   const [page, setPage] = useState(0);
   // v0.195: 페이지 크기 선택 (v0.193/v0.194 대칭). v0.220: useLocalStorageState 이식.
   const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
@@ -141,13 +143,6 @@ export function ClassroomTable() {
     DEFAULT_PAGE_SIZE,
     serializePageSize,
     deserializePageSize,
-  );
-  // v0.221: sort 선호 useLocalStorageState 이식 (v0.162 대칭).
-  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
-    SORT_STORAGE_KEY,
-    null,
-    undefined,
-    deserializeSort,
   );
 
   const handlePageSizeChange = (size: PageSize) => {
@@ -189,7 +184,7 @@ export function ClassroomTable() {
       setSearchParams,
       resetState: () => {
         setPageSize(DEFAULT_PAGE_SIZE);
-        setStoredSort(null);
+        // sort 는 URL 삭제 후 useUrlSort persist effect 가 자동으로 「null」 저장.
         setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
         setPage(0);
       },
@@ -204,48 +199,7 @@ export function ClassroomTable() {
     setPage(0);
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
-  // v0.162: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
-  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
-  useEffect(() => {
-    if (searchParams.has('sort')) return;
-    if (!storedSort) return;
-    const next = new URLSearchParams(searchParams);
-    if (
-      storedSort.sort === 'name' ||
-      storedSort.sort === 'section' ||
-      storedSort.sort === 'state'
-    ) {
-      next.set('sort', storedSort.sort);
-    }
-    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
-      next.set('dir', storedSort.dir);
-    }
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true });
-    }
-    // Mount-only hydrate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // v0.162: sortColumn/sortDirection 변경 시 저장. v0.221: hook setter.
-  useEffect(() => {
-    if (sortColumn) {
-      setStoredSort({ sort: sortColumn, dir: sortDirection });
-    } else {
-      setStoredSort(null);
-    }
-  }, [sortColumn, sortDirection, setStoredSort]);
-
-  const handleSort = (column: 'name' | 'section' | 'state') => {
-    const next = new URLSearchParams(searchParams);
-    if (sortColumn === column) {
-      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      next.set('sort', column);
-      next.set('dir', 'asc');
-    }
-    setSearchParams(next, { replace: false });
-  };
+  // v0.162/v0.221 → v0.295: mount hydrate + persist effect + handleSort 모두 useUrlSort hook 안으로.
 
   // v0.141: `data?.courses ?? []` 는 매 렌더 새 참조 (falsy path) 라 하위
   // useMemo 의 dep array 가 안정되지 않는다. useMemo 로 감싸 data.courses 가
@@ -466,11 +420,11 @@ export function ClassroomTable() {
     setSearchParams(next, { replace: true });
   };
 
-  const renderSortIndicator = (column: SortColumn) => {
+  const renderSortIndicator = (column: SortColumnKey) => {
     if (sortColumn !== column) return null;
     return <span aria-hidden="true"> {sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
-  const ariaSortFor = (column: SortColumn): 'ascending' | 'descending' | 'none' => {
+  const ariaSortFor = (column: SortColumnKey): 'ascending' | 'descending' | 'none' => {
     if (sortColumn !== column) return 'none';
     return sortDirection === 'asc' ? 'ascending' : 'descending';
   };

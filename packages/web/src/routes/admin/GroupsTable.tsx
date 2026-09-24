@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useColumnMenu } from '../../lib/useColumnMenu';
 import { useLocalStorageState } from '../../lib/useLocalStorageState';
 import { useVisibleColumns } from '../../lib/useVisibleColumns';
+import { useUrlSort } from '../../lib/useUrlSort';
 import {
   resetTablePreferences,
   RESET_TABLE_PREFERENCES_BANNER_MESSAGE,
@@ -18,7 +19,6 @@ import {
   serializeVisibleColumns,
   makeVisibleColumnsDeserializer,
 } from '../../lib/visibleColumnsStorage';
-import { deserializeSort, type StoredSortPref } from '../../lib/sortStorage';
 import { StorageKeys } from '../../lib/storageKeys';
 import { useGroupsList, type GroupItem } from '../../api/groupsList';
 import { Button } from '../../components/ui/button';
@@ -37,8 +37,8 @@ import { BulkDeleteGroupDialog } from './BulkDeleteGroupDialog';
 import { BulkUpdateGroupDescriptionDialog } from './BulkUpdateGroupDescriptionDialog';
 import { sortHeaderKbdProps } from './sortHeader';
 
-type SortColumn = 'email' | 'name' | 'directMembersCount' | null;
-type SortDirection = 'asc' | 'desc';
+type SortColumnKey = 'email' | 'name' | 'directMembersCount';
+const VALID_SORT_COLUMNS: readonly SortColumnKey[] = ['email', 'name', 'directMembersCount'];
 
 // v0.194: 페이지 크기 셀렉터 (v0.193 AccountsTable 대칭).
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
@@ -96,11 +96,13 @@ export function GroupsTable() {
   // v0.225: 「선호 초기화」 성공 배너 · v0.226: shared hook (unmount cleanup 안전).
   const { message: successBanner, show: showSuccessBanner } =
     useAutoDismissBanner();
-  const sortColumn: SortColumn = (() => {
-    const raw = searchParams.get('sort');
-    return raw === 'email' || raw === 'name' || raw === 'directMembersCount' ? raw : null;
-  })();
-  const sortDirection: SortDirection = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  // v0.295: URL 기반 sort state + hydrate + persist + handleSort shared hook.
+  const { sortColumn, sortDirection, handleSort } = useUrlSort<SortColumnKey>({
+    storageKey: SORT_STORAGE_KEY,
+    validColumns: VALID_SORT_COLUMNS,
+    searchParams,
+    setSearchParams,
+  });
   const [page, setPage] = useState(0);
   // v0.194: 페이지 크기 선택 (v0.193 AccountsTable 대칭). v0.220: useLocalStorageState 이식.
   const [pageSize, setPageSize] = useLocalStorageState<PageSize>(
@@ -109,13 +111,7 @@ export function GroupsTable() {
     serializePageSize,
     deserializePageSize,
   );
-  // v0.221: sort 선호 useLocalStorageState 이식 (AccountsTable 대칭).
-  const [storedSort, setStoredSort] = useLocalStorageState<StoredSortPref | null>(
-    SORT_STORAGE_KEY,
-    null,
-    undefined,
-    deserializeSort,
-  );
+  // v0.221 → v0.295: sort 상태 · hydrate · persist · handleSort 모두 useUrlSort hook 안으로 이동.
 
   const handlePageSizeChange = (size: PageSize) => {
     setPageSize(size);
@@ -156,7 +152,7 @@ export function GroupsTable() {
       setSearchParams,
       resetState: () => {
         setPageSize(DEFAULT_PAGE_SIZE);
-        setStoredSort(null);
+        // sort 는 URL 삭제 후 useUrlSort persist effect 가 자동으로 「null」 저장.
         setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
         setPage(0);
       },
@@ -177,49 +173,7 @@ export function GroupsTable() {
     setSelectedEmails(new Set());
   }, [searchQuery, kpiFilter, sortColumn, sortDirection]);
 
-  // v0.161: 첫 mount 에서 URL 이 sort 없으면 localStorage 저장값을 URL 로 hydrate.
-  // v0.221: hook 이 storedSort 를 mount 시 hydrate.
-  useEffect(() => {
-    if (searchParams.has('sort')) return;
-    if (!storedSort) return;
-    const next = new URLSearchParams(searchParams);
-    if (
-      storedSort.sort === 'email' ||
-      storedSort.sort === 'name' ||
-      storedSort.sort === 'directMembersCount'
-    ) {
-      next.set('sort', storedSort.sort);
-    }
-    if (storedSort.dir === 'asc' || storedSort.dir === 'desc') {
-      next.set('dir', storedSort.dir);
-    }
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true });
-    }
-    // Mount-only hydrate: intentionally empty deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // v0.161: sortColumn/sortDirection 변경 시 localStorage 저장.
-  // v0.221: hook setter 사용 · null 은 「null」 저장 (semantic 동일).
-  useEffect(() => {
-    if (sortColumn) {
-      setStoredSort({ sort: sortColumn, dir: sortDirection });
-    } else {
-      setStoredSort(null);
-    }
-  }, [sortColumn, sortDirection, setStoredSort]);
-
-  const handleSort = (column: 'email' | 'name' | 'directMembersCount') => {
-    const next = new URLSearchParams(searchParams);
-    if (sortColumn === column) {
-      next.set('dir', sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      next.set('sort', column);
-      next.set('dir', 'asc');
-    }
-    setSearchParams(next, { replace: false });
-  };
+  // v0.161/v0.221 → v0.295: mount hydrate + persist effect + handleSort 모두 useUrlSort hook 안으로.
 
   const sortedFilteredGroups = useMemo(() => {
     if (!data?.groups) return [];
