@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersUpdateRole } from "../../api/usersUpdateRole";
 import type { Role } from "@school-app/shared";
 
@@ -25,7 +26,6 @@ export interface BulkUpdateRoleDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
 // v0.163: super_admin 은 bootstrap 전용 · UI 는 admin/teacher 만.
 type SelectableRole = Extract<Role, "admin" | "teacher">;
 
@@ -36,7 +36,6 @@ export function BulkUpdateRoleDialog({
   onDone,
 }: BulkUpdateRoleDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [targetRole, setTargetRole] = useState<SelectableRole>("admin");
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
@@ -45,25 +44,20 @@ export function BulkUpdateRoleDialog({
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
   const [runRole, setRunRole] = useState<SelectableRole | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.282: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setTargetRole("admin");
       setProgress(0);
       setFailures([]);
       setConfirmText("");
       setRunEmails(null);
       setRunRole(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     // F99: snapshot 을 phase 전환과 동시에 확정.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
+import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkSuspendDialogProps {
@@ -24,8 +25,6 @@ export interface BulkSuspendDialogProps {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
-
 export function BulkSuspendDialog({
   open,
   onOpenChange,
@@ -33,7 +32,6 @@ export function BulkSuspendDialog({
   onDone,
 }: BulkSuspendDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>("confirm");
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [confirmText, setConfirmText] = useState("");
@@ -42,23 +40,18 @@ export function BulkSuspendDialog({
   // accountability 유지. confirm phase 는 live prop, running/done 은 snapshot.
   const [runEmails, setRunEmails] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase("confirm");
+  // v0.282: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setConfirmText("");
       setRunEmails(null);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === "running") return;
-    if (!newOpen && phase === "done") {
-      onDone?.();
-    }
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     // F99: snapshot 을 phase 전환과 동시에 확정.
