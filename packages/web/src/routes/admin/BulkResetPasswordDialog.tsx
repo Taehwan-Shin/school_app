@@ -12,6 +12,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { PreviewList } from '../../components/PreviewList';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
+import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { callUsersResetPassword } from '../../api/usersResetPassword';
 
 export interface BulkResetPasswordDialogProps {
@@ -219,10 +220,8 @@ export function BulkResetPasswordDialog({
 
         {phase === 'running' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>비밀번호 일괄 변경 진행 중</DialogTitle>
-              <DialogDescription>계정 비밀번호를 변경하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="비밀번호 일괄 변경 진행 중" description="계정 비밀번호를 변경하고 있습니다." />
             {/* v0.258: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -234,10 +233,8 @@ export function BulkResetPasswordDialog({
 
         {phase === 'done' && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>비밀번호 일괄 변경 완료</DialogTitle>
-              <DialogDescription>일괄 변경 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="비밀번호 일괄 변경 완료" description="일괄 변경 작업이 완료되었습니다." />
             <div data-testid="bulk-reset-password-done" className="space-y-3">
               {/* v0.266: BulkDoneSummary 이식. */}
               <BulkDoneSummary

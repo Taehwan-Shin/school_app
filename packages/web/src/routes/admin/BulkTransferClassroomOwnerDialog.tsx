@@ -14,6 +14,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callClassroomTransferOwnership } from "../../api/classroomTransferOwnership";
 import {
   EMAIL_DOMAIN,
@@ -234,10 +235,8 @@ export function BulkTransferClassroomOwnerDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 소유자 이관 진행 중</DialogTitle>
-              <DialogDescription>클래스룸 소유자를 이관하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 소유자 이관 진행 중" description="클래스룸 소유자를 이관하고 있습니다." />
             {/* v0.258: BulkProgress 이식 (label prop 으로 「{owner} 로 이관」 커스텀). */}
             <BulkProgress
               progress={progress}
@@ -250,10 +249,8 @@ export function BulkTransferClassroomOwnerDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 소유자 이관 완료</DialogTitle>
-              <DialogDescription>일괄 소유자 이관 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.277: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 소유자 이관 완료" description="일괄 소유자 이관 작업이 완료되었습니다." />
             <div data-testid="bulk-transfer-owner-done" className="space-y-3">
               {/* v0.266: BulkDoneSummary 이식 (label prop 커스텀). */}
               <BulkDoneSummary
