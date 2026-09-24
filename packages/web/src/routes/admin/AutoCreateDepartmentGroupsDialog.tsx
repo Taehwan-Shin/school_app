@@ -13,6 +13,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -43,7 +44,6 @@ export function defaultSlug(index: number): string {
   return `dept-${index + 1}`;
 }
 
-type Phase = 'confirm' | 'running' | 'done';
 type ResultKind = 'ok' | 'skipped' | 'failed';
 type Result = { deptName: string; email: string; kind: ResultKind; message?: string };
 
@@ -75,13 +75,29 @@ export function AutoCreateDepartmentGroupsDialog({
   onDone,
 }: AutoCreateDepartmentGroupsDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [slugs, setSlugs] = useState<string[]>([]); // departments 와 index 동기화
   const [owners, setOwners] = useState<string[]>([]); // department index 와 동기화, 빈 문자열 허용
   const [confirmText, setConfirmText] = useState('');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
 
+  // v0.284: 3-phase 상태 shared hook 이식.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onOpen: () => {
+      setProgress(0);
+      setResults([]);
+      setSlugs(departments.map((_, i) => defaultSlug(i)));
+      setOwners(departments.map(() => ''));
+      setConfirmText('');
+    },
+  });
+
+  // v0.284 R2 F-A: 원본 useEffect deps 에 `departments` 포함되어 있었음
+  // (v0.284 R0 회귀). React Query 결과가 open 중에 재발화하여 departments
+  // length/순서가 바뀌면 원본은 slugs/owners 뿐 아니라 phase/progress/results/
+  // confirmText 도 함께 리셋 (R1 부분 반영 지적). 원본 전체 6 state 리셋 복원.
   useEffect(() => {
     if (open) {
       setPhase('confirm');
@@ -91,7 +107,7 @@ export function AutoCreateDepartmentGroupsDialog({
       setOwners(departments.map(() => ''));
       setConfirmText('');
     }
-  }, [open, departments]);
+  }, [open, departments, setPhase]);
 
   const preview = departments.map((dept, i) => {
     const slug = (slugs[i] ?? '').trim().toLowerCase();
@@ -117,10 +133,6 @@ export function AutoCreateDepartmentGroupsDialog({
     confirmText.trim() === String(departments.length);
   const totalOps = preview.reduce((sum, p) => sum + 1 + (p.owner ? 1 : 0), 0);
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(newOpen);
-  };
 
   const handleConfirm = async () => {
     setPhase('running');

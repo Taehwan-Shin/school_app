@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import type { BasicDataGradeClass } from '@school-app/shared';
 import {
@@ -16,6 +16,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callGroupsCreate } from '../../api/groupsCreate';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
@@ -46,7 +47,6 @@ export function buildGroupDescription(year: number, grade: number, cls: string):
   return `${year}년 ${grade}학년 ${cls}반 자동 생성`;
 }
 
-type Phase = 'confirm' | 'running' | 'done';
 type ResultKind = 'ok' | 'skipped' | 'failed';
 type Result = { email: string; kind: ResultKind; message?: string };
 
@@ -79,7 +79,6 @@ export function AutoCreateGroupsDialog({
   onDone,
 }: AutoCreateGroupsDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
   const [confirmText, setConfirmText] = useState('');
@@ -120,21 +119,19 @@ export function AutoCreateGroupsDialog({
   }, [inviteStudents, rosters, targets]);
   const totalOpsDisplay = targets.length + totalStudents;
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  // v0.284: 3-phase 상태 shared hook 이식.
+  // 참고: 원본 handleOpenChange 는 done close 시 onDone 미호출 · onDone 미전달로 원본 동작 유지.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onOpen: () => {
       setProgress(0);
       setResults([]);
       setConfirmText('');
       setPrefix('class');
       setInviteStudents(false);
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     if (hasDuplicates) return;

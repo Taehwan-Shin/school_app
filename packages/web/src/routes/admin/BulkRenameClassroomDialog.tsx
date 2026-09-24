@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callClassroomPatch } from '../../api/classroomPatch';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
 
@@ -22,8 +23,6 @@ export interface BulkRenameClassroomDialogProps {
   courses: { id: string; name?: string }[];
   onDone?: () => void;
 }
-
-type Phase = 'confirm' | 'running' | 'done';
 
 interface CourseRow {
   id: string;
@@ -42,7 +41,6 @@ export function BulkRenameClassroomDialog({
   onDone,
 }: BulkRenameClassroomDialogProps) {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ id: string; message: string }[]>([]);
   const [findText, setFindText] = useState('');
@@ -52,9 +50,14 @@ export function BulkRenameClassroomDialog({
   // 화면에서 부모의 courses prop 이 list invalidation 결과로 재계산돼도 총량 안정.
   const [snapshot, setSnapshot] = useState<CourseRow[] | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  // v0.284: 3-phase 상태 shared hook 이식.
+  // rows 는 open 시점에만 courses closure 로 초기화. 부모 courses prop 이
+  // list invalidation 결과로 재계산돼도 열려있는 dialog 편집 상태는 유지 (F99 대칭).
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onDone,
+    onOpen: () => {
       setProgress(0);
       setFailures([]);
       setFindText('');
@@ -67,18 +70,8 @@ export function BulkRenameClassroomDialog({
           newName: c.name ?? '',
         })),
       );
-    }
-    // v0.134: rows 는 open 시점에만 courses 로 초기화. 부모 courses prop 이
-    // list invalidation 결과로 재계산돼도 열려있는 다이얼로그의 편집 상태는
-    // 유지 (F99 대칭). courses 의존성을 뺀 것은 의도적.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    if (!newOpen && phase === 'done') onDone?.();
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   // 실제 변경이 발생하는 (originalName !== newName) 행만 patch 대상.
   const changedRows = useMemo(

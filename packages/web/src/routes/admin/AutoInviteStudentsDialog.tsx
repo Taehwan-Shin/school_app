@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import type { BasicDataYear } from '@school-app/shared';
 import {
@@ -15,6 +15,7 @@ import { BulkProgress } from '../../components/BulkProgress';
 import { BulkDoneSummary } from '../../components/BulkDoneSummary';
 import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
+import { useBulkDialogPhase } from '../../lib/useBulkDialogPhase';
 import { callGroupsMembersInsert } from '../../api/groupsMembersInsert';
 
 export interface AutoInviteStudentsDialogProps {
@@ -43,7 +44,6 @@ export function isAlreadyMemberError(message: string): boolean {
   );
 }
 
-type Phase = 'confirm' | 'running' | 'done';
 type ResultKind = 'ok' | 'skipped' | 'failed';
 type Result = {
   groupEmail: string;
@@ -60,7 +60,6 @@ export function AutoInviteStudentsDialog({
   onDone,
 }: AutoInviteStudentsDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [prefix, setPrefix] = useState('class');
   const [confirmText, setConfirmText] = useState('');
   const [progress, setProgress] = useState(0);
@@ -99,20 +98,19 @@ export function AutoInviteStudentsDialog({
   );
   const hasAmbiguity = ambiguousEmails.length > 0;
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  // v0.284: 3-phase 상태 shared hook 이식.
+  // 참고: 원본 handleOpenChange 는 done close 시 onDone 을 호출하지 않았음.
+  // onDone 은 확인 버튼 클릭 시 별도 호출 (아래) — hook 에 onDone 미전달로 원본 동작 유지.
+  const { phase, setPhase, handleOpenChange } = useBulkDialogPhase({
+    open,
+    onOpenChange,
+    onOpen: () => {
       setProgress(0);
       setResults([]);
       setPrefix('class');
       setConfirmText('');
-    }
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(newOpen);
-  };
+    },
+  });
 
   const handleConfirm = async () => {
     if (hasAmbiguity) return;
