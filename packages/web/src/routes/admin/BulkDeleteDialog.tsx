@@ -13,6 +13,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersDelete } from "../../api/usersDelete";
 
 export interface BulkDeleteDialogProps {
@@ -135,10 +136,8 @@ export function BulkDeleteDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 삭제 진행 중</DialogTitle>
-              <DialogDescription>계정을 삭제하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 삭제 진행 중" description="계정을 삭제하고 있습니다." />
             {/* v0.258: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -150,10 +149,8 @@ export function BulkDeleteDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 삭제 완료</DialogTitle>
-              <DialogDescription>일괄 삭제 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 삭제 완료" description="일괄 삭제 작업이 완료되었습니다." />
             <div data-testid="bulk-delete-done" className="space-y-3">
               {/* v0.265: BulkDoneSummary 이식. */}
               <BulkDoneSummary

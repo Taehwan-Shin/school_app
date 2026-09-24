@@ -14,6 +14,7 @@ import { BulkProgress } from "../../components/BulkProgress";
 import { PreviewList } from "../../components/PreviewList";
 import { BulkDoneSummary } from "../../components/BulkDoneSummary";
 import { BulkFailureList } from "../../components/BulkFailureList";
+import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { callUsersUpdate } from "../../api/usersUpdate";
 
 export interface BulkRestoreDialogProps {
@@ -128,10 +129,8 @@ export function BulkRestoreDialog({
 
         {phase === "running" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 복구 진행 중</DialogTitle>
-              <DialogDescription>계정을 복구하고 있습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 복구 진행 중" description="계정을 복구하고 있습니다." />
             {/* v0.257: BulkProgress 이식. */}
             <BulkProgress
               progress={progress}
@@ -143,10 +142,8 @@ export function BulkRestoreDialog({
 
         {phase === "done" && (
           <>
-            <DialogHeader className="sr-only">
-              <DialogTitle>일괄 복구 완료</DialogTitle>
-              <DialogDescription>일괄 복구 작업이 완료되었습니다.</DialogDescription>
-            </DialogHeader>
+            {/* v0.276: SrOnlyDialogHeader 이식. */}
+            <SrOnlyDialogHeader title="일괄 복구 완료" description="일괄 복구 작업이 완료되었습니다." />
             <div data-testid="bulk-restore-done" className="space-y-3">
               {/* v0.265: BulkDoneSummary 이식. */}
               <BulkDoneSummary
