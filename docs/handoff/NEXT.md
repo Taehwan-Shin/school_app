@@ -1,16 +1,16 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.279 병합 완료** (`d9a7af8`) - SrOnlyDialogHeader 22 files (44 site) 시리즈 완결 · 웹 1329.
+> **v0.284 병합 완료** (`f2fc683`) - useBulkDialogPhase hook 16 site 시리즈 실질 완결 · 웹 1341.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.279 대량 shared component 이식 시리즈 완료 후 특별한 오더 없음.
+v0.228~v0.284 대량 shared component/hook 이식 8 시리즈 완료 후 특별한 오더 없음.
 남은 후보:
-- `useBulkDialogPhase` hook 추출 (3-phase 상태 + handleOpenChange 공유)
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
 - audit_log durable sink 실 설정 (사용자 조치 대기)
+- Chat/Classroom bulk 5 site (4-phase 패턴) 위한 generic 화된 hook 확장 (필요 시)
 
 ## Shared modules 카탈로그
 
@@ -21,6 +21,7 @@ v0.228~v0.279 대량 shared component 이식 시리즈 완료 후 특별한 오�
 4. `useClickOutside.ts` — 외부 mousedown 감지 (refs[] 배열 지원 · enabled toggle).
 5. `useEscapeKey.ts` — Escape 키 리스너 (enabled toggle).
 6. `useFocusTrap.ts` — Tab 순환 focus trap + unmount 시 focus 복원.
+7. `useBulkDialogPhase.ts` — bulk dialog 3-phase 상태 (v0.281~v0.284 · phase state + open reset + handleOpenChange running-lock/done onDone/onClose sensitive cleanup · 16 site).
 
 **Factories (`lib/`)**:
 7. `pageSizeStorage.ts` — pageSize serialize/deserialize (Number.isInteger + whitelist).
