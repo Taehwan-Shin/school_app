@@ -7,6 +7,10 @@ import { sortHeaderKbdProps } from "./sortHeader";
 import { useColumnMenu } from "../../lib/useColumnMenu";
 import { useLocalStorageState } from "../../lib/useLocalStorageState";
 import { useVisibleColumns } from "../../lib/useVisibleColumns";
+import {
+  resetTablePreferences,
+  RESET_TABLE_PREFERENCES_BANNER_MESSAGE,
+} from "../../lib/resetTablePreferences";
 import { useAutoDismissBanner } from "../../lib/useAutoDismissBanner";
 import { Banner } from "../../components/Banner";
 import { ColumnMenu } from "../../components/ColumnMenu";
@@ -149,32 +153,23 @@ export function AccountsTable() {
   } = useColumnMenu();
 
   // v0.207: 「선호 초기화」 — sort · pageSize · visibleColumns 모두 default 로.
-  // v0.209: 실수 방지 confirm.
-  // v0.220/v0.221/v0.222: pageSize/sort/visibleColumns 모두 hook 이 저장.
-  // v0.221 R1 F-B 방어: sort 는 removeItem 도 시도 (setItem("null") quota 실패 시 이전 값 잔류
-  //                   방지). setStoredSort(null) 은 state 도 함께 갱신 · 이후 persist effect
-  //                   가 setItem("null") 을 시도하지만 removeItem 이 먼저 성공한 상태이면 무해.
+  // v0.294: shared resetTablePreferences helper (confirm · localStorage cleanup · URL 'sort/dir' 삭제 · after-reset callback).
   const resetUserPreferences = () => {
-    const ok = window.confirm(
-      '저장된 선호 (정렬 · 페이지 크기 · 컬럼 표시) 를 모두 기본값으로 초기화하시겠습니까?',
-    );
-    if (!ok) return;
-    try {
-      localStorage.removeItem(SORT_STORAGE_KEY);
-    } catch {
-      // localStorage disabled → no-op.
-    }
-    setPageSize(DEFAULT_PAGE_SIZE);
-    setStoredSort(null);
-    setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
-    const next = new URLSearchParams(searchParams);
-    next.delete('sort');
-    next.delete('dir');
-    setSearchParams(next, { replace: false });
-    setPage(0);
-    closeColumnMenu();
-    // v0.225: 초기화 확인 배너 · v0.226: shared hook (unmount cleanup).
-    showSuccessBanner('저장된 선호가 초기화되었습니다.');
+    resetTablePreferences({
+      sortStorageKey: SORT_STORAGE_KEY,
+      searchParams,
+      setSearchParams,
+      resetState: () => {
+        setPageSize(DEFAULT_PAGE_SIZE);
+        setStoredSort(null);
+        setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS));
+        setPage(0);
+      },
+      onAfterReset: () => {
+        closeColumnMenu();
+        showSuccessBanner(RESET_TABLE_PREFERENCES_BANNER_MESSAGE);
+      },
+    });
   };
 
   const handlePageSizeChange = (size: PageSize) => {
