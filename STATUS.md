@@ -58,7 +58,7 @@ v0.297: near-identical UserAuditTrail/GroupAuditTrail wrapper 흡수 (AuditTrail
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
-| v0.297 | `2438a4b` (main) | 신규 `AuditTrail` 공통 컴포넌트 (138 lines) — UserAuditTrail (v0.243) + GroupAuditTrail (v0.244) near-identical 112 lines × 2 흡수. 두 wrapper 각 17~18 lines. 순 -33 lines. 웹 1402 유지 (기존 10 tests 회귀 없음). Codex 통과 5/0. |
+| v0.297 | `2438a4b` (main) | 신규 `AuditTrail` 공통 컴포넌트 (143 lines) — UserAuditTrail (v0.243) + GroupAuditTrail (v0.244) near-identical 112 lines × 2 흡수. 두 wrapper 각 17~18 lines. 순 -33 lines. 웹 1402 유지 (기존 10 tests 회귀 없음). Codex 통과 5/0. |
 | v0.296 | `76cf794` (main) | STATUS/NEXT.md sync (v0.294 resetTablePreferences + v0.295 useUrlSort 반영 · 11 → 13 시리즈 · 160 → 166+ site · 1384 → 1402). 카탈로그 26 항목 리넘버. R1: STATUS.md 54 → 52 lines 정정. Codex 통과 4 (R1) + 5 (R0). |
 | v0.295 | `841d37a` (main) | 신규 `useUrlSort` hook (98 lines · URL 기반 sort state 4 pieces shared: sortColumn/sortDirection 파생 + mount hydrate + persist effect + handleSort) + admin 3 table 이식. -183 lines 이식 코드. AuditLog 는 client sort 미도입 대상 외. 웹 1402 (+11). Codex 통과 7/0. |
 | v0.294 | `dd5a746` (main) | 신규 `resetTablePreferences` helper (52 lines · confirm + localStorage cleanup + URL 삭제 + onAfterReset shared) + admin 3 table 이식. CONFIRM/BANNER 문구 상수화. AuditLog 는 「선호 초기화」 미도입 대상 외. 웹 1391 (+7). Codex 통과 5/0. |
