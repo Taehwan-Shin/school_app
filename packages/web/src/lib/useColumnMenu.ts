@@ -5,7 +5,7 @@ import { useFocusTrap } from './useFocusTrap';
 import { useMenuArrowNav } from './useMenuArrowNav';
 
 // v0.289: admin 테이블 컬럼 표시 popover menu 상태 · 4 hook 배선 shared.
-// - 3 admin 테이블 (Accounts/Groups/Classroom) 동일한 8줄 반복 (state + 2 ref + close callback + 4 hook 호출) 흡수.
+// - 4 테이블 (Accounts/Groups/Classroom/AuditLog) 동일한 8줄 반복 (state + 2 ref + close callback + 4 hook 호출) 흡수.
 // - `close` 는 useCallback 안정 참조 (기존 각 테이블 useCallback 대칭).
 // - `toggle` 은 함수 setter 형태 유지 (`prev => !prev`).
 // - 배선된 hook 4개:
@@ -13,7 +13,7 @@ import { useMenuArrowNav } from './useMenuArrowNav';
 //   · useEscapeKey(close, isOpen)
 //   · useFocusTrap(menuRef, isOpen)
 //   · useMenuArrowNav(menuRef, isOpen)
-// - AuditLogTable 은 useColumnMenu 미사용 (컬럼 메뉴 구조가 다름 · 별도 오더 대상).
+// - v0.290: AuditLogTable 이식 (4 site 완결).
 
 export interface UseColumnMenuReturn {
   isOpen: boolean;
