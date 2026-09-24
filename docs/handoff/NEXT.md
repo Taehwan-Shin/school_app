@@ -37,7 +37,7 @@ v0.228~v0.279 대량 shared component 이식 시리즈 완료 후 특별한 오�
 16. `BulkDoneSummary.tsx` — 「완료: N 성공 · S skip · M 실패」 3-category (label/suffix/variant 커스텀).
 17. `BulkFailureList.tsx` — done phase 실패 리스트 (getKey(item, index) 복합 key).
 18. `SrOnlyDialogHeader.tsx` — bulk 다이얼로그 running/done sr-only DialogHeader.
-19. `CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171).
+19. `routes/admin/CopyButton.tsx` — 클립보드 복사 원-클릭 (v0.171 · admin-scoped).
 20. `TableCell` / `TableHeader` / `TableBody` — sticky/striped/truncate opt-in.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
