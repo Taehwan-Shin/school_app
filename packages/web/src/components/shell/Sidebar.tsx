@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import type { Role } from '@school-app/shared';
 import { useAuth } from '../../lib/auth';
 import { getNavItemsForRole } from './nav-items';
+import { preloadRoute } from '../../lib/routePreload';
 
 interface SidebarProps {
   role?: Role | null;
@@ -44,6 +45,8 @@ export function Sidebar({ role }: SidebarProps) {
                 key={`${item.to}-${item.label}`}
                 to={item.to}
                 aria-current={isActive ? 'page' : undefined}
+                onMouseEnter={() => preloadRoute(item.to)}
+                onFocus={() => preloadRoute(item.to)}
                 className={`flex items-center gap-3 px-4 py-2.5 text-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   isActive
                     ? 'bg-elevated text-fg-primary border-l-2 border-border-strong font-semibold'
