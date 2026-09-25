@@ -35,18 +35,20 @@ describe('callCallable', () => {
     await expect(callCallable('anyFn', {})).rejects.toThrow('not_authenticated');
   });
 
-  it('URL: DEV mode 아니면 asia-northeast3 cloudfunctions.net · 함수 이름 substituted', async () => {
+  it('URL: DEV mode → http://127.0.0.1:5001/{projectId}/asia-northeast3/{fn} (전체 scheme/host/projectId/region/fn 검증)', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ result: { ok: true } }), { status: 200 }),
     );
     global.fetch = fetchMock;
     await callCallable('classroomStudentsList', { courseId: '123' });
     const [urlArg] = fetchMock.mock.calls[0];
-    // DEV env: vitest 는 dev 모드 · localhost URL 이라도 함수 이름은 포함.
-    expect(urlArg as string).toContain('classroomStudentsList');
+    // vitest 는 DEV mode → localhost emulator URL. projectId 는 env var 미설정 시 default 'school-app-5a636'.
+    expect(urlArg as string).toBe(
+      'http://127.0.0.1:5001/school-app-5a636/asia-northeast3/classroomStudentsList',
+    );
   });
 
-  it('headers: Authorization Bearer + X-Google-Access-Token + X-Request-Id 포함', async () => {
+  it('headers: 필수 key set (Authorization/X-Google-Access-Token/X-Request-Id/Content-Type) exact 매칭 · 추가 key 없음', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ result: {} }), { status: 200 }),
     );
@@ -54,6 +56,9 @@ describe('callCallable', () => {
     await callCallable('anyFn', {});
     const [, init] = fetchMock.mock.calls[0];
     const headers = (init as RequestInit).headers as Record<string, string>;
+    // Exact key set (X-Google-Scopes 는 options.scopes 미전달 시 없음)
+    const expectedKeys = ['Authorization', 'Content-Type', 'X-Google-Access-Token', 'X-Request-Id'];
+    expect(Object.keys(headers).sort()).toEqual(expectedKeys.sort());
     expect(headers.Authorization).toBe('Bearer mock-id-token');
     expect(headers['X-Google-Access-Token']).toBe('mock-google-token');
     expect(headers['X-Request-Id']).toBeTypeOf('string');
@@ -115,6 +120,33 @@ describe('callCallable', () => {
     expect(caught).not.toBeNull();
     expect(caught!.message).toBe('permission-denied');
     expect(caught!.status).toBe(403);
+  });
+
+  it('non-ok response with body.error.details: `details` property 보존 (v0.116c F77 partial 실패/rollback 정보 · classroomTransferOwnership 대칭)', async () => {
+    const detailsPayload = {
+      addedTeacherButPatchFailed: true,
+      rollback: 'failed',
+      newOwnerEmail: 'teacher@example.com',
+    };
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: { message: 'partial_transfer_failed', details: detailsPayload },
+        }),
+        { status: 500 },
+      ),
+    );
+    global.fetch = fetchMock;
+    let caught: (Error & { status?: number; details?: unknown }) | null = null;
+    try {
+      await callCallable('classroomTransferOwnership', {});
+    } catch (e) {
+      caught = e as Error & { status?: number; details?: unknown };
+    }
+    expect(caught).not.toBeNull();
+    expect(caught!.message).toBe('partial_transfer_failed');
+    expect(caught!.status).toBe(500);
+    expect(caught!.details).toEqual(detailsPayload);
   });
 
   it('non-ok response with no body: `http_${status}` fallback message', async () => {
