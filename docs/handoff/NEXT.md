@@ -1,11 +1,11 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.307 병합 완료** (`3a23e9e`) - Perf: route hover-preload (Sidebar nav → chunk prefetch on hover/focus) · 웹 1415.
+> **v0.315 병합 완료** (`b778880`) - callCallable 이식 시리즈 완결 (v0.309~v0.315 · api 43개 전부 shared helper 경유) · 웹 1425.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
-v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302 route split + v0.304 vendor split + v0.305 preconnect + v0.307 hover-preload 완료 후 특별한 오더 없음.
+v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302~v0.307 perf 4종 + v0.309~v0.315 callCallable 시리즈 완료 후 특별한 오더 없음.
 남은 후보:
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
@@ -51,6 +51,7 @@ v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302 route sp
 **Utilities (`lib/`)**:
 27. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
 28. `resetTablePreferences.ts` — admin 「선호 초기화」 boilerplate shared: window.confirm (고정 문구) + localStorage.removeItem try/catch + URL 'sort/dir' 삭제 + onAfterReset 콜백. `RESET_TABLE_PREFERENCES_CONFIRM_MESSAGE` / `_BANNER_MESSAGE` 상수. v0.294 · admin 3 site (AuditLog 미도입 대상 외).
+29. `api/callCallable.ts` — Firebase Callable POST boilerplate shared (auth check · idToken · Google access token body+header · dev/prod URL · requestId · `scopes?`/`signal?` option · error `status`/`details` 보존 · `body.result ?? body` unwrap). v0.309 · v0.310~v0.315 로 api/*.ts 43개 전부 이식.
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 
