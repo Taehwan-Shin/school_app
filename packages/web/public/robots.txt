@@ -1,0 +1,4 @@
+# v0.318: 내부 관리 도구 · 로그인 페이지 외 색인 불필요.
+User-agent: *
+Allow: /login
+Disallow: /
