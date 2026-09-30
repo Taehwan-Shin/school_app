@@ -29,6 +29,7 @@ import {
 } from './neisCsvParse';
 import { useQueryClient } from '@tanstack/react-query';
 import { COURSE_NAME_MAX } from '../../lib/classroomLimits';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface NeisCsvImportDialogProps {
   open: boolean;
@@ -67,9 +68,10 @@ async function readFileText(file: File): Promise<string> {
   });
 }
 
+const LOCKED_PHASES: readonly Phase[] = ['running'];
+
 export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogProps) {
   const qc = useQueryClient();
-  const [phase, setPhase] = useState<Phase>('select');
   const [classroomCsv, setClassroomCsv] = useState<ClassroomCsvParsed | null>(null);
   const [teacherCsv, setTeacherCsv] = useState<TeacherCsvParsed | null>(null);
   const [studentCsv, setStudentCsv] = useState<StudentCsvParsed | null>(null);
@@ -80,6 +82,19 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
   const [totals, setTotals] = useState({ create: 0, teachers: 0, students: 0 });
   const [results, setResults] = useState<ExecResult[]>([]);
   const [progress, setProgress] = useState(0);
+
+  // v0.317: 이 dialog 는 close 시 전체 리셋 (onClose) · open 시 phase 만 리셋.
+  const {
+    phase,
+    setPhase,
+    handleOpenChange: handleClose,
+  } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'select',
+    lockedPhases: LOCKED_PHASES,
+    onClose: () => resetAll(),
+  });
 
   const resetAll = useCallback(() => {
     setPhase('select');
@@ -93,13 +108,7 @@ export function NeisCsvImportDialog({ open, onOpenChange }: NeisCsvImportDialogP
     setTotals({ create: 0, teachers: 0, students: 0 });
     setResults([]);
     setProgress(0);
-  }, []);
-
-  const handleClose = (next: boolean) => {
-    if (!next && phase === 'running') return;
-    if (!next) resetAll();
-    onOpenChange(next);
-  };
+  }, [setPhase]);
 
   const handleFileChange = async (
     kind: 'classroom' | 'teacher' | 'student',

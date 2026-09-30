@@ -6,7 +6,7 @@
 // 실 멤버를 페이지 넘겨 조회한 후 rosters 에 없는 email 을 「제거 후보」 로
 // 표시. 사용자 확인 후 순차 삭제 실행. OWNER/MANAGER 는 안전 위해 제거 안 함.
 
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import type { BasicDataYear } from '@school-app/shared';
 import {
@@ -22,6 +22,7 @@ import { Banner } from '../../components/Banner';
 import { callGroupsMembersList, type GroupMemberItem } from '../../api/groupsMembersList';
 import { callGroupsMembersDelete } from '../../api/groupsMembersDelete';
 import { buildGroupEmail } from './AutoInviteStudentsDialog';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface AutoRemoveNonRosterMembersDialogProps {
   open: boolean;
@@ -66,6 +67,8 @@ export async function fetchAllGroupMembers(
   return all;
 }
 
+const LOCKED_PHASES: readonly Phase[] = ['scanning', 'running'];
+
 export function AutoRemoveNonRosterMembersDialog({
   open,
   onOpenChange,
@@ -74,7 +77,6 @@ export function AutoRemoveNonRosterMembersDialog({
   onDone,
 }: AutoRemoveNonRosterMembersDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [prefix, setPrefix] = useState('class');
   const [confirmText, setConfirmText] = useState('');
   const [scanProgress, setScanProgress] = useState(0);
@@ -108,9 +110,12 @@ export function AutoRemoveNonRosterMembersDialog({
     return out;
   }, [data, prefix]);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'confirm',
+    lockedPhases: LOCKED_PHASES,
+    onOpen: () => {
       setPrefix('class');
       setConfirmText('');
       setScanProgress(0);
@@ -120,13 +125,8 @@ export function AutoRemoveNonRosterMembersDialog({
       setResults([]);
       setSelected(new Set());
       setProtectMembersOnly(true);
-    }
-  }, [open]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (phase === 'scanning' || phase === 'running') return;
-    onOpenChange(next);
-  };
+    },
+  });
 
   const handleScan = async () => {
     if (!/^[a-z0-9-]+$/.test(prefix)) return;

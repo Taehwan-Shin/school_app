@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { BulkFailureList } from '../../components/BulkFailureList';
 import { SrOnlyDialogHeader } from '../../components/SrOnlyDialogHeader';
 import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomStudentsAdd } from '../../api/classroomStudentsAdd';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface ClassroomBulkInviteDialogProps {
   open: boolean;
@@ -24,6 +25,8 @@ export interface ClassroomBulkInviteDialogProps {
   courseName?: string;
   onDone?: () => void;
 }
+
+const LOCKED_PHASES: readonly Phase[] = ['running'];
 
 export function isAlreadyMemberError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -62,7 +65,6 @@ function ClassroomBulkInviteDialogContent({
   const thisYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(thisYear);
   const [yearInput, setYearInput] = useState(String(thisYear));
-  const [phase, setPhase] = useState<Phase>('select');
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -84,21 +86,20 @@ function ClassroomBulkInviteDialogContent({
     return rosters[String(selectedGrade)]?.[selectedClass] ?? [];
   }, [rosters, selectedGrade, selectedClass, yearInput]);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('select');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'select',
+    lockedPhases: LOCKED_PHASES,
+    resetKey: courseId,
+    onOpen: () => {
       setSelectedGrade(null);
       setSelectedClass(null);
       setConfirmText('');
       setProgress(0);
       setResults([]);
-    }
-  }, [open, courseId]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(next);
-  };
+    },
+  });
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
