@@ -5244,3 +5244,15 @@ ROADMAP 남은 후보 (v0.154+):
 - 실측: api/*.ts 에서 `fetch(` · `_googleAccessToken` 은 `callCallable.ts` 에만 남음. 웹 149 files · 1425 tests · tsc/lint clean · 각 병합 후 hosting 배포 완료.
 - Codex 감사: v0.313/v0.314/v0.315 요청 (채널 school_app_03).
 
+
+---
+
+## 2026-09-30 · v0.317 usePhasedDialog · v0.318 Lighthouse
+
+- v0.317: 3-phase useBulkDialogPhase 를 N-phase `usePhasedDialog` 로 일반화 · 9 site 이식. ChatBulkInvite/ClassroomBulkInvite 는 기존 effect deps (`spaceName`/`courseId`) 를 `resetKey` 로 보존. Codex `01ab0fc` 실패 0.
+- v0.313~v0.315 Codex 감사 실패 0 (15a1ca6 · c945ebb · b778880).
+- v0.318 Lighthouse 실측 (lighthouse@12 · 모바일 기본 throttling · /login):
+  - 전: perf 0.55 · FCP 13.8s · LCP 13.9s · render-blocking 9.3s (Pretendard CSS → 2MB woff2) · assets 캐시 1h · robots.txt 없음 (SPA rewrite 로 index.html 반환).
+  - 후: perf 0.67 · FCP 5.3s · LCP 5.3s · TBT 0ms · a11y/best-practices 1.0. SEO 0.63 (is-crawlable 실패 = robots Disallow 의도).
+  - 잔여 FCP 는 SPA JS (vendor-react 163kB + vendor-firebase 237kB) 실행 후 첫 paint · 더 줄이려면 prerender 필요.
+  - 배포 후 curl: `/login` cache-control no-cache · `/assets/*.js` public, max-age=31536000, immutable 확인.
