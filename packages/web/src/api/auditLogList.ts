@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { auth } from '../lib/firebase';
-import { getGoogleAccessTokenFromSession } from '../lib/auth';
+import { callCallable } from './callCallable';
 
 export interface AuditLogEntryRead {
   id: string;
@@ -47,50 +46,12 @@ export interface AuditLogListResponse {
 export async function callAuditLogList(
   data: AuditLogListRequest = {}
 ): Promise<AuditLogListResponse> {
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('not_authenticated');
-  }
-  const idToken = await user.getIdToken();
-  const googleAccessToken = getGoogleAccessTokenFromSession() || '';
-
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'school-app-5a636';
-  // 프로덕션: Cloud Functions 직접 URL. Firebase Hosting rewrite 는 커스텀 헤더 (X-Google-Access-Token) 를 서버까지 전달하지 못하는 경우가 있어 함수 URL 로 직접 호출.
-  // 개발: 로컬 emulator 직접 호출.
-  const url = import.meta.env.DEV
-    ? `http://127.0.0.1:5001/${projectId}/asia-northeast3/auditLogList`
-    : `https://asia-northeast3-${projectId}.cloudfunctions.net/auditLogList`;
-
-  const requestId =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : Math.random().toString(36).substring(2);
-
   const { signal, ...rest } = data;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-      'X-Google-Access-Token': googleAccessToken,
-      'X-Google-Scopes': '',
-      'X-Request-Id': requestId,
-    },
-    body: JSON.stringify({ data: { ...rest, _googleAccessToken: googleAccessToken } }),
-    // v0.118b F83: fetch 취소를 여기까지 전파. 네트워크 in-flight 를 실제로 취소.
-    signal,
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const message = body.error?.message ?? `http_${res.status}`;
-    const err = new Error(message) as Error & { status?: number };
-    err.status = res.status;
-    throw err;
-  }
-
-  const body = await res.json();
-  return (body.result ?? body) as AuditLogListResponse;
+  return callCallable<Omit<AuditLogListRequest, 'signal'>, AuditLogListResponse>(
+    'auditLogList',
+    rest,
+    { signal },
+  );
 }
 
 export interface AuditLogFilters {

@@ -165,6 +165,18 @@ describe('callCallable', () => {
     expect(caught!.status).toBe(500);
   });
 
+  it('signal optional: 전달 시 fetch init.signal 로 forward · 미전달 시 undefined (v0.315 · v0.118b F83)', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ result: {} }), { status: 200 }),
+    );
+    global.fetch = fetchMock;
+    const controller = new AbortController();
+    await callCallable('anyFn', {}, { signal: controller.signal });
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBe(controller.signal);
+    await callCallable('anyFn', {});
+    expect((fetchMock.mock.calls[1][1] as RequestInit).signal).toBeUndefined();
+  });
+
   it('response unwrap: body.result 우선, 없으면 body 그대로', async () => {
     // Case 1: body.result 있음
     const fetchMock1 = vi.fn(async () =>

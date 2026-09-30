@@ -85,8 +85,10 @@ describe('auditLogList API & Hook', () => {
         'Content-Type': 'application/json',
         Authorization: 'Bearer firebase-id-token-xyz',
         'X-Google-Access-Token': 'mock-google-access-token',
-        'X-Google-Scopes': '',
       });
+      // v0.315: callCallable 은 scopes 미지정 시 X-Google-Scopes 헤더를 생략한다.
+      // 서버 middleware 는 빈 헤더와 부재를 동일하게 빈 scope 목록으로 파싱 (emulator 경로만 사용).
+      expect(options.headers).not.toHaveProperty('X-Google-Scopes');
       expect(options.headers['X-Request-Id']).toBeDefined();
       expect(JSON.parse(options.body)).toEqual({
         data: expect.objectContaining({
