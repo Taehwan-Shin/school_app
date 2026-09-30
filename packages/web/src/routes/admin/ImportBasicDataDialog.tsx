@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { BasicDataYear } from '@school-app/shared';
 import { isValidBasicDataYear } from '@school-app/shared';
 import {
@@ -12,6 +12,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { useBasicDataSet } from '../../api/basicDataSet';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface ImportBasicDataDialogProps {
   open: boolean;
@@ -22,26 +23,30 @@ export interface ImportBasicDataDialogProps {
 
 type Phase = 'select' | 'preview' | 'saving' | 'done';
 
+const LOCKED_PHASES: readonly Phase[] = ['saving'];
+
 export function ImportBasicDataDialog({
   open,
   onOpenChange,
   currentYear,
   onDone,
 }: ImportBasicDataDialogProps) {
-  const [phase, setPhase] = useState<Phase>('select');
   const [parsedData, setParsedData] = useState<BasicDataYear | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { mutateAsync: saveBasicData } = useBasicDataSet();
 
-  useEffect(() => {
-    if (open) {
-      setPhase('select');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'select',
+    lockedPhases: LOCKED_PHASES,
+    onOpen: () => {
       setParsedData(null);
       setParseError(null);
       setSaveError(null);
-    }
-  }, [open]);
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,11 +88,6 @@ export function ImportBasicDataDialog({
       setSaveError((err as Error).message);
       setPhase('preview');
     }
-  };
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'saving') return;
-    onOpenChange(newOpen);
   };
 
   return (

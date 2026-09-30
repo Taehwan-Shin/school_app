@@ -26,7 +26,9 @@
 //     },
 //   });
 
-import { useEffect, useState } from 'react';
+// v0.317: 내부 구현은 usePhasedDialog 로 위임 (3-phase preset). 외부 계약 무변경.
+
+import { usePhasedDialog } from './usePhasedDialog';
 
 export type BulkDialogPhase = 'confirm' | 'running' | 'done';
 
@@ -44,34 +46,13 @@ export interface UseBulkDialogPhaseResult {
   handleOpenChange: (newOpen: boolean) => void;
 }
 
-export function useBulkDialogPhase({
-  open,
-  onOpenChange,
-  onDone,
-  onOpen,
-  onClose,
-}: UseBulkDialogPhaseOptions): UseBulkDialogPhaseResult {
-  const [phase, setPhase] = useState<BulkDialogPhase>('confirm');
+const LOCKED: readonly BulkDialogPhase[] = ['running'];
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
-      onOpen?.();
-    }
-    // onOpen 은 caller 가 매 렌더 새 함수를 넘길 수 있어 dep 에서 제외 (open 만 감시).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (phase === 'running') return;
-    if (!newOpen) {
-      onClose?.();
-      if (phase === 'done') {
-        onDone?.();
-      }
-    }
-    onOpenChange(newOpen);
-  };
-
-  return { phase, setPhase, handleOpenChange };
+export function useBulkDialogPhase(options: UseBulkDialogPhaseOptions): UseBulkDialogPhaseResult {
+  return usePhasedDialog<BulkDialogPhase>({
+    ...options,
+    initialPhase: 'confirm',
+    lockedPhases: LOCKED,
+    donePhase: 'done',
+  });
 }

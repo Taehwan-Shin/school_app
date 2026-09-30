@@ -6,7 +6,7 @@
 // - 그룹: AutoInviteStudentsDialog (v0.119 이전) · AutoRemoveNonRosterMembersDialog (v0.149).
 // - 챗방: 이 다이얼로그 (add 만). remove 는 v0.151+ 로 유보.
 
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import type { BasicDataYear } from '@school-app/shared';
 import {
@@ -22,6 +22,7 @@ import { Banner } from '../../components/Banner';
 import { callChatList, type ChatSpaceItem } from '../../api/chatList';
 import { callChatMembersAdd } from '../../api/chatMembersAdd';
 import { courseName, isAlreadyExistsError } from './CourseBulkCreateDialog';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface AutoInviteStudentsToChatSpacesDialogProps {
   open: boolean;
@@ -58,6 +59,8 @@ interface InviteResult {
 
 // v0.150: displayName 은 CourseBulkCreateDialog.courseName 과 동일 규칙 사용
 // (학년/반 챗방을 학급 통합 생성 시 만든 이름 규칙에 맞춤).
+const LOCKED_PHASES: readonly Phase[] = ['scanning', 'running'];
+
 export function buildTargetDisplayName(year: number, grade: number, cls: string): string {
   return courseName(year, grade, cls);
 }
@@ -70,7 +73,6 @@ export function AutoInviteStudentsToChatSpacesDialog({
   onDone,
 }: AutoInviteStudentsToChatSpacesDialogProps) {
   const queryClient = useContext(QueryClientContext);
-  const [phase, setPhase] = useState<Phase>('confirm');
   const [confirmText, setConfirmText] = useState('');
   const [matched, setMatched] = useState<MatchedTarget[]>([]);
   const [unmatched, setUnmatched] = useState<UnmatchedEntry[]>([]);
@@ -97,9 +99,12 @@ export function AutoInviteStudentsToChatSpacesDialog({
     return out;
   }, [data, year]);
 
-  useEffect(() => {
-    if (open) {
-      setPhase('confirm');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'confirm',
+    lockedPhases: LOCKED_PHASES,
+    onOpen: () => {
       setConfirmText('');
       setMatched([]);
       setUnmatched([]);
@@ -107,13 +112,8 @@ export function AutoInviteStudentsToChatSpacesDialog({
       setProgress(0);
       setTotalTargets(0);
       setResults([]);
-    }
-  }, [open]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (phase === 'scanning' || phase === 'running') return;
-    onOpenChange(next);
-  };
+    },
+  });
 
   const handleScan = async () => {
     setPhase('scanning');

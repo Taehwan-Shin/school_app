@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
   Dialog,
@@ -29,6 +29,7 @@ import {
   type Phase,
   type ResultKind,
 } from './CourseBulkCreateDialog';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface ClassroomChatPairBulkCreateDialogProps {
   open: boolean;
@@ -65,29 +66,26 @@ function ClassroomChatPairBulkCreateDialogContent({
   const [ownerId, setOwnerId] = useState('me');
   const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
   const [confirmText, setConfirmText] = useState('');
-  const [phase, setPhase] = useState<Phase>('select');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<PairBatchResult[]>([]);
 
   const basicDataQuery = useBasicDataGet(year, open);
   const grades = basicDataQuery.data?.data?.grades ?? [];
 
-  useEffect(() => {
-    if (open) {
-      setPhase('select');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'select',
+    lockedPhases: LOCKED_PHASES,
+    onOpen: () => {
       setSelected(new Map());
       setConfirmText('');
       setProgress(0);
       setResults([]);
       setOwnerId('me');
       setCourseState('PROVISIONED');
-    }
-  }, [open]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(next);
-  };
+    },
+  });
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
@@ -589,6 +587,8 @@ function ClassroomChatPairBulkCreateDialogContent({
     </Dialog>
   );
 }
+
+const LOCKED_PHASES: readonly Phase[] = ['running'];
 
 export function ClassroomChatPairBulkCreateDialog(props: ClassroomChatPairBulkCreateDialogProps) {
   if (!props.open) return null;

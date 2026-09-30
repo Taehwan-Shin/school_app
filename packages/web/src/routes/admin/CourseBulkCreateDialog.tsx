@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { useBasicDataGet } from '../../api/basicDataGet';
 import { callClassroomCreate } from '../../api/classroomCreate';
 import { callClassroomList } from '../../api/classroomList';
 import { courseStateOptionLabel } from '../../lib/courseState';
+import { usePhasedDialog } from '../../lib/usePhasedDialog';
 
 export interface CourseBulkCreateDialogProps {
   open: boolean;
@@ -35,6 +36,8 @@ export interface BatchCreateResult {
   courseId?: string;
   message?: string;
 }
+
+const LOCKED_PHASES: readonly Phase[] = ['running'];
 
 export function isYearValid(val: string): boolean {
   const trimmed = val.trim();
@@ -103,29 +106,26 @@ function CourseBulkCreateDialogContent({
   const [ownerId, setOwnerId] = useState('me');
   const [courseState, setCourseState] = useState<'PROVISIONED' | 'ACTIVE'>('PROVISIONED');
   const [confirmText, setConfirmText] = useState('');
-  const [phase, setPhase] = useState<Phase>('select');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<BatchCreateResult[]>([]);
 
   const basicDataQuery = useBasicDataGet(year, open);
   const grades = basicDataQuery.data?.data?.grades ?? [];
 
-  useEffect(() => {
-    if (open) {
-      setPhase('select');
+  const { phase, setPhase, handleOpenChange } = usePhasedDialog<Phase>({
+    open,
+    onOpenChange,
+    initialPhase: 'select',
+    lockedPhases: LOCKED_PHASES,
+    onOpen: () => {
       setSelected(new Map());
       setConfirmText('');
       setProgress(0);
       setResults([]);
       setOwnerId('me');
       setCourseState('PROVISIONED');
-    }
-  }, [open]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (phase === 'running') return;
-    onOpenChange(next);
-  };
+    },
+  });
 
   const handleYearChange = (val: string) => {
     setYearInput(val);
