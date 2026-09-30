@@ -5233,3 +5233,14 @@ ROADMAP 남은 후보 (v0.154+):
 
 
 
+---
+
+## 2026-09-30 · v0.309~v0.315 callCallable 이식 시리즈 완결
+
+- `[사용자 결정]` bliss00 「남은 작업을 전부 진행해줘」 (school_app_03 · 2026-09-30 13:11 UTC).
+- v0.309 helper · v0.310 pilot · v0.311~v0.312 4개씩 · v0.313 (11) · v0.314 (15) · v0.315 (8 + `signal` option).
+- v0.313~v0.315 치환 방식: 각 파일의 fetch 블록을 주석·공백·따옴표 정규화 후 callCallable 동작과 문자열 비교 → 일치한 파일만 기계 치환. 불일치 파일 (signal · 빈 scopes 헤더 · data 없음 · details) 은 수동 처리.
+- 동작 차이 1건 (의도): auditLogCount/List/Summary/UnresolvedRoleSplits 의 `'X-Google-Scopes': ''` → 헤더 생략. 근거 `packages/functions/src/authz/middleware.ts:59-65` — 헤더는 emulator 경로에서만 읽고 빈 값/부재 모두 `[]`. 프로덕션은 tokeninfo scope 사용.
+- 실측: api/*.ts 에서 `fetch(` · `_googleAccessToken` 은 `callCallable.ts` 에만 남음. 웹 149 files · 1425 tests · tsc/lint clean · 각 병합 후 hosting 배포 완료.
+- Codex 감사: v0.313/v0.314/v0.315 요청 (채널 school_app_03).
+

@@ -61,6 +61,14 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.316 | (docs) | STATUS/NEXT/project_notes sync (v0.308~v0.315 callCallable 시리즈 반영). |
+| v0.315 | `b778880` (main) | 남은 api 8개 이식 + `callCallable` `signal` option (auditLogList abort 전파 유지). auditLog 3종 빈 `X-Google-Scopes` 헤더 → 생략 (서버 동치). **api/*.ts 직접 fetch boilerplate 0건**. 웹 1425 (+1). |
+| v0.314 | `c945ebb` (main) | groups 7 + users 5 + orgunitsCreate/basicDataGet/basicDataSet → callCallable. 웹 1424 유지. |
+| v0.313 | `15a1ca6` (main) | chat 5 + classroom 6 → callCallable. 웹 1424 유지. |
+| v0.312 | `54bcaa9` (main) | usersList/groupsList/classroomTeachersList/orgunitsList → callCallable. |
+| v0.311 | `a4f8e72` (main) | classroomStudentsAdd/classroomTeachersAdd/usersResolveRoleSplit/usersUpdateRole → callCallable. |
+| v0.310 | `4519d35` (main) | usersRecheckRoleSplit pilot 이식. |
+| v0.309 | `2314433` (main) | 신규 `api/callCallable.ts` helper (auth · idToken · Google token body/header · URL · requestId · error status/details · result unwrap) + 8 tests. |
 | v0.307 | `3a23e9e` (main) | **Perf**: route hover-preload · 신규 `lib/routePreload.ts` (10 route MAP + idempotent preloadRoute) + Sidebar Link `onMouseEnter`/`onFocus` 배선. nav hover/focus 시 chunk background 다운로드 → 클릭 즉시 render (100-300ms latency 흡수). 신규 5 spy-based tests (exact key set · idempotent · unknown no-op · reject 후 재시도). R1: R0 F-A (not.toThrow 만) → spy 강화. 웹 1415 (+5). Codex R1 통과 5/0. |
 | v0.306 | `324c9f8` (main) | STATUS/NEXT.md sync (v0.303 문서 sync + v0.304 vendor split + v0.305 preconnect 반영). Codex 통과 5/0. |
 | v0.305 | `f59fd03` (main) | **Perf**: index.html preconnect hints 5 endpoint 추가 (identitytoolkit + securetoken + firestore + Functions asia-northeast3 + cdn.jsdelivr.net). TLS handshake + DNS eager 시작 → 첫 API 100~200ms 단축. 웹 1410 유지. Codex 응답 지연 (30분+ 착수 후 빈 메시지) → 기계 관문 대체 (shared build + lint + test + build 모두 통과, 5줄 표준 W3C spec 낮은 리스크). |
