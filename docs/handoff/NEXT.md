@@ -1,7 +1,7 @@
 # NEXT.md - 일꾼 오더 파일
 
 > 덮어쓰기 전용. 헤드가 여기에 「지금 할 것」을 적으면 일꾼(Antigravity) 이 읽는다.
-> **v0.315 병합 완료** (`b778880`) - callCallable 이식 시리즈 완결 (v0.309~v0.315 · api 43개 전부 shared helper 경유) · 웹 1425.
+> **v0.318 병합 완료** (`65b7ae5`) - v0.315 callCallable 완결 · v0.317 usePhasedDialog (9 site) · v0.318 Lighthouse (perf 0.67 · FCP 5.3s) · 웹 1432.
 
 ## 다음 오더 후보 (사용자 답 대기)
 
@@ -10,9 +10,7 @@ v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302~v0.307 p
 - 실제 제품 기능 (사용자 요청 대기)
 - Phase 5/6 원본 Apps Script 남은 함수 포팅 (사용자 지시 대기)
 - audit_log durable sink 실 설정 (사용자 조치 대기)
-- Chat/Classroom bulk 5 site (4-phase 패턴) 위한 generic 화된 hook 확장 (필요 시)
-- AutoRemoveNonRoster + AutoInviteStudentsToChatSpaces (5-phase `confirm → scanning → preview → running → done`) 위한 phase-superset hook (필요 시)
-- Lighthouse audit + 개선 (필요 시)
+- 추가 perf: 로그인 화면 prerender / firebase auth 지연 로드 (FCP 5.3s 잔여 · 효과 대비 구조 변경 큼 · 필요 시)
 
 ## Shared modules 카탈로그
 
@@ -52,6 +50,7 @@ v0.228~v0.300 대량 shared component/hook 이식 15 시리즈 + v0.302~v0.307 p
 27. `utils.ts` — `cn()` classname merger. `extendTailwindMerge` 로 UI_SYSTEM 커스텀 color/font-size 등록 (v0.9x 회귀 방어). v0.286: 회귀 방어 test 10건.
 28. `resetTablePreferences.ts` — admin 「선호 초기화」 boilerplate shared: window.confirm (고정 문구) + localStorage.removeItem try/catch + URL 'sort/dir' 삭제 + onAfterReset 콜백. `RESET_TABLE_PREFERENCES_CONFIRM_MESSAGE` / `_BANNER_MESSAGE` 상수. v0.294 · admin 3 site (AuditLog 미도입 대상 외).
 29. `api/callCallable.ts` — Firebase Callable POST boilerplate shared (auth check · idToken · Google access token body+header · dev/prod URL · requestId · `scopes?`/`signal?` option · error `status`/`details` 보존 · `body.result ?? body` unwrap). v0.309 · v0.310~v0.315 로 api/*.ts 43개 전부 이식.
+30. `lib/usePhasedDialog.ts` — N-phase dialog 상태 (initialPhase · lockedPhases · donePhase? · resetKey? · onOpen/onClose/onDone). useBulkDialogPhase 는 3-phase preset. v0.317 · 9 site (4-phase 5 · 5-phase 2 · ImportBasicData · NeisCsvImport).
 
 ## 최근 병합 (참고, 상세는 `project_notes.md`)
 

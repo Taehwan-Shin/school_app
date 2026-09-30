@@ -53,7 +53,7 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 | AuditTrail | v0.297 · v0.299 | `routes/admin/AuditTrail.tsx` (targetEmail/testIdPrefix/tableAriaLabel/emptyMessage) | 2 | UserAuditTrail (v0.243) + GroupAuditTrail (v0.244) near-identical 112 lines × 2 흡수 · 감사 이력 5-column Table + loading/error/empty/hasMore · @cam.hs.kr actor auto-link 유지 · 두 wrapper 는 각 17~18 lines · v0.299 직접 회귀 방어 8 tests |
 | BulkSuspendRestoreDialog | v0.300 | `routes/admin/BulkSuspendRestoreDialog.tsx` (open/onOpenChange/emails/onDone? + suspend + testIdPrefix + labels[7]) | 2 | BulkSuspendDialog (v0.123 · 164 lines) + BulkRestoreDialog (v0.123b · 169 lines) near-identical 3-phase flow 흡수 · callUsersUpdate({suspended}) boolean + 7 문구 labels · F99 snapshot · 두 wrapper 는 각 37~39 lines |
 
-**참고 (bulk 4-phase)**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
+**참고 (bulk 4-phase · v0.317 해소)**: Chat/Classroom bulk 5 site (ChatBulkCreate/ChatBulkInvite/ClassroomBulkInvite/ClassroomChatPairBulkCreate/CourseBulkCreate)
 는 4-phase (`select → preview → running → done`) 패턴이라 3-phase useBulkDialogPhase
 대상 외 · 실질 완결 16 site.
 
@@ -61,6 +61,9 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.319 | (docs) | STATUS/NEXT/project_notes sync (v0.317 usePhasedDialog · v0.318 Lighthouse). |
+| v0.318 | `65b7ae5` (main) | **Perf**: Pretendard dynamic-subset + non-blocking 로드 · hosting 캐시 헤더 (`**` no-cache · `/assets/**` 1y immutable) · robots.txt · meta description. Lighthouse (모바일 시뮬) perf 0.55 → **0.67** · FCP 13.8s → **5.3s** · a11y/best-practices 1.0 유지. SEO 0.82 → 0.63 은 robots `Disallow: /` (내부 도구 · 의도). |
+| v0.317 | `01ab0fc` (main) | 신규 `lib/usePhasedDialog.ts` (N-phase · lockedPhases · resetKey) · useBulkDialogPhase 위임 · 4/5-phase 등 9 dialog 이식. 웹 1432 (+7). Codex 통과 0 실패. |
 | v0.316 | (docs) | STATUS/NEXT/project_notes sync (v0.308~v0.315 callCallable 시리즈 반영). |
 | v0.315 | `b778880` (main) | 남은 api 8개 이식 + `callCallable` `signal` option (auditLogList abort 전파 유지). auditLog 3종 빈 `X-Google-Scopes` 헤더 → 생략 (서버 동치). **api/*.ts 직접 fetch boilerplate 0건**. 웹 1425 (+1). |
 | v0.314 | `c945ebb` (main) | groups 7 + users 5 + orgunitsCreate/basicDataGet/basicDataSet → callCallable. 웹 1424 유지. |
