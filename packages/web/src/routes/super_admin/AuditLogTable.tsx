@@ -454,13 +454,113 @@ export function AuditLogTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center gap-4">
-        <p className="text-small text-fg-secondary" data-testid="audit-log-loaded-info">
+      {/* v0.321: 툴바 2단 배치 (bliss00 요청 · 한 줄 flex 에 모든 필터·버튼이 몰려 텍스트/버튼이 세로로 찌그러짐).
+          1행: 로드 정보 (왼쪽) + 동작 버튼 (오른쪽, 좁으면 줄바꿈) · 2행: 필터 (flex-wrap). */}
+      <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2">
+        <p className="text-small text-fg-secondary min-w-0" data-testid="audit-log-loaded-info">
           {filteredEntries.length}건 표시됨 / 전체 {entries.length}건 로드
           {hasMore ? ' (더 있음)' : ' (마지막)'}
           {' · '}최근 {entries.length > 0 ? new Date(entries[0].at).toLocaleDateString('ko-KR') : '-'} 까지
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 [&>button]:whitespace-nowrap">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={reload}
+            data-testid="audit-log-reload"
+          >
+            새로 고침
+          </Button>
+          {/* v0.112: 필터 초기화 — 모든 URL query param 을 한 번에 clear. 활성 필터가
+              하나도 없으면 disabled. 개별 필터 각각을 비우는 대신 한 번에 리셋. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
+            disabled={
+              !actorFilter &&
+              !targetFilter &&
+              resultFilter === 'all' &&
+              !searchParams.get('atMin') &&
+              !searchParams.get('atMax') &&
+              actionList.length === 0 &&
+              actionSearch.trim().length === 0
+            }
+            data-testid="audit-log-clear-filters"
+            title="모든 필터 (행위자·결과·날짜·액션·검색) 초기화"
+          >
+            필터 초기화
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={filteredEntries.length === 0}
+            data-testid="audit-log-export-csv"
+          >
+            CSV 내보내기
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportJson}
+            disabled={filteredEntries.length === 0}
+            data-testid="audit-log-export-json"
+            title="현재 필터 조건과 함께 감사 이벤트를 JSON 파일로 저장"
+          >
+            JSON 내보내기
+          </Button>
+          {/* v0.197: 페이지 크기 선택 (서버 요청 pageSize 변경 · v0.193 시리즈 대칭). */}
+          <label
+            htmlFor="audit-log-page-size"
+            className="text-small text-fg-secondary whitespace-nowrap"
+          >
+            페이지 크기:
+          </label>
+          <select
+            id="audit-log-page-size"
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value) as PageSize)}
+            data-testid="audit-log-page-size-select"
+            className="border border-border-subtle bg-canvas text-fg-primary px-2 py-1 text-small focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          {/* v0.216: 컬럼 표시 토글. v0.291: shared ColumnMenu 컴포넌트 (minimalPreset/resetPreferences 미도입). */}
+          <ColumnMenu
+            buttonRef={columnMenuBtnRef}
+            menuRef={columnMenuRef}
+            isOpen={isColumnMenuOpen}
+            onToggle={toggleColumnMenu}
+            columns={TOGGLEABLE_COLUMNS}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumn}
+            onShowAll={() => setAllColumnsVisible(true)}
+            onHideAll={() => setAllColumnsVisible(false)}
+            testIdPrefix="audit-log"
+            buttonSize="sm"
+            className="ml-2"
+          />
+          {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
+              hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
+              도달 시 partial 표시. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportAllJson}
+            disabled={batchProgress !== null}
+            data-testid="audit-log-export-all"
+            title="현재 필터 조건으로 서버 페이지를 hasMore=false 까지 순회해 통합 JSON 파일로 저장 (최대 100 페이지)"
+          >
+            {batchProgress ? '전체 JSON 진행 중...' : '전체 JSON'}
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2" data-testid="audit-log-filters">
           <input
             type="text"
             value={actorFilter}
@@ -534,7 +634,7 @@ export function AuditLogTable() {
           />
           <details className="relative" data-testid="audit-log-filter-action-multi">
             <summary
-              className="cursor-pointer list-none border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary hover:bg-elevated focus:outline-none focus:border-border-strong"
+              className="cursor-pointer list-none whitespace-nowrap border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary hover:bg-elevated focus:outline-none focus:border-border-strong"
               title="서버측 액션 정확 매치 필터 (다중 선택)"
             >
               {actionList.length === 0
@@ -610,102 +710,6 @@ export function AuditLogTable() {
             title="현재 페이지 내 메시지·액션 부분 문자열 검색 (클라이언트)"
             className="w-56 border border-border-subtle bg-canvas px-3 py-2 text-small text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-border-strong"
           />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={reload}
-            data-testid="audit-log-reload"
-          >
-            새로 고침
-          </Button>
-          {/* v0.112: 필터 초기화 — 모든 URL query param 을 한 번에 clear. 활성 필터가
-              하나도 없으면 disabled. 개별 필터 각각을 비우는 대신 한 번에 리셋. */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setSearchParams(new URLSearchParams(), { replace: false })}
-            disabled={
-              !actorFilter &&
-              !targetFilter &&
-              resultFilter === 'all' &&
-              !searchParams.get('atMin') &&
-              !searchParams.get('atMax') &&
-              actionList.length === 0 &&
-              actionSearch.trim().length === 0
-            }
-            data-testid="audit-log-clear-filters"
-            title="모든 필터 (행위자·결과·날짜·액션·검색) 초기화"
-          >
-            필터 초기화
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleExportCsv}
-            disabled={filteredEntries.length === 0}
-            data-testid="audit-log-export-csv"
-          >
-            CSV 내보내기
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleExportJson}
-            disabled={filteredEntries.length === 0}
-            data-testid="audit-log-export-json"
-            title="현재 필터 조건과 함께 감사 이벤트를 JSON 파일로 저장"
-          >
-            JSON 내보내기
-          </Button>
-          {/* v0.197: 페이지 크기 선택 (서버 요청 pageSize 변경 · v0.193 시리즈 대칭). */}
-          <label
-            htmlFor="audit-log-page-size"
-            className="text-small text-fg-secondary ml-2 whitespace-nowrap"
-          >
-            페이지 크기:
-          </label>
-          <select
-            id="audit-log-page-size"
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value) as PageSize)}
-            data-testid="audit-log-page-size-select"
-            className="border border-border-subtle bg-canvas text-fg-primary px-2 py-1 text-small focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-          {/* v0.216: 컬럼 표시 토글. v0.291: shared ColumnMenu 컴포넌트 (minimalPreset/resetPreferences 미도입). */}
-          <ColumnMenu
-            buttonRef={columnMenuBtnRef}
-            menuRef={columnMenuRef}
-            isOpen={isColumnMenuOpen}
-            onToggle={toggleColumnMenu}
-            columns={TOGGLEABLE_COLUMNS}
-            visibleColumns={visibleColumns}
-            onToggleColumn={toggleColumn}
-            onShowAll={() => setAllColumnsVisible(true)}
-            onHideAll={() => setAllColumnsVisible(false)}
-            testIdPrefix="audit-log"
-            buttonSize="sm"
-            className="ml-2"
-          />
-          {/* v0.118: 전체 페이지 순회 batch export. 현재 페이지 export 와 달리
-              hasMore=false 까지 서버 paginate 를 순회해 통합 JSON. maxPages 상한
-              도달 시 partial 표시. */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleExportAllJson}
-            disabled={batchProgress !== null}
-            data-testid="audit-log-export-all"
-            title="현재 필터 조건으로 서버 페이지를 hasMore=false 까지 순회해 통합 JSON 파일로 저장 (최대 100 페이지)"
-          >
-            {batchProgress ? '전체 JSON 진행 중...' : '전체 JSON'}
-          </Button>
-        </div>
       </div>
       {batchProgress && (
         <div
