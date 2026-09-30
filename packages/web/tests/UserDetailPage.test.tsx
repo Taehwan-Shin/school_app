@@ -5,6 +5,10 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { UserDetailPage } from '../src/routes/admin/userDetail';
 import type { UserItem } from '../src/api/usersList';
 
+vi.mock('../src/api/orgunitsList', () => ({
+  useOrgunitsList: () => ({ data: { orgUnits: [] }, isLoading: false, isError: false, isFetching: false, error: null, refetch: () => {} }),
+}));
+
 vi.mock('../src/api/usersDelete', () => ({
   useDeleteUser: () => ({
     mutateAsync: vi.fn(),

@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Banner } from "../../components/Banner";
 import { useUpdateUser, type UsersUpdateRequest } from "../../api/usersUpdate";
 import { USER_FAMILY_NAME_MAX, USER_GIVEN_NAME_MAX } from "../../lib/userLimits";
+import { useOrgunitsList } from "../../api/orgunitsList";
 
 export interface EditUserTarget {
   email: string;
@@ -32,6 +33,9 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const { mutateAsync: updateUser, isPending, error: mutationError } = useUpdateUser();
+  // v0.320: 기존 OU 드롭다운 (CreateUserDialog v0.119 와 같은 orgunitsList 재사용 · 1분 캐시).
+  const orgunitsQuery = useOrgunitsList(open);
+  const orgUnitOptions = orgunitsQuery.data?.orgUnits ?? [];
 
   useEffect(() => {
     if (user) {
@@ -214,13 +218,54 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
             <div>
               <label htmlFor="orgUnitPath" className="text-small text-fg-secondary mb-1 block">
                 조직 단위
+                {orgunitsQuery.isLoading && (
+                  <span className="text-fg-muted ml-2">불러오는 중...</span>
+                )}
+                {orgunitsQuery.isError && (
+                  <span className="text-state-danger ml-2" data-testid="edit-user-orgunits-error">
+                    OU 목록 로드 실패
+                    {orgunitsQuery.error?.message ? (
+                      <span className="ml-1 text-micro font-mono">({orgunitsQuery.error.message})</span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => orgunitsQuery.refetch()}
+                      disabled={orgunitsQuery.isFetching}
+                      data-testid="edit-user-orgunits-retry"
+                      className="ml-2 underline hover:text-fg-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      다시 시도
+                    </button>
+                  </span>
+                )}
               </label>
+              {/* v0.320: 기존 OU 드롭다운 선택 → 아래 입력칸에 반영. 직접 입력도 그대로 가능. */}
+              <select
+                aria-label="기존 OU 목록에서 선택"
+                value={orgUnitOptions.some((ou) => ou.orgUnitPath === orgUnitPath) ? orgUnitPath : ""}
+                onChange={(e) => {
+                  if (e.target.value) setOrgUnitPath(e.target.value);
+                }}
+                disabled={isPending || orgUnitOptions.length === 0}
+                data-testid="edit-user-orgunit-select"
+                className="w-full mb-2 border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {orgUnitOptions.length === 0 ? "기존 조직 단위 없음 (직접 입력)" : "기존 조직 단위에서 선택..."}
+                </option>
+                {orgUnitOptions.map((ou) => (
+                  <option key={ou.orgUnitPath} value={ou.orgUnitPath}>
+                    {ou.name ? `${ou.orgUnitPath} — ${ou.name}` : ou.orgUnitPath}
+                  </option>
+                ))}
+              </select>
               <input
                 id="orgUnitPath"
                 type="text"
                 value={orgUnitPath}
                 onChange={(e) => setOrgUnitPath(e.target.value)}
                 placeholder="/학생/1학년"
+                data-testid="edit-user-orgunit-input"
                 className="w-full border border-border-subtle bg-canvas px-3 py-2 text-body text-fg-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
               />
             </div>

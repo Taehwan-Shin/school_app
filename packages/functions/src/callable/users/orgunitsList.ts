@@ -20,10 +20,13 @@ export interface OrgunitsListResponse {
   orgUnits: OrgunitEntry[];
 }
 
-const REQUIRED_SCOPES = [
-  // OU 목록 조회는 orgunit.readonly 스코프로 충분하지만, 기존 users.write 세션이
-  // 이미 admin.directory.orgunit 을 포함하므로 reuse. `type=all` 은 read-only.
+// v0.320: readonly 또는 쓰기 scope 중 하나면 허용 (mode 'any').
+// 실측 (2026-09-30 audit_log): 로그인 시 두 scope 를 모두 요청해도 발급 토큰에
+// orgunit.readonly 가 빠지는 경우가 있어 OU 조회가 insufficient_scope 로 전부 거부됨.
+// `admin.directory.orgunit` 은 readonly 의 상위 scope (조회 포함) 라 권한 확대 없음.
+const ACCEPTED_SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.orgunit.readonly',
+  'https://www.googleapis.com/auth/admin.directory.orgunit',
 ] as const;
 
 function readHeader(request: any, key: string): string | undefined {
@@ -64,7 +67,7 @@ export const orgunitsList = onCall(
       // (super_admin/admin). teacher 는 계정 생성 자체가 불가하므로 이 callable
       // 도 필요 없음.
       assertHasCap(user, 'users.write');
-      assertHasScopes(user, REQUIRED_SCOPES);
+      assertHasScopes(user, ACCEPTED_SCOPES, 'any');
     } catch (err) {
       await writeAudit({
         actor: user.email,
