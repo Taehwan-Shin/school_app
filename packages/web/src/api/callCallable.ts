@@ -14,6 +14,8 @@ import { getGoogleAccessTokenFromSession } from '../lib/auth';
 
 export interface CallCallableOptions {
   scopes?: string;
+  // v0.315: fetch 취소 전파 (v0.118b F83 · auditLogList / auditLogBatchExport 경로).
+  signal?: AbortSignal;
 }
 
 export async function callCallable<TRequest, TResponse>(
@@ -55,6 +57,7 @@ export async function callCallable<TRequest, TResponse>(
         _googleAccessToken: googleAccessToken,
       },
     }),
+    signal: options.signal,
   });
 
   if (!res.ok) {
