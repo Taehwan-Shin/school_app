@@ -133,6 +133,14 @@ describe('orgunitsList unit tests', () => {
     );
   });
 
+  it('v0.320: readonly 없이 쓰기 scope (admin.directory.orgunit) 만 있어도 허용', async () => {
+    mockOrgunitsList.mockResolvedValueOnce({ data: { organizationUnits: [{ orgUnitPath: '/교사' }] } });
+    const res = await orgunitsList.run(
+      createRequest({ scopes: 'https://www.googleapis.com/auth/admin.directory.orgunit' }),
+    );
+    expect(res.orgUnits.map((o) => o.orgUnitPath)).toEqual(['/교사']);
+  });
+
   it('빈 결과 → orgUnits: []', async () => {
     mockOrgunitsList.mockResolvedValueOnce({ data: { organizationUnits: [] } });
     const res = await orgunitsList.run(createRequest());

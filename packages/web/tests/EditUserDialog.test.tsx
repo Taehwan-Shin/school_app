@@ -14,6 +14,19 @@ vi.mock("../src/api/usersUpdate.js", () => ({
   }),
 }));
 
+let mockOrgunitsQuery: {
+  data?: { orgUnits: { orgUnitPath: string; name?: string }[] };
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: ReturnType<typeof vi.fn>;
+} = { data: { orgUnits: [] }, isLoading: false, isError: false, isFetching: false, error: null, refetch: vi.fn() };
+
+vi.mock("../src/api/orgunitsList.js", () => ({
+  useOrgunitsList: () => mockOrgunitsQuery,
+}));
+
 import { EditUserDialog, type EditUserTarget } from "../src/routes/admin/EditUserDialog.js";
 
 describe("EditUserDialog component", () => {
@@ -28,6 +41,58 @@ describe("EditUserDialog component", () => {
     vi.clearAllMocks();
     mockIsPending = false;
     mockError = null;
+    mockOrgunitsQuery = { data: { orgUnits: [] }, isLoading: false, isError: false, isFetching: false, error: null, refetch: vi.fn() };
+  });
+
+  describe("v0.320: 기존 OU 드롭다운", () => {
+    it("OU 목록을 select 로 보여주고 선택 시 입력칸에 반영 · 저장 payload 에 포함", async () => {
+      mockOrgunitsQuery.data = {
+        orgUnits: [
+          { orgUnitPath: "/교사", name: "교사" },
+          { orgUnitPath: "/학생/1학년", name: "1학년" },
+        ],
+      };
+      mockMutateAsync.mockResolvedValueOnce({});
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      const select = screen.getByTestId("edit-user-orgunit-select") as HTMLSelectElement;
+      // 현재 OU (/교사) 가 목록에 있으면 선택 상태로 표시.
+      expect(select.value).toBe("/교사");
+      expect(select.options).toHaveLength(3);
+      fireEvent.change(select, { target: { value: "/학생/1학년" } });
+      expect((screen.getByTestId("edit-user-orgunit-input") as HTMLInputElement).value).toBe("/학생/1학년");
+      fireEvent.click(screen.getByTestId("edit-user-submit"));
+      await waitFor(() =>
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ orgUnitPath: "/학생/1학년" }),
+        ),
+      );
+    });
+
+    it("직접 입력한 경로가 목록에 없으면 select 는 placeholder · 입력값 유지", () => {
+      mockOrgunitsQuery.data = { orgUnits: [{ orgUnitPath: "/교사" }] };
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      const input = screen.getByTestId("edit-user-orgunit-input") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "/새경로" } });
+      expect((screen.getByTestId("edit-user-orgunit-select") as HTMLSelectElement).value).toBe("");
+      expect(input.value).toBe("/새경로");
+    });
+
+    it("목록 로드 실패 → 에러 메시지 + 다시 시도 · select 비활성 (직접 입력 가능)", () => {
+      mockOrgunitsQuery = {
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        isFetching: false,
+        error: new Error("insufficient_scope:x"),
+        refetch: vi.fn(),
+      };
+      render(<EditUserDialog open={true} onOpenChange={vi.fn()} user={sampleUser} />);
+      expect(screen.getByTestId("edit-user-orgunits-error").textContent).toContain("insufficient_scope:x");
+      fireEvent.click(screen.getByTestId("edit-user-orgunits-retry"));
+      expect(mockOrgunitsQuery.refetch).toHaveBeenCalledTimes(1);
+      expect((screen.getByTestId("edit-user-orgunit-select") as HTMLSelectElement).disabled).toBe(true);
+      expect((screen.getByTestId("edit-user-orgunit-input") as HTMLInputElement).disabled).toBe(false);
+    });
   });
 
   it("does not render dialog content when open is false", () => {

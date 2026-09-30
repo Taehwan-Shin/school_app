@@ -6,6 +6,10 @@ import { MemoryRouter, useLocation, useSearchParams } from "react-router-dom";
 const mockUseUsersList = vi.fn();
 const mockCurrentUser = { email: "admin@cam.hs.kr" };
 
+vi.mock('../src/api/orgunitsList', () => ({
+  useOrgunitsList: () => ({ data: { orgUnits: [] }, isLoading: false, isError: false, isFetching: false, error: null, refetch: () => {} }),
+}));
+
 vi.mock("../src/api/usersList.js", () => ({
   useUsersList: () => mockUseUsersList(),
 }));
