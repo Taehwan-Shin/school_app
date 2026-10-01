@@ -27,6 +27,9 @@ const AdminPage = lazy(() =>
 const AdminChatPage = lazy(() =>
   import('./routes/admin/chat').then((m) => ({ default: m.AdminChatPage })),
 );
+const AdminMessagesPage = lazy(() =>
+  import('./routes/admin/messages').then((m) => ({ default: m.AdminMessagesPage })),
+);
 const AdminClassroomsPage = lazy(() =>
   import('./routes/admin/classrooms').then((m) => ({ default: m.AdminClassroomsPage })),
 );
@@ -91,6 +94,7 @@ export function App() {
                 <Route element={<RoleGuard expectedRoles={['super_admin', 'admin']} />}>
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/chat" element={<AdminChatPage />} />
+                  <Route path="/admin/messages" element={<AdminMessagesPage />} />
                   <Route path="/admin/classrooms" element={<AdminClassroomsPage />} />
                   <Route path="/admin/classrooms/:id" element={<ClassroomDetailPage />} />
                   <Route path="/admin/groups" element={<GroupsPage />} />

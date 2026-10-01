@@ -28,6 +28,10 @@ export const AUDIT_ACTIONS: readonly string[] = [
   'classroom.students.delete',
   'basic_data.read',
   'basic_data.write',
+  // v0.322: 메시지 발송 (target = gmail:<to> · chat_dm:<email> · chat_space:<spaces/..>) · 본문은 기록하지 않음.
+  'messages.send',
+  'messages.templates.read',
+  'messages.templates.write',
   'audit.read',
   'created',
   // v0.106: super_admin 카드가 「Auth claim ≠ Firestore role」 분기 상태를 server 필터로

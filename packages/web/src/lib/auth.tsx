@@ -47,6 +47,9 @@ export const GOOGLE_LOGIN_SCOPES = [
   'https://www.googleapis.com/auth/chat.memberships',
   'https://www.googleapis.com/auth/classroom.courses',
   'https://www.googleapis.com/auth/classroom.rosters',
+  // v0.322: 메시지 발송 (Gmail 본인 계정 발송 · 챗 DM/스페이스 메시지 작성).
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/chat.messages.create',
 ] as const;
 
 export async function signInWithGoogle(options?: { forceConsent?: boolean }) {

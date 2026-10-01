@@ -87,7 +87,7 @@ describe('Auth & Session Helpers', () => {
 
       // v0.146: admin.directory.orgunit(.readonly) 두 개 추가 (v0.119/v0.121
       // 도입 시점에 누락됐던 스코프).
-      expect(addScopeMock).toHaveBeenCalledTimes(13);
+      expect(addScopeMock).toHaveBeenCalledTimes(15);
       expect(addScopeMock).toHaveBeenNthCalledWith(1, 'https://www.googleapis.com/auth/admin.directory.user.readonly');
       expect(addScopeMock).toHaveBeenNthCalledWith(2, 'https://www.googleapis.com/auth/admin.directory.user');
       expect(addScopeMock).toHaveBeenNthCalledWith(3, 'https://www.googleapis.com/auth/admin.directory.group.readonly');
@@ -101,6 +101,8 @@ describe('Auth & Session Helpers', () => {
       expect(addScopeMock).toHaveBeenNthCalledWith(11, 'https://www.googleapis.com/auth/chat.memberships');
       expect(addScopeMock).toHaveBeenNthCalledWith(12, 'https://www.googleapis.com/auth/classroom.courses');
       expect(addScopeMock).toHaveBeenNthCalledWith(13, 'https://www.googleapis.com/auth/classroom.rosters');
+      expect(addScopeMock).toHaveBeenNthCalledWith(14, 'https://www.googleapis.com/auth/gmail.send');
+      expect(addScopeMock).toHaveBeenNthCalledWith(15, 'https://www.googleapis.com/auth/chat.messages.create');
       expect(setCustomParametersMock).toHaveBeenCalledWith({
         hd: 'cam.hs.kr',
         prompt: 'select_account',

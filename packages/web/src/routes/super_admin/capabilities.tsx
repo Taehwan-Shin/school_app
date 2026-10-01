@@ -28,6 +28,7 @@ const CAPABILITY_LABEL: Record<Capability, string> = {
   'classroom.archive': 'Classroom 코스 보관',
   'basic_data.read': '기초 데이터 조회',
   'basic_data.write': '기초 데이터 수정',
+  'messages.send': '메시지 발송 (Gmail · 챗)',
   'audit.read': '감사 로그 조회',
   'system.manage_roles': '역할 관리',
 };
