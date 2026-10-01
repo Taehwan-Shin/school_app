@@ -44,6 +44,7 @@ import { BulkRestoreDialog } from "./BulkRestoreDialog";
 import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
+import { AccountDeletionNoticeDialog } from "./AccountDeletionNoticeDialog";
 import { BulkUpdateRoleDialog } from "./BulkUpdateRoleDialog";
 
 type SortColumnKey = 'email' | 'name' | 'orgUnitPath';
@@ -182,6 +183,7 @@ export function AccountsTable() {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkResetPasswordOpen, setIsBulkResetPasswordOpen] = useState(false);
   const [isBulkUpdateRoleOpen, setIsBulkUpdateRoleOpen] = useState(false);
+  const [isDeletionNoticeOpen, setIsDeletionNoticeOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -479,6 +481,14 @@ export function AccountsTable() {
               data-testid="bulk-update-role-btn"
             >
               선택 역할 변경
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsDeletionNoticeOpen(true)}
+              data-testid="bulk-deletion-notice-btn"
+              title="저장된 계정 삭제 안내 문구를 선택한 계정에 Gmail 로 발송"
+            >
+              삭제 안내 메일
             </Button>
             <Button
               variant="secondary"
@@ -895,6 +905,17 @@ export function AccountsTable() {
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />
+
+      {/* v0.322: 계정 삭제 안내 메일. 선택 해제는 하지 않는다 (안내 → 삭제 순서로 이어서 쓰기 위해). */}
+      {isDeletionNoticeOpen && (
+        <AccountDeletionNoticeDialog
+          open={isDeletionNoticeOpen}
+          onOpenChange={setIsDeletionNoticeOpen}
+          recipients={(data?.users ?? [])
+            .filter((u) => selectedEmails.has(u.email))
+            .map((u) => ({ email: u.email, name: `${u.lastName}${u.firstName}`.trim() }))}
+        />
+      )}
 
       <BulkUpdateRoleDialog
         open={isBulkUpdateRoleOpen}

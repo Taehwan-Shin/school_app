@@ -4,6 +4,7 @@ import {
   Users as UsersIcon,
   UsersRound,
   MessagesSquare,
+  Send,
   GraduationCap,
   ClipboardList,
   Settings,
@@ -27,6 +28,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { label: '계정', to: '/admin', icon: UsersIcon },
     { label: '그룹', to: '/admin/groups', icon: UsersRound },
     { label: '챗방', to: '/super_admin/chat', icon: MessagesSquare },
+    { label: '메시지 발송', to: '/admin/messages', icon: Send },
     { label: '클래스룸', to: '/super_admin/classrooms', icon: GraduationCap },
     { label: '감사 로그', to: '/super_admin/audit', icon: ClipboardList },
     { label: '시스템 설정', to: '/super_admin/settings', icon: Settings, disabled: true },
@@ -35,6 +37,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { label: '계정', to: '/admin', icon: UsersIcon },
     { label: '그룹', to: '/admin/groups', icon: UsersRound },
     { label: '챗방', to: '/admin/chat', icon: MessagesSquare },
+    { label: '메시지 발송', to: '/admin/messages', icon: Send },
     { label: '클래스룸', to: '/admin/classrooms', icon: GraduationCap },
   ],
   teacher: [
