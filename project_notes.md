@@ -5256,3 +5256,16 @@ ROADMAP 남은 후보 (v0.154+):
   - 후: perf 0.67 · FCP 5.3s · LCP 5.3s · TBT 0ms · a11y/best-practices 1.0. SEO 0.63 (is-crawlable 실패 = robots Disallow 의도).
   - 잔여 FCP 는 SPA JS (vendor-react 163kB + vendor-firebase 237kB) 실행 후 첫 paint · 더 줄이려면 prerender 필요.
   - 배포 후 curl: `/login` cache-control no-cache · `/assets/*.js` public, max-age=31536000, immutable 확인.
+
+---
+
+## 2026-10-01 · v0.320~v0.322
+
+- v0.320 `[실측]` audit_log: orgunitsList 26건 전부 `insufficient_scope:admin.directory.orgunit.readonly` (로그인 시 두 scope 모두 요청해도 토큰에서 readonly 누락). 서버가 readonly OR orgunit 허용. EditUserDialog OU select 추가.
+- v0.321 감사 로그 툴바 2단 (bliss00 확인 「잘 되었어」).
+- v0.322 `[사용자 결정]` bliss00: 「계정 삭제 안내 메일을 문구를 미리 저장해 놓으면 ... 체크 후 발송을 눌렀을 때 저장된 문구가 자동으로 발송」 + 메신저.pdf (구글챗·지메일 개별/단체 발송) 구현 요청.
+  - `[판단]` SendGrid 대신 로그인 사용자 OAuth 로 Gmail API `users.messages.send(me)` — 원본 GmailApp 과 같은 「본인 계정 발송」 · 인증 모델 ⓑ 유지 · 비용 0.
+  - 원본 스페이스발송의 webhook URL 대신 Chat API messages.create (사용자 OAuth) — URL 관리 불필요.
+  - `[실측]` serviceusage: gmail.googleapis.com DISABLED → bliss00 활성화 후 ENABLED 확인.
+  - 감사 로그에는 본문을 남기지 않음 (길이만). 제목 CR/LF 거부 (헤더 injection).
+  - 판정불가: 실제 발송 (재로그인 후 동의 필요) · DM 자동 생성 (spaces.setup) 의 실 도메인 동작.

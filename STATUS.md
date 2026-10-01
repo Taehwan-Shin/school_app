@@ -7,6 +7,8 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
+| v0.322 메시지 발송 실사용 확인 | 사용자 | 대기 | 로그아웃 → 재로그인 (gmail.send · chat.messages.create 동의) 후 본인 계정으로 일괄/개별/스페이스/삭제 안내 메일 시험 발송 · 결과 화면 성공 확인 |
+| 메시지 발송 교사 권한 여부 | 사용자 | 답 대기 | 지금은 admin/super_admin 만 `messages.send`. 교사에게 열지 결정 |
 | 다음 제품 방향 확정 (v0.280+) | 사용자 | 답 대기 | v0.104~v0.279 병합 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. v0.228~v0.279 는 대량 shared component 이식 시리즈로 UI 일관성 확립 (아래 「shared component 시리즈」 표 참조). 새 방향 필요 |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
@@ -61,6 +63,9 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.322 | `7590cd0` (main) | **메시지 발송** (원본 메신저 스크립트 포팅): callable 6 (gmailSend · chatDmSend · chatSpaceSend · messageTemplates List/Upsert/Delete) · `/admin/messages` (일괄 · 개별 · 스페이스) · 계정 목록 「삭제 안내 메일」 (저장 문구 자동 · {{name}}/{{email}}). cap `messages.send` (admin/super_admin). 로그인 scope += gmail.send · chat.messages.create. Gmail API 활성화 (bliss00 · 2026-10-01). functions 543 · web 1451. |
+| v0.321 | `70eb157` (main) | 감사 로그 툴바 2단 배치. Codex 실패 0. |
+| v0.320 | `6f39954` (main) | orgunitsList scope (readonly OR orgunit) · EditUserDialog OU 드롭다운. Codex 실패 0. |
 | v0.319 | (docs) | STATUS/NEXT/project_notes sync (v0.317 usePhasedDialog · v0.318 Lighthouse). |
 | v0.318 | `65b7ae5` (main) | **Perf**: Pretendard dynamic-subset + non-blocking 로드 · hosting 캐시 헤더 (`**` no-cache · `/assets/**` 1y immutable) · robots.txt · meta description. Lighthouse (모바일 시뮬) perf 0.55 → **0.67** · FCP 13.8s → **5.3s** · a11y/best-practices 1.0 유지. SEO 0.82 → 0.63 은 robots `Disallow: /` (내부 도구 · 의도). |
 | v0.317 | `01ab0fc` (main) | 신규 `lib/usePhasedDialog.ts` (N-phase · lockedPhases · resetKey) · useBulkDialogPhase 위임 · 4/5-phase 등 9 dialog 이식. 웹 1432 (+7). Codex 통과 0 실패. |
