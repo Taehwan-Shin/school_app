@@ -8,6 +8,7 @@ import {
   type AuthenticatedUser,
 } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
+import { writeAuditWithBackup } from '../../audit/writeAuditWithBackup.js';
 
 // v0.322: messages/* callable 공통 — 인증 · cap · scope · 감사 (denied/ok/error) 를 한 곳에서.
 // 기존 callable 들이 파일마다 반복하던 3단 try/catch 와 동일한 순서·결과값을 유지한다.
@@ -91,19 +92,9 @@ export async function runAudited<T>(
     throw err;
   }
 
+  let out: { result: T; message?: string; target?: string };
   try {
-    const out = await fn(user);
-    if (out.target) target = out.target;
-    await writeAudit({
-      actor: user.email,
-      role: user.role,
-      action: opts.action,
-      target,
-      request_id: requestId,
-      result: 'ok',
-      message: out.message,
-    });
-    return out.result;
+    out = await fn(user);
   } catch (err) {
     const mapped = mapUpstreamError(err);
     const isDenied = mapped.code === 'permission-denied' || mapped.code === 'failed-precondition';
@@ -118,6 +109,25 @@ export async function runAudited<T>(
     });
     throw mapped;
   }
+
+  // v0.324 (Codex v0.322 R1 F-A): 메일/챗은 이미 발송됨 → 성공 감사 저장 실패가 응답을
+  // 실패로 뒤집으면 사용자가 재시도해 중복 발송된다. writeAuditWithBackup 은 3회 재시도 후
+  // Cloud Logging fallback 만 남기고 throw 하지 않는다 (v0.133 규약 · 성공 후 감사 전용).
+  if (out.target) target = out.target;
+  await writeAuditWithBackup(
+    {
+      actor: user.email,
+      role: user.role,
+      action: opts.action,
+      target,
+      request_id: requestId,
+      result: 'ok',
+      message: out.message,
+    },
+    requestId,
+    opts.action.replace(/\./g, '_'),
+  );
+  return out.result;
 }
 
 /** 헤더 injection 방지 + trim + 길이 상한. */

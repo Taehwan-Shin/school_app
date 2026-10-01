@@ -34,7 +34,7 @@ vi.mock('firebase-admin/firestore', async (importOriginal) => {
   return { ...actual, getFirestore: () => ({ collection: () => ({ doc: mockDoc, get: mockGet }) }) };
 });
 
-import { buildRawEmail } from '../src/google/gmailClient.js';
+import { buildRawEmail, encodeHeader } from '../src/google/gmailClient.js';
 import { gmailSend } from '../src/callable/messages/gmailSend.js';
 import { chatDmSend } from '../src/callable/messages/chatDmSend.js';
 import { chatSpaceSend } from '../src/callable/messages/chatSpaceSend.js';
@@ -87,6 +87,39 @@ describe('buildRawEmail', () => {
   it('ASCII 제목은 그대로', () => {
     const mime = Buffer.from(buildRawEmail({ to: 'a@b.co', subject: 'Hello', body: 'x' }), 'base64url').toString();
     expect(mime).toContain('Subject: Hello\r\n');
+  });
+});
+
+describe('encodeHeader (v0.324 F-B)', () => {
+  it('한글 200자 제목 → encoded-word 각 75자 이하 · 접힌 줄 · 디코딩하면 원문 (글자 경계 보존)', () => {
+    const subject = '가나다라마바사아자차카타파하🙂'.repeat(14).slice(0, 200);
+    const encoded = encodeHeader(subject);
+    const words = encoded.split('\r\n ');
+    expect(words.length).toBeGreaterThan(1);
+    for (const w of words) {
+      expect(w.length).toBeLessThanOrEqual(75);
+      expect(w).toMatch(/^=\?UTF-8\?B\?[A-Za-z0-9+/=]+\?=$/);
+    }
+    const decoded = words.map((w) => Buffer.from(w.slice(10, -2), 'base64').toString('utf8')).join('');
+    expect(decoded).toBe(subject);
+    expect(decoded).not.toContain('\uFFFD');
+  });
+
+  it('짧은 한글 제목 → encoded-word 1개', () => {
+    expect(encodeHeader('안내').split('\r\n ')).toHaveLength(1);
+  });
+});
+
+describe('runAudited 성공 감사 실패 (v0.324 F-A)', () => {
+  it('발송 성공 후 감사 저장이 계속 실패해도 응답은 성공 (재시도 → 중복 발송 방지) · Cloud Logging fallback', async () => {
+    mockGmailSend.mockResolvedValueOnce({ data: { id: 'm9' } });
+    mockWriteAudit.mockRejectedValue(new Error('firestore down'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(gmailSend.run(req({ to: 's@cam.hs.kr', subject: 'a', body: 'b' }))).resolves.toEqual({ id: 'm9' });
+    expect(mockGmailSend).toHaveBeenCalledTimes(1);
+    expect(mockWriteAudit).toHaveBeenCalledTimes(3);
+    expect(String(errSpy.mock.calls.at(-1)?.[0])).toContain('messages_send_audit_write_failed');
+    errSpy.mockRestore();
   });
 });
 

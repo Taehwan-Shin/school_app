@@ -20,10 +20,29 @@ export function getGmailClient(accessToken: string): GmailClient {
   return google.gmail({ version: 'v1', auth }) as unknown as GmailClient;
 }
 
-/** RFC 2047 encoded-word (UTF-8 base64) — 한글 제목. */
-function encodeHeader(value: string): string {
+/**
+ * RFC 2047 encoded-word (UTF-8 base64) — 한글 제목.
+ * v0.324 (Codex v0.322 R1 F-B): encoded-word 하나는 75자 이하여야 한다 (RFC 2047 §2).
+ * `=?UTF-8?B?` + `?=` = 12자 → base64 63자 이하 → 원문 45 byte 이하씩 글자 경계로 잘라
+ * 여러 encoded-word 를 CRLF + 공백으로 접는다 (인접 encoded-word 사이 공백은 디코딩 시 무시됨).
+ */
+export const ENCODED_WORD_MAX_BYTES = 45;
+
+export function encodeHeader(value: string): string {
   if (/^[\x20-\x7e]*$/.test(value)) return value;
-  return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+  const words: string[] = [];
+  let chunk = '';
+  for (const ch of value) {
+    if (Buffer.byteLength(chunk + ch, 'utf8') > ENCODED_WORD_MAX_BYTES) {
+      words.push(chunk);
+      chunk = '';
+    }
+    chunk += ch;
+  }
+  if (chunk) words.push(chunk);
+  return words
+    .map((w) => `=?UTF-8?B?${Buffer.from(w, 'utf8').toString('base64')}?=`)
+    .join('\r\n ');
 }
 
 /**
