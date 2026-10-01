@@ -38,6 +38,14 @@ export { chatDelete } from './callable/chat/delete.js';
 export { chatMembersList } from './callable/chat/membersList.js';
 export { chatMembersAdd } from './callable/chat/membersAdd.js';
 export { chatMembersDelete } from './callable/chat/membersDelete.js';
+export { gmailSend } from './callable/messages/gmailSend.js';
+export { chatDmSend } from './callable/messages/chatDmSend.js';
+export { chatSpaceSend } from './callable/messages/chatSpaceSend.js';
+export {
+  messageTemplatesList,
+  messageTemplatesUpsert,
+  messageTemplatesDelete,
+} from './callable/messages/templates.js';
 export { classroomList } from './callable/classroom/list.js';
 export { classroomPatch } from './callable/classroom/patch.js';
 export { classroomTransferOwnership } from './callable/classroom/transferOwnership.js';
