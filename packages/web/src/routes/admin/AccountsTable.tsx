@@ -45,6 +45,7 @@ import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkMoveOuDialog } from "./BulkMoveOuDialog";
 import { BulkResetPasswordDialog } from "./BulkResetPasswordDialog";
 import { AccountDeletionNoticeDialog } from "./AccountDeletionNoticeDialog";
+import { BulkGroupAssignDialog } from "./BulkGroupAssignDialog";
 import { BulkUpdateRoleDialog } from "./BulkUpdateRoleDialog";
 
 type SortColumnKey = 'email' | 'name' | 'orgUnitPath';
@@ -184,6 +185,7 @@ export function AccountsTable() {
   const [isBulkResetPasswordOpen, setIsBulkResetPasswordOpen] = useState(false);
   const [isBulkUpdateRoleOpen, setIsBulkUpdateRoleOpen] = useState(false);
   const [isDeletionNoticeOpen, setIsDeletionNoticeOpen] = useState(false);
+  const [isBulkGroupOpen, setIsBulkGroupOpen] = useState(false);
 
   useEffect(() => {
     setPage(0);
@@ -467,6 +469,13 @@ export function AccountsTable() {
               data-testid="bulk-restore-btn"
             >
               선택 복구
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkGroupOpen(true)}
+              data-testid="bulk-group-assign-btn"
+            >
+              그룹 배정 · 제외
             </Button>
             <Button
               variant="secondary"
@@ -905,6 +914,16 @@ export function AccountsTable() {
         emails={Array.from(selectedEmails)}
         onDone={() => setSelectedEmails(new Set())}
       />
+
+      {/* v0.332: 그룹 배정 · 제외 (원본 assignGroups). conditional mount — 그룹 목록 조회는 열 때만. */}
+      {isBulkGroupOpen && (
+        <BulkGroupAssignDialog
+          open={isBulkGroupOpen}
+          onOpenChange={setIsBulkGroupOpen}
+          emails={Array.from(selectedEmails)}
+          onDone={() => setSelectedEmails(new Set())}
+        />
+      )}
 
       {/* v0.322: 계정 삭제 안내 메일. 선택 해제는 하지 않는다 (안내 → 삭제 순서로 이어서 쓰기 위해). */}
       {isDeletionNoticeOpen && (
