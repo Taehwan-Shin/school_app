@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase';
 import type { Role } from '@school-app/shared';
+import { markGoogleTokenIssued, clearGoogleTokenIssued } from './googleSession';
 
 export function getGoogleAccessTokenFromSession(): string | null {
   if (typeof window === 'undefined') return null;
@@ -19,11 +20,14 @@ export function getGoogleAccessTokenFromSession(): string | null {
 export function setGoogleAccessTokenToSession(token: string): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.setItem('googleAccessToken', token);
+  // v0.326: 만료 안내용 발급 시각.
+  markGoogleTokenIssued();
 }
 
 export function clearGoogleAccessTokenFromSession(): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem('googleAccessToken');
+  clearGoogleTokenIssued();
 }
 
 /**

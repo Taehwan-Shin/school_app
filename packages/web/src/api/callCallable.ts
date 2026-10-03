@@ -1,5 +1,6 @@
 import { auth } from '../lib/firebase';
 import { getGoogleAccessTokenFromSession } from '../lib/auth';
+import { maybeNotifySessionExpired } from '../lib/googleSession';
 
 // v0.309: Firebase Callable Function 호출 공통 boilerplate shared.
 // - 기존 15+ api/*.ts 파일이 각각 반복하던 ~40 라인 (auth check · idToken · Google access token ·
@@ -63,6 +64,8 @@ export async function callCallable<TRequest, TResponse>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const message = body.error?.message ?? `http_${res.status}`;
+    // v0.326: Google 토큰 만료/부재 → 화면 공통 「다시 로그인」 배너.
+    maybeNotifySessionExpired(message);
     const err = new Error(message) as Error & {
       status?: number;
       details?: unknown;

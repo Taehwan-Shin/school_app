@@ -177,6 +177,21 @@ describe('callCallable', () => {
     expect((fetchMock.mock.calls[1][1] as RequestInit).signal).toBeUndefined();
   });
 
+  it('v0.326: invalid_google_access_token 오류 → 세션 만료 이벤트 발행 · 다른 오류는 발행 안 함', async () => {
+    const listener = vi.fn();
+    window.addEventListener('school-app:google-session-expired', listener);
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: 'invalid_google_access_token' } }), { status: 401 }),
+    );
+    await expect(callCallable('anyFn', {})).rejects.toThrow('invalid_google_access_token');
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: 'insufficient_scope:x' } }), { status: 403 }),
+    );
+    await expect(callCallable('anyFn', {})).rejects.toThrow('insufficient_scope:x');
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener('school-app:google-session-expired', listener);
+  });
+
   it('response unwrap: body.result 우선, 없으면 body 그대로', async () => {
     // Case 1: body.result 있음
     const fetchMock1 = vi.fn(async () =>
