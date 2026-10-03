@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, renderHook } from '@testing-library/react';
 
 const mockSignIn = vi.fn();
-vi.mock('../src/lib/auth', () => ({ signInWithGoogle: (...a: unknown[]) => mockSignIn(...a) }));
+vi.mock('../src/lib/auth', () => ({ refreshGoogleSession: (...a: unknown[]) => mockSignIn(...a) }));
 
 import {
   GOOGLE_TOKEN_STALE_MS,
@@ -56,6 +56,26 @@ describe('googleSession (v0.326)', () => {
     fireEvent.click(screen.getByTestId('session-expired-relogin'));
     await waitFor(() => expect(screen.queryByTestId('session-expired-banner')).toBeNull());
     expect(mockSignIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.329: 만료 원인은 재마운트 (라우트 전환) 후에도 유지 · 새 토큰 발급 시 제거', () => {
+    const first = render(<SessionExpiredBanner />);
+    act(() => notifyGoogleSessionExpired('missing_google_access_token'));
+    first.unmount();
+    const second = render(<SessionExpiredBanner />);
+    expect(screen.getByTestId('session-expired-banner').textContent).toContain('이 탭에는');
+    second.unmount();
+    markGoogleTokenIssued();
+    render(<SessionExpiredBanner />);
+    expect(screen.queryByTestId('session-expired-banner')).toBeNull();
+  });
+
+  it('v0.329: 재인증이 다른 계정/토큰 없음으로 실패하면 배너 유지 (account_mismatch)', async () => {
+    mockSignIn.mockRejectedValueOnce(new Error('account_mismatch'));
+    render(<SessionExpiredBanner />);
+    act(() => notifyGoogleSessionExpired('invalid_google_access_token'));
+    fireEvent.click(screen.getByTestId('session-expired-relogin'));
+    await waitFor(() => expect(screen.getByTestId('session-expired-banner').textContent).toContain('account_mismatch'));
   });
 
   it('SessionExpiredBanner: 로그인 팝업 실패 → 배너 유지 + 오류 표시', async () => {

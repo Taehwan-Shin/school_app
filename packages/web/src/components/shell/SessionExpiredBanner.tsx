@@ -1,11 +1,12 @@
 import { useContext, useState } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import { Button } from '../ui/button';
-import { signInWithGoogle } from '../../lib/auth';
+import { refreshGoogleSession } from '../../lib/auth';
 import { useGoogleSessionExpired } from '../../lib/googleSession';
 
 // v0.326: Google 로그인 (access token) 만료 시 모든 화면 상단에 「다시 로그인」 안내.
-// 다시 로그인은 같은 계정 팝업 (signInWithGoogle) — 페이지 상태 유지 · 성공 후 데이터 다시 불러오기.
+// 다시 로그인은 같은 계정 재인증 팝업 (refreshGoogleSession · 다른 계정 · 토큰 없음은 실패 처리)
+// — 페이지 상태 유지 · 성공 후 데이터 다시 불러오기.
 export function SessionExpiredBanner() {
   const { reason, clear } = useGoogleSessionExpired();
   const queryClient = useContext(QueryClientContext);
@@ -37,7 +38,7 @@ export function SessionExpiredBanner() {
           setBusy(true);
           setError(null);
           try {
-            await signInWithGoogle();
+            await refreshGoogleSession();
             clear();
             await queryClient?.invalidateQueries();
           } catch (e) {
