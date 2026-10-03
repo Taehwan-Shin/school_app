@@ -16,6 +16,8 @@ import { BulkFailureList } from "../../components/BulkFailureList";
 import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersUpdate } from "../../api/usersUpdate";
+import { useOrgunitsList } from "../../api/orgunitsList";
+import { OrgUnitSelect } from "../../components/OrgUnitSelect";
 
 export interface BulkMoveOuDialogProps {
   open: boolean;
@@ -31,6 +33,8 @@ export function BulkMoveOuDialog({
   onDone,
 }: BulkMoveOuDialogProps) {
   const queryClient = useQueryClient();
+  // v0.327: 기존 OU 드롭다운 (1분 캐시 · 열려 있을 때만 조회).
+  const orgunitsQuery = useOrgunitsList(open);
   const [progress, setProgress] = useState(0);
   const [failures, setFailures] = useState<{ email: string; message: string }[]>([]);
   const [targetOu, setTargetOu] = useState("");
@@ -100,6 +104,14 @@ export function BulkMoveOuDialog({
               >
                 대상 조직 단위 경로:
               </label>
+              {/* v0.327: 기존 OU 드롭다운 · 직접 입력 유지. */}
+              <OrgUnitSelect
+                value={targetOu}
+                onChange={setTargetOu}
+                orgUnits={orgunitsQuery.data?.orgUnits ?? []}
+                testId="bulk-move-ou-select"
+                className="mt-2"
+              />
               <input
                 id="bulk-move-ou-input"
                 type="text"
