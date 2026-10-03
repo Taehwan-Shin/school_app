@@ -7,8 +7,8 @@
 
 | 항목 | 담당 | 상태 | 확인 방법 |
 |---|---|---|---|
+| 시스템 설정 추가 항목 (관리자 지정 목록 · 학교 기본값) | 사용자 | 답 대기 | v0.334 는 문구 · 역할 안내 · 기초 데이터만. 추가 여부 결정 |
 | v0.322 메시지 발송 실사용 확인 | 사용자 | 대기 | 로그아웃 → 재로그인 (gmail.send · chat.messages.create 동의) 후 본인 계정으로 일괄/개별/스페이스/삭제 안내 메일 시험 발송 · 결과 화면 성공 확인 |
-| 메시지 발송 교사 권한 여부 | 사용자 | 답 대기 | 지금은 admin/super_admin 만 `messages.send`. 교사에게 열지 결정 |
 | 다음 제품 방향 확정 (v0.280+) | 사용자 | 답 대기 | v0.104~v0.279 병합 완료. Phase 5/6 원본 Apps Script 포팅 대부분 커버. v0.228~v0.279 는 대량 shared component 이식 시리즈로 UI 일관성 확립 (아래 「shared component 시리즈」 표 참조). 새 방향 필요 |
 | audit_log durable sink 실 설정 | 사용자 | 답 대기 | 문서 `docs/design/AUDIT_LOG_DURABLE_SINK.md` 준비 완료. 실제 gcloud/bq 명령 실행은 bliss00 조치. 진행할지, 나중에 할지 알려주시면 됩니다 |
 | audit_log durable sink 인프라 | 사용자 | 답 대기 | v0.116 F78 잔재. 지금은 3x retry + Cloud Logging fallback (기본 30일 보존). 완전 durable 은 별도 sink 배포 (BigQuery/GCS 라우팅 + retention 정책) 필요 |
@@ -63,6 +63,15 @@ v0.300: near-identical BulkSuspendDialog/BulkRestoreDialog wrapper 흡수 (BulkS
 
 | 버전 | 커밋 | 요약 |
 |---|---|---|
+| v0.334~v0.336 | `846265a` (main) | **시스템 설정** `/super_admin/settings`: 메시지 문구 관리 · 역할/권한 안내 · 학년도 기초 데이터. R1/R2 편집기 경쟁 상태 fix (busy 잠금 · 함수형 setDraft). Codex 통과. |
+| v0.332~v0.333 | `22ecd31` (main) | 계정 목록 「그룹 배정 · 제외」 (원본 assignGroups) · 제외 skip 은 memberKey 404 만. Codex 통과. |
+| v0.330~v0.331 | `bc600de` (main) | 전입생 일괄 생성 행별 OU · 행별 그룹 3 + 공통 그룹 (원본 laterAccountSetup). Codex 통과. |
+| v0.329 | `8fa9176` (main) | Google 만료 배너 R1: refreshGoogleSession (같은 계정 재인증) · 원인 sessionStorage 보존. Codex 통과. |
+| v0.328 | `8dfa2a9` (main) | 교사 /teacher → /teacher/messages · placeholder TeacherPage 삭제. Codex 통과. |
+| v0.327 | `594c650` (main) | OrgUnitSelect 공통 (Create · BatchCreate · BulkMoveOu · Edit). Codex 통과. |
+| v0.326 | `0f787bd` (main) | Google 로그인 만료 안내 배너 (googleSession.ts · callCallable 연동). |
+| v0.325 | `2a5a0b4` (main) | 교사 messages.send 허용 · 교사 nav = 메시지 발송 · account_deletion_notice 는 users.write 만 (bliss00 결정 2026-10-03). |
+| v0.324 | `78baae4` (main) | Codex v0.322 R1: 성공 감사 writeAuditWithBackup · 한글 제목 encoded-word 분할. Codex 통과. |
 | v0.322 | `7590cd0` (main) | **메시지 발송** (원본 메신저 스크립트 포팅): callable 6 (gmailSend · chatDmSend · chatSpaceSend · messageTemplates List/Upsert/Delete) · `/admin/messages` (일괄 · 개별 · 스페이스) · 계정 목록 「삭제 안내 메일」 (저장 문구 자동 · {{name}}/{{email}}). cap `messages.send` (admin/super_admin). 로그인 scope += gmail.send · chat.messages.create. Gmail API 활성화 (bliss00 · 2026-10-01). functions 543 · web 1451. |
 | v0.321 | `70eb157` (main) | 감사 로그 툴바 2단 배치. Codex 실패 0. |
 | v0.320 | `6f39954` (main) | orgunitsList scope (readonly OR orgunit) · EditUserDialog OU 드롭다운. Codex 실패 0. |
