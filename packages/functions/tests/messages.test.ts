@@ -133,11 +133,10 @@ describe('gmailSend', () => {
     expect(JSON.stringify(lastAudit())).not.toContain('비밀 내용');
   });
 
-  it('teacher → messages.send cap 없음 → permission-denied', async () => {
-    await expect(gmailSend.run(req({ to: 's@cam.hs.kr', subject: 'a', body: 'b' }, { role: 'teacher' }))).rejects.toMatchObject({
-      code: 'permission-denied',
-    });
-    expect(mockGmailSend).not.toHaveBeenCalled();
+  it('v0.325: teacher → messages.send 허용 (본인 계정 발송)', async () => {
+    mockGmailSend.mockResolvedValueOnce({ data: { id: 't1' } });
+    await expect(gmailSend.run(req({ to: 's@cam.hs.kr', subject: 'a', body: 'b' }, { role: 'teacher' }))).resolves.toEqual({ id: 't1' });
+    expect(lastAudit()).toMatchObject({ role: 'teacher', result: 'ok' });
   });
 
   it('gmail.send scope 없음 → insufficient_scope', async () => {
@@ -261,11 +260,27 @@ describe('message templates', () => {
     expect(mockSet).not.toHaveBeenCalled();
   });
 
-  it('delete → doc(id).delete · teacher 거부', async () => {
-    mockDelete.mockResolvedValueOnce(undefined);
+  it('delete → doc(id).delete · teacher 도 일반 문구 삭제 가능', async () => {
+    mockDelete.mockResolvedValue(undefined);
     await expect(messageTemplatesDelete.run(req({ id: 'old' }))).resolves.toEqual({ deleted: true, id: 'old' });
-    await expect(messageTemplatesDelete.run(req({ id: 'old' }, { role: 'teacher' }))).rejects.toMatchObject({ code: 'permission-denied' });
-    expect(mockDelete).toHaveBeenCalledTimes(1);
+    await expect(messageTemplatesDelete.run(req({ id: 'old2' }, { role: 'teacher' }))).resolves.toEqual({ deleted: true, id: 'old2' });
+    expect(mockDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it('v0.325: account_deletion_notice 는 users.write (관리자) 만 수정·삭제 · teacher 거부', async () => {
+    await expect(
+      messageTemplatesUpsert.run(req({ id: 'account_deletion_notice', name: 'n', body: 'b' }, { role: 'teacher' })),
+    ).rejects.toMatchObject({ code: 'permission-denied', message: 'template_admin_only' });
+    await expect(messageTemplatesDelete.run(req({ id: 'account_deletion_notice' }, { role: 'teacher' }))).rejects.toMatchObject({
+      message: 'template_admin_only',
+    });
+    expect(mockSet).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    // teacher 의 일반 문구 저장은 허용.
+    mockSet.mockResolvedValueOnce(undefined);
+    await expect(
+      messageTemplatesUpsert.run(req({ id: 't_abc', name: '수행평가', body: 'b' }, { role: 'teacher' })),
+    ).resolves.toMatchObject({ template: { id: 't_abc' } });
   });
 
   it('미인증 → unauthenticated + denied 감사', async () => {

@@ -104,6 +104,7 @@ export function App() {
 
                 <Route element={<RoleGuard expectedRole="teacher" />}>
                   <Route path="/teacher" element={<TeacherPage />} />
+                  <Route path="/teacher/messages" element={<AdminMessagesPage />} />
                 </Route>
 
                 <Route path="*" element={<RootRedirect />} />

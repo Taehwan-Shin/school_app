@@ -7,7 +7,8 @@ export const ROLE_CAPABILITIES: Record<Role, ReadonlySet<Capability>> = {
   admin: new Set<Capability>(
     ALL_CAPABILITIES.filter((c) => c !== 'audit.read' && c !== 'system.manage_roles')
   ),
-  teacher: new Set<Capability>(['classroom.read', 'classroom.write', 'classroom.archive']),
+  // v0.325: 교사도 메시지 발송 (본인 계정 Gmail · 챗) — bliss00 결정 2026-10-03.
+  teacher: new Set<Capability>(['classroom.read', 'classroom.write', 'classroom.archive', 'messages.send']),
 };
 
 export function userHasCap(role: Role | string | undefined | null, capability: Capability): boolean {

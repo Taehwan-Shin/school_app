@@ -92,23 +92,17 @@ describe('chatList unit tests', () => {
     );
   });
 
-  it('rejects teacher with permission-denied (missing cap) and writes denied audit log', async () => {
+  it('v0.325: teacher (chat.read 없음 · messages.send 있음) → 스페이스 발송용 목록 조회 허용', async () => {
+    mockChatSpacesList.mockResolvedValueOnce({ data: { spaces: [{ name: 'spaces/T1', displayName: '3-1' }] } });
     const req = createRequest({ email: 'teacher@cam.hs.kr', role: 'teacher' });
 
-    await expect(chatList.run(req)).rejects.toMatchObject({
-      code: 'permission-denied',
-    });
+    const res = await chatList.run(req);
 
-    expect(mockChatSpacesList).not.toHaveBeenCalled();
-    expect(mockWriteAudit).toHaveBeenCalledWith({
-      actor: 'teacher@cam.hs.kr',
-      role: 'teacher',
-      action: 'chat.read',
-      target: '*',
-      request_id: 'req-test-123',
-      result: 'denied',
-      message: 'chat.read',
-    });
+    expect(mockChatSpacesList).toHaveBeenCalled();
+    expect(JSON.stringify(res)).toContain('spaces/T1');
+    expect(mockWriteAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ actor: 'teacher@cam.hs.kr', role: 'teacher', action: 'chat.read', result: 'ok' }),
+    );
   });
 
   it('rejects request with missing scopes and writes denied audit log', async () => {

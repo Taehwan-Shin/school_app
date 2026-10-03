@@ -1,6 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { userHasCap } from '@school-app/shared';
 import { runAudited, requireText } from './common.js';
+import type { AuthenticatedUser } from '../../authz/middleware.js';
 import { SUBJECT_MAX, MAIL_BODY_MAX } from './gmailSend.js';
 
 // v0.322: 메시지 문구 템플릿 (Firestore `message_templates/{id}`) · 관리자 공용.
@@ -16,6 +18,16 @@ export interface MessageTemplate {
 }
 
 const ID_RE = /^[a-z0-9_-]{1,64}$/;
+
+// v0.325: 교사도 messages.send 를 갖게 되면서, 학교 공용 「계정 삭제 안내」 문구는 계정 관리 권한
+// (users.write) 이 있는 사람만 수정·삭제. 다른 문구는 messages.send 로 충분.
+const ADMIN_ONLY_TEMPLATE_IDS = new Set(['account_deletion_notice']);
+
+function assertCanWriteTemplate(user: AuthenticatedUser, id: string): void {
+  if (ADMIN_ONLY_TEMPLATE_IDS.has(id) && !userHasCap(user.role, 'users.write')) {
+    throw new HttpsError('permission-denied', 'template_admin_only');
+  }
+}
 const NAME_MAX = 100;
 const COLLECTION = 'message_templates';
 const NO_SCOPES: readonly string[] = [];
@@ -55,6 +67,7 @@ export const messageTemplatesUpsert = onCall({ region: 'asia-northeast3', cors: 
     async (user) => {
       const id = typeof data.id === 'string' ? data.id : '';
       if (!ID_RE.test(id)) throw new HttpsError('invalid-argument', 'invalid_template_id');
+      assertCanWriteTemplate(user, id);
       const name = requireText(data.name, 'name', NAME_MAX, { singleLine: true });
       // 제목은 비워도 됨 (챗 전용 문구). 있으면 한 줄 · 상한.
       const subject = typeof data.subject === 'string' ? data.subject.trim() : '';
@@ -78,8 +91,9 @@ export const messageTemplatesDelete = onCall({ region: 'asia-northeast3', cors: 
   return runAudited<{ deleted: true; id: string }>(
     request,
     { action: 'messages.templates.write', target: `${COLLECTION}/${id || '*'}`, cap: 'messages.send', scopes: NO_SCOPES },
-    async () => {
+    async (user) => {
       if (!ID_RE.test(id)) throw new HttpsError('invalid-argument', 'invalid_template_id');
+      assertCanWriteTemplate(user, id);
       await getFirestore().collection('message_templates').doc(id).delete();
       return { result: { deleted: true, id }, message: 'deleted' };
     },
