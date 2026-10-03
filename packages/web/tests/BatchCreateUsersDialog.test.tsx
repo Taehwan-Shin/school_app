@@ -46,6 +46,7 @@ vi.mock("../src/api/groupsList", () => ({
       groups: [
         { email: "class-2-3@cam.hs.kr", name: "2학년 3반", description: "", aliases: [], directMembersCount: 0 },
         { email: "students@cam.hs.kr", name: "전체 학생", description: "", aliases: [], directMembersCount: 0 },
+        { email: "club@cam.hs.kr", name: "동아리", description: "", aliases: [], directMembersCount: 0 },
       ],
     },
     isLoading: false,
@@ -390,8 +391,12 @@ describe("BatchCreateUsersDialog component", () => {
   // 이미 snapshot 결과 (primaryEmail lower-case 값) 를 검증.
   describe("v0.330: 행별 OU · 그룹 + 공통 그룹 (원본 laterAccountSetup)", () => {
     it("mergeRowGroups: 행별 먼저 · 공통 추가 · 대소문자 무시 중복 제거 · 빈 값 제외", () => {
-      expect(mergeRowGroups("A@cam.hs.kr", ["a@cam.hs.kr", "b@cam.hs.kr", " "])).toEqual(["A@cam.hs.kr", "b@cam.hs.kr"]);
-      expect(mergeRowGroups(undefined, [])).toEqual([]);
+      expect(mergeRowGroups(["A@cam.hs.kr", "c@cam.hs.kr"], ["a@cam.hs.kr", "b@cam.hs.kr", " "])).toEqual([
+        "A@cam.hs.kr",
+        "c@cam.hs.kr",
+        "b@cam.hs.kr",
+      ]);
+      expect(mergeRowGroups([], [])).toEqual([]);
     });
 
     it("행별 OU 우선 · 행별 그룹 + 공통 그룹 배정 · 그룹 실패는 계정 성공 유지 + 경고", async () => {
@@ -405,7 +410,9 @@ describe("BatchCreateUsersDialog component", () => {
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-ou"), { target: { value: "/학생/1학년" } });
-      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group"), { target: { value: "class-2-3@cam.hs.kr" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group-0"), { target: { value: "class-2-3@cam.hs.kr" } });
+      // v0.331: 행별 두 번째 그룹 (원본 I열).
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group-1"), { target: { value: "club@cam.hs.kr" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-1-id"), { target: { value: "kim2" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-1-family"), { target: { value: "김" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-1-given"), { target: { value: "철수" } });
@@ -418,11 +425,12 @@ describe("BatchCreateUsersDialog component", () => {
       expect(mockCallUsersCreate.mock.calls[1][0]).toMatchObject({ primaryEmail: "kim2@cam.hs.kr", orgUnitPath: "/" });
       expect(mockCallGroupsMembersInsert.mock.calls.map((c) => c[0])).toEqual([
         { groupEmail: "class-2-3@cam.hs.kr", memberEmail: "hong1@cam.hs.kr", role: "MEMBER" },
+        { groupEmail: "club@cam.hs.kr", memberEmail: "hong1@cam.hs.kr", role: "MEMBER" },
         { groupEmail: "students@cam.hs.kr", memberEmail: "hong1@cam.hs.kr", role: "MEMBER" },
         { groupEmail: "students@cam.hs.kr", memberEmail: "kim2@cam.hs.kr", role: "MEMBER" },
       ]);
       expect(screen.getByTestId("batch-create-users-group-failures").textContent).toContain("kim2@cam.hs.kr");
-      expect(screen.getByTestId("batch-create-users-group-ok").textContent).toContain("2건");
+      expect(screen.getByTestId("batch-create-users-group-ok").textContent).toContain("3건");
     });
 
     it("계정 생성 실패 행은 그룹 배정 시도 안 함", async () => {
@@ -432,7 +440,7 @@ describe("BatchCreateUsersDialog component", () => {
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "dup1" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
       fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
-      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group"), { target: { value: "class-2-3@cam.hs.kr" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group-0"), { target: { value: "class-2-3@cam.hs.kr" } });
       fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "securePass123" } });
       fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
       await waitFor(() => expect(screen.getByTestId("batch-create-users-done")).toBeDefined());

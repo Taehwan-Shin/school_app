@@ -49,8 +49,9 @@ interface RowInput {
   familyName: string;
   givenName: string;
   // v0.330 (원본 laterAccountSetup F열 · H~J열): 행별 조직 단위 (빈 값 = 공통 OU) · 행별 그룹 (빈 값 = 없음).
+  // v0.331 (Codex v0.330 R1): 원본처럼 행별 그룹 최대 3개 (H · I · J열).
   orgUnitPath?: string;
-  group?: string;
+  groups?: string[];
 }
 
 // v0.151: 각 row 의 classroom 배정 결과 (계정 생성 자체와 분리).
@@ -78,7 +79,7 @@ interface RowResult {
 }
 
 function emptyRow(): RowInput {
-  return { id: "", familyName: "", givenName: "", orgUnitPath: "", group: "" };
+  return { id: "", familyName: "", givenName: "", orgUnitPath: "", groups: ["", "", ""] };
 }
 
 function makeInitialRows(): RowInput[] {
@@ -93,8 +94,8 @@ export interface RunRowSnapshot {
   familyName: string;
   /** v0.330: 행별 OU (없으면 공통 OU). */
   orgUnitPath?: string;
-  /** v0.330: 행별 그룹 이메일 (없으면 공통 그룹만). */
-  group?: string;
+  /** v0.330/v0.331: 행별 그룹 이메일 (최대 3 · 빈 값 제외). */
+  groups: string[];
 }
 
 export function buildRunRowsSnapshot(rows: RowInput[], domain: string): RunRowSnapshot[] {
@@ -104,7 +105,7 @@ export function buildRunRowsSnapshot(rows: RowInput[], domain: string): RunRowSn
       familyName: r.familyName.trim(),
       givenName: r.givenName.trim(),
       orgUnitPath: r.orgUnitPath?.trim() || undefined,
-      group: r.group?.trim() || undefined,
+      groups: (r.groups ?? []).map((g) => g.trim()).filter((g) => g !== ""),
     }))
     .filter((r) => r.id !== "" || r.familyName !== "" || r.givenName !== "")
     .map((r) => ({
@@ -112,15 +113,17 @@ export function buildRunRowsSnapshot(rows: RowInput[], domain: string): RunRowSn
       givenName: r.givenName,
       familyName: r.familyName,
       orgUnitPath: r.orgUnitPath,
-      group: r.group,
+      groups: [...r.groups],
     }));
 }
 
-/** v0.330: 행별 그룹 + 공통 그룹 → 중복 제거 (대소문자 무시 · 입력 순서 유지). */
-export function mergeRowGroups(rowGroup: string | undefined, commonGroups: string[]): string[] {
+/** v0.330/v0.331: 행별 그룹들 + 공통 그룹 → 중복 제거 (대소문자 무시 · 입력 순서 유지). */
+export const ROW_GROUP_SLOTS = 3;
+
+export function mergeRowGroups(rowGroups: string[], commonGroups: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const g of [rowGroup ?? "", ...commonGroups]) {
+  for (const g of [...rowGroups, ...commonGroups]) {
     const v = g.trim();
     if (!v || seen.has(v.toLowerCase())) continue;
     seen.add(v.toLowerCase());
@@ -362,7 +365,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
         });
         // v0.330: 계정 생성 성공 → 그룹 배정 (행별 + 공통). 원본처럼 그룹 실패는 계정 성공을 뒤집지 않음.
         const groupResults: GroupAssignRowResult[] = [];
-        for (const groupEmail of mergeRowGroups(row.group, commonGroupsSnapshot)) {
+        for (const groupEmail of mergeRowGroups(row.groups, commonGroupsSnapshot)) {
           try {
             await callGroupsMembersInsert({ groupEmail, memberEmail: row.primaryEmail, role: "MEMBER" });
             groupResults.push({ groupEmail, ok: true });
@@ -858,7 +861,7 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                     <th scope="col" className="p-2 text-left font-normal">이름</th>
                     <th scope="col" className="p-2 text-left font-normal">이메일 미리보기</th>
                     <th scope="col" className="p-2 text-left font-normal">조직 단위 (선택)</th>
-                    <th scope="col" className="p-2 text-left font-normal">그룹 (선택)</th>
+                    <th scope="col" className="p-2 text-left font-normal">그룹 (선택 · 최대 3)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -951,21 +954,28 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                               ))}
                           </select>
                         </td>
-                        <td className="p-1">
-                          <select
-                            value={row.group ?? ""}
-                            onChange={(e) => updateRow(i, { group: e.target.value })}
-                            aria-label={`${rowNum}번째 행 그룹`}
-                            data-testid={`batch-create-users-row-${i}-group`}
-                            className="w-full max-w-[12rem] border border-border-subtle bg-canvas px-1 py-1 text-small text-fg-primary"
-                          >
-                            <option value="">없음</option>
-                            {sortedGroups.map((g) => (
-                              <option key={g.email} value={g.email}>
-                                {g.name ? `${g.name} (${g.email})` : g.email}
-                              </option>
-                            ))}
-                          </select>
+                        <td className="p-1 space-y-1">
+                          {Array.from({ length: ROW_GROUP_SLOTS }, (_, slot) => (
+                            <select
+                              key={slot}
+                              value={row.groups?.[slot] ?? ""}
+                              onChange={(e) => {
+                                const next = [...(row.groups ?? ["", "", ""])];
+                                next[slot] = e.target.value;
+                                updateRow(i, { groups: next });
+                              }}
+                              aria-label={`${rowNum}번째 행 그룹 ${slot + 1}`}
+                              data-testid={`batch-create-users-row-${i}-group-${slot}`}
+                              className="block w-full max-w-[12rem] border border-border-subtle bg-canvas px-1 py-1 text-small text-fg-primary"
+                            >
+                              <option value="">{`그룹 ${slot + 1}: 없음`}</option>
+                              {sortedGroups.map((g) => (
+                                <option key={g.email} value={g.email}>
+                                  {g.name ? `${g.name} (${g.email})` : g.email}
+                                </option>
+                              ))}
+                            </select>
+                          ))}
                         </td>
                       </tr>
                     );
