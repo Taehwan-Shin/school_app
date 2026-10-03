@@ -2,6 +2,7 @@ import React from 'react';
 import type { Role } from '@school-app/shared';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { SessionExpiredBanner } from './SessionExpiredBanner';
 
 export interface AppShellProps {
   role?: Role | null;
@@ -16,6 +17,7 @@ export function AppShell({ role, pageTitle, children }: AppShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar pageTitle={pageTitle} />
         <main className="flex-1 p-6 md:p-8 lg:p-12 max-w-7xl w-full mx-auto">
+          <SessionExpiredBanner />
           {children}
         </main>
       </div>
