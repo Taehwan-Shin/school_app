@@ -13,10 +13,12 @@ let mockTemplates = [
 vi.mock('../src/components/shell/AppShell', () => ({ AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('../src/lib/auth', () => ({ useAuth: () => ({ role: 'super_admin' }) }));
 vi.mock('../src/routes/admin/BasicDataPanel', () => ({ BasicDataPanel: () => <div data-testid="basic-data-panel-stub" /> }));
+let mockUpsertPending = false;
+let mockDeletePending = false;
 vi.mock('../src/api/messages', () => ({
   useMessageTemplates: () => ({ data: { templates: mockTemplates }, isLoading: false, isError: false, error: null }),
-  useUpsertMessageTemplate: () => ({ mutateAsync: mockUpsert, isPending: false, error: null }),
-  useDeleteMessageTemplate: () => ({ mutateAsync: mockDelete, isPending: false, error: null }),
+  useUpsertMessageTemplate: () => ({ mutateAsync: mockUpsert, isPending: mockUpsertPending, error: null }),
+  useDeleteMessageTemplate: () => ({ mutateAsync: mockDelete, isPending: mockDeletePending, error: null }),
 }));
 
 import { SystemSettingsPage } from '../src/routes/super_admin/settings';
@@ -70,6 +72,35 @@ describe('SystemSettingsPage (v0.334)', () => {
     expect(screen.getByTestId('settings-roles-matrix-link').getAttribute('href')).toBe('/super_admin/capabilities');
     fireEvent.click(screen.getByTestId('settings-tab-basic'));
     expect(screen.getByTestId('basic-data-panel-stub')).toBeTruthy();
+  });
+
+  it('v0.335: 저장/삭제 요청 중에는 새 문구 · 수정 · 삭제 · 취소 비활성', () => {
+    mockUpsertPending = true;
+    renderPage();
+    expect((screen.getByTestId('settings-template-new') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('settings-template-edit-t_1') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('settings-template-delete-t_1') as HTMLButtonElement).disabled).toBe(true);
+    mockUpsertPending = false;
+  });
+
+  it('v0.335: A 삭제 완료 시 열려 있는 B 편집기는 닫지 않음 (최신 draft 기준)', async () => {
+    let resolveDelete: () => void = () => {};
+    mockDelete.mockImplementationOnce(() => new Promise<void>((r) => (resolveDelete = r)));
+    renderPage();
+    fireEvent.click(screen.getByTestId('settings-template-edit-account_deletion_notice'));
+    fireEvent.click(screen.getByTestId('settings-template-delete-t_1'));
+    resolveDelete();
+    await waitFor(() => expect(screen.getByTestId('settings-template-banner').textContent).toContain('삭제'));
+    expect(screen.getByTestId('settings-template-editor')).toBeTruthy();
+    expect((screen.getByLabelText('이름') as HTMLInputElement).value).toBe('계정 삭제 안내');
+  });
+
+  it('v0.335: 삭제된 문구의 편집기는 닫힘', async () => {
+    mockDelete.mockResolvedValueOnce({});
+    renderPage();
+    fireEvent.click(screen.getByTestId('settings-template-edit-t_1'));
+    fireEvent.click(screen.getByTestId('settings-template-delete-t_1'));
+    await waitFor(() => expect(screen.queryByTestId('settings-template-editor')).toBeNull());
   });
 
   it('문구 없음 안내', () => {
