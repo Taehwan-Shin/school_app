@@ -95,6 +95,28 @@ describe('GroupMembershipOverview (v0.338 · 원본 fetchAllGroupAssignments)', 
     expect(screen.getByTestId('group-memberships-remove-failures').textContent).toContain('b@cam.hs.kr');
   });
 
+  it('v0.339: 반복 pageToken · 페이지 상한 초과 → 그 그룹은 오류 (조용히 자르거나 중복 행 없음)', async () => {
+    mockMembersList.mockImplementation(async (d: { groupEmail: string }) => {
+      if (d.groupEmail === 'secret@cam.hs.kr') return { members: [], nextPageToken: null };
+      return { members: [{ email: 'a@cam.hs.kr', role: 'MEMBER', type: 'USER', status: 'ACTIVE' }], nextPageToken: 'same' };
+    });
+    renderIt();
+    await load();
+    expect(screen.getByTestId('group-memberships-errors').textContent).toContain('page_token_loop');
+    expect(screen.getByTestId('group-memberships-count').textContent).toContain('0 / 0');
+  });
+
+  it('v0.339: 전체 선택 토글 시 건수 확인값 초기화 (이전 확인값 재사용 차단)', async () => {
+    renderIt();
+    await load();
+    fireEvent.click(screen.getByTestId('group-memberships-select-all'));
+    fireEvent.change(screen.getByTestId('group-memberships-remove-confirm-input'), { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('group-memberships-select-all'));
+    fireEvent.click(screen.getByTestId('group-memberships-select-all'));
+    expect((screen.getByTestId('group-memberships-remove-confirm-input') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('group-memberships-remove') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('toCsv: 따옴표 이스케이프', () => {
     expect(toCsv([['a"b', 1]])).toBe('"a""b","1"');
   });

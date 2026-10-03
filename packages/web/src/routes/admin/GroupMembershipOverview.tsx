@@ -85,13 +85,22 @@ export function GroupMembershipOverview() {
       if (!aliveRef.current) return;
       const g = groups[i];
       try {
+        // v0.339 (Codex v0.338 R1 F-A): 토큰 재출현 (무한 반복) · 페이지 상한 초과는 조용히 자르지 않고
+        // 그 그룹을 오류로 처리. 같은 그룹 안 중복 멤버는 한 번만 (React key 충돌 방지).
+        const groupRows: MembershipRow[] = [];
+        const seenKeys = new Set<string>();
+        const seenTokens = new Set<string>();
         let pageToken: string | undefined;
         let pages = 0;
         do {
           const res = await callGroupsMembersList({ groupEmail: g.email, pageToken, maxResults: 200 });
+          if (!aliveRef.current) return;
           for (const m of res.members ?? []) {
-            out.push({
-              key: membershipKey(g.email, m.email),
+            const key = membershipKey(g.email, m.email);
+            if (seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            groupRows.push({
+              key,
               groupEmail: g.email,
               groupName: g.name,
               memberEmail: m.email,
@@ -101,8 +110,15 @@ export function GroupMembershipOverview() {
           }
           pageToken = res.nextPageToken ?? undefined;
           pages++;
-        } while (pageToken && pages < MAX_PAGES_PER_GROUP);
+          if (pageToken) {
+            if (seenTokens.has(pageToken)) throw new Error('page_token_loop');
+            seenTokens.add(pageToken);
+            if (pages >= MAX_PAGES_PER_GROUP) throw new Error(`too_many_pages (>${MAX_PAGES_PER_GROUP})`);
+          }
+        } while (pageToken);
+        out.push(...groupRows);
       } catch (e) {
+        if (!aliveRef.current) return;
         // 원본: 비공개 그룹 등 접근 실패는 「❌ 접근 실패」 행으로 남김.
         errs.push({ groupEmail: g.email, message: (e as Error).message });
       }
@@ -171,6 +187,8 @@ export function GroupMembershipOverview() {
       } catch (e) {
         failures.push({ key: t.key, message: (e as Error).message });
       }
+      // v0.339 (F-C): 요청 중 언마운트되면 상태 갱신 중단.
+      if (!aliveRef.current) return;
       setRemoveProgress(i + 1);
     }
     if (!aliveRef.current) return;
@@ -258,7 +276,14 @@ export function GroupMembershipOverview() {
                 disabled={busy}
               />
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setSelected(new Set())} disabled={busy}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setConfirmText('');
+                    setSelected(new Set());
+                  }}
+                  disabled={busy}
+                >
                   선택 해제
                 </Button>
                 <Button
@@ -297,14 +322,16 @@ export function GroupMembershipOverview() {
                       aria-label="보이는 행 전체 선택"
                       checked={allFilteredSelected}
                       disabled={busy || filtered.length === 0}
-                      onChange={() =>
+                      onChange={() => {
+                        // v0.339 (F-B): 선택 대상이 바뀌면 건수 확인값도 초기화.
+                        setConfirmText('');
                         setSelected((prev) => {
                           const next = new Set(prev);
                           if (allFilteredSelected) filtered.forEach((r) => next.delete(r.key));
                           else filtered.forEach((r) => next.add(r.key));
                           return next;
-                        })
-                      }
+                        });
+                      }}
                       data-testid="group-memberships-select-all"
                     />
                   </th>
