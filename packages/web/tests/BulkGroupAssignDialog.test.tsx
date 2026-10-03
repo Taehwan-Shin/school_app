@@ -20,7 +20,11 @@ vi.mock('../src/api/groupsList', () => ({
 vi.mock('../src/api/groupsMembersInsert', () => ({ callGroupsMembersInsert: (d: unknown) => mockInsert(d) }));
 vi.mock('../src/api/groupsMembersDelete', () => ({ callGroupsMembersDelete: (d: unknown) => mockDelete(d) }));
 
-import { BulkGroupAssignDialog } from '../src/routes/admin/BulkGroupAssignDialog';
+import {
+  BulkGroupAssignDialog,
+  isAlreadyMemberMessage,
+  isMemberNotFoundMessage,
+} from '../src/routes/admin/BulkGroupAssignDialog';
 
 function renderDialog(emails: string[], onDone = vi.fn()) {
   const qc = new QueryClient();
@@ -73,6 +77,25 @@ describe('BulkGroupAssignDialog (v0.332 · 원본 assignGroups)', () => {
     ]);
     expect(screen.getByTestId('bulk-group-done').textContent).toContain('멤버 아님');
     expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('v0.333: skip 판정은 멤버 404 · 중복만 — 그룹 404 · 기타 오류는 실패', () => {
+    expect(isMemberNotFoundMessage('Resource Not Found: memberKey')).toBe(true);
+    expect(isMemberNotFoundMessage('Resource Not Found: groupKey')).toBe(false);
+    expect(isMemberNotFoundMessage('google_upstream_not_found: x')).toBe(false);
+    expect(isAlreadyMemberMessage('Member already exists.')).toBe(true);
+    expect(isAlreadyMemberMessage('google_upstream_denied')).toBe(false);
+  });
+
+  it('v0.333: 제외 중 그룹 자체 404 → skip 아닌 실패 목록', async () => {
+    mockDelete.mockRejectedValueOnce(new Error('Resource Not Found: groupKey'));
+    renderDialog(['a@cam.hs.kr']);
+    fireEvent.click(screen.getByTestId('bulk-group-action-remove'));
+    fireEvent.click(screen.getByTestId('bulk-group-cb-c23@cam.hs.kr'));
+    fireEvent.change(screen.getByTestId('bulk-group-remove-confirm-input'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('bulk-group-run'));
+    await waitFor(() => expect(screen.getByTestId('bulk-group-done')).toBeTruthy());
+    expect(screen.getByTestId('bulk-group-failures').textContent).toContain('groupKey');
   });
 
   it('그룹 미선택 → 실행 비활성 · 검색 필터', () => {

@@ -30,6 +30,16 @@ export interface BulkGroupAssignDialogProps {
 
 type Action = 'assign' | 'remove';
 
+/** Directory Members.insert 중복 — 「Member already exists.」 */
+export function isAlreadyMemberMessage(message: string): boolean {
+  return /member already exists|duplicate/i.test(message);
+}
+
+/** Directory Members.delete 멤버 없음 — 「Resource Not Found: memberKey」 (groupKey 404 는 제외). */
+export function isMemberNotFoundMessage(message: string): boolean {
+  return /resource not found:\s*memberkey/i.test(message);
+}
+
 interface Failure {
   key: string;
   email: string;
@@ -108,11 +118,12 @@ export function BulkGroupAssignDialog({ open, onOpenChange, emails, onDone }: Bu
           }
         } catch (e) {
           const message = (e as Error).message;
-          // 이미 멤버 (배정 · Google 「Member already exists」) · 멤버 아님 (제외 · 「Resource Not Found」)
-          // 은 목표 상태와 같으므로 skip 으로 집계. 그룹은 목록에서 고르므로 그룹 자체 404 는 사실상 없음.
+          // 이미 멤버 (배정 · Google 「Member already exists」) · 멤버 아님 (제외) 은 목표 상태와 같으므로 skip.
+          // v0.333 (Codex v0.332 R1): 제외 skip 은 Directory 의 멤버 404 「Resource Not Found: memberKey」 로만
+          // 한정 — 그룹 자체가 사라진 「...: groupKey」 404 는 실패로 남겨 숨기지 않는다.
           if (
-            (act === 'assign' && /already|duplicate|409|member_exists/i.test(message)) ||
-            (act === 'remove' && /not.?found|404|resource_not_found/i.test(message))
+            (act === 'assign' && isAlreadyMemberMessage(message)) ||
+            (act === 'remove' && isMemberNotFoundMessage(message))
           ) {
             localSkipped++;
           } else {
