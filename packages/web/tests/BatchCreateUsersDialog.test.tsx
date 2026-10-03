@@ -38,6 +38,25 @@ vi.mock("../src/api/classroomStudentsAdd", () => ({
   callClassroomStudentsAdd: (data: unknown) => mockCallClassroomStudentsAdd(data),
 }));
 
+// v0.330: 그룹 배정.
+const mockCallGroupsMembersInsert = vi.fn();
+vi.mock("../src/api/groupsList", () => ({
+  useGroupsList: () => ({
+    data: {
+      groups: [
+        { email: "class-2-3@cam.hs.kr", name: "2학년 3반", description: "", aliases: [], directMembersCount: 0 },
+        { email: "students@cam.hs.kr", name: "전체 학생", description: "", aliases: [], directMembersCount: 0 },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+vi.mock("../src/api/groupsMembersInsert", () => ({
+  callGroupsMembersInsert: (data: unknown) => mockCallGroupsMembersInsert(data),
+}));
+
 // v0.159: OU 인라인 생성.
 const mockOrgunitsCreateMutate = vi.fn();
 const mockOrgunitsCreateReset = vi.fn();
@@ -53,6 +72,7 @@ vi.mock("../src/api/orgunitsCreate", () => ({
 }));
 
 import {
+  mergeRowGroups,
   BatchCreateUsersDialog,
   buildRunRowsSnapshot,
 } from "../src/routes/admin/BatchCreateUsersDialog.js";
@@ -238,7 +258,8 @@ describe("BatchCreateUsersDialog component", () => {
     const table = screen.getByTestId("batch-create-users-rows").querySelector("table");
     expect(table).not.toBeNull();
     const ths = table!.querySelectorAll("thead th");
-    expect(ths.length).toBe(5);
+    // v0.330: + 조직 단위 (선택) · 그룹 (선택).
+    expect(ths.length).toBe(7);
     for (const th of Array.from(ths)) {
       expect(th.getAttribute("scope")).toBe("col");
     }
@@ -367,6 +388,58 @@ describe("BatchCreateUsersDialog component", () => {
   // v0.132c F109: snapshot 구성은 buildRunRowsSnapshot 순수 함수. 아래에서
   // 직접 회귀. running phase 통합 test 는 「정상 2 rows」 · 「부분 실패」에서
   // 이미 snapshot 결과 (primaryEmail lower-case 값) 를 검증.
+  describe("v0.330: 행별 OU · 그룹 + 공통 그룹 (원본 laterAccountSetup)", () => {
+    it("mergeRowGroups: 행별 먼저 · 공통 추가 · 대소문자 무시 중복 제거 · 빈 값 제외", () => {
+      expect(mergeRowGroups("A@cam.hs.kr", ["a@cam.hs.kr", "b@cam.hs.kr", " "])).toEqual(["A@cam.hs.kr", "b@cam.hs.kr"]);
+      expect(mergeRowGroups(undefined, [])).toEqual([]);
+    });
+
+    it("행별 OU 우선 · 행별 그룹 + 공통 그룹 배정 · 그룹 실패는 계정 성공 유지 + 경고", async () => {
+      mockCallUsersCreate.mockResolvedValue({ primaryEmail: "x", uid: "u" });
+      mockCallGroupsMembersInsert.mockImplementation(async (d: { groupEmail: string; memberEmail: string }) => {
+        if (d.memberEmail === "kim2@cam.hs.kr" && d.groupEmail === "students@cam.hs.kr") throw new Error("duplicate");
+        return {};
+      });
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "hong1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-ou"), { target: { value: "/학생/1학년" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group"), { target: { value: "class-2-3@cam.hs.kr" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-id"), { target: { value: "kim2" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-family"), { target: { value: "김" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-1-given"), { target: { value: "철수" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-common-group-students@cam.hs.kr"));
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "securePass123" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+
+      await waitFor(() => expect(screen.getByTestId("batch-create-users-done")).toBeDefined());
+      expect(mockCallUsersCreate.mock.calls[0][0]).toMatchObject({ primaryEmail: "hong1@cam.hs.kr", orgUnitPath: "/학생/1학년" });
+      expect(mockCallUsersCreate.mock.calls[1][0]).toMatchObject({ primaryEmail: "kim2@cam.hs.kr", orgUnitPath: "/" });
+      expect(mockCallGroupsMembersInsert.mock.calls.map((c) => c[0])).toEqual([
+        { groupEmail: "class-2-3@cam.hs.kr", memberEmail: "hong1@cam.hs.kr", role: "MEMBER" },
+        { groupEmail: "students@cam.hs.kr", memberEmail: "hong1@cam.hs.kr", role: "MEMBER" },
+        { groupEmail: "students@cam.hs.kr", memberEmail: "kim2@cam.hs.kr", role: "MEMBER" },
+      ]);
+      expect(screen.getByTestId("batch-create-users-group-failures").textContent).toContain("kim2@cam.hs.kr");
+      expect(screen.getByTestId("batch-create-users-group-ok").textContent).toContain("2건");
+    });
+
+    it("계정 생성 실패 행은 그룹 배정 시도 안 함", async () => {
+      mockCallUsersCreate.mockRejectedValueOnce(new Error("already_exists"));
+      mockCallGroupsMembersInsert.mockReset();
+      renderWithClient(<BatchCreateUsersDialog open={true} onOpenChange={vi.fn()} />);
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-id"), { target: { value: "dup1" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-family"), { target: { value: "홍" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-given"), { target: { value: "길동" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-row-0-group"), { target: { value: "class-2-3@cam.hs.kr" } });
+      fireEvent.change(screen.getByTestId("batch-create-users-password-input"), { target: { value: "securePass123" } });
+      fireEvent.click(screen.getByTestId("batch-create-users-confirm-btn"));
+      await waitFor(() => expect(screen.getByTestId("batch-create-users-done")).toBeDefined());
+      expect(mockCallGroupsMembersInsert).not.toHaveBeenCalled();
+    });
+  });
+
   describe("F109: buildRunRowsSnapshot pure helper", () => {
     it("빈 rows 는 제외 · id.trim() 기준", () => {
       const rows = [
