@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react';
 
 const EVENT = 'school-app:google-session-expired';
 const ISSUED_KEY = 'googleAccessTokenIssuedAt';
+// v0.329 (Codex v0.326 R1 F-B): 만료 원인을 탭 단위로 보존 — 라우트 전환으로 AppShell 이
+// 재마운트돼도 배너가 사라지지 않게.
+const REASON_KEY = 'googleSessionExpiredReason';
 
 /** Google access token 수명 (3600s) 보다 조금 일찍 안내. */
 export const GOOGLE_TOKEN_STALE_MS = 55 * 60 * 1000;
@@ -22,6 +25,8 @@ export type SessionExpiredReason = 'stale' | 'invalid_google_access_token' | 'mi
 export function markGoogleTokenIssued(now = Date.now()): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(ISSUED_KEY, String(now));
+  // 새 토큰 → 이전 만료 원인은 무효.
+  window.sessionStorage.removeItem(REASON_KEY);
 }
 
 export function clearGoogleTokenIssued(): void {
@@ -38,8 +43,21 @@ export function isGoogleTokenStale(now = Date.now()): boolean {
   return Number.isFinite(issued) && now - issued > GOOGLE_TOKEN_STALE_MS;
 }
 
+function readStoredReason(): SessionExpiredReason | null {
+  if (typeof window === 'undefined') return null;
+  const v = window.sessionStorage.getItem(REASON_KEY);
+  return v === 'stale' || v === 'invalid_google_access_token' || v === 'missing_google_access_token' ? v : null;
+}
+
+/** 재로그인 성공 시 호출 — 저장된 만료 원인 제거. */
+export function clearSessionExpired(): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(REASON_KEY);
+}
+
 export function notifyGoogleSessionExpired(reason: SessionExpiredReason): void {
   if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(REASON_KEY, reason);
   window.dispatchEvent(new CustomEvent<SessionExpiredReason>(EVENT, { detail: reason }));
 }
 
@@ -51,8 +69,8 @@ export function maybeNotifySessionExpired(message: string): void {
 }
 
 export function useGoogleSessionExpired(pollMs = 60_000) {
-  const [reason, setReason] = useState<SessionExpiredReason | null>(() =>
-    isGoogleTokenStale() ? 'stale' : null,
+  const [reason, setReason] = useState<SessionExpiredReason | null>(
+    () => readStoredReason() ?? (isGoogleTokenStale() ? 'stale' : null),
   );
 
   useEffect(() => {
@@ -67,5 +85,11 @@ export function useGoogleSessionExpired(pollMs = 60_000) {
     };
   }, [pollMs]);
 
-  return { reason, clear: () => setReason(null) };
+  return {
+    reason,
+    clear: () => {
+      clearSessionExpired();
+      setReason(null);
+    },
+  };
 }

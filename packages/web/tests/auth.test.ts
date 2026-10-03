@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const signInWithEmailAndPasswordMock = vi.fn();
 const createUserWithEmailAndPasswordMock = vi.fn();
 const signInWithPopupMock = vi.fn();
+const reauthenticateWithPopupMock = vi.fn();
 const signOutMock = vi.fn();
 const credentialFromResultMock = vi.fn();
 const addScopeMock = vi.fn();
@@ -18,6 +19,7 @@ vi.mock('firebase/auth', () => {
   return {
     GoogleAuthProvider,
     signInWithPopup: (...args: any[]) => signInWithPopupMock(...args),
+    reauthenticateWithPopup: (...args: any[]) => reauthenticateWithPopupMock(...args),
     signOut: (...args: any[]) => signOutMock(...args),
     onIdTokenChanged: vi.fn(),
     signInWithEmailAndPassword: (...args: any[]) => signInWithEmailAndPasswordMock(...args),
@@ -25,8 +27,11 @@ vi.mock('firebase/auth', () => {
   };
 });
 
+const { mockAuth } = vi.hoisted(() => ({
+  mockAuth: { name: 'mock-auth', currentUser: null as unknown },
+}));
 vi.mock('../src/lib/firebase.js', () => ({
-  auth: { name: 'mock-auth' },
+  auth: mockAuth,
   app: {},
   db: {},
   functions: {},
@@ -37,6 +42,7 @@ import {
   signInWithGoogle,
   signOut,
   reauthorizeWithGoogle,
+  refreshGoogleSession,
   getGoogleAccessTokenFromSession,
   setGoogleAccessTokenToSession,
   clearGoogleAccessTokenFromSession,
@@ -46,6 +52,40 @@ describe('Auth & Session Helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+  });
+
+  describe('refreshGoogleSession (v0.329)', () => {
+    const user = { email: 'Admin2@cam.hs.kr' };
+    beforeEach(() => {
+      mockAuth.currentUser = user;
+    });
+
+    it('같은 계정 재인증 (login_hint) → 새 access token 저장', async () => {
+      reauthenticateWithPopupMock.mockResolvedValueOnce({ user: { email: 'admin2@cam.hs.kr' } });
+      credentialFromResultMock.mockReturnValueOnce({ accessToken: 'fresh' });
+      await refreshGoogleSession();
+      expect(reauthenticateWithPopupMock.mock.calls[0][0]).toBe(user);
+      expect(setCustomParametersMock).toHaveBeenCalledWith({ hd: 'cam.hs.kr', login_hint: 'Admin2@cam.hs.kr' });
+      expect(getGoogleAccessTokenFromSession()).toBe('fresh');
+    });
+
+    it('결과 계정이 다르면 account_mismatch · 토큰 저장 안 함', async () => {
+      reauthenticateWithPopupMock.mockResolvedValueOnce({ user: { email: 'other@cam.hs.kr' } });
+      await expect(refreshGoogleSession()).rejects.toThrow('account_mismatch');
+      expect(getGoogleAccessTokenFromSession()).toBeNull();
+    });
+
+    it('accessToken 없음 → no_google_access_token (성공 처리 안 함)', async () => {
+      reauthenticateWithPopupMock.mockResolvedValueOnce({ user: { email: 'admin2@cam.hs.kr' } });
+      credentialFromResultMock.mockReturnValueOnce(null);
+      await expect(refreshGoogleSession()).rejects.toThrow('no_google_access_token');
+    });
+
+    it('로그인 안 됨 → not_authenticated', async () => {
+      mockAuth.currentUser = null;
+      await expect(refreshGoogleSession()).rejects.toThrow('not_authenticated');
+      expect(reauthenticateWithPopupMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('Session Token Helpers', () => {

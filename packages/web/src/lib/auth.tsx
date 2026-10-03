@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  reauthenticateWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -75,6 +76,29 @@ export async function signInWithGoogle(options?: { forceConsent?: boolean }) {
     setGoogleAccessTokenToSession(credential.accessToken);
   }
   return result;
+}
+
+/**
+ * v0.329 (Codex v0.326 R1 F-A/F-C): Google access token 만 갱신하는 「같은 계정」 재인증.
+ * - reauthenticateWithPopup: Firebase 가 다른 계정이면 auth/user-mismatch 로 거부 (계정 바뀜 방지).
+ * - login_hint 로 현재 이메일을 미리 선택 · 결과 이메일도 한 번 더 대조.
+ * - credential.accessToken 이 없으면 성공으로 보지 않고 throw.
+ */
+export async function refreshGoogleSession(): Promise<void> {
+  const current = auth.currentUser;
+  if (!current?.email) throw new Error('not_authenticated');
+  const provider = new GoogleAuthProvider();
+  for (const scope of GOOGLE_LOGIN_SCOPES) {
+    provider.addScope(scope);
+  }
+  provider.setCustomParameters({ hd: 'cam.hs.kr', login_hint: current.email });
+  const result = await reauthenticateWithPopup(current, provider);
+  if (result.user.email?.toLowerCase() !== current.email.toLowerCase()) {
+    throw new Error('account_mismatch');
+  }
+  const accessToken = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+  if (!accessToken) throw new Error('no_google_access_token');
+  setGoogleAccessTokenToSession(accessToken);
 }
 
 // v0.147: 스코프 부족 등으로 재인증이 필요한 경우 한 번의 호출로 (1) 세션 토큰
