@@ -27,6 +27,9 @@ const AdminPage = lazy(() =>
 const AdminChatPage = lazy(() =>
   import('./routes/admin/chat').then((m) => ({ default: m.AdminChatPage })),
 );
+const SystemSettingsPage = lazy(() =>
+  import('./routes/super_admin/settings').then((m) => ({ default: m.SystemSettingsPage })),
+);
 const AdminMessagesPage = lazy(() =>
   import('./routes/admin/messages').then((m) => ({ default: m.AdminMessagesPage })),
 );
@@ -84,6 +87,7 @@ export function App() {
                   <Route path="/super_admin" element={<SuperAdminPage />} />
                   <Route path="/super_admin/audit" element={<AuditLogPage />} />
                   <Route path="/super_admin/capabilities" element={<CapabilityMatrixPage />} />
+                  <Route path="/super_admin/settings" element={<SystemSettingsPage />} />
                   <Route path="/super_admin/chat" element={<AdminChatPage />} />
                   <Route path="/super_admin/classrooms" element={<AdminClassroomsPage />} />
                 </Route>

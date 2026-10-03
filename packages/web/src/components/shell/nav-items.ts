@@ -31,7 +31,7 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { label: '메시지 발송', to: '/admin/messages', icon: Send },
     { label: '클래스룸', to: '/super_admin/classrooms', icon: GraduationCap },
     { label: '감사 로그', to: '/super_admin/audit', icon: ClipboardList },
-    { label: '시스템 설정', to: '/super_admin/settings', icon: Settings, disabled: true },
+    { label: '시스템 설정', to: '/super_admin/settings', icon: Settings },
   ],
   admin: [
     { label: '계정', to: '/admin', icon: UsersIcon },

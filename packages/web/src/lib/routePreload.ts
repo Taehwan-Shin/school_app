@@ -14,6 +14,7 @@ export const ROUTE_PRELOAD_MAP: Record<string, RoutePreloadFn> = {
   '/super_admin': () => import('../routes/super_admin'),
   '/super_admin/audit': () => import('../routes/super_admin/audit'),
   '/super_admin/capabilities': () => import('../routes/super_admin/capabilities'),
+  '/super_admin/settings': () => import('../routes/super_admin/settings'),
   '/super_admin/chat': () => import('../routes/admin/chat'),
   '/super_admin/classrooms': () => import('../routes/admin/classrooms'),
   '/admin': () => import('../routes/admin'),
