@@ -34,6 +34,8 @@ export function MessageTemplatesManager() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const templates = query.data?.templates ?? [];
+  // v0.335 (Codex v0.334 R1): 저장/삭제 요청 중에는 다른 편집 전환 · 삭제를 막는다.
+  const busy = upsert.isPending || del.isPending;
 
   const subjectBad = !!draft && (draft.subject.length > SUBJECT_MAX || /[\r\n]/.test(draft.subject));
   const canSave =
@@ -42,10 +44,12 @@ export function MessageTemplatesManager() {
   const handleSave = async () => {
     if (!draft) return;
     setBanner(null);
+    const savedId = draft.id;
     try {
       await upsert.mutateAsync({ id: draft.id, name: draft.name.trim(), subject: draft.subject.trim(), body: draft.body });
       setBanner(`「${draft.name.trim()}」 문구를 저장했습니다.`);
-      setDraft(null);
+      // 요청 시작 시점이 아니라 「지금」 열려 있는 편집기가 저장한 문구일 때만 닫는다.
+      setDraft((cur) => (cur?.id === savedId ? null : cur));
     } catch {
       /* upsert.error 배너 */
     }
@@ -57,7 +61,8 @@ export function MessageTemplatesManager() {
     try {
       await del.mutateAsync({ id: t.id });
       setBanner(`「${t.name}」 문구를 삭제했습니다.`);
-      if (draft?.id === t.id) setDraft(null);
+      // stale closure 대신 최신 draft 로 판정 — 삭제된 문구의 편집기만 닫는다.
+      setDraft((cur) => (cur?.id === t.id ? null : cur));
     } catch {
       /* del.error 배너 */
     }
@@ -73,6 +78,7 @@ export function MessageTemplatesManager() {
           variant="secondary"
           size="sm"
           onClick={() => setDraft({ id: `t_${Date.now().toString(36)}`, name: '', subject: '', body: '', isNew: true })}
+          disabled={busy}
           data-testid="settings-template-new"
         >
           + 새 문구
@@ -109,7 +115,13 @@ export function MessageTemplatesManager() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setDraft(toDraft(t))} data-testid={`settings-template-edit-${t.id}`}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDraft(toDraft(t))}
+                disabled={busy}
+                data-testid={`settings-template-edit-${t.id}`}
+              >
                 수정
               </Button>
               <Button
@@ -117,7 +129,7 @@ export function MessageTemplatesManager() {
                 size="sm"
                 className="text-state-danger"
                 onClick={() => handleDelete(t)}
-                disabled={del.isPending}
+                disabled={busy}
                 data-testid={`settings-template-delete-${t.id}`}
               >
                 삭제
@@ -149,7 +161,7 @@ export function MessageTemplatesManager() {
             <textarea id="settings-template-body" rows={8} className={INPUT} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setDraft(null)}>
+            <Button variant="secondary" onClick={() => setDraft(null)} disabled={busy}>
               취소
             </Button>
             <Button onClick={handleSave} disabled={!canSave || upsert.isPending} data-testid="settings-template-save">
