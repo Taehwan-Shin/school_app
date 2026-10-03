@@ -133,10 +133,8 @@ export function CapabilityMatrixPage() {
         <div className="text-xs text-fg-muted space-y-1">
           <p>* 이 매트릭스는 서버가 실행하는 실제 검사와 일치합니다 (<code className="font-mono">userHasCap</code>).</p>
           <p>
-            * 역할 변경 UI 는 아직 없음. 조정은{' '}
-            <code className="font-mono">packages/functions/scripts/promote-user.mjs</code>{' '}
-            를 실행해 Firebase Auth custom claim 과 Firestore <code className="font-mono">users/&lt;uid&gt;</code>{' '}
-            문서 role 을 함께 갱신하고, 대상 사용자가 로그아웃·재로그인해야 새 role 이 세션에 반영됩니다.
+            * 역할 변경은 계정 화면에서 계정 체크 → 「선택 역할 변경」 (v0.163). 대상 사용자가
+            로그아웃·재로그인해야 새 role 이 세션에 반영됩니다.
           </p>
         </div>
       </div>

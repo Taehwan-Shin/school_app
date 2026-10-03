@@ -125,8 +125,8 @@ describe('AppShell', () => {
     expect(screen.queryByText('시스템 설정')).toBeNull();
   });
 
-  // 미구현 라우트를 가리키던 항목은 클릭 불가 span 으로 렌더 (Link 로 두면 RootRedirect 로 튄다).
-  it('renders unimplemented items as disabled non-clickable spans (aria-disabled)', () => {
+  // v0.334: 시스템 설정 구현 → 비활성 span 이 아니라 /super_admin/settings 링크.
+  it('v0.334: 시스템 설정은 /super_admin/settings 링크 (더 이상 aria-disabled 아님)', () => {
     mockUseAuth.mockReturnValue({
       user: { email: 'super@cam.hs.kr' },
       role: 'super_admin',
@@ -141,10 +141,10 @@ describe('AppShell', () => {
       </MemoryRouter>,
     );
 
-    // v0.103: 라벨은 <span aria-disabled> > <span> 구조. 외부 span 에서 aria-disabled 확인.
-    const settingsOuter = screen.getByText('시스템 설정').closest('[aria-disabled]');
-    expect(settingsOuter).not.toBeNull();
-    expect(settingsOuter!.getAttribute('aria-disabled')).toBe('true');
+    const settingsLink = screen.getByText('시스템 설정').closest('a');
+    expect(settingsLink).not.toBeNull();
+    expect(settingsLink!.getAttribute('href')).toBe('/super_admin/settings');
+    expect(screen.getByText('시스템 설정').closest('[aria-disabled]')).toBeNull();
   });
 
   it('renders teacher navigation items correctly', () => {
@@ -189,8 +189,8 @@ describe('AppShell', () => {
     expect(auditSvg).not.toBeNull();
     expect(auditSvg!.getAttribute('aria-hidden')).toBe('true');
 
-    // disabled 항목 (시스템 설정) 도 아이콘 렌더.
-    const settingsOuter = screen.getByText('시스템 설정').closest('[aria-disabled]');
+    // 시스템 설정 (v0.334 링크) 도 아이콘 렌더.
+    const settingsOuter = screen.getByText('시스템 설정').closest('a');
     expect(settingsOuter).not.toBeNull();
     const settingsSvg = (settingsOuter as HTMLElement).querySelector('svg');
     expect(settingsSvg).not.toBeNull();
