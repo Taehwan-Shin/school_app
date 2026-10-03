@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
@@ -44,9 +44,6 @@ const UserDetailPage = lazy(() =>
 );
 const ClassroomDetailPage = lazy(() =>
   import('./routes/admin/classroomDetail').then((m) => ({ default: m.ClassroomDetailPage })),
-);
-const TeacherPage = lazy(() =>
-  import('./routes/teacher').then((m) => ({ default: m.TeacherPage })),
 );
 
 const queryClient = new QueryClient({
@@ -103,7 +100,8 @@ export function App() {
                 </Route>
 
                 <Route element={<RoleGuard expectedRole="teacher" />}>
-                  <Route path="/teacher" element={<TeacherPage />} />
+                  {/* v0.328 (Codex v0.325 F-A): 교사는 「메시지 발송」 만 — 기존 대시보드 URL 은 메시지 발송으로 보낸다. */}
+                  <Route path="/teacher" element={<Navigate to="/teacher/messages" replace />} />
                   <Route path="/teacher/messages" element={<AdminMessagesPage />} />
                 </Route>
 

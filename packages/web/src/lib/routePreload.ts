@@ -21,7 +21,6 @@ export const ROUTE_PRELOAD_MAP: Record<string, RoutePreloadFn> = {
   '/admin/messages': () => import('../routes/admin/messages'),
   '/admin/classrooms': () => import('../routes/admin/classrooms'),
   '/admin/groups': () => import('../routes/admin/groups'),
-  '/teacher': () => import('../routes/teacher'),
   '/teacher/messages': () => import('../routes/admin/messages'),
 };
 

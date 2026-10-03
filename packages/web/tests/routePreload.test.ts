@@ -20,7 +20,6 @@ const EXPECTED_ROUTE_PATHS: readonly string[] = [
   '/admin/messages',
   '/admin/classrooms',
   '/admin/groups',
-  '/teacher',
   '/teacher/messages',
 ];
 
