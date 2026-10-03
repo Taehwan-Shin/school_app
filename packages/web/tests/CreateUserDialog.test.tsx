@@ -207,6 +207,21 @@ describe('CreateUserDialog component', () => {
     expect(options[1].getAttribute('value')).toBe('/교사');
   });
 
+  it('v0.327: 기존 OU select (가나다 정렬) → 선택 시 입력칸 반영', () => {
+    mockOrgunitsQuery = {
+      data: { orgUnits: [{ orgUnitPath: '/학생/1학년', name: '1학년' }, { orgUnitPath: '/교사' }] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+    render(<CreateUserDialog open={true} onOpenChange={vi.fn()} />);
+    const select = screen.getByTestId('create-user-orgunit-select') as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', '/교사', '/학생/1학년']);
+    fireEvent.change(select, { target: { value: '/학생/1학년' } });
+    expect((screen.getByTestId('create-user-orgunit-input') as HTMLInputElement).value).toBe('/학생/1학년');
+    expect(select.value).toBe('/학생/1학년');
+  });
+
   it('v0.119: OU 로드 실패 시 에러 안내 (직접 입력 가능)', () => {
     mockOrgunitsQuery = {
       data: undefined,

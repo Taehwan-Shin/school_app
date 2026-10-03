@@ -17,6 +17,7 @@ import { SrOnlyDialogHeader } from "../../components/SrOnlyDialogHeader";
 import { useBulkDialogPhase } from "../../lib/useBulkDialogPhase";
 import { callUsersCreate } from "../../api/usersCreate";
 import { useOrgunitsList } from "../../api/orgunitsList";
+import { OrgUnitSelect } from "../../components/OrgUnitSelect";
 import { useOrgunitsCreate } from "../../api/orgunitsCreate";
 import { useClassroomList } from "../../api/classroomList";
 import { callClassroomTeachersAdd } from "../../api/classroomTeachersAdd";
@@ -394,6 +395,13 @@ export function BatchCreateUsersDialog({ open, onOpenChange }: BatchCreateUsersD
                     </span>
                   )}
                 </label>
+                {/* v0.327: 기존 OU 드롭다운 (편집 · 단건 생성과 동일). */}
+                <OrgUnitSelect
+                  value={orgUnitPath}
+                  onChange={setOrgUnitPath}
+                  orgUnits={orgunitsQuery.data?.orgUnits ?? []}
+                  testId="batch-create-users-orgunit-select"
+                />
                 <input
                   id="batch-create-users-orgunit"
                   type="text"

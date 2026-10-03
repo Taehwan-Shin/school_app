@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button';
 import { Banner } from '../../components/Banner';
 import { useCreateUser } from '../../api/usersCreate';
 import { useOrgunitsList } from '../../api/orgunitsList';
+import { OrgUnitSelect } from '../../components/OrgUnitSelect';
 import { useOrgunitsCreate } from '../../api/orgunitsCreate';
 import { useClassroomList } from '../../api/classroomList';
 import { callClassroomTeachersAdd } from '../../api/classroomTeachersAdd';
@@ -528,6 +529,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     </button>
                   </div>
                 )}
+              {/* v0.327: 편집 화면 (v0.320) 과 같은 기존 OU 드롭다운. datalist 자동완성도 유지. */}
+              <OrgUnitSelect
+                value={orgUnitPath}
+                onChange={setOrgUnitPath}
+                orgUnits={orgunitsQuery.data?.orgUnits ?? []}
+                disabled={isBusy}
+                testId="create-user-orgunit-select"
+              />
               <input
                 id="orgUnitPath"
                 type="text"
