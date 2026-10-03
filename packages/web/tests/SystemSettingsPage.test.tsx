@@ -83,6 +83,18 @@ describe('SystemSettingsPage (v0.334)', () => {
     mockUpsertPending = false;
   });
 
+  it('v0.336: busy 중 편집기 입력칸 · 저장 버튼 잠금 (삭제 진행 중 포함)', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('settings-template-edit-t_1'));
+    mockDeletePending = true;
+    // 재렌더 유도.
+    fireEvent.change(screen.getByLabelText('본문'), { target: { value: '변경' } });
+    expect((screen.getByLabelText('이름') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('본문') as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByTestId('settings-template-save') as HTMLButtonElement).disabled).toBe(true);
+    mockDeletePending = false;
+  });
+
   it('v0.335: A 삭제 완료 시 열려 있는 B 편집기는 닫지 않음 (최신 draft 기준)', async () => {
     let resolveDelete: () => void = () => {};
     mockDelete.mockImplementationOnce(() => new Promise<void>((r) => (resolveDelete = r)));

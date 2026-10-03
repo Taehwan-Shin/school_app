@@ -35,6 +35,7 @@ export function MessageTemplatesManager() {
   const [banner, setBanner] = useState<string | null>(null);
   const templates = query.data?.templates ?? [];
   // v0.335 (Codex v0.334 R1): 저장/삭제 요청 중에는 다른 편집 전환 · 삭제를 막는다.
+  // v0.336 (R2): 입력칸 · 저장 버튼도 busy 동안 잠금 (저장 후 추가 입력 유실 · 삭제와 저장 동시 진행 방지).
   const busy = upsert.isPending || del.isPending;
 
   const subjectBad = !!draft && (draft.subject.length > SUBJECT_MAX || /[\r\n]/.test(draft.subject));
@@ -146,25 +147,25 @@ export function MessageTemplatesManager() {
             <label htmlFor="settings-template-name" className="text-small text-fg-primary block mb-1">
               이름
             </label>
-            <input id="settings-template-name" className={INPUT} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <input id="settings-template-name" className={INPUT} disabled={busy} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </div>
           <div>
             <label htmlFor="settings-template-subject" className="text-small text-fg-primary block mb-1">
               메일 제목 (선택)
             </label>
-            <input id="settings-template-subject" className={INPUT} value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} />
+            <input id="settings-template-subject" className={INPUT} disabled={busy} value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} />
           </div>
           <div>
             <label htmlFor="settings-template-body" className="text-small text-fg-primary block mb-1">
               본문
             </label>
-            <textarea id="settings-template-body" rows={8} className={INPUT} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+            <textarea id="settings-template-body" rows={8} className={INPUT} disabled={busy} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setDraft(null)} disabled={busy}>
               취소
             </Button>
-            <Button onClick={handleSave} disabled={!canSave || upsert.isPending} data-testid="settings-template-save">
+            <Button onClick={handleSave} disabled={!canSave || busy} data-testid="settings-template-save">
               {upsert.isPending ? '저장 중...' : '저장'}
             </Button>
           </div>
