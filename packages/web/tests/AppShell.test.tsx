@@ -162,8 +162,10 @@ describe('AppShell', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('대시보드')).toBeDefined();
-    expect(screen.getByText('내 클래스룸')).toBeDefined();
+    // v0.325: 교사는 「메시지 발송」 메뉴만.
+    expect(screen.getByText('메시지 발송')).toBeDefined();
+    expect(screen.queryByText('대시보드')).toBeNull();
+    expect(screen.queryByText('내 클래스룸')).toBeNull();
 
     expect(screen.queryByText('계정')).toBeNull();
     expect(screen.queryByText('감사 로그')).toBeNull();

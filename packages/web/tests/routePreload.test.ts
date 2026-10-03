@@ -21,6 +21,7 @@ const EXPECTED_ROUTE_PATHS: readonly string[] = [
   '/admin/classrooms',
   '/admin/groups',
   '/teacher',
+  '/teacher/messages',
 ];
 
 describe('routePreload', () => {

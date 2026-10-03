@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import crypto from 'node:crypto';
-import type { Role } from '@school-app/shared';
+import { userHasCap, type Role } from '@school-app/shared';
 import { authenticateRequest, assertHasCap, assertHasScopes } from '../../authz/middleware.js';
 import { writeAudit } from '../../audit/writeAudit.js';
 import { getChatClient, type ChatSpace } from '../../google/chatClient.js';
@@ -49,7 +49,9 @@ export const chatList = onCall(
     }
 
     try {
-      assertHasCap(user, 'chat.read');
+      // v0.325: 메시지 발송 「스페이스 발송」 탭이 내 스페이스 목록을 쓴다 → messages.send 보유자
+      // (교사 포함) 도 조회 허용. 사용자 본인 OAuth 로 「내가 속한」 스페이스만 나오므로 권한 확대 없음.
+      if (!userHasCap(user.role, 'messages.send')) assertHasCap(user, 'chat.read');
       assertHasScopes(user, REQUIRED_SCOPES);
     } catch (err) {
       await writeAudit({

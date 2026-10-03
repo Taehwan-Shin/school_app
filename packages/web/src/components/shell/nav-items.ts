@@ -40,15 +40,8 @@ export const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { label: '메시지 발송', to: '/admin/messages', icon: Send },
     { label: '클래스룸', to: '/admin/classrooms', icon: GraduationCap },
   ],
-  teacher: [
-    { label: '대시보드', to: '/teacher', icon: LayoutDashboard },
-    {
-      label: '내 클래스룸',
-      to: '/teacher/classrooms',
-      icon: GraduationCap,
-      disabled: true,
-    },
-  ],
+  // v0.325: 관리자가 아닌 계정 (교사) 은 우선 「메시지 발송」 메뉴만 노출 (bliss00 결정 2026-10-03).
+  teacher: [{ label: '메시지 발송', to: '/teacher/messages', icon: Send }],
 };
 
 export function getNavItemsForRole(role: Role | null | undefined): NavItem[] {

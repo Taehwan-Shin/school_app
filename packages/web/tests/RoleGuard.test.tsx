@@ -39,7 +39,7 @@ function renderWithRoute(initialPath: string, guardProps: React.ComponentProps<t
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/super_admin" element={<SuperAdminPage />} />
-        <Route path="/teacher" element={<TeacherPage />} />
+        <Route path="/teacher/messages" element={<TeacherPage />} />
         <Route element={<RoleGuard {...guardProps} />}>
           <Route path="/admin" element={<AdminPage />} />
         </Route>

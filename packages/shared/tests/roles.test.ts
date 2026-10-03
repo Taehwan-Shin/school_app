@@ -27,9 +27,10 @@ describe('Role and Capability Matrix', () => {
     expect(userHasCap('admin', 'classroom.write')).toBe(true);
   });
 
-  it('teacher has only classroom.read, classroom.write, classroom.archive', () => {
+  it('teacher has only classroom.read, classroom.write, classroom.archive, messages.send', () => {
     const teacherCaps = ROLE_CAPABILITIES.teacher;
-    expect(teacherCaps.size).toBe(3);
+    expect(teacherCaps.size).toBe(4);
+    expect(teacherCaps.has('messages.send')).toBe(true);
     expect(teacherCaps.has('classroom.read')).toBe(true);
     expect(teacherCaps.has('classroom.write')).toBe(true);
     expect(teacherCaps.has('classroom.archive')).toBe(true);
